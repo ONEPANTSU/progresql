@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cryptocurrency Payment Terms — ProgreSQL</title>
+  <meta name="description" content="ProgreSQL Cryptocurrency Payment Terms — transaction rules, supported networks, and payment confirmation.">
+  <meta property="og:title" content="Cryptocurrency Payment Terms — ProgreSQL">
+  <meta property="og:description" content="ProgreSQL Cryptocurrency Payment Terms — transaction rules, supported networks, and payment confirmation.">
+  <link rel="icon" type="image/png" href="/payment/favicon.png">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #080b12;
+      color: #e2e8f0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+      z-index: 0;
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      z-index: 0;
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+      -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+    }
+    .card {
+      position: relative;
+      z-index: 1;
+      max-width: 800px;
+      width: 100%;
+      padding: 48px 40px;
+      background: rgba(15, 20, 35, 0.6);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      border-radius: 16px;
+      backdrop-filter: blur(20px);
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+    }
+    .logo {
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+    .logo span { color: #6366f1; }
+    .lang-switcher {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .lang-btn {
+      padding: 6px 16px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .lang-btn:hover { border-color: rgba(255,255,255,0.3); color: #e2e8f0; }
+    .lang-btn.active {
+      background: rgba(99, 102, 241, 0.2);
+      color: #818cf8;
+      border-color: rgba(99, 102, 241, 0.3);
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #e2e8f0;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .version-info {
+      text-align: center;
+      font-size: 13px;
+      color: #94a3b8;
+      margin-bottom: 32px;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-top: 28px;
+      margin-bottom: 12px;
+      border-left: 3px solid #6366f1;
+      padding-left: 12px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #94a3b8;
+      margin-bottom: 12px;
+    }
+    ul, ol {
+      margin: 0 0 12px 24px;
+      color: #94a3b8;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+    li { margin-bottom: 4px; }
+    a { color: #818cf8; text-decoration: none; transition: color 0.2s; }
+    a:hover { color: #6366f1; text-decoration: underline; }
+    strong { color: #e2e8f0; }
+    .nav-footer {
+      margin-top: 40px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(99, 102, 241, 0.1);
+      text-align: center;
+    }
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px 6px;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .nav-links a { color: #94a3b8; }
+    .nav-links a:hover { color: #818cf8; text-decoration: none; }
+    .nav-links .current { color: #818cf8; }
+    .nav-links a:not(:last-child)::after {
+      content: '\00b7';
+      margin-left: 6px;
+      color: #475569;
+    }
+    .back-link {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 14px;
+      color: #818cf8;
+    }
+    .back-link:hover { color: #6366f1; }
+    @media (max-width: 600px) {
+      body { padding: 20px 12px; }
+      .card { padding: 32px 20px; }
+      h1 { font-size: 20px; }
+      h2 { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="logo"><img src="/payment/icon.png" alt="" width="24" height="24" style="border-radius:5px;vertical-align:middle;margin-right:6px;">Progre<span>SQL</span></div>
+      <div class="lang-switcher">
+        <button class="lang-btn active" onclick="switchLang('ru')" id="btn-ru">RU</button>
+        <button class="lang-btn" onclick="switchLang('en')" id="btn-en">EN</button>
+      </div>
+    </div>
+
+    <div id="title-ru"><h1>Условия криптовалютных платежей</h1></div>
+    <div id="title-en" style="display:none"><h1>Cryptocurrency Payment Terms</h1></div>
+
+    <div id="version-ru" class="version-info">Дата вступления в силу: 20 марта 2026 г. | Последнее обновление: 20 марта 2026 г.</div>
+    <div id="version-en" class="version-info" style="display:none">Effective date: March 20, 2026 | Last updated: March 20, 2026</div>
+
+    <div id="content-ru">
+      <h2>1. Общие положения</h2>
+      <p>Настоящие Условия регулируют порядок оплаты подписки на сервис ProgreSQL с использованием криптовалюты через платёжный провайдер CryptoCloud.</p>
+
+      <h2>2. Необратимость транзакций</h2>
+      <p><strong>Криптовалютные транзакции являются необратимыми.</strong></p>
+      <ul>
+        <li>После отправки средств транзакция не может быть отменена;</li>
+        <li>Пользователь обязан проверить адрес и сеть;</li>
+        <li>Администрация не имеет технической возможности вернуть средства.</li>
+      </ul>
+
+      <h2>3. Поддерживаемые сети и валюты</h2>
+      <ul>
+        <li>Перечень поддерживаемых сетей и валют определяется CryptoCloud;</li>
+        <li>Актуальный список доступен на странице оплаты;</li>
+        <li>Администрация не контролирует список поддерживаемых сетей и валют.</li>
+      </ul>
+
+      <h2>4. Комиссии</h2>
+      <ul>
+        <li>Gas fee (комиссия сети) оплачивается Пользователем;</li>
+        <li>Комиссия CryptoCloud включена в стоимость или указана отдельно;</li>
+        <li>ProgreSQL не взимает дополнительных комиссий.</li>
+      </ul>
+
+      <h2>5. Ответственность за выбор сети</h2>
+      <p><strong>Пользователь несёт полную ответственность за правильный выбор сети.</strong></p>
+      <ul>
+        <li>Отправка средств в неподдерживаемую сеть может привести к безвозвратной потере средств;</li>
+        <li>Администрация не несёт ответственности за средства, отправленные в неверную сеть;</li>
+        <li>Рекомендуется выполнить тестовую транзакцию перед отправкой крупных сумм.</li>
+      </ul>
+
+      <h2>6. Подтверждение платежа</h2>
+      <ul>
+        <li>Платёж считается подтверждённым после получения необходимого количества подтверждений в блокчейн;</li>
+        <li>Количество подтверждений определяется CryptoCloud;</li>
+        <li>Время подтверждения может составлять от нескольких минут до нескольких часов;</li>
+        <li>Подписка активируется автоматически после получения webhook от CryptoCloud.</li>
+      </ul>
+
+      <h2>7. Контакты</h2>
+      <p>Служба поддержки: Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+    </div>
+
+    <div id="content-en" style="display:none">
+      <h2>1. General Provisions</h2>
+      <p>These Terms govern the payment process for ProgreSQL subscription using cryptocurrency via the CryptoCloud payment provider.</p>
+
+      <h2>2. Irreversibility of Transactions</h2>
+      <p><strong>Cryptocurrency transactions are irreversible.</strong></p>
+      <ul>
+        <li>Once sent, transactions cannot be reversed;</li>
+        <li>The User must verify the address and network before sending;</li>
+        <li>The Administration has no technical ability to recover funds.</li>
+      </ul>
+
+      <h2>3. Supported Networks and Currencies</h2>
+      <ul>
+        <li>The list of supported networks and currencies is determined by CryptoCloud;</li>
+        <li>The current list is available on the payment page;</li>
+        <li>The Administration does not control the list of supported networks and currencies.</li>
+      </ul>
+
+      <h2>4. Fees</h2>
+      <ul>
+        <li>Gas fees are paid by the User;</li>
+        <li>CryptoCloud fees are included or listed separately;</li>
+        <li>ProgreSQL charges no additional fees.</li>
+      </ul>
+
+      <h2>5. Responsibility for Network Selection</h2>
+      <p><strong>The User bears full responsibility for selecting the correct network.</strong></p>
+      <ul>
+        <li>Sending funds to an unsupported network may result in irreversible loss of funds;</li>
+        <li>The Administration is not responsible for funds sent to an incorrect network;</li>
+        <li>It is recommended to perform a test transaction before sending large amounts.</li>
+      </ul>
+
+      <h2>6. Payment Confirmation</h2>
+      <ul>
+        <li>Payment is confirmed after the required number of blockchain confirmations;</li>
+        <li>The number of confirmations is determined by CryptoCloud;</li>
+        <li>Confirmation time may range from minutes to hours;</li>
+        <li>Subscription activates automatically after webhook confirmation from CryptoCloud.</li>
+      </ul>
+
+      <h2>7. Contact</h2>
+      <p>Support: Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+    </div>
+
+    <div class="nav-footer">
+      <div class="nav-links">
+        <a href="/legal/privacy.html">Privacy</a>
+        <a href="/legal/terms.html">Terms</a>
+        <a href="/legal/offer.html">Offer</a>
+        <a href="/legal/crypto-payments.html" class="current">Crypto Payments</a>
+        <a href="/legal/refunds.html">Refunds</a>
+        <a href="/legal/contacts.html">Contacts</a>
+      </div>
+      <a href="https://progresql.com" class="back-link">&larr; Back to home</a>
+    </div>
+  </div>
+
+  <script>
+    function switchLang(lang) {
+      var langs = ['ru', 'en'];
+      langs.forEach(function(l) {
+        document.getElementById('title-' + l).style.display = l === lang ? '' : 'none';
+        document.getElementById('version-' + l).style.display = l === lang ? '' : 'none';
+        document.getElementById('content-' + l).style.display = l === lang ? '' : 'none';
+        document.getElementById('btn-' + l).className = l === lang ? 'lang-btn active' : 'lang-btn';
+      });
+      document.documentElement.lang = lang;
+      localStorage.setItem('legal-lang', lang);
+    }
+    (function() {
+      var saved = localStorage.getItem('legal-lang');
+      if (saved && saved !== 'ru') switchLang(saved);
+    })();
+  </script>
+</body>
+</html>

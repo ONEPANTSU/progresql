@@ -1,0 +1,85 @@
+# Backend deploy — triggered by tag: backend-v*
+when:
+  - event: tag
+    ref: refs/tags/backend-v*
+
+steps:
+  - name: build
+    image: docker:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    commands:
+      - docker buildx build --file deploy/Dockerfile.backend --tag progresql-backend:latest --load .
+
+  - name: write-env
+    image: alpine:latest
+    volumes:
+      - /opt/progresql:/opt/progresql
+    environment:
+      PROGRESSQL_JWT_SECRET:
+        from_secret: PROGRESSQL_JWT_SECRET
+      PROGRESSQL_OPENROUTER_API_KEY:
+        from_secret: PROGRESSQL_OPENROUTER_API_KEY
+      PROGRESSQL_HTTP_MODEL:
+        from_secret: PROGRESSQL_HTTP_MODEL
+      PROGRESSQL_HTTP_BASE_URL:
+        from_secret: PROGRESSQL_HTTP_BASE_URL
+      PROGRESSQL_SMTP_HOST:
+        from_secret: PROGRESSQL_SMTP_HOST
+      PROGRESSQL_SMTP_PORT:
+        from_secret: PROGRESSQL_SMTP_PORT
+      PROGRESSQL_SMTP_USER:
+        from_secret: PROGRESSQL_SMTP_USER
+      PROGRESSQL_SMTP_PASSWORD:
+        from_secret: PROGRESSQL_SMTP_PASSWORD
+      PROGRESSQL_SMTP_FROM:
+        from_secret: PROGRESSQL_SMTP_FROM
+      PROGRESSQL_CRYPTOCLOUD_API_KEY:
+        from_secret: PROGRESSQL_CRYPTOCLOUD_API_KEY
+      PROGRESSQL_CRYPTOCLOUD_SHOP_ID:
+        from_secret: PROGRESSQL_CRYPTOCLOUD_SHOP_ID
+      PROGRESSQL_CRYPTOCLOUD_SECRET:
+        from_secret: PROGRESSQL_CRYPTOCLOUD_SECRET
+      PROGRESSQL_DB_USER:
+        from_secret: PROGRESSQL_DB_USER
+      PROGRESSQL_DB_PASSWORD:
+        from_secret: PROGRESSQL_DB_PASSWORD
+      PROGRESSQL_DB_NAME:
+        from_secret: PROGRESSQL_DB_NAME
+    commands:
+      - VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/backend-v//')
+      - |
+        cat > /opt/progresql/.env << EOF
+        PROGRESSQL_VERSION=$VERSION
+        PROGRESSQL_SERVER_PORT=8080
+        PROGRESSQL_ENVIRONMENT=production
+        PROGRESSQL_LOG_LEVEL=info
+        PROGRESSQL_JWT_SECRET=$PROGRESSQL_JWT_SECRET
+        PROGRESSQL_OPENROUTER_API_KEY=$PROGRESSQL_OPENROUTER_API_KEY
+        PROGRESSQL_HTTP_MODEL=$PROGRESSQL_HTTP_MODEL
+        PROGRESSQL_HTTP_BASE_URL=$PROGRESSQL_HTTP_BASE_URL
+        PROGRESSQL_SMTP_HOST=$PROGRESSQL_SMTP_HOST
+        PROGRESSQL_SMTP_PORT=$PROGRESSQL_SMTP_PORT
+        PROGRESSQL_SMTP_USER=$PROGRESSQL_SMTP_USER
+        PROGRESSQL_SMTP_PASSWORD=$PROGRESSQL_SMTP_PASSWORD
+        PROGRESSQL_SMTP_FROM=$PROGRESSQL_SMTP_FROM
+        PROGRESSQL_CRYPTOCLOUD_API_KEY=$PROGRESSQL_CRYPTOCLOUD_API_KEY
+        PROGRESSQL_CRYPTOCLOUD_SHOP_ID=$PROGRESSQL_CRYPTOCLOUD_SHOP_ID
+        PROGRESSQL_CRYPTOCLOUD_SECRET=$PROGRESSQL_CRYPTOCLOUD_SECRET
+        PROGRESSQL_DB_USER=$PROGRESSQL_DB_USER
+        PROGRESSQL_DB_PASSWORD=$PROGRESSQL_DB_PASSWORD
+        PROGRESSQL_DB_NAME=$PROGRESSQL_DB_NAME
+        EOF
+      - sed -i 's/^        //' /opt/progresql/.env
+
+  - name: deploy
+    image: docker:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/progresql:/opt/progresql
+    commands:
+      - cp deploy/docker-compose.prod.yml /opt/progresql/docker-compose.yml
+      - cd /opt/progresql
+      - docker compose up -d --no-build --remove-orphans
+      - sleep 5
+      - docker compose ps

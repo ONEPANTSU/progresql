@@ -1,0 +1,3 @@
+[submodule "packages/mcp-postgres-server"]
+	path = packages/mcp-postgres-server
+	url = git@github.com:SoftBananas/progress-mcp.git

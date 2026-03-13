@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: "${PROGRESSQL_DB_USER:-progressql}"
+      POSTGRES_PASSWORD: "${PROGRESSQL_DB_PASSWORD:-progressql}"
+      POSTGRES_DB: "${PROGRESSQL_DB_NAME:-progressql}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PROGRESSQL_DB_USER:-progressql} -d ${PROGRESSQL_DB_NAME:-progressql}"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    image: progresql-backend:latest
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      PROGRESSQL_DATABASE_URL: "postgres://${PROGRESSQL_DB_USER:-progressql}:${PROGRESSQL_DB_PASSWORD:-progressql}@postgres:5432/${PROGRESSQL_DB_NAME:-progressql}?sslmode=disable"
+      PROGRESSQL_VERSION: "${PROGRESSQL_VERSION:-1.0.1}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

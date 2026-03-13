@@ -1,0 +1,185 @@
+import React from 'react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
+import ChatPanel from '../components/ChatPanel';
+import { AgentContextValue } from '../contexts/AgentContext';
+
+// ── Mocks ──
+
+const mockAgentValue: AgentContextValue = {
+  connectionState: 'connected',
+  connectionPhase: 'connected',
+  isConnected: true,
+  isAuthError: false,
+  connect: jest.fn().mockResolvedValue(undefined),
+  disconnect: jest.fn(),
+  sendRequest: jest.fn().mockReturnValue('req-1'),
+  cancelRequest: jest.fn(),
+  sessionId: 'session-123',
+  error: null,
+  backendUrl: 'http://localhost:8080',
+  setBackendUrl: jest.fn(),
+  model: '',
+  setModel: jest.fn(),
+  safeMode: true,
+  setSafeMode: jest.fn(),
+};
+
+jest.mock('../contexts/AgentContext', () => ({
+  useAgent: () => mockAgentValue,
+}));
+
+jest.mock('../contexts/LanguageContext', () => ({
+  useTranslation: () => ({
+    language: 'en',
+    setLanguage: jest.fn(),
+    t: (key: string) => {
+      const translations: Record<string, string> = {
+        'chat.backendUnavailable': 'Backend unavailable. Connect to Go backend in settings.',
+        'chat.dbNotConnected': 'Database not connected. Connect to PostgreSQL to use AI tools.',
+        'chat.emptyState': 'Send a message to start a conversation',
+        'chat.input.placeholder': 'Ask a question about your database…',
+        'chat.input.backendUnavailable': 'Backend unavailable…',
+        'chat.input.send': 'Send message',
+        'chat.settings': 'Settings',
+        'chat.clearHistory': 'Clear history',
+        'chat.newChat': 'Create new chat',
+        'chat.closeChat': 'Close chat',
+        'chat.scrollTabs': 'Scroll tabs',
+        'chat.configureApiKey': 'Configure the backend API key in settings.',
+        'chat.authError': 'Invalid API key. Click to open settings.',
+      };
+      return translations[key] || key;
+    },
+  }),
+}));
+
+jest.mock('../contexts/NotificationContext', () => ({
+  useNotifications: () => ({
+    showNotification: jest.fn(),
+    showSuccess: jest.fn(),
+    showError: jest.fn(),
+    showInfo: jest.fn(),
+    showWarning: jest.fn(),
+  }),
+}));
+
+// Mock logger to prevent console noise
+jest.mock('../utils/logger', () => ({
+  createLogger: () => ({
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  }),
+}));
+
+// Mock highlight.js used by ChatMessage
+jest.mock('highlight.js/lib/core', () => ({
+  __esModule: true,
+  default: {
+    registerLanguage: jest.fn(),
+    highlight: jest.fn(() => ({ value: 'SELECT 1' })),
+  },
+}));
+
+jest.mock('highlight.js/lib/languages/sql', () => ({
+  __esModule: true,
+  default: jest.fn(),
+}));
+
+jest.mock('highlight.js/lib/languages/pgsql', () => ({
+  __esModule: true,
+  default: jest.fn(),
+}));
+
+describe('ChatPanel', () => {
+  const defaultProps = {
+    isOpen: true,
+    onClose: jest.fn(),
+    onExecuteQuery: jest.fn(),
+    onApplySQL: jest.fn(),
+    isDatabaseConnected: true,
+    onOpenSettings: jest.fn(),
+  };
+
+  beforeEach(() => {
+    mockAgentValue.isConnected = true;
+    mockAgentValue.connectionState = 'connected';
+  });
+
+  it('renders nothing when isOpen is false', () => {
+    const { container } = render(<ChatPanel {...defaultProps} isOpen={false} />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders the AI Assistant header when open', () => {
+    render(<ChatPanel {...defaultProps} />);
+    expect(screen.getByText('AI Assistant')).toBeInTheDocument();
+  });
+
+  it('shows model name when model is set', () => {
+    mockAgentValue.model = 'qwen/qwen3-coder-next';
+    render(<ChatPanel {...defaultProps} />);
+    expect(screen.getByText('qwen/qwen3-coder-next')).toBeInTheDocument();
+    mockAgentValue.model = '';
+  });
+
+  it('does not show model name when model is empty', () => {
+    mockAgentValue.model = '';
+    render(<ChatPanel {...defaultProps} />);
+    expect(screen.queryByText('qwen/qwen3-coder-next')).not.toBeInTheDocument();
+  });
+
+  it('shows backend unavailable alert when disconnected', () => {
+    mockAgentValue.isConnected = false;
+    mockAgentValue.connectionState = 'disconnected';
+    render(<ChatPanel {...defaultProps} />);
+    expect(screen.getByText(/Backend unavailable/)).toBeInTheDocument();
+  });
+
+  it('shows database info when agent is connected but DB is not', () => {
+    render(<ChatPanel {...defaultProps} isDatabaseConnected={false} />);
+    expect(screen.getByText(/Connect to PostgreSQL/)).toBeInTheDocument();
+  });
+
+  it('shows empty state message when no messages exist', () => {
+    render(<ChatPanel {...defaultProps} />);
+    expect(screen.getByText(/Send a message to start/)).toBeInTheDocument();
+  });
+
+  it('has a text input field for typing messages', () => {
+    render(<ChatPanel {...defaultProps} />);
+    const input = screen.getByRole('textbox');
+    expect(input).toBeInTheDocument();
+  });
+
+  it('allows typing in the input field', () => {
+    render(<ChatPanel {...defaultProps} />);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'SELECT * FROM users' } });
+    expect(input).toHaveValue('SELECT * FROM users');
+  });
+
+  it('has a send button', () => {
+    render(<ChatPanel {...defaultProps} />);
+    // Send button is an IconButton with SendIcon
+    const buttons = screen.getAllByRole('button');
+    const sendButton = buttons.find(btn => btn.querySelector('svg[data-testid="SendIcon"]'));
+    expect(sendButton).toBeDefined();
+  });
+
+  it('disables send button when input is empty', () => {
+    render(<ChatPanel {...defaultProps} />);
+    const buttons = screen.getAllByRole('button');
+    const sendButton = buttons.find(btn => btn.querySelector('svg[data-testid="SendIcon"]'));
+    expect(sendButton).toBeDisabled();
+  });
+
+  it('shows settings button when onOpenSettings is provided', () => {
+    render(<ChatPanel {...defaultProps} />);
+    const settingsButton = screen.getAllByRole('button').find(
+      btn => btn.querySelector('svg[data-testid="SettingsIcon"]')
+    );
+    expect(settingsButton).toBeDefined();
+  });
+});

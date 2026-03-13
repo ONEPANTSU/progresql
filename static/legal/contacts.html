@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contacts — ProgreSQL</title>
+  <meta name="description" content="ProgreSQL — contact information and support.">
+  <meta property="og:title" content="Contacts — ProgreSQL">
+  <meta property="og:description" content="ProgreSQL — contact information and support.">
+  <link rel="icon" type="image/png" href="/payment/favicon.png">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #080b12;
+      color: #e2e8f0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+      z-index: 0;
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      z-index: 0;
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+      -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+    }
+    .card {
+      position: relative;
+      z-index: 1;
+      max-width: 800px;
+      width: 100%;
+      padding: 48px 40px;
+      background: rgba(15, 20, 35, 0.6);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      border-radius: 16px;
+      backdrop-filter: blur(20px);
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+    }
+    .logo {
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+    .logo span { color: #6366f1; }
+    .lang-switcher {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .lang-btn {
+      padding: 6px 16px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .lang-btn:hover { border-color: rgba(255,255,255,0.3); color: #e2e8f0; }
+    .lang-btn.active {
+      background: rgba(99, 102, 241, 0.2);
+      color: #818cf8;
+      border-color: rgba(99, 102, 241, 0.3);
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #e2e8f0;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .version-info {
+      text-align: center;
+      font-size: 13px;
+      color: #94a3b8;
+      margin-bottom: 32px;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-top: 28px;
+      margin-bottom: 12px;
+      border-left: 3px solid #6366f1;
+      padding-left: 12px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #94a3b8;
+      margin-bottom: 12px;
+    }
+    ul, ol {
+      margin: 0 0 12px 24px;
+      color: #94a3b8;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+    li { margin-bottom: 4px; }
+    a { color: #818cf8; text-decoration: none; transition: color 0.2s; }
+    a:hover { color: #6366f1; text-decoration: underline; }
+    strong { color: #e2e8f0; }
+    .nav-footer {
+      margin-top: 40px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(99, 102, 241, 0.1);
+      text-align: center;
+    }
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px 6px;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .nav-links a { color: #94a3b8; }
+    .nav-links a:hover { color: #818cf8; text-decoration: none; }
+    .nav-links .current { color: #818cf8; }
+    .nav-links a:not(:last-child)::after {
+      content: '\00b7';
+      margin-left: 6px;
+      color: #475569;
+    }
+    .back-link {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 14px;
+      color: #818cf8;
+    }
+    .back-link:hover { color: #6366f1; }
+    @media (max-width: 600px) {
+      body { padding: 20px 12px; }
+      .card { padding: 32px 20px; }
+      h1 { font-size: 20px; }
+      h2 { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="logo"><img src="/payment/icon.png" alt="" width="24" height="24" style="border-radius:5px;vertical-align:middle;margin-right:6px;">Progre<span>SQL</span></div>
+      <div class="lang-switcher">
+        <button class="lang-btn active" onclick="switchLang('ru')" id="btn-ru">RU</button>
+        <button class="lang-btn" onclick="switchLang('en')" id="btn-en">EN</button>
+      </div>
+    </div>
+
+    <div id="title-ru"><h1>Контакты</h1></div>
+    <div id="title-en" style="display:none"><h1>Contacts</h1></div>
+
+    <div id="version-ru" class="version-info">ProgreSQL — PostgreSQL Client</div>
+    <div id="version-en" class="version-info" style="display:none">ProgreSQL — PostgreSQL Client</div>
+
+    <div id="content-ru">
+      <h2>Служба поддержки</h2>
+      <p>Telegram: <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+
+      <h2>Часы работы</h2>
+      <p>Понедельник — Пятница, 10:00 — 18:00 (МСК).</p>
+      <p>Ответ обычно в течение 24 часов.</p>
+
+      <h2>Что включить в обращение</h2>
+      <p>При обращении укажите:</p>
+      <ul>
+        <li>Email аккаунта;</li>
+        <li>Описание проблемы;</li>
+        <li>Скриншоты (при наличии);</li>
+        <li>Идентификатор транзакции (для вопросов по оплате).</li>
+      </ul>
+    </div>
+
+    <div id="content-en" style="display:none">
+      <h2>Support</h2>
+      <p>Telegram: <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+
+      <h2>Business Hours</h2>
+      <p>Monday — Friday, 10:00 — 18:00 (Moscow time).</p>
+      <p>Response usually within 24 hours.</p>
+
+      <h2>What to Include in Your Request</h2>
+      <p>When contacting support, please include:</p>
+      <ul>
+        <li>Account email;</li>
+        <li>Problem description;</li>
+        <li>Screenshots (if applicable);</li>
+        <li>Transaction identifier (for payment issues).</li>
+      </ul>
+    </div>
+
+    <div class="nav-footer">
+      <div class="nav-links">
+        <a href="/legal/privacy.html">Privacy</a>
+        <a href="/legal/terms.html">Terms</a>
+        <a href="/legal/offer.html">Offer</a>
+        <a href="/legal/crypto-payments.html">Crypto Payments</a>
+        <a href="/legal/refunds.html">Refunds</a>
+        <a href="/legal/contacts.html" class="current">Contacts</a>
+      </div>
+      <a href="https://progresql.com" class="back-link">&larr; Back to home</a>
+    </div>
+  </div>
+
+  <script>
+    function switchLang(lang) {
+      var langs = ['ru', 'en'];
+      langs.forEach(function(l) {
+        document.getElementById('title-' + l).style.display = l === lang ? '' : 'none';
+        document.getElementById('version-' + l).style.display = l === lang ? '' : 'none';
+        document.getElementById('content-' + l).style.display = l === lang ? '' : 'none';
+        document.getElementById('btn-' + l).className = l === lang ? 'lang-btn active' : 'lang-btn';
+      });
+      document.documentElement.lang = lang;
+      localStorage.setItem('legal-lang', lang);
+    }
+    (function() {
+      var saved = localStorage.getItem('legal-lang');
+      if (saved && saved !== 'ru') switchLang(saved);
+    })();
+  </script>
+</body>
+</html>

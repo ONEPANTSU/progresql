@@ -1,0 +1,111 @@
+package subscription
+
+import (
+	"testing"
+	"time"
+)
+
+func TestValidPlan(t *testing.T) {
+	tests := []struct {
+		plan Plan
+		want bool
+	}{
+		{PlanFree, true},
+		{PlanPro, true},
+		{PlanTeam, true},
+		{Plan("enterprise"), false},
+		{Plan(""), false},
+	}
+	for _, tt := range tests {
+		if got := ValidPlan(tt.plan); got != tt.want {
+			t.Errorf("ValidPlan(%q) = %v, want %v", tt.plan, got, tt.want)
+		}
+	}
+}
+
+func TestUserSubscription_IsActive(t *testing.T) {
+	future := time.Now().Add(24 * time.Hour)
+	past := time.Now().Add(-24 * time.Hour)
+
+	tests := []struct {
+		name string
+		sub  UserSubscription
+		want bool
+	}{
+		{"free plan always active", UserSubscription{Plan: PlanFree}, true},
+		{"pro with future expiry", UserSubscription{Plan: PlanPro, ExpiresAt: &future}, true},
+		{"pro with past expiry", UserSubscription{Plan: PlanPro, ExpiresAt: &past}, false},
+		{"pro with nil expiry", UserSubscription{Plan: PlanPro, ExpiresAt: nil}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.sub.IsActive(); got != tt.want {
+				t.Errorf("IsActive() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUserSubscription_EffectivePlan(t *testing.T) {
+	past := time.Now().Add(-1 * time.Hour)
+	future := time.Now().Add(24 * time.Hour)
+
+	tests := []struct {
+		name string
+		sub  UserSubscription
+		want Plan
+	}{
+		{"free plan", UserSubscription{Plan: PlanFree}, PlanFree},
+		{"active pro", UserSubscription{Plan: PlanPro, ExpiresAt: &future}, PlanPro},
+		{"expired pro falls back to free", UserSubscription{Plan: PlanPro, ExpiresAt: &past}, PlanFree},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.sub.EffectivePlan(); got != tt.want {
+				t.Errorf("EffectivePlan() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUserSubscription_Limits(t *testing.T) {
+	sub := UserSubscription{Plan: PlanFree}
+	limits := sub.Limits()
+	if limits.MaxRequestsPerMin != 10 {
+		t.Errorf("free plan MaxRequestsPerMin = %d, want 10", limits.MaxRequestsPerMin)
+	}
+
+	future := time.Now().Add(24 * time.Hour)
+	sub = UserSubscription{Plan: PlanPro, ExpiresAt: &future}
+	limits = sub.Limits()
+	if limits.MaxRequestsPerMin != 60 {
+		t.Errorf("pro plan MaxRequestsPerMin = %d, want 60", limits.MaxRequestsPerMin)
+	}
+}
+
+func TestLimitsForPlan_UnknownFallsBackToFree(t *testing.T) {
+	limits := LimitsForPlan(Plan("unknown"))
+	freeLimits := DefaultLimits[PlanFree]
+	if limits.MaxRequestsPerMin != freeLimits.MaxRequestsPerMin {
+		t.Errorf("unknown plan should fall back to free limits")
+	}
+}
+
+func TestDefaultLimits_AllPlansPresent(t *testing.T) {
+	for _, p := range []Plan{PlanFree, PlanPro, PlanTeam} {
+		if _, ok := DefaultLimits[p]; !ok {
+			t.Errorf("DefaultLimits missing plan %q", p)
+		}
+	}
+}
+
+func TestDefaultLimits_ProGreaterThanFree(t *testing.T) {
+	free := DefaultLimits[PlanFree]
+	pro := DefaultLimits[PlanPro]
+	if pro.MaxRequestsPerMin <= free.MaxRequestsPerMin {
+		t.Error("pro plan should have higher rate limit than free")
+	}
+	if pro.MaxTokensPerRequest <= free.MaxTokensPerRequest {
+		t.Error("pro plan should have higher token limit than free")
+	}
+}

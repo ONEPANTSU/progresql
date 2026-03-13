@@ -1,0 +1,26 @@
+# Client deploy — triggered by tag: client-v*
+# DMG built locally via `make release-mac`, uploaded to GitHub Release
+# This pipeline downloads artifacts and deploys to server downloads
+when:
+  - event: tag
+    ref: refs/tags/client-v*
+
+steps:
+  - name: deploy-downloads
+    image: alpine:latest
+    volumes:
+      - /opt/progresql/downloads:/opt/progresql/downloads
+    commands:
+      - apk add --no-cache curl jq
+      - VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/client-v//')
+      - mkdir -p /opt/progresql/downloads
+      - echo "==> Downloading artifacts for $CI_COMMIT_TAG..."
+      - "curl -sL -H 'Accept: application/octet-stream' -o /opt/progresql/downloads/ProgreSQL-$VERSION-arm64.dmg $(curl -s https://api.github.com/repos/ONEPANTSU/progresql/releases/tags/$CI_COMMIT_TAG | jq -r '.assets[] | select(.name | endswith(\".dmg\")) | .browser_download_url') || true"
+      - "curl -sL -H 'Accept: application/octet-stream' -o /opt/progresql/downloads/ProgreSQL-$VERSION-arm64-mac.zip $(curl -s https://api.github.com/repos/ONEPANTSU/progresql/releases/tags/$CI_COMMIT_TAG | jq -r '.assets[] | select(.name | endswith(\".zip\")) | .browser_download_url') || true"
+      - cd /opt/progresql/downloads
+      - DMG=$(ls -t *.dmg 2>/dev/null | head -1)
+      - ZIP=$(ls -t *.zip 2>/dev/null | head -1)
+      - '[ -n "$DMG" ] && ln -sf "$DMG" ProgreSQL-latest.dmg'
+      - '[ -n "$ZIP" ] && ln -sf "$ZIP" ProgreSQL-latest.zip'
+      - echo "==> Downloads:"
+      - ls -lh /opt/progresql/downloads/

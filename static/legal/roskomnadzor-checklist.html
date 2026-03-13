@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Чек-лист уведомления Роскомнадзора — ProgreSQL</title>
+  <meta name="description" content="Чек-лист для подачи уведомления об обработке персональных данных в Роскомнадзор.">
+  <link rel="icon" type="image/png" href="/payment/favicon.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0a0e1a 0%, #1a1f3a 50%, #0d1225 100%);
+      color: #e0e0e0;
+      padding: 40px 16px;
+    }
+    .card {
+      max-width: 900px;
+      width: 100%;
+      padding: 48px 40px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      backdrop-filter: blur(12px);
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .logo {
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+    .logo span { color: #38bd62; }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #fff;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .version-info {
+      text-align: center;
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 32px;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      margin-top: 28px;
+      margin-bottom: 12px;
+    }
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #ccc;
+      margin-top: 20px;
+      margin-bottom: 8px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #b0b0b0;
+      margin-bottom: 12px;
+    }
+    ul, ol {
+      margin: 0 0 12px 24px;
+      color: #b0b0b0;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+    li { margin-bottom: 4px; }
+    a { color: #38bd62; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { color: #e0e0e0; }
+    .field {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 8px;
+    }
+    .field-label {
+      font-size: 13px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+    .field-value {
+      font-size: 15px;
+      color: #e0e0e0;
+      line-height: 1.5;
+    }
+    .field-value.placeholder {
+      color: #f0ad4e;
+      font-style: italic;
+    }
+    .note {
+      background: rgba(56,189,98,0.08);
+      border-left: 3px solid #38bd62;
+      padding: 12px 16px;
+      margin: 16px 0;
+      font-size: 14px;
+      color: #b0b0b0;
+      border-radius: 0 8px 8px 0;
+    }
+    .warning {
+      background: rgba(240,173,78,0.08);
+      border-left: 3px solid #f0ad4e;
+      padding: 12px 16px;
+      margin: 16px 0;
+      font-size: 14px;
+      color: #b0b0b0;
+      border-radius: 0 8px 8px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    th {
+      background: rgba(255,255,255,0.05);
+      color: #ccc;
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    td { color: #b0b0b0; }
+    .nav-footer {
+      margin-top: 40px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      text-align: center;
+    }
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px 16px;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .nav-links a { color: #888; }
+    .nav-links a:hover { color: #38bd62; }
+    .back-link {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 14px;
+      color: #666;
+    }
+    .back-link:hover { color: #38bd62; }
+    @media (max-width: 600px) {
+      body { padding: 20px 12px; }
+      .card { padding: 32px 20px; }
+      h1 { font-size: 20px; }
+      h2 { font-size: 16px; }
+      table { font-size: 13px; }
+      th, td { padding: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="logo"><img src="/payment/icon.png" alt="" width="24" height="24" style="border-radius:5px;vertical-align:middle;margin-right:6px;">Progre<span>SQL</span></div>
+    </div>
+
+    <h1>Чек-лист для уведомления Роскомнадзора</h1>
+    <div class="version-info">Подготовлено: 20 марта 2026 г. | На основании ФЗ-152 «О персональных данных»</div>
+
+    <div class="warning">
+      <strong>Внимание:</strong> поля, отмеченные <span style="color:#f0ad4e;">жёлтым курсивом</span>, необходимо заполнить реальными данными оператора перед подачей уведомления.
+    </div>
+
+    <!-- ===== SECTION 1: OPERATOR DATA ===== -->
+    <h2>1. Сведения об операторе</h2>
+    <p>Данные, необходимые для идентификации оператора персональных данных в уведомлении.</p>
+
+    <div class="field">
+      <div class="field-label">ФИО / Наименование оператора</div>
+      <div class="field-value placeholder">← Указать ФИО ИП или наименование юр. лица</div>
+    </div>
+    <div class="field">
+      <div class="field-label">ИНН</div>
+      <div class="field-value placeholder">← Указать ИНН оператора</div>
+    </div>
+    <div class="field">
+      <div class="field-label">ОГРНИП / ОГРН</div>
+      <div class="field-value placeholder">← Указать ОГРНИП (для ИП) или ОГРН (для юр. лица)</div>
+    </div>
+    <div class="field">
+      <div class="field-label">Юридический адрес</div>
+      <div class="field-value placeholder">← Указать адрес регистрации</div>
+    </div>
+    <div class="field">
+      <div class="field-label">Почтовый адрес</div>
+      <div class="field-value placeholder">← Указать почтовый адрес (если отличается от юридического)</div>
+    </div>
+    <div class="field">
+      <div class="field-label">Telegram оператора</div>
+      <div class="field-value"><a href="https://t.me/progresql" target="_blank">@progresql</a></div>
+    </div>
+    <div class="field">
+      <div class="field-label">Телефон</div>
+      <div class="field-value placeholder">← Указать контактный телефон</div>
+    </div>
+    <div class="field">
+      <div class="field-label">Ответственный за организацию обработки ПДн</div>
+      <div class="field-value placeholder">← ФИО и должность ответственного лица</div>
+    </div>
+
+    <!-- ===== SECTION 2: PERSONAL DATA CATEGORIES ===== -->
+    <h2>2. Перечень обрабатываемых персональных данных</h2>
+    <p>Категории персональных данных, обрабатываемых сервисом ProgreSQL:</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Категория данных</th>
+          <th>Конкретные данные</th>
+          <th>Источник получения</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Идентификационные</td>
+          <td>Адрес электронной почты (email), имя пользователя</td>
+          <td>Предоставляются субъектом при регистрации</td>
+        </tr>
+        <tr>
+          <td>Аутентификационные</td>
+          <td>Хеш пароля (bcrypt, необратимое хеширование)</td>
+          <td>Создаётся при регистрации / смене пароля</td>
+        </tr>
+        <tr>
+          <td>Технические</td>
+          <td>IP-адрес, User-Agent браузера/приложения</td>
+          <td>Автоматический сбор при использовании сервиса</td>
+        </tr>
+        <tr>
+          <td>Платёжные</td>
+          <td>Идентификатор платежа (invoice_id), идентификатор заказа (order_id), сумма, валюта, статус платежа, тип криптовалюты, сеть блокчейна, хеш транзакции (tx_hash)</td>
+          <td>Создаются при оплате через CryptoCloud</td>
+        </tr>
+        <tr>
+          <td>Подписочные</td>
+          <td>Тип плана (free/pro), дата окончания подписки, дата окончания пробного периода</td>
+          <td>Формируются при управлении подпиской</td>
+        </tr>
+        <tr>
+          <td>Журнальные</td>
+          <td>Дата и время действий пользователя, идентификатор сессии, тип действия (AI-запросы), количество использованных токенов, модель LLM</td>
+          <td>Автоматический сбор при использовании AI-функций</td>
+        </tr>
+        <tr>
+          <td>Юридические</td>
+          <td>Факт акцепта правовых документов (тип документа, версия, дата, IP, User-Agent, версия приложения, локаль)</td>
+          <td>Фиксируются при акцепте документов</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <strong>Примечание:</strong> ProgreSQL <strong>не</strong> обрабатывает специальные категории персональных данных (расовая, национальная принадлежность, биометрические данные и т.п.) согласно ст. 10 ФЗ-152.
+    </div>
+
+    <!-- ===== SECTION 3: PROCESSING PURPOSES ===== -->
+    <h2>3. Цели обработки персональных данных</h2>
+    <ol>
+      <li><strong>Предоставление сервиса</strong> — регистрация аккаунта, аутентификация и авторизация пользователей для доступа к функциям ProgreSQL;</li>
+      <li><strong>Обработка платежей</strong> — проведение криптовалютных платежей через CryptoCloud, управление подписками (Free/Pro);</li>
+      <li><strong>Уведомления</strong> — отправка сервисных сообщений: подтверждение email, сброс пароля, уведомления о статусе подписки;</li>
+      <li><strong>Техническая поддержка</strong> — обработка обращений пользователей, устранение неполадок;</li>
+      <li><strong>Обеспечение безопасности</strong> — предотвращение несанкционированного доступа, fraud-защита, журналирование событий;</li>
+      <li><strong>Учёт использования AI</strong> — отслеживание использования токенов LLM-моделей для управления лимитами и биллинга;</li>
+      <li><strong>Юридическое соответствие</strong> — фиксация факта акцепта правовых документов, выполнение требований законодательства РФ.</li>
+    </ol>
+
+    <!-- ===== SECTION 4: LEGAL BASIS ===== -->
+    <h2>4. Правовые основания обработки</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Основание</th>
+          <th>Норма закона</th>
+          <th>Применение</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Согласие субъекта</td>
+          <td>п. 1 ч. 1 ст. 6 ФЗ-152</td>
+          <td>Акцепт Политики конфиденциальности и Условий использования при регистрации (чекбокс с записью в таблицу legal_acceptances)</td>
+        </tr>
+        <tr>
+          <td>Исполнение договора</td>
+          <td>п. 5 ч. 1 ст. 6 ФЗ-152</td>
+          <td>Обработка данных, необходимых для предоставления сервиса и обработки платежей (Публичная оферта)</td>
+        </tr>
+        <tr>
+          <td>Исполнение обязанностей оператора</td>
+          <td>п. 2 ч. 1 ст. 6 ФЗ-152</td>
+          <td>Хранение платёжных данных для бухгалтерского учёта (3 года)</td>
+        </tr>
+        <tr>
+          <td>Законный интерес оператора</td>
+          <td>п. 7 ч. 1 ст. 6 ФЗ-152</td>
+          <td>Обеспечение безопасности сервиса, ведение журналов событий, предотвращение злоупотреблений</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ===== SECTION 5: PROTECTION MEASURES ===== -->
+    <h2>5. Меры по обеспечению безопасности персональных данных</h2>
+
+    <h3>5.1. Организационные меры</h3>
+    <ul>
+      <li>Назначение ответственного за организацию обработки ПДн;</li>
+      <li>Утверждение Политики конфиденциальности (опубликована на <a href="/legal/privacy.html">progresql.com/legal/privacy.html</a>);</li>
+      <li>Получение согласия субъектов при регистрации с записью в таблицу legal_acceptances (дата, IP, User-Agent, версия документа);</li>
+      <li>Определение сроков хранения данных и порядка их уничтожения;</li>
+      <li>Ограничение круга лиц, имеющих доступ к персональным данным.</li>
+    </ul>
+
+    <h3>5.2. Технические меры</h3>
+    <ul>
+      <li><strong>Хеширование паролей</strong> — bcrypt с DefaultCost (необратимое хеширование, пароли в открытом виде не хранятся);</li>
+      <li><strong>Шифрование транспорта</strong> — HTTPS/TLS для всех соединений между клиентом и сервером;</li>
+      <li><strong>JWT-аутентификация</strong> — токены с подписью HS256, TTL 24 часа, без хранения пароля в токене;</li>
+      <li><strong>Rate limiting</strong> — ограничение частоты запросов к API для защиты от перебора;</li>
+      <li><strong>Верификация вебхуков</strong> — проверка секретного токена при обработке платёжных уведомлений от CryptoCloud;</li>
+      <li><strong>Constant-time compare</strong> — защита от timing-атак при валидации API-ключей;</li>
+      <li><strong>Контроль доступа</strong> — серверная инфраструктура с ограниченным доступом;</li>
+      <li><strong>Шифрование паролей БД</strong> — локальные пароли подключений к БД шифруются через safeStorage Electron;</li>
+      <li><strong>Автоматическое разъединение</strong> — health-check с экспоненциальным backoff и автоотключение при потере связи с БД.</li>
+    </ul>
+
+    <!-- ===== SECTION 6: THIRD-PARTY TRANSFERS ===== -->
+    <h2>6. Трансграничная передача и передача третьим лицам</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Получатель</th>
+          <th>Передаваемые данные</th>
+          <th>Цель передачи</th>
+          <th>Страна</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>CryptoCloud</td>
+          <td>Email, идентификатор заказа (order_id)</td>
+          <td>Обработка криптовалютных платежей</td>
+          <td>Уточнить у CryptoCloud</td>
+        </tr>
+        <tr>
+          <td>OpenRouter</td>
+          <td>Тексты запросов пользователя (промпты), метаданные схемы БД (имена таблиц, типы колонок)</td>
+          <td>Выполнение AI-запросов (генерация SQL, анализ схемы)</td>
+          <td>США</td>
+        </tr>
+        <tr>
+          <td>Yandex (SMTP)</td>
+          <td>Email, имя пользователя</td>
+          <td>Отправка сервисных уведомлений (верификация, сброс пароля, подписка)</td>
+          <td>Россия</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="warning">
+      <strong>Важно:</strong> передача данных в OpenRouter (США) является трансграничной. Необходимо убедиться, что страна получателя обеспечивает адекватную защиту прав субъектов ПДн (ст. 12 ФЗ-152), либо получить отдельное согласие субъекта на трансграничную передачу.
+    </div>
+
+    <!-- ===== SECTION 7: DATA RETENTION ===== -->
+    <h2>7. Сроки обработки и хранения</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Категория данных</th>
+          <th>Срок хранения</th>
+          <th>Основание</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Данные аккаунта (email, имя, хеш пароля)</td>
+          <td>В течение срока действия аккаунта + 30 дней после удаления</td>
+          <td>Исполнение договора</td>
+        </tr>
+        <tr>
+          <td>Платёжные данные</td>
+          <td>3 года с момента транзакции</td>
+          <td>Требования бухгалтерского учёта</td>
+        </tr>
+        <tr>
+          <td>Журналы событий (логи)</td>
+          <td>12 месяцев</td>
+          <td>Обеспечение безопасности</td>
+        </tr>
+        <tr>
+          <td>Данные об использовании AI (token_usage)</td>
+          <td>12 месяцев</td>
+          <td>Управление лимитами, биллинг</td>
+        </tr>
+        <tr>
+          <td>Акцепт правовых документов</td>
+          <td>Бессрочно</td>
+          <td>Доказательство получения согласия</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ===== SECTION 8: FILING INSTRUCTIONS ===== -->
+    <h2>8. Инструкция по подаче уведомления</h2>
+
+    <h3>Шаг 1. Подготовка</h3>
+    <ul>
+      <li>Заполните все поля раздела 1 (сведения об операторе) реальными данными;</li>
+      <li>Убедитесь, что Политика конфиденциальности опубликована и доступна по адресу <a href="/legal/privacy.html">progresql.com/legal/privacy.html</a>;</li>
+      <li>Проверьте, что механизм получения согласия работает (чекбокс при регистрации + запись в legal_acceptances).</li>
+    </ul>
+
+    <h3>Шаг 2. Заполнение формы на портале Роскомнадзора</h3>
+    <ol>
+      <li>Перейдите на портал <a href="https://pd.rkn.gov.ru" target="_blank" rel="noopener">pd.rkn.gov.ru</a>;</li>
+      <li>Выберите «Подать уведомление об обработке персональных данных»;</li>
+      <li>Заполните форму, используя данные из разделов 1–7 этого чек-листа;</li>
+      <li>В поле «Описание мер по обеспечению безопасности» укажите меры из раздела 5;</li>
+      <li>В поле «Правовое основание» укажите нормы из раздела 4;</li>
+      <li>Укажите дату начала обработки — дату запуска сервиса;</li>
+      <li>В разделе трансграничной передачи укажите OpenRouter (США) и CryptoCloud.</li>
+    </ol>
+
+    <h3>Шаг 3. Подписание и отправка</h3>
+    <ul>
+      <li>Подпишите уведомление усиленной квалифицированной электронной подписью (УКЭП) или направьте бумажный экземпляр почтой;</li>
+      <li>Адрес для бумажного направления: 109992, г. Москва, Китайгородский проезд, д. 7, стр. 2, Роскомнадзор;</li>
+      <li>Срок рассмотрения — до 30 дней с момента получения.</li>
+    </ul>
+
+    <h3>Шаг 4. После подачи</h3>
+    <ul>
+      <li>Сохраните подтверждение подачи (номер уведомления, дату);</li>
+      <li>При изменении перечня ПДн, целей обработки или мер защиты — подайте информационное письмо об изменениях;</li>
+      <li>При прекращении обработки ПДн — подайте уведомление о прекращении.</li>
+    </ul>
+
+    <div class="note">
+      <strong>Статья 22 ФЗ-152:</strong> оператор обязан уведомить Роскомнадзор до начала обработки персональных данных, за исключением случаев, предусмотренных ч. 2 ст. 22. Рекомендуется подать уведомление в любом случае для минимизации рисков.
+    </div>
+
+    <!-- ===== SECTION 9: ARCHITECTURE SUMMARY ===== -->
+    <h2>9. Архитектура ProgreSQL (для понимания потоков данных)</h2>
+    <p>Краткое описание архитектуры для корректного заполнения уведомления:</p>
+    <ul>
+      <li><strong>Клиент:</strong> десктопное приложение (Electron + React), устанавливается пользователем локально;</li>
+      <li><strong>Backend:</strong> Go-сервер (REST API + WebSocket), размещён на сервере оператора;</li>
+      <li><strong>База данных:</strong> PostgreSQL — хранит таблицы users, payments, token_usage, legal_acceptances;</li>
+      <li><strong>Аутентификация:</strong> email + пароль → JWT-токен (HS256, TTL 24ч);</li>
+      <li><strong>Платежи:</strong> CryptoCloud API — криптовалютные платежи, вебхуки для подтверждения;</li>
+      <li><strong>AI:</strong> OpenRouter API — передача пользовательских запросов и метаданных схемы БД для генерации SQL;</li>
+      <li><strong>Email:</strong> Yandex SMTP (smtp.yandex.ru:465) — отправка сервисных писем;</li>
+      <li><strong>Данные пользовательских БД:</strong> обрабатываются только локально в десктопном приложении, <strong>не</strong> передаются на сервер оператора (кроме метаданных схемы для AI-запросов).</li>
+    </ul>
+
+    <div class="nav-footer">
+      <div class="nav-links">
+        <a href="/legal/privacy.html">Privacy</a>
+        <a href="/legal/terms.html">Terms</a>
+        <a href="/legal/offer.html">Offer</a>
+        <a href="/legal/crypto-payments.html">Crypto Payments</a>
+        <a href="/legal/refunds.html">Refunds</a>
+        <a href="/legal/contacts.html">Contacts</a>
+      </div>
+      <a href="https://progresql.com" class="back-link">&larr; Back to home</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,21 @@
+.DS_Store
+*.exe
+*.out
+/config.yaml
+.env
+.env.*
+.idea/
+*.log
+
+# Client build artifacts
+frontend/dist/
+frontend/renderer/.next/
+frontend/node_modules/
+frontend/renderer/node_modules/
+
+# Go
+/vendor/
+
+# Temp files
+_fix_menu.mjs
+.claude/

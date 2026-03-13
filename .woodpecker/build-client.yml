@@ -1,0 +1,33 @@
+# Client build (Windows) — FROZEN until server upgrade
+# To enable: change ref back to refs/tags/client-v*
+when:
+  - event: tag
+    ref: refs/tags/DISABLED-client-v*
+
+steps:
+  - name: build-windows
+    image: electronuserland/builder:wine
+    commands:
+      - cd frontend
+      - npm ci
+      - npx nextron build --win
+      - ls -lh dist/*.exe
+
+  - name: deploy-downloads
+    image: alpine:latest
+    volumes:
+      - /opt/progresql/downloads:/opt/progresql/downloads
+    commands:
+      - mkdir -p /opt/progresql/downloads
+      - cp frontend/dist/*.exe /opt/progresql/downloads/ 2>/dev/null || true
+      - cp frontend/dist/*.dmg /opt/progresql/downloads/ 2>/dev/null || true
+      - cp frontend/dist/*.zip /opt/progresql/downloads/ 2>/dev/null || true
+      - cd /opt/progresql/downloads
+      - DMG=$(ls -t *.dmg 2>/dev/null | head -1)
+      - EXE=$(ls -t *.exe 2>/dev/null | head -1)
+      - ZIP=$(ls -t *.zip 2>/dev/null | head -1)
+      - '[ -n "$DMG" ] && ln -sf "$DMG" ProgreSQL-latest.dmg'
+      - '[ -n "$EXE" ] && ln -sf "$EXE" ProgreSQL-latest.exe'
+      - '[ -n "$ZIP" ] && ln -sf "$ZIP" ProgreSQL-latest.zip'
+      - echo "==> Downloads:"
+      - ls -lh /opt/progresql/downloads/

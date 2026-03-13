@@ -1,0 +1,20 @@
+# Landing deploy — triggered by tag: landing-v*
+when:
+  - event: tag
+    ref: refs/tags/landing-v*
+
+steps:
+  - name: deploy-static
+    image: alpine:latest
+    volumes:
+      - /var/www/progresql:/var/www/progresql
+      - /etc/nginx:/etc/nginx
+    commands:
+      - mkdir -p /var/www/progresql/payment /var/www/progresql/legal /var/www/progresql/landing
+      - cp static/payment/success.html static/payment/fail.html static/payment/favicon.png /var/www/progresql/payment/
+      - cp static/payment/icon.png /var/www/progresql/payment/ 2>/dev/null || true
+      - cp static/legal/*.html /var/www/progresql/legal/
+      - cp static/landing/* /var/www/progresql/landing/
+      - cp deploy/nginx/progresql.conf /etc/nginx/sites-available/progresql
+      - nginx -t && nginx -s reload
+      - echo "✅ Landing deployed"

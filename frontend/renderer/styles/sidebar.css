@@ -1,0 +1,80 @@
+/* Smooth sidebar animations */
+.sidebar-container {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Panel resize improvements */
+[data-panel-id] {
+  transition: width 0.2s ease-in-out, height 0.2s ease-in-out;
+}
+
+/* Prevent panel interference */
+[data-panel-group-id="main-horizontal-panels"] {
+  isolation: isolate;
+}
+
+[data-panel-group-id="center-vertical-panels"] {
+  isolation: isolate;
+}
+
+/* Prevent layout shifts during expansion */
+.MuiCollapse-wrapper {
+  transition: height 300ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.MuiCollapse-wrapperInner {
+  transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Smooth accordion transitions */
+.MuiAccordion-root {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.MuiAccordionSummary-root {
+  transition: all 0.2s ease-in-out !important;
+}
+
+.MuiAccordionSummary-root:hover {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Prevent content jumping */
+.MuiListItemButton-root {
+  transition: all 0.2s ease-in-out !important;
+}
+
+.MuiListItemButton-root:hover {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Smooth icon transitions */
+.MuiSvgIcon-root {
+  transition: transform 0.2s ease-in-out !important;
+}
+
+/* Prevent text wrapping issues */
+.MuiListItemText-root {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Consistent spacing */
+.sidebar-item {
+  margin: 2px 0;
+  border-radius: 4px;
+}
+
+.sidebar-item:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Smooth expand/collapse icons */
+.expand-icon {
+  transition: transform 0.2s ease-in-out;
+}
+
+.expand-icon.expanded {
+  transform: rotate(180deg);
+}

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Not Completed — ProgreSQL</title>
+  <link rel="icon" type="image/png" href="/payment/favicon.png">
+  <meta property="og:title" content="Payment Not Completed — ProgreSQL">
+  <meta property="og:description" content="The payment was not completed. You can try again.">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #080b12;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+      z-index: 0;
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      z-index: 0;
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+      -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+    }
+    .card {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      max-width: 520px;
+      padding: 48px 40px;
+      background: rgba(15, 20, 35, 0.6);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      border-radius: 16px;
+      backdrop-filter: blur(20px);
+    }
+    .lang-switch {
+      position: absolute;
+      top: 20px;
+      right: 24px;
+      display: flex;
+      gap: 8px;
+      z-index: 2;
+    }
+    .lang-btn {
+      background: rgba(15, 20, 35, 0.6);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      color: #94a3b8;
+      padding: 4px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .lang-btn:hover { background: rgba(99, 102, 241, 0.1); color: #e2e8f0; }
+    .lang-btn.active {
+      background: rgba(99, 102, 241, 0.2);
+      color: #818cf8;
+      border-color: rgba(99, 102, 241, 0.3);
+    }
+    .icon {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 24px;
+      background: rgba(239, 68, 68, 0.15);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      color: #ef4444;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #e2e8f0;
+    }
+    p {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+    .retry-btn {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 12px 32px;
+      background: linear-gradient(135deg, #6366f1, #818cf8);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      transition: opacity 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+    .retry-btn:hover { opacity: 0.85; }
+    .support-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      padding: 10px 24px;
+      background: rgba(15, 20, 35, 0.6);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      color: #e2e8f0;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .support-link:hover { background: rgba(99, 102, 241, 0.1); color: #fff; }
+    .support-link svg { width: 18px; height: 18px; fill: #29a9eb; }
+    .legal-links {
+      margin-top: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px 6px;
+    }
+    .legal-links a {
+      font-size: 13px;
+      color: #94a3b8;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .legal-links a:hover { color: #818cf8; text-decoration: underline; }
+    .legal-links a:not(:last-child)::after {
+      content: '\00b7';
+      margin-left: 6px;
+      color: #475569;
+    }
+    .note {
+      margin-top: 20px;
+      font-size: 14px;
+      color: #94a3b8;
+    }
+    .footer {
+      margin-top: 28px;
+      font-size: 13px;
+      color: #475569;
+    }
+    @media (max-width: 600px) {
+      .card { margin: 16px; padding: 32px 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="lang-switch">
+    <button class="lang-btn active" onclick="setLang('ru')">RU</button>
+    <button class="lang-btn" onclick="setLang('en')">EN</button>
+  </div>
+
+  <div class="card">
+    <div class="icon">&#10007;</div>
+
+    <!-- Russian -->
+    <div id="lang-ru">
+      <h1>Платёж не завершён</h1>
+      <p>Платёж не был завершён. Средства не были списаны.</p>
+      <p>Это может произойти по разным причинам: истекло время ожидания, была отмена или возникла ошибка сети.</p>
+      <div style="margin-top: 20px;">
+        <button class="retry-btn" onclick="window.close()">Попробовать снова</button>
+      </div>
+      <div style="margin-top: 16px;">
+        <a class="support-link" href="https://t.me/progresql" target="_blank">
+          <svg viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+          Связаться с поддержкой
+        </a>
+      </div>
+      <p class="note">Вы можете закрыть эту страницу и повторить оплату в настройках приложения.</p>
+      <div class="legal-links">
+        <a href="https://progresql.com/legal/crypto-payments.html" target="_blank">Условия криптоплатежей</a>
+        <a href="https://progresql.com/legal/refunds.html" target="_blank">Возвраты</a>
+        <a href="https://progresql.com/legal/offer.html" target="_blank">Оферта</a>
+        <a href="https://progresql.com/legal/contacts.html" target="_blank">Контакты</a>
+      </div>
+    </div>
+
+    <!-- English -->
+    <div id="lang-en" style="display:none">
+      <h1>Payment Not Completed</h1>
+      <p>The payment was not completed. No funds were charged.</p>
+      <p>This can happen for various reasons: the payment timed out, was cancelled, or a network error occurred.</p>
+      <div style="margin-top: 20px;">
+        <button class="retry-btn" onclick="window.close()">Try Again</button>
+      </div>
+      <div style="margin-top: 16px;">
+        <a class="support-link" href="https://t.me/progresql" target="_blank">
+          <svg viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+          Contact Support
+        </a>
+      </div>
+      <p class="note">You can close this page and retry payment in the app settings.</p>
+      <div class="legal-links">
+        <a href="https://progresql.com/legal/crypto-payments.html" target="_blank">Crypto Payment Terms</a>
+        <a href="https://progresql.com/legal/refunds.html" target="_blank">Refund Policy</a>
+        <a href="https://progresql.com/legal/offer.html" target="_blank">Offer Agreement</a>
+        <a href="https://progresql.com/legal/contacts.html" target="_blank">Contacts</a>
+      </div>
+    </div>
+
+    <div class="footer">ProgreSQL &mdash; PostgreSQL Client</div>
+  </div>
+
+  <script>
+    function setLang(lang) {
+      document.getElementById('lang-ru').style.display = lang === 'ru' ? 'block' : 'none';
+      document.getElementById('lang-en').style.display = lang === 'en' ? 'block' : 'none';
+      document.querySelectorAll('.lang-btn').forEach(function(btn) {
+        btn.classList.toggle('active', btn.textContent === lang.toUpperCase());
+      });
+      try { localStorage.setItem('legal-lang', lang); } catch(e) {}
+    }
+    try {
+      var saved = localStorage.getItem('legal-lang');
+      if (saved === 'en') setLang('en');
+    } catch(e) {}
+  </script>
+</body>
+</html>

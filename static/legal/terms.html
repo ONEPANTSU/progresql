@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Use — ProgreSQL</title>
+  <meta name="description" content="ProgreSQL Terms of Use — rules and conditions for using the ProgreSQL service.">
+  <meta property="og:title" content="Terms of Use — ProgreSQL">
+  <meta property="og:description" content="ProgreSQL Terms of Use — rules and conditions for using the ProgreSQL service.">
+  <link rel="icon" type="image/png" href="/payment/favicon.png">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #080b12;
+      color: #e2e8f0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+      z-index: 0;
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      z-index: 0;
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+      -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+    }
+    .card {
+      position: relative;
+      z-index: 1;
+      max-width: 800px;
+      width: 100%;
+      padding: 48px 40px;
+      background: rgba(15, 20, 35, 0.6);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      border-radius: 16px;
+      backdrop-filter: blur(20px);
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+    }
+    .logo {
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+    .logo span { color: #6366f1; }
+    .lang-switcher {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .lang-btn {
+      padding: 6px 16px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .lang-btn:hover { border-color: rgba(255,255,255,0.3); color: #e2e8f0; }
+    .lang-btn.active {
+      background: rgba(99, 102, 241, 0.2);
+      color: #818cf8;
+      border-color: rgba(99, 102, 241, 0.3);
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #e2e8f0;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .version-info {
+      text-align: center;
+      font-size: 13px;
+      color: #94a3b8;
+      margin-bottom: 32px;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-top: 28px;
+      margin-bottom: 12px;
+      border-left: 3px solid #6366f1;
+      padding-left: 12px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #94a3b8;
+      margin-bottom: 12px;
+    }
+    ul, ol {
+      margin: 0 0 12px 24px;
+      color: #94a3b8;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+    li { margin-bottom: 4px; }
+    a { color: #818cf8; text-decoration: none; transition: color 0.2s; }
+    a:hover { color: #6366f1; text-decoration: underline; }
+    strong { color: #e2e8f0; }
+    .nav-footer {
+      margin-top: 40px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(99, 102, 241, 0.1);
+      text-align: center;
+    }
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px 6px;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .nav-links a { color: #94a3b8; }
+    .nav-links a:hover { color: #818cf8; text-decoration: none; }
+    .nav-links .current { color: #818cf8; }
+    .nav-links a:not(:last-child)::after {
+      content: '\00b7';
+      margin-left: 6px;
+      color: #475569;
+    }
+    .back-link {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 14px;
+      color: #818cf8;
+    }
+    .back-link:hover { color: #6366f1; }
+    @media (max-width: 600px) {
+      body { padding: 20px 12px; }
+      .card { padding: 32px 20px; }
+      h1 { font-size: 20px; }
+      h2 { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="logo"><img src="/payment/icon.png" alt="" width="24" height="24" style="border-radius:5px;vertical-align:middle;margin-right:6px;">Progre<span>SQL</span></div>
+      <div class="lang-switcher">
+        <button class="lang-btn active" onclick="switchLang('ru')" id="btn-ru">RU</button>
+        <button class="lang-btn" onclick="switchLang('en')" id="btn-en">EN</button>
+      </div>
+    </div>
+
+    <div id="title-ru"><h1>Пользовательское соглашение</h1></div>
+    <div id="title-en" style="display:none"><h1>Terms of Use</h1></div>
+
+    <div id="version-ru" class="version-info">Версия: 1.0 | Дата вступления в силу: 20 марта 2026 г. | Последнее обновление: 20 марта 2026 г.</div>
+    <div id="version-en" class="version-info" style="display:none">Version: 1.0 | Effective date: March 20, 2026 | Last updated: March 20, 2026</div>
+
+    <div id="content-ru">
+      <h2>1. Общие положения</h2>
+      <p>Настоящее Пользовательское соглашение (далее — «Соглашение») регулирует отношения между администрацией сервиса ProgreSQL (далее — «Администрация») и пользователем (далее — «Пользователь») при использовании десктопного приложения ProgreSQL и связанных онлайн-сервисов.</p>
+      <p>ProgreSQL — это клиентское приложение для работы с базами данных PostgreSQL с интегрированным AI-ассистентом.</p>
+
+      <h2>2. Регистрация и аккаунт</h2>
+      <ul>
+        <li>Для использования AI-функций и управления подпиской необходима регистрация;</li>
+        <li>Пользователь обязуется предоставить достоверный адрес электронной почты;</li>
+        <li>Пользователь несёт ответственность за сохранность своих учётных данных;</li>
+        <li>Один аккаунт предназначен для одного пользователя.</li>
+      </ul>
+
+      <h2>3. Ответственность пользователя за SQL-запросы</h2>
+      <p><strong>Пользователь несёт полную ответственность за все SQL-запросы, выполняемые через ProgreSQL к своим базам данных.</strong></p>
+      <ul>
+        <li>ProgreSQL предоставляет интерфейс для подключения к базам данных, которыми управляет Пользователь;</li>
+        <li>Все операции INSERT, UPDATE, DELETE, DROP и иные модифицирующие запросы выполняются под ответственность Пользователя;</li>
+        <li>Администрация не несёт ответственности за потерю данных, повреждение таблиц или иные последствия выполнения SQL-запросов;</li>
+        <li>Рекомендуется использовать режим Safe Mode для предотвращения случайного выполнения опасных запросов.</li>
+      </ul>
+
+      <h2>4. AI-ассистент: ограничения и отказ от гарантий</h2>
+      <p><strong>AI-ассистент предоставляется «как есть» (as is) и не является гарантией корректности.</strong></p>
+      <ul>
+        <li>AI может генерировать некорректный, неоптимальный или опасный SQL-код;</li>
+        <li>Пользователь обязан проверять все SQL-запросы, сгенерированные AI, перед их выполнением;</li>
+        <li>Администрация не несёт ответственности за результаты выполнения SQL-запросов, предложенных AI;</li>
+        <li>AI-ответы не являются профессиональной консультацией по администрированию баз данных.</li>
+      </ul>
+
+      <h2>5. Запрет неавторизованного доступа</h2>
+      <p>Пользователь обязуется:</p>
+      <ul>
+        <li>Подключаться только к базам данных, к которым имеет законный доступ;</li>
+        <li>Не использовать ProgreSQL для неавторизованного доступа к чужим базам данных;</li>
+        <li>Не использовать сервис для нарушения законодательства или прав третьих лиц;</li>
+        <li>Не предпринимать попыток обхода систем безопасности сервиса.</li>
+      </ul>
+
+      <h2>6. Подписка и тарифы</h2>
+      <ul>
+        <li>Базовые функции (SQL-редактор, браузер БД) доступны бесплатно;</li>
+        <li>AI-функции (чат, улучшение запросов) доступны по подписке Pro;</li>
+        <li>Стоимость и условия подписки указаны в Публичной оферте;</li>
+        <li>Пробный период (trial) предоставляется при регистрации.</li>
+      </ul>
+
+      <h2>7. Ограничение ответственности</h2>
+      <p>Администрация не несёт ответственности за:</p>
+      <ul>
+        <li>Убытки, связанные с потерей данных в базах данных Пользователя;</li>
+        <li>Перебои в работе сервиса, вызванные техническими причинами;</li>
+        <li>Действия третьих лиц, получивших доступ к аккаунту Пользователя;</li>
+        <li>Результаты использования рекомендаций AI-ассистента.</li>
+      </ul>
+
+      <h2>8. Изменение условий</h2>
+      <p>Администрация вправе изменять настоящее Соглашение. Уведомление об изменениях направляется на email Пользователя не менее чем за 14 дней до вступления в силу новой версии.</p>
+
+      <h2>9. Контакты</h2>
+      <p>Служба поддержки: Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+    </div>
+
+    <div id="content-en" style="display:none">
+      <h2>1. General Provisions</h2>
+      <p>These Terms of Use (hereinafter "Terms") govern the relationship between the ProgreSQL service administration (hereinafter "Administration") and the user (hereinafter "User") when using the ProgreSQL desktop application and related online services.</p>
+      <p>ProgreSQL is a desktop client application for working with PostgreSQL databases with an integrated AI assistant.</p>
+
+      <h2>2. Registration and Account</h2>
+      <ul>
+        <li>Registration is required for AI features and subscription management;</li>
+        <li>The User agrees to provide a valid email address;</li>
+        <li>The User is responsible for maintaining the security of their credentials;</li>
+        <li>One account is intended for one user.</li>
+      </ul>
+
+      <h2>3. User Responsibility for SQL Queries</h2>
+      <p><strong>The User bears full responsibility for all SQL queries executed through ProgreSQL against their databases.</strong></p>
+      <ul>
+        <li>ProgreSQL provides an interface for connecting to databases managed by the User;</li>
+        <li>All INSERT, UPDATE, DELETE, DROP, and other modifying queries are executed under the User's responsibility;</li>
+        <li>The Administration is not liable for data loss, table corruption, or other consequences of SQL query execution;</li>
+        <li>It is recommended to use Safe Mode to prevent accidental execution of dangerous queries.</li>
+      </ul>
+
+      <h2>4. AI Assistant: Limitations and Disclaimer</h2>
+      <p><strong>The AI assistant is provided "as is" and does not guarantee correctness.</strong></p>
+      <ul>
+        <li>AI may generate incorrect, suboptimal, or dangerous SQL code;</li>
+        <li>The User must review all AI-generated SQL queries before execution;</li>
+        <li>The Administration is not liable for the results of executing AI-suggested SQL queries;</li>
+        <li>AI responses do not constitute professional database administration advice.</li>
+      </ul>
+
+      <h2>5. Prohibition of Unauthorized Access</h2>
+      <p>The User agrees to:</p>
+      <ul>
+        <li>Connect only to databases to which they have lawful access;</li>
+        <li>Not use ProgreSQL for unauthorized access to third-party databases;</li>
+        <li>Not use the service to violate laws or third-party rights;</li>
+        <li>Not attempt to circumvent the service's security systems.</li>
+      </ul>
+
+      <h2>6. Subscription and Plans</h2>
+      <ul>
+        <li>Basic features (SQL editor, database browser) are available for free;</li>
+        <li>AI features (chat, query improvement) require a Pro subscription;</li>
+        <li>Pricing and subscription terms are specified in the Public Offer;</li>
+        <li>A trial period is provided upon registration.</li>
+      </ul>
+
+      <h2>7. Limitation of Liability</h2>
+      <p>The Administration is not liable for:</p>
+      <ul>
+        <li>Losses related to data loss in the User's databases;</li>
+        <li>Service interruptions caused by technical issues;</li>
+        <li>Actions of third parties who gain access to the User's account;</li>
+        <li>Results of using AI assistant recommendations.</li>
+      </ul>
+
+      <h2>8. Changes to Terms</h2>
+      <p>The Administration reserves the right to modify these Terms. Notification of changes will be sent to the User's email at least 14 days before the new version takes effect.</p>
+
+      <h2>9. Contact</h2>
+      <p>Support: Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+    </div>
+
+    <div class="nav-footer">
+      <div class="nav-links">
+        <a href="/legal/privacy.html">Privacy</a>
+        <a href="/legal/terms.html" class="current">Terms</a>
+        <a href="/legal/offer.html">Offer</a>
+        <a href="/legal/crypto-payments.html">Crypto Payments</a>
+        <a href="/legal/refunds.html">Refunds</a>
+        <a href="/legal/contacts.html">Contacts</a>
+      </div>
+      <a href="https://progresql.com" class="back-link">&larr; Back to home</a>
+    </div>
+  </div>
+
+  <script>
+    function switchLang(lang) {
+      var langs = ['ru', 'en'];
+      langs.forEach(function(l) {
+        document.getElementById('title-' + l).style.display = l === lang ? '' : 'none';
+        document.getElementById('version-' + l).style.display = l === lang ? '' : 'none';
+        document.getElementById('content-' + l).style.display = l === lang ? '' : 'none';
+        document.getElementById('btn-' + l).className = l === lang ? 'lang-btn active' : 'lang-btn';
+      });
+      document.documentElement.lang = lang;
+      localStorage.setItem('legal-lang', lang);
+    }
+    (function() {
+      var saved = localStorage.getItem('legal-lang');
+      if (saved && saved !== 'ru') switchLang(saved);
+    })();
+  </script>
+</body>
+</html>

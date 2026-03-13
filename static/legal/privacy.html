@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — ProgreSQL</title>
+  <meta name="description" content="ProgreSQL Privacy Policy — how we collect, use, and protect your personal data.">
+  <meta property="og:title" content="Privacy Policy — ProgreSQL">
+  <meta property="og:description" content="ProgreSQL Privacy Policy — how we collect, use, and protect your personal data.">
+  <link rel="icon" type="image/png" href="/payment/favicon.png">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #080b12;
+      color: #e2e8f0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+      z-index: 0;
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      z-index: 0;
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+      -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+    }
+    .card {
+      position: relative;
+      z-index: 1;
+      max-width: 800px;
+      width: 100%;
+      padding: 48px 40px;
+      background: rgba(15, 20, 35, 0.6);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      border-radius: 16px;
+      backdrop-filter: blur(20px);
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+    }
+    .logo {
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+    .logo span { color: #6366f1; }
+    .lang-switcher {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .lang-btn {
+      padding: 6px 16px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .lang-btn:hover { border-color: rgba(255,255,255,0.3); color: #e2e8f0; }
+    .lang-btn.active {
+      background: rgba(99, 102, 241, 0.2);
+      color: #818cf8;
+      border-color: rgba(99, 102, 241, 0.3);
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #e2e8f0;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .version-info {
+      text-align: center;
+      font-size: 13px;
+      color: #94a3b8;
+      margin-bottom: 32px;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-top: 28px;
+      margin-bottom: 12px;
+      border-left: 3px solid #6366f1;
+      padding-left: 12px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #94a3b8;
+      margin-bottom: 12px;
+    }
+    ul, ol {
+      margin: 0 0 12px 24px;
+      color: #94a3b8;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+    li { margin-bottom: 4px; }
+    a { color: #818cf8; text-decoration: none; transition: color 0.2s; }
+    a:hover { color: #6366f1; text-decoration: underline; }
+    strong { color: #e2e8f0; }
+    .nav-footer {
+      margin-top: 40px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(99, 102, 241, 0.1);
+      text-align: center;
+    }
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px 6px;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .nav-links a { color: #94a3b8; }
+    .nav-links a:hover { color: #818cf8; text-decoration: none; }
+    .nav-links .current { color: #818cf8; }
+    .nav-links a:not(:last-child)::after {
+      content: '\00b7';
+      margin-left: 6px;
+      color: #475569;
+    }
+    .back-link {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 14px;
+      color: #818cf8;
+    }
+    .back-link:hover { color: #6366f1; }
+    @media (max-width: 600px) {
+      body { padding: 20px 12px; }
+      .card { padding: 32px 20px; }
+      h1 { font-size: 20px; }
+      h2 { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="logo"><img src="/payment/icon.png" alt="" width="24" height="24" style="border-radius:5px;vertical-align:middle;margin-right:6px;">Progre<span>SQL</span></div>
+      <div class="lang-switcher">
+        <button class="lang-btn active" onclick="switchLang('ru')" id="btn-ru">RU</button>
+        <button class="lang-btn" onclick="switchLang('en')" id="btn-en">EN</button>
+      </div>
+    </div>
+
+    <div id="title-ru"><h1>Политика обработки персональных данных</h1></div>
+    <div id="title-en" style="display:none"><h1>Privacy Policy</h1></div>
+
+    <div id="version-ru" class="version-info">Версия: 1.0 | Дата вступления в силу: 20 марта 2026 г. | Последнее обновление: 20 марта 2026 г.</div>
+    <div id="version-en" class="version-info" style="display:none">Version: 1.0 | Effective date: March 20, 2026 | Last updated: March 20, 2026</div>
+
+    <div id="content-ru">
+      <h2>1. Оператор</h2>
+      <p>Оператором персональных данных является администрация сервиса ProgreSQL (далее — «Оператор», «мы»).<br>
+      Telegram для связи: <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+
+      <h2>2. Перечень обрабатываемых персональных данных</h2>
+      <p>Мы обрабатываем следующие категории персональных данных:</p>
+      <ul>
+        <li>Адрес электронной почты (email) — для регистрации, аутентификации, уведомлений;</li>
+        <li>Хеш пароля — для аутентификации (пароль в открытом виде не хранится);</li>
+        <li>IP-адрес — для обеспечения безопасности и ведения журналов;</li>
+        <li>User-Agent браузера/приложения — для технической поддержки и аналитики;</li>
+        <li>Идентификатор платежа — для обработки оплаты через CryptoCloud;</li>
+        <li>Дата и время действий пользователя — журналы событий.</li>
+      </ul>
+
+      <h2>3. Цели обработки</h2>
+      <ul>
+        <li>Предоставление доступа к сервису ProgreSQL и его функциям;</li>
+        <li>Аутентификация и авторизация пользователей;</li>
+        <li>Обработка платежей и управление подписками;</li>
+        <li>Отправка уведомлений о статусе подписки и безопасности аккаунта;</li>
+        <li>Техническая поддержка и устранение неполадок;</li>
+        <li>Обеспечение безопасности сервиса и предотвращение злоупотреблений;</li>
+        <li>Выполнение требований законодательства.</li>
+      </ul>
+
+      <h2>4. Правовые основания обработки</h2>
+      <ul>
+        <li><strong>Исполнение договора</strong> (ст. 6 п. 1 пп. b GDPR / п. 5 ч. 1 ст. 6 ФЗ-152) — обработка необходима для предоставления сервиса;</li>
+        <li><strong>Согласие пользователя</strong> (ст. 6 п. 1 пп. a GDPR / п. 1 ч. 1 ст. 6 ФЗ-152) — при регистрации пользователь даёт согласие на обработку;</li>
+        <li><strong>Законный интерес</strong> (ст. 6 п. 1 пп. f GDPR) — обеспечение безопасности сервиса.</li>
+      </ul>
+
+      <h2>5. Сроки хранения</h2>
+      <ul>
+        <li>Данные аккаунта — в течение срока действия аккаунта и 30 дней после удаления;</li>
+        <li>Платёжные данные — 3 года с момента совершения транзакции (требования бухгалтерского учёта);</li>
+        <li>Журналы событий — 12 месяцев;</li>
+        <li>Данные об акцепте правовых документов — бессрочно (для подтверждения согласия).</li>
+      </ul>
+
+      <h2>6. Передача данных третьим лицам</h2>
+      <p>Мы передаём данные следующим третьим лицам:</p>
+      <ul>
+        <li><strong>CryptoCloud</strong> (платёжный провайдер) — email и идентификатор заказа для обработки криптовалютных платежей. Политика конфиденциальности CryptoCloud доступна на их сайте.</li>
+      </ul>
+      <p>Мы не продаём персональные данные и не передаём их иным третьим лицам, за исключением случаев, предусмотренных законодательством.</p>
+
+      <h2>7. Права пользователя</h2>
+      <p>Вы имеете право:</p>
+      <ul>
+        <li>Запросить доступ к своим персональным данным;</li>
+        <li>Запросить исправление неточных данных;</li>
+        <li>Запросить удаление данных (право на забвение);</li>
+        <li>Отозвать согласие на обработку данных;</li>
+        <li>Запросить перенос данных (портативность);</li>
+        <li>Подать жалобу в надзорный орган.</li>
+      </ul>
+
+      <h2>8. Порядок отзыва согласия</h2>
+      <p>Для отзыва согласия на обработку персональных данных напишите нам в Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a> с указанием email вашего аккаунта. Обработка запроса — до 30 рабочих дней. Отзыв согласия влечёт удаление аккаунта и всех связанных данных.</p>
+
+      <h2>9. Безопасность</h2>
+      <p>Мы применяем следующие меры защиты: шифрование паролей (bcrypt), передача данных по HTTPS/TLS, JWT-токены для аутентификации, ограничение доступа к серверам.</p>
+
+      <h2>10. Контакты</h2>
+      <p>По вопросам обработки персональных данных: Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+    </div>
+
+    <div id="content-en" style="display:none">
+      <h2>1. Data Controller</h2>
+      <p>The data controller is the ProgreSQL service administration (hereinafter "Controller", "we").<br>
+      Contact Telegram: <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+
+      <h2>2. Personal Data We Collect</h2>
+      <p>We process the following categories of personal data:</p>
+      <ul>
+        <li>Email address — for registration, authentication, and notifications;</li>
+        <li>Password hash — for authentication (plaintext passwords are never stored);</li>
+        <li>IP address — for security and logging;</li>
+        <li>Browser/application User-Agent — for technical support and analytics;</li>
+        <li>Payment identifier — for processing payments via CryptoCloud;</li>
+        <li>Timestamps of user actions — event logs.</li>
+      </ul>
+
+      <h2>3. Purposes of Processing</h2>
+      <ul>
+        <li>Providing access to the ProgreSQL service and its features;</li>
+        <li>User authentication and authorization;</li>
+        <li>Payment processing and subscription management;</li>
+        <li>Sending notifications about subscription status and account security;</li>
+        <li>Technical support and troubleshooting;</li>
+        <li>Ensuring service security and preventing abuse;</li>
+        <li>Compliance with legal obligations.</li>
+      </ul>
+
+      <h2>4. Legal Basis for Processing</h2>
+      <ul>
+        <li><strong>Performance of a contract</strong> (Art. 6(1)(b) GDPR) — processing is necessary to provide the service;</li>
+        <li><strong>Consent</strong> (Art. 6(1)(a) GDPR) — the user gives consent upon registration;</li>
+        <li><strong>Legitimate interest</strong> (Art. 6(1)(f) GDPR) — ensuring service security.</li>
+      </ul>
+
+      <h2>5. Data Retention</h2>
+      <ul>
+        <li>Account data — for the duration of the account and 30 days after deletion;</li>
+        <li>Payment data — 3 years from the transaction date (accounting requirements);</li>
+        <li>Event logs — 12 months;</li>
+        <li>Legal document acceptance records — indefinitely (to confirm consent).</li>
+      </ul>
+
+      <h2>6. Third-Party Data Sharing</h2>
+      <p>We share data with the following third parties:</p>
+      <ul>
+        <li><strong>CryptoCloud</strong> (payment provider) — email and order identifier for processing cryptocurrency payments. CryptoCloud's privacy policy is available on their website.</li>
+      </ul>
+      <p>We do not sell personal data or share it with other third parties except as required by law.</p>
+
+      <h2>7. Your Rights</h2>
+      <p>You have the right to:</p>
+      <ul>
+        <li>Request access to your personal data;</li>
+        <li>Request correction of inaccurate data;</li>
+        <li>Request deletion of data (right to erasure);</li>
+        <li>Withdraw consent to data processing;</li>
+        <li>Request data portability;</li>
+        <li>Lodge a complaint with a supervisory authority.</li>
+      </ul>
+
+      <h2>8. Withdrawal of Consent</h2>
+      <p>To withdraw consent for data processing, write to us in Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a> specifying your account email. Processing time — up to 30 business days. Withdrawal of consent results in account deletion and removal of all associated data.</p>
+
+      <h2>9. Security</h2>
+      <p>We implement the following security measures: password encryption (bcrypt), data transmission over HTTPS/TLS, JWT tokens for authentication, restricted server access.</p>
+
+      <h2>10. Contact</h2>
+      <p>For data processing inquiries: Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+    </div>
+
+    <div class="nav-footer">
+      <div class="nav-links">
+        <a href="/legal/privacy.html" class="current">Privacy</a>
+        <a href="/legal/terms.html">Terms</a>
+        <a href="/legal/offer.html">Offer</a>
+        <a href="/legal/crypto-payments.html">Crypto Payments</a>
+        <a href="/legal/refunds.html">Refunds</a>
+        <a href="/legal/contacts.html">Contacts</a>
+      </div>
+      <a href="https://progresql.com" class="back-link">&larr; Back to home</a>
+    </div>
+  </div>
+
+  <script>
+    function switchLang(lang) {
+      var langs = ['ru', 'en'];
+      langs.forEach(function(l) {
+        document.getElementById('title-' + l).style.display = l === lang ? '' : 'none';
+        document.getElementById('version-' + l).style.display = l === lang ? '' : 'none';
+        document.getElementById('content-' + l).style.display = l === lang ? '' : 'none';
+        document.getElementById('btn-' + l).className = l === lang ? 'lang-btn active' : 'lang-btn';
+      });
+      document.documentElement.lang = lang;
+      localStorage.setItem('legal-lang', lang);
+    }
+    (function() {
+      var saved = localStorage.getItem('legal-lang');
+      if (saved && saved !== 'ru') switchLang(saved);
+    })();
+  </script>
+</body>
+</html>

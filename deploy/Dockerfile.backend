@@ -1,0 +1,25 @@
+# ---- Builder stage ----
+FROM golang:1.25-alpine AS builder
+
+RUN apk add --no-cache git
+
+WORKDIR /src
+
+# Cache dependencies
+COPY backend/go.mod backend/go.sum ./
+RUN go mod download
+
+# Copy source and build
+COPY backend/ .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/progressql-backend ./cmd/server
+
+# ---- Runner stage ----
+FROM alpine:3.20
+
+RUN apk add --no-cache ca-certificates tzdata
+
+COPY --from=builder /bin/progressql-backend /usr/local/bin/progressql-backend
+
+EXPOSE 8080
+
+ENTRYPOINT ["progressql-backend"]

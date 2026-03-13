@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Refund Policy — ProgreSQL</title>
+  <meta name="description" content="ProgreSQL Refund Policy — conditions and procedures for refunding subscription payments.">
+  <meta property="og:title" content="Refund Policy — ProgreSQL">
+  <meta property="og:description" content="ProgreSQL Refund Policy — conditions and procedures for refunding subscription payments.">
+  <link rel="icon" type="image/png" href="/payment/favicon.png">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #080b12;
+      color: #e2e8f0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+      z-index: 0;
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      z-index: 0;
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+      -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+    }
+    .card {
+      position: relative;
+      z-index: 1;
+      max-width: 800px;
+      width: 100%;
+      padding: 48px 40px;
+      background: rgba(15, 20, 35, 0.6);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      border-radius: 16px;
+      backdrop-filter: blur(20px);
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+    }
+    .logo {
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+    .logo span { color: #6366f1; }
+    .lang-switcher {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .lang-btn {
+      padding: 6px 16px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .lang-btn:hover { border-color: rgba(255,255,255,0.3); color: #e2e8f0; }
+    .lang-btn.active {
+      background: rgba(99, 102, 241, 0.2);
+      color: #818cf8;
+      border-color: rgba(99, 102, 241, 0.3);
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #e2e8f0;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .version-info {
+      text-align: center;
+      font-size: 13px;
+      color: #94a3b8;
+      margin-bottom: 32px;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-top: 28px;
+      margin-bottom: 12px;
+      border-left: 3px solid #6366f1;
+      padding-left: 12px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #94a3b8;
+      margin-bottom: 12px;
+    }
+    ul, ol {
+      margin: 0 0 12px 24px;
+      color: #94a3b8;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+    li { margin-bottom: 4px; }
+    a { color: #818cf8; text-decoration: none; transition: color 0.2s; }
+    a:hover { color: #6366f1; text-decoration: underline; }
+    strong { color: #e2e8f0; }
+    .nav-footer {
+      margin-top: 40px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(99, 102, 241, 0.1);
+      text-align: center;
+    }
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px 6px;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .nav-links a { color: #94a3b8; }
+    .nav-links a:hover { color: #818cf8; text-decoration: none; }
+    .nav-links .current { color: #818cf8; }
+    .nav-links a:not(:last-child)::after {
+      content: '\00b7';
+      margin-left: 6px;
+      color: #475569;
+    }
+    .back-link {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 14px;
+      color: #818cf8;
+    }
+    .back-link:hover { color: #6366f1; }
+    @media (max-width: 600px) {
+      body { padding: 20px 12px; }
+      .card { padding: 32px 20px; }
+      h1 { font-size: 20px; }
+      h2 { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="logo"><img src="/payment/icon.png" alt="" width="24" height="24" style="border-radius:5px;vertical-align:middle;margin-right:6px;">Progre<span>SQL</span></div>
+      <div class="lang-switcher">
+        <button class="lang-btn active" onclick="switchLang('ru')" id="btn-ru">RU</button>
+        <button class="lang-btn" onclick="switchLang('en')" id="btn-en">EN</button>
+      </div>
+    </div>
+
+    <div id="title-ru"><h1>Политика возвратов</h1></div>
+    <div id="title-en" style="display:none"><h1>Refund Policy</h1></div>
+
+    <div id="version-ru" class="version-info">Версия: 1.0 | Дата вступления в силу: 20 марта 2026 г. | Последнее обновление: 20 марта 2026 г.</div>
+    <div id="version-en" class="version-info" style="display:none">Version: 1.0 | Effective date: March 20, 2026 | Last updated: March 20, 2026</div>
+
+    <div id="content-ru">
+      <h2>1. Общие положения</h2>
+      <p>Настоящая Политика возвратов регулирует условия и порядок возврата средств за подписку на сервис ProgreSQL, оплаченную криптовалютой через CryptoCloud.</p>
+
+      <h2>2. Когда возврат возможен</h2>
+      <ul>
+        <li><strong>Техническая невозможность использования сервиса</strong> — если Pro-подписка не была активирована по вине Администрации в течение 72 часов;</li>
+        <li><strong>Двойное списание</strong> — повторная оплата одного и того же периода.</li>
+      </ul>
+
+      <h2>3. Когда возврат невозможен</h2>
+      <ul>
+        <li>Пользователь воспользовался AI-функциями;</li>
+        <li>Прошло более 72 часов с момента оплаты;</li>
+        <li>Средства отправлены на неверный адрес или в неверную сеть;</li>
+        <li>Пользователь нарушил условия Пользовательского соглашения;</li>
+        <li>Пользователь передумал.</li>
+      </ul>
+
+      <h2>4. Порядок обращения</h2>
+      <p>Для запроса возврата напишите нам в Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a>, указав:</p>
+      <ul>
+        <li>Email аккаунта;</li>
+        <li>Дату оплаты;</li>
+        <li>Сумму;</li>
+        <li>Причину возврата;</li>
+        <li>tx hash (идентификатор транзакции).</li>
+      </ul>
+
+      <h2>5. Сроки рассмотрения</h2>
+      <ul>
+        <li>Рассмотрение запроса: до 14 рабочих дней;</li>
+        <li>Возврат средств (в случае одобрения): до 30 рабочих дней.</li>
+      </ul>
+
+      <h2>6. Валюта и способ возврата</h2>
+      <ul>
+        <li>Возврат осуществляется в криптовалюте на указанный Пользователем кошелёк;</li>
+        <li>Валюта возврата может отличаться от валюты оплаты;</li>
+        <li>Сумма возврата рассчитывается в USD по курсу на дату оплаты;</li>
+        <li>Комиссии сети (gas fee) при возврате несёт Администрация.</li>
+      </ul>
+
+      <h2>7. Контакты</h2>
+      <p>Служба поддержки: Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+    </div>
+
+    <div id="content-en" style="display:none">
+      <h2>1. General Provisions</h2>
+      <p>This Refund Policy governs the conditions and procedures for refunding ProgreSQL subscription payments made in cryptocurrency via CryptoCloud.</p>
+
+      <h2>2. When Refunds Are Possible</h2>
+      <ul>
+        <li><strong>Technical inability to use the service</strong> — if the Pro subscription was not activated due to the Administration's fault within 72 hours;</li>
+        <li><strong>Duplicate charge</strong> — repeated payment for the same period.</li>
+      </ul>
+
+      <h2>3. When Refunds Are Not Possible</h2>
+      <ul>
+        <li>The User has used AI features;</li>
+        <li>More than 72 hours have passed since payment;</li>
+        <li>Funds were sent to an incorrect address or network;</li>
+        <li>The User violated the Terms of Use;</li>
+        <li>The User changed their mind.</li>
+      </ul>
+
+      <h2>4. Refund Request Procedure</h2>
+      <p>To request a refund, write to us in Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a> with the following information:</p>
+      <ul>
+        <li>Account email;</li>
+        <li>Payment date;</li>
+        <li>Amount;</li>
+        <li>Reason for refund;</li>
+        <li>tx hash (transaction identifier).</li>
+      </ul>
+
+      <h2>5. Processing Time</h2>
+      <ul>
+        <li>Request review: up to 14 business days;</li>
+        <li>Refund (if approved): up to 30 business days.</li>
+      </ul>
+
+      <h2>6. Refund Currency and Method</h2>
+      <ul>
+        <li>Refunds are made in cryptocurrency to the wallet specified by the User;</li>
+        <li>Refund currency may differ from the payment currency;</li>
+        <li>Refund amount is calculated in USD at the exchange rate on the payment date;</li>
+        <li>Network gas fees for the refund are covered by the Administration.</li>
+      </ul>
+
+      <h2>7. Contact</h2>
+      <p>Support: Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+    </div>
+
+    <div class="nav-footer">
+      <div class="nav-links">
+        <a href="/legal/privacy.html">Privacy</a>
+        <a href="/legal/terms.html">Terms</a>
+        <a href="/legal/offer.html">Offer</a>
+        <a href="/legal/crypto-payments.html">Crypto Payments</a>
+        <a href="/legal/refunds.html" class="current">Refunds</a>
+        <a href="/legal/contacts.html">Contacts</a>
+      </div>
+      <a href="https://progresql.com" class="back-link">&larr; Back to home</a>
+    </div>
+  </div>
+
+  <script>
+    function switchLang(lang) {
+      var langs = ['ru', 'en'];
+      langs.forEach(function(l) {
+        document.getElementById('title-' + l).style.display = l === lang ? '' : 'none';
+        document.getElementById('version-' + l).style.display = l === lang ? '' : 'none';
+        document.getElementById('content-' + l).style.display = l === lang ? '' : 'none';
+        document.getElementById('btn-' + l).className = l === lang ? 'lang-btn active' : 'lang-btn';
+      });
+      document.documentElement.lang = lang;
+      localStorage.setItem('legal-lang', lang);
+    }
+    (function() {
+      var saved = localStorage.getItem('legal-lang');
+      if (saved && saved !== 'ru') switchLang(saved);
+    })();
+  </script>
+</body>
+</html>

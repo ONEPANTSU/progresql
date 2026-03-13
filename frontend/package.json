@@ -1,0 +1,135 @@
+{
+  "name": "progresql",
+  "productName": "ProgreSQL",
+  "version": "1.0.0",
+  "description": "PostgreSQL Client Application built with Nextron",
+  "license": "ISC",
+  "author": "ONEPANTSU",
+  "main": "main.js",
+  "homepage": "./",
+  "scripts": {
+    "dev": "nextron",
+    "build": "nextron build",
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "postinstall": "electron-builder install-app-deps",
+    "mock-ws": "node mock-websocket-server.js",
+    "test:mcp": "node test-mcp.js",
+    "test": "jest",
+    "test:unit": "jest --verbose",
+    "test:e2e": "npx playwright test",
+    "test:e2e:headed": "npx playwright test --headed",
+    "generate:dmg-bg": "node build/generate-dmg-bg.mjs"
+  },
+  "dependencies": {
+    "@codemirror/autocomplete": "^6.11.0",
+    "@codemirror/commands": "^6.3.3",
+    "@codemirror/lang-sql": "^6.9.1",
+    "@codemirror/language": "^6.10.0",
+    "@codemirror/search": "^6.5.11",
+    "@codemirror/state": "^6.4.0",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@codemirror/view": "^6.23.0",
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
+    "@mui/icons-material": "^5.14.19",
+    "@mui/material": "^5.14.20",
+    "codemirror": "^6.0.2",
+    "electron-updater": "^6.8.3",
+    "highlight.js": "^11.11.1",
+    "pg": "^8.11.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-resizable-panels": "^3.0.5",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
+    "@playwright/test": "^1.58.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.9.0",
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "electron": "^37.4.0",
+    "electron-builder": "^24.9.1",
+    "electron-is-dev": "^2.0.0",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0",
+    "next": "^14.0.0",
+    "nextron": "^9.5.0",
+    "playwright": "^1.58.2",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.3.2"
+  },
+  "build": {
+    "appId": "com.progresql.app",
+    "productName": "ProgreSQL",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "mcp-manager.js",
+      "logger.js",
+      "db-health.js",
+      "tool-server.js",
+      "packages/**/*",
+      "app/**/*",
+      "renderer/**/*",
+      "public/**/*",
+      "node_modules/**/*"
+    ],
+    "dmg": {
+      "background": "public/assets/dmg/background.png",
+      "icon": "public/assets/icon.icns",
+      "iconSize": 100,
+      "sign": false,
+      "window": {
+        "width": 660,
+        "height": 400
+      },
+      "contents": [
+        { "x": 170, "y": 180, "type": "file" },
+        { "x": 490, "y": 180, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "public/assets/icon.icns",
+      "bundleVersion": "1.0.0",
+      "darkModeSupport": true,
+      "type": "distribution",
+      "hardenedRuntime": true,
+      "extendInfo": {
+        "CFBundleName": "ProgreSQL",
+        "CFBundleDisplayName": "ProgreSQL"
+      }
+    },
+    "nsis": {
+      "allowToChangeInstallationDirectory": true,
+      "oneClick": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "public/assets/icon.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/assets/icon.png"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "ONEPANTSU",
+      "repo": "progresql",
+      "private": true
+    }
+  }
+}
