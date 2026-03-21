@@ -2994,3 +2994,20 @@ TASK-208 completed. ER diagram: removed left panel tabs, opens via context menu 
 - npm run build (next build) — compiled successfully
 - No Python code modified — ruff/pytest unaffected
 - Next priorities: TASK-209 (ER zoom/FK fixes, medium, now unblocked), TASK-212 (cell editing bug, medium), TASK-210 (ER context menu, low, now unblocked), TASK-216 (chat DB dropdown, medium)
+
+TASK-212 completed. BUG: Cell editing — save icon now green checkmark, UPDATE saves to DB correctly.
+- Fixed save icon: added color="success" to CheckIcon IconButton (was default gray)
+- Fixed cancel icon: added color="error" to CloseIcon IconButton for visual consistency
+- Fixed UPDATE not persisting: introduced onMutateQuery prop for silent mutation execution
+  - onMutateQuery executes UPDATE/INSERT/DELETE without updating queryResult or lastExecutedQuery state
+  - Prevents intermediate empty-table flash that occurred when UPDATE result replaced queryResult
+  - Returns {success, message} for proper error handling (keeps editing state on failure)
+  - Falls back to onExecuteQuery if onMutateQuery not provided (backward compatible)
+- handleMutateQuery in index.tsx: executes query via electronAPI.executeQuery, shows error notification on failure, does not touch queryResult/lastExecutedQuery
+- Updated handleEditSave: uses onMutateQuery for UPDATE, then onExecuteQuery to refresh with original SELECT
+- Updated handleDeleteSelected: same onMutateQuery pattern for DELETE operations
+- Updated handleAddRowSave: same onMutateQuery pattern for INSERT operations
+- Updated canMutate: considers both onExecuteQuery and onMutateQuery
+- npx tsc --noEmit — 0 new errors (pre-existing SchemaSyncModal errors unchanged)
+- Python code not modified — ruff/pytest unaffected
+- Next priorities: TASK-209 (ER zoom/FK fixes, medium), TASK-216 (chat DB dropdown, medium), TASK-210 (ER context menu, low)

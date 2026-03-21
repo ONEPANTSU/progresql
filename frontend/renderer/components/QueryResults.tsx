@@ -37,6 +37,7 @@ interface QueryResultsProps {
   result: QueryResult | null;
   executedQuery?: string;
   onExecuteQuery?: (query: string) => Promise<void>;
+  onMutateQuery?: (query: string) => Promise<{ success: boolean; message?: string }>;
   onFixInChat?: (sql: string, error: string) => void;
 }
 
@@ -107,7 +108,7 @@ function qualifiedTable(schema: string | null, table: string): string {
   return quoteIdentifier(table);
 }
 
-export default function QueryResults({ result, executedQuery, onExecuteQuery, onFixInChat }: QueryResultsProps) {
+export default function QueryResults({ result, executedQuery, onExecuteQuery, onMutateQuery, onFixInChat }: QueryResultsProps) {
   const { t } = useTranslation();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
@@ -134,7 +135,7 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
   const dragRef = useRef<{ dragIndex: number } | null>(null);
 
   const queryInfo = executedQuery ? detectTableFromQuery(executedQuery) : { schema: null, table: null, isSelectStar: false };
-  const canMutate = !!queryInfo.table && !!onExecuteQuery;
+  const canMutate = !!queryInfo.table && !!(onExecuteQuery || onMutateQuery);
 
   // Reset column order when result changes
   useEffect(() => {
@@ -239,7 +240,7 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
   }, []);
 
   const handleEditSave = useCallback(async () => {
-    if (!editingCell || !result || !queryInfo.table || !onExecuteQuery) return;
+    if (!editingCell || !result || !queryInfo.table) return;
     const row = sortedRows[editingCell.rowIndex];
     if (!row) return;
 
@@ -248,12 +249,21 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
     const tbl = qualifiedTable(queryInfo.schema, queryInfo.table);
     const sql = `UPDATE ${tbl} SET ${quoteIdentifier(editingCell.fieldName)} = ${newVal} WHERE ctid = (SELECT ctid FROM ${tbl} WHERE ${where} LIMIT 1)`;
 
-    await onExecuteQuery(sql);
-    // Re-run original query to refresh
-    if (executedQuery) await onExecuteQuery(executedQuery);
+    // Use onMutateQuery for silent UPDATE (doesn't reset UI), fall back to onExecuteQuery
+    if (onMutateQuery) {
+      const res = await onMutateQuery(sql);
+      if (!res.success) return; // UPDATE failed, keep editing state
+    } else if (onExecuteQuery) {
+      await onExecuteQuery(sql);
+    } else {
+      return;
+    }
+
+    // Re-run original query to refresh the table
+    if (executedQuery && onExecuteQuery) await onExecuteQuery(executedQuery);
     setEditingCell(null);
     setEditValue('');
-  }, [editingCell, editValue, result, sortedRows, queryInfo, onExecuteQuery, executedQuery]);
+  }, [editingCell, editValue, result, sortedRows, queryInfo, onExecuteQuery, onMutateQuery, executedQuery]);
 
   // --- Row selection ---
   const handleToggleRow = useCallback((rowIndex: number) => {
@@ -275,7 +285,8 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
 
   // --- Row deletion ---
   const handleDeleteSelected = useCallback(async () => {
-    if (!result || !queryInfo.table || !onExecuteQuery || selectedRows.size === 0) return;
+    if (!result || !queryInfo.table || selectedRows.size === 0) return;
+    if (!onMutateQuery && !onExecuteQuery) return;
     const tbl = qualifiedTable(queryInfo.schema, queryInfo.table);
 
     for (const rowIndex of Array.from(selectedRows).sort((a, b) => b - a)) {
@@ -283,14 +294,18 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
       if (!row) continue;
       const where = buildWhereClause(row, result.fields);
       const sql = `DELETE FROM ${tbl} WHERE ctid = (SELECT ctid FROM ${tbl} WHERE ${where} LIMIT 1)`;
-      await onExecuteQuery(sql);
+      if (onMutateQuery) {
+        await onMutateQuery(sql);
+      } else if (onExecuteQuery) {
+        await onExecuteQuery(sql);
+      }
     }
 
     setDeleteConfirm(false);
     setSelectedRows(new Set());
     // Refresh
-    if (executedQuery) await onExecuteQuery(executedQuery);
-  }, [selectedRows, result, sortedRows, queryInfo, onExecuteQuery, executedQuery]);
+    if (executedQuery && onExecuteQuery) await onExecuteQuery(executedQuery);
+  }, [selectedRows, result, sortedRows, queryInfo, onExecuteQuery, onMutateQuery, executedQuery]);
 
   // --- Add row ---
   const handleAddRowStart = useCallback(() => {
@@ -307,7 +322,8 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
   }, []);
 
   const handleAddRowSave = useCallback(async () => {
-    if (!result || !queryInfo.table || !onExecuteQuery) return;
+    if (!result || !queryInfo.table) return;
+    if (!onMutateQuery && !onExecuteQuery) return;
     const columns = result.fields.map((f) => quoteIdentifier(f.name)).join(', ');
     const values = result.fields.map((f) => {
       const v = newRowValues[f.name];
@@ -317,12 +333,17 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
     }).join(', ');
     const sql = `INSERT INTO ${qualifiedTable(queryInfo.schema, queryInfo.table)} (${columns}) VALUES (${values})`;
 
-    await onExecuteQuery(sql);
+    if (onMutateQuery) {
+      const res = await onMutateQuery(sql);
+      if (!res.success) return;
+    } else if (onExecuteQuery) {
+      await onExecuteQuery(sql);
+    }
     setIsAddingRow(false);
     setNewRowValues({});
     // Refresh
-    if (executedQuery) await onExecuteQuery(executedQuery);
-  }, [result, queryInfo, newRowValues, onExecuteQuery, executedQuery]);
+    if (executedQuery && onExecuteQuery) await onExecuteQuery(executedQuery);
+  }, [result, queryInfo, newRowValues, onExecuteQuery, onMutateQuery, executedQuery]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -561,10 +582,10 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
                                   variant="standard"
                                   sx={{ flex: 1, '& input': { fontSize: '0.875rem', py: 0 } }}
                                 />
-                                <IconButton size="small" onClick={handleEditSave} sx={{ p: 0.25 }}>
+                                <IconButton size="small" onClick={handleEditSave} color="success" sx={{ p: 0.25 }}>
                                   <CheckIcon sx={{ fontSize: 16 }} />
                                 </IconButton>
-                                <IconButton size="small" onClick={handleEditCancel} sx={{ p: 0.25 }}>
+                                <IconButton size="small" onClick={handleEditCancel} color="error" sx={{ p: 0.25 }}>
                                   <CloseIcon sx={{ fontSize: 16 }} />
                                 </IconButton>
                               </Box>

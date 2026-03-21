@@ -660,6 +660,26 @@ export default function Home() {
     setTimeout(() => chatPanelRef.current?.setInputText(context), 50);
   };
 
+  // Silent mutation (UPDATE/INSERT/DELETE) — doesn't update queryResult/lastExecutedQuery
+  const handleMutateQuery = async (query: string): Promise<{ success: boolean; message?: string }> => {
+    if (isReconnecting) {
+      return { success: false, message: 'Database is reconnecting. Please wait...' };
+    }
+    const connId = sqlTabs.activeTab?.connectionId ?? activeConnection?.id ?? '';
+    try {
+      const result = await window.electronAPI.executeQuery(connId, query);
+      if (!result.success) {
+        showError(result.message || 'Mutation failed');
+        return { success: false, message: result.message };
+      }
+      return { success: true };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      showError(msg);
+      return { success: false, message: msg };
+    }
+  };
+
   const handleExecuteQuery = async (query: string) => {
     if (isReconnecting) {
       showError('Database is reconnecting. Please wait...');
@@ -943,7 +963,7 @@ export default function Home() {
                         >
                           <Box sx={{ height: '100%' }}>
                             <ErrorBoundary panelName="Query Results">
-                              <QueryResults result={queryResult} executedQuery={lastExecutedQuery} onExecuteQuery={handleExecuteQuery} onFixInChat={handleFixInChat} />
+                              <QueryResults result={queryResult} executedQuery={lastExecutedQuery} onExecuteQuery={handleExecuteQuery} onMutateQuery={handleMutateQuery} onFixInChat={handleFixInChat} />
                             </ErrorBoundary>
                           </Box>
                         </Panel>
