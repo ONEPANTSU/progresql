@@ -18,11 +18,11 @@ import {
 } from '@mui/icons-material';
 import { format as formatSQL } from 'sql-formatter';
 import { EditorView, basicSetup } from 'codemirror';
-import { EditorState, Transaction, Compartment } from '@codemirror/state';
+import { EditorState, Transaction, Compartment, StateEffect, StateField, RangeSet } from '@codemirror/state';
 import { sql, PostgreSQL } from '@codemirror/lang-sql';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
-import { EditorView as EditorViewTheme } from '@codemirror/view';
+import { EditorView as EditorViewTheme, Decoration, GutterMarker, gutter } from '@codemirror/view';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { createLogger } from '../utils/logger';
@@ -81,6 +81,53 @@ const progreSQLHighlight = HighlightStyle.define([
   { tag: tags.standard(tags.name), color: '#e5c07b' },
 ]);
 
+// Error line decoration system
+const setErrorLine = StateEffect.define<number | null>();
+
+const errorLineDecoration = Decoration.line({ class: 'cm-errorLine' });
+
+const errorLineField = StateField.define({
+  create() { return Decoration.none; },
+  update(decorations, tr) {
+    for (const e of tr.effects) {
+      if (e.is(setErrorLine)) {
+        if (e.value === null) return Decoration.none;
+        const lineNum = e.value;
+        if (lineNum < 1 || lineNum > tr.state.doc.lines) return Decoration.none;
+        const line = tr.state.doc.line(lineNum);
+        return RangeSet.of([errorLineDecoration.range(line.from)]);
+      }
+    }
+    return decorations.map(tr.changes);
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+class ErrorGutterMarker extends GutterMarker {
+  toDOM() {
+    const el = document.createElement('span');
+    el.style.cssText = 'color: #f85149; font-size: 14px; line-height: 1;';
+    el.textContent = '\u25CF'; // filled circle
+    return el;
+  }
+}
+
+const errorGutterMarker = new ErrorGutterMarker();
+
+const errorGutter = gutter({
+  class: 'cm-error-gutter',
+  markers(view) {
+    const decos = view.state.field(errorLineField);
+    const markers: { from: number; marker: GutterMarker }[] = [];
+    const iter = decos.iter();
+    while (iter.value) {
+      markers.push({ from: iter.from, marker: errorGutterMarker });
+      iter.next();
+    }
+    return RangeSet.of(markers.map(m => m.marker.range(m.from)));
+  },
+});
+
 export interface SQLEditorHandle {
   insertText: (text: string) => void;
   replaceSelection: (text: string) => void;
@@ -100,12 +147,13 @@ interface SQLEditorProps {
   onCloseTab: (tabId: string) => void;
   onContentChange: (tabId: string, content: string) => void;
   databaseInfo?: DatabaseInfo | null;
+  errorLine?: number | null;
 }
 
 const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor({
   onExecuteQuery, onImproveQuery, isImproving = false,
   tabs, activeTab, activeTabId, onTabChange, onCreateTab, onCloseTab, onContentChange,
-  databaseInfo,
+  databaseInfo, errorLine = null,
 }, ref) {
   const { actualTheme } = useTheme();
   const { t } = useTranslation();
@@ -206,9 +254,13 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
             upperCaseKeywords: true,
           })),
           updateListener,
+          errorLineField,
+          errorGutter,
           EditorView.theme({
             "&": { height: "100%", maxHeight: "100%", overflow: "auto" },
             ".cm-scroller": { overflow: "auto", maxHeight: "100%", overscrollBehavior: "contain" },
+            ".cm-errorLine": { backgroundColor: "rgba(248, 81, 73, 0.15)" },
+            ".cm-error-gutter": { width: "16px" },
           }),
           EditorView.domEventHandlers({
             wheel: () => false,
@@ -287,6 +339,13 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
       })),
     });
   }, [databaseInfo]);
+
+  // Apply error line decoration when errorLine prop changes
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({ effects: setErrorLine.of(errorLine) });
+  }, [errorLine]);
 
   const getQueryToExecute = useCallback((): string => {
     const view = viewRef.current;

@@ -2700,3 +2700,30 @@ TASK-197 completed. SQL auto-verification via EXPLAIN in chat.
 - Go tests: pre-existing failures in api/rest (nil pgxpool, requires DB), not related to this change
 - Frontend tests: pre-existing failures (missing AuthProvider in test wrappers), not related to this change
 - Next priorities: TASK-195 (error highlighting, medium), TASK-198 (chart types backend, medium), TASK-201 (ER diagram, medium)
+
+TASK-195 completed. SQL error line highlighting in editor + Fix in Chat button in results panel.
+- SQLEditor.tsx: added CodeMirror 6 error line decoration system:
+  - StateEffect/StateField for error line tracking (setErrorLine effect)
+  - Line decoration: red background (rgba(248,81,73,0.15)) via Decoration.line with .cm-errorLine class
+  - Error gutter: red filled circle marker (ErrorGutterMarker extends GutterMarker) in dedicated .cm-error-gutter column
+  - errorLineField state field maps decorations through document changes
+  - New errorLine prop (number | null) — useEffect dispatches setErrorLine effect on prop change
+- QueryResults.tsx: enhanced error display with Fix in Chat button:
+  - Error messages (starting with "Error:") now rendered in monospace red text (error.main color)
+  - "Fix in Chat" button (MUI Button with AutoFixHigh icon) visible when error + onFixInChat callback present
+  - New onFixInChat prop: (sql: string, error: string) => void
+  - Non-error empty results still show "No results to display" (unchanged)
+- index.tsx: full error flow wiring:
+  - Added errorLine state (number | null)
+  - parseErrorLine() parses line numbers from PostgreSQL errors: "LINE N:", "at line N", "line N" patterns
+  - handleExecuteQuery: sets errorLine on error, clears errorLine (null) on success
+  - handleFixInChat: opens chat panel, sets input text with SQL + error context for AI fixing
+  - errorLine passed to SQLEditor, onFixInChat passed to QueryResults
+- All 4 acceptance criteria met:
+  - Error line highlighted red with gutter icon in editor
+  - Fix in Chat button visible in results panel on error
+  - Click sends SQL + error context to chat input
+  - Successful query clears highlighting (setErrorLine(null))
+- TypeScript: npx tsc --noEmit — 0 errors, npm run build (next build) — compiled successfully
+- No Python code modified — ruff/pytest unaffected
+- Next priorities: TASK-198 (chart types backend, medium), TASK-201 (ER diagram, medium), TASK-202 (connection pill, medium)

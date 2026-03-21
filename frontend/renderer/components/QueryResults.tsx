@@ -28,6 +28,7 @@ import {
   Close as CloseIcon,
   CheckBoxOutlineBlank as UncheckedIcon,
   CheckBox as CheckedIcon,
+  AutoFixHigh as FixIcon,
 } from '@mui/icons-material';
 import { QueryResult } from '../types';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -36,6 +37,7 @@ interface QueryResultsProps {
   result: QueryResult | null;
   executedQuery?: string;
   onExecuteQuery?: (query: string) => Promise<void>;
+  onFixInChat?: (sql: string, error: string) => void;
 }
 
 function detectTableFromQuery(query: string): { schema: string | null; table: string | null; isSelectStar: boolean } {
@@ -105,7 +107,7 @@ function qualifiedTable(schema: string | null, table: string): string {
   return quoteIdentifier(table);
 }
 
-export default function QueryResults({ result, executedQuery, onExecuteQuery }: QueryResultsProps) {
+export default function QueryResults({ result, executedQuery, onExecuteQuery, onFixInChat }: QueryResultsProps) {
   const { t } = useTranslation();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
@@ -644,9 +646,29 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery }: 
 
       {result.rows.length === 0 && result.message !== 'Query executed successfully' && (
         <Box sx={{ p: 3, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            No results to display
-          </Typography>
+          {result.message.startsWith('Error:') ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+              <Typography variant="body2" color="error.main" sx={{ fontFamily: 'monospace', fontSize: '0.8125rem', whiteSpace: 'pre-wrap', textAlign: 'left', maxWidth: '100%', wordBreak: 'break-word' }}>
+                {result.message}
+              </Typography>
+              {onFixInChat && executedQuery && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<FixIcon />}
+                  onClick={() => onFixInChat(executedQuery, result.message)}
+                  sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                >
+                  Fix in Chat
+                </Button>
+              )}
+            </Box>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              No results to display
+            </Typography>
+          )}
         </Box>
       )}
 

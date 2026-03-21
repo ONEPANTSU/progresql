@@ -60,6 +60,7 @@ export default function Home() {
   const [connectingId, setConnectingId] = useState<string | null>(null);
   const [connectionErrors, setConnectionErrors] = useState<Record<string, string>>({});
   const [isImproving, setIsImproving] = useState(false);
+  const [errorLine, setErrorLine] = useState<number | null>(null);
   const sqlEditorRef = useRef<SQLEditorHandle>(null);
   const chatPanelRef = useRef<ChatPanelHandle>(null);
   const agent = useAgent();
@@ -592,6 +593,26 @@ export default function Home() {
     sqlEditorRef.current?.replaceSelection(sql);
   };
 
+  // Parse line number from PostgreSQL error messages (e.g. "ERROR: ... at line 3", "LINE 3:")
+  const parseErrorLine = (errorMsg: string): number | null => {
+    // PostgreSQL "LINE N:" pattern
+    const lineMatch = errorMsg.match(/LINE\s+(\d+)/i);
+    if (lineMatch) return parseInt(lineMatch[1], 10);
+    // "at line N" pattern
+    const atLineMatch = errorMsg.match(/at\s+line\s+(\d+)/i);
+    if (atLineMatch) return parseInt(atLineMatch[1], 10);
+    // "line N" at end
+    const endLineMatch = errorMsg.match(/line\s+(\d+)\s*$/im);
+    if (endLineMatch) return parseInt(endLineMatch[1], 10);
+    return null;
+  };
+
+  const handleFixInChat = (sqlQuery: string, errorMsg: string) => {
+    if (!isChatOpen) setIsChatOpen(true);
+    const context = `Fix this SQL error:\n\n\`\`\`sql\n${sqlQuery}\n\`\`\`\n\nError: ${errorMsg}`;
+    setTimeout(() => chatPanelRef.current?.setInputText(context), 50);
+  };
+
   const handleExecuteQuery = async (query: string) => {
     if (isReconnecting) {
       showError('Database is reconnecting. Please wait...');
@@ -609,7 +630,8 @@ export default function Home() {
           message: 'Query executed successfully',
           timestamp: new Date().toISOString(),
         });
-        setConnectionError(null); // Clear connection error on successful query
+        setConnectionError(null);
+        setErrorLine(null); // Clear error highlighting on success
       } else {
         const msg = result.message || '';
         // Check if it's a connection error with auto-reconnect
@@ -619,6 +641,8 @@ export default function Home() {
         } else {
           showError(msg);
         }
+
+        setErrorLine(parseErrorLine(msg));
 
         setQueryResult({
           rows: [],
@@ -636,6 +660,8 @@ export default function Home() {
         setIsReconnecting(true);
         showError(t('notify.connectionLost'));
       }
+
+      setErrorLine(parseErrorLine(errorMessage));
 
       setQueryResult({
         rows: [],
@@ -745,6 +771,7 @@ export default function Home() {
                             onCloseTab={sqlTabs.closeTab}
                             onContentChange={sqlTabs.updateTabContent}
                             databaseInfo={activeConnection?.databases?.[0] ?? null}
+                            errorLine={errorLine}
                           />
                         </ErrorBoundary>
                       </Box>
@@ -768,7 +795,7 @@ export default function Home() {
                     >
                       <Box sx={{ height: '100%' }}>
                         <ErrorBoundary panelName="Query Results">
-                          <QueryResults result={queryResult} executedQuery={lastExecutedQuery} onExecuteQuery={handleExecuteQuery} />
+                          <QueryResults result={queryResult} executedQuery={lastExecutedQuery} onExecuteQuery={handleExecuteQuery} onFixInChat={handleFixInChat} />
                         </ErrorBoundary>
                       </Box>
                     </Panel>
