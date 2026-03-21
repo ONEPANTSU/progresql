@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
-  Paper,
-  Tab,
-  Tabs,
   Typography,
+  IconButton,
 } from '@mui/material';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import DatabasePanel from '../components/DatabasePanel';
@@ -28,6 +26,8 @@ import { getSubscriptionWarning } from '../services/auth';
 import { useSQLTabs } from '../hooks/useSQLTabs';
 import { userKey } from '../utils/userStorage';
 import { useTranslation } from '../contexts/LanguageContext';
+import CloseIcon from '@mui/icons-material/Close';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 
 const log = createLogger('Index');
 
@@ -64,7 +64,8 @@ export default function Home() {
   const [connectionErrors, setConnectionErrors] = useState<Record<string, string>>({});
   const [isImproving, setIsImproving] = useState(false);
   const [errorLine, setErrorLine] = useState<number | null>(null);
-  const [leftPanelTab, setLeftPanelTab] = useState<'explorer' | 'er-diagram'>('explorer');
+  const [erDiagramTabs, setErDiagramTabs] = useState<Array<{ id: string; connectionId: string; connectionName: string }>>([]);
+  const [activeCenterTab, setActiveCenterTab] = useState<{ type: 'sql'; id?: string } | { type: 'er'; id: string }>({ type: 'sql' });
   const sqlEditorRef = useRef<SQLEditorHandle>(null);
   const chatPanelRef = useRef<ChatPanelHandle>(null);
   const agent = useAgent();
@@ -613,6 +614,32 @@ export default function Home() {
     sqlEditorRef.current?.replaceSelection(sql);
   };
 
+  const handleOpenERDiagram = (connectionId: string) => {
+    const conn = connections.find(c => c.id === connectionId);
+    if (!conn) return;
+    // Check if tab already exists for this connection
+    const existing = erDiagramTabs.find(t => t.connectionId === connectionId);
+    if (existing) {
+      setActiveCenterTab({ type: 'er', id: existing.id });
+      return;
+    }
+    const newTab = {
+      id: `er-${connectionId}-${Date.now()}`,
+      connectionId,
+      connectionName: conn.connectionName || conn.host || 'Database',
+    };
+    setErDiagramTabs(prev => [...prev, newTab]);
+    setActiveCenterTab({ type: 'er', id: newTab.id });
+  };
+
+  const handleCloseERTab = (tabId: string) => {
+    setErDiagramTabs(prev => prev.filter(t => t.id !== tabId));
+    // If we're closing the active ER tab, switch back to SQL
+    if (activeCenterTab.type === 'er' && activeCenterTab.id === tabId) {
+      setActiveCenterTab({ type: 'sql' });
+    }
+  };
+
   // Parse line number from PostgreSQL error messages (e.g. "ERROR: ... at line 3", "LINE 3:")
   const parseErrorLine = (errorMsg: string): number | null => {
     // PostgreSQL "LINE N:" pattern
@@ -720,61 +747,30 @@ export default function Home() {
                     id="database-panel"
                   >
                     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRight: '1px solid', borderColor: DIVIDER_COLOR }}>
-                      <Tabs
-                        value={leftPanelTab}
-                        onChange={(_e, v) => setLeftPanelTab(v)}
-                        variant="fullWidth"
-                        sx={{
-                          minHeight: 32,
-                          borderBottom: '1px solid',
-                          borderColor: DIVIDER_COLOR,
-                          flexShrink: 0,
-                          '& .MuiTab-root': {
-                            minHeight: 32,
-                            py: 0.5,
-                            fontSize: 11,
-                            textTransform: 'none',
-                            color: 'text.secondary',
-                            '&.Mui-selected': { color: 'text.primary' },
-                          },
-                          '& .MuiTabs-indicator': { height: 2 },
-                        }}
-                      >
-                        <Tab label="Explorer" value="explorer" />
-                        <Tab label="ER Diagram" value="er-diagram" />
-                      </Tabs>
                       <Box sx={{ flex: 1, overflow: 'hidden' }}>
-                        {leftPanelTab === 'explorer' ? (
-                          <ErrorBoundary panelName="Database Panel">
-                            <DatabasePanel
-                              connections={connections}
-                              activeConnection={activeConnection}
-                              onAddConnection={handleAddConnection}
-                              onConnect={handleConnect}
-                              onDisconnect={handleDisconnect}
-                              onDeleteConnection={handleDeleteConnection}
-                              onEditConnection={handleEditConnection}
-                              onRefreshConnection={handleRefreshConnection}
-                              onSelectTable={handleSelectTable}
-                              onSelectView={handleSelectView}
-                              onSelectFunction={handleSelectFunction}
-                              onSelectProcedure={handleSelectProcedure}
-                              onExplainObject={handleExplainObject}
-                              onQueryTable={handleQueryTable}
-                              onApplySQL={handleApplySQL}
-                              isRestoringConnections={isRestoringConnections}
-                              connectingId={connectingId}
-                              connectionErrors={connectionErrors}
-                            />
-                          </ErrorBoundary>
-                        ) : (
-                          <ErrorBoundary panelName="ER Diagram">
-                            <ERDiagram
-                              tables={activeConnection?.databases?.[0]?.tables ?? []}
-                              constraints={activeConnection?.databases?.[0]?.constraints ?? []}
-                            />
-                          </ErrorBoundary>
-                        )}
+                        <ErrorBoundary panelName="Database Panel">
+                          <DatabasePanel
+                            connections={connections}
+                            activeConnection={activeConnection}
+                            onAddConnection={handleAddConnection}
+                            onConnect={handleConnect}
+                            onDisconnect={handleDisconnect}
+                            onDeleteConnection={handleDeleteConnection}
+                            onEditConnection={handleEditConnection}
+                            onRefreshConnection={handleRefreshConnection}
+                            onSelectTable={handleSelectTable}
+                            onSelectView={handleSelectView}
+                            onSelectFunction={handleSelectFunction}
+                            onSelectProcedure={handleSelectProcedure}
+                            onExplainObject={handleExplainObject}
+                            onQueryTable={handleQueryTable}
+                            onApplySQL={handleApplySQL}
+                            onOpenERDiagram={handleOpenERDiagram}
+                            isRestoringConnections={isRestoringConnections}
+                            connectingId={connectingId}
+                            connectionErrors={connectionErrors}
+                          />
+                        </ErrorBoundary>
                       </Box>
                     </Box>
                   </Panel>
@@ -798,68 +794,178 @@ export default function Home() {
                 id="center-panel"
               >
                 {activeConnection ? (
-                  <PanelGroup
-                    direction="vertical"
-                    style={{
-                      height: '100%',
-                      isolation: 'isolate' // Предотвращаем влияние на другие панели
-                    }}
-                    autoSaveId="center-vertical-panels"
-                  >
-                    {/* SQL Editor */}
-                    <Panel
-                      defaultSize={50}
-                      minSize={20}
-                      id="sql-editor-panel"
-                    >
-                      <Box sx={{ height: '100%', borderBottom: '1px solid', borderColor: DIVIDER_COLOR }}>
-                        <ErrorBoundary panelName="SQL Editor">
-                          <SQLEditor
-                            ref={sqlEditorRef}
-                            onExecuteQuery={handleExecuteQuery}
-                            onImproveQuery={handleImproveQuery}
-                            isImproving={isImproving}
-                            tabs={sqlTabs.tabs}
-                            activeTab={sqlTabs.activeTab}
-                            activeTabId={sqlTabs.activeTabId}
-                            onTabChange={sqlTabs.setActiveTab}
-                            onCreateTab={() => activeConnection && sqlTabs.createTab(activeConnection.id)}
-                            onCloseTab={sqlTabs.closeTab}
-                            onContentChange={sqlTabs.updateTabContent}
-                            databaseInfo={activeConnection?.databases?.[0] ?? null}
-                            errorLine={errorLine}
-                            activeConnection={activeConnection}
-                            connections={connections}
-                            connectionErrors={connectionErrors}
-                            onSwitchConnection={handleConnect}
-                          />
-                        </ErrorBoundary>
+                  <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    {/* Center panel tab bar (ER diagram tabs) */}
+                    {erDiagramTabs.length > 0 && (
+                      <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        borderBottom: '1px solid',
+                        borderColor: DIVIDER_COLOR,
+                        minHeight: 32,
+                        bgcolor: 'background.default',
+                        overflow: 'auto',
+                        flexShrink: 0,
+                        '&::-webkit-scrollbar': { height: 4 },
+                        '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.15)', borderRadius: 2 },
+                      }}>
+                        {/* SQL tab */}
+                        <Box
+                          onClick={() => setActiveCenterTab({ type: 'sql' })}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            px: 1.5,
+                            py: 0.5,
+                            cursor: 'pointer',
+                            borderRight: '1px solid',
+                            borderColor: DIVIDER_COLOR,
+                            minWidth: 'fit-content',
+                            whiteSpace: 'nowrap',
+                            bgcolor: activeCenterTab.type === 'sql' ? 'background.paper' : 'transparent',
+                            borderBottom: activeCenterTab.type === 'sql' ? '2px solid' : '2px solid transparent',
+                            borderBottomColor: activeCenterTab.type === 'sql' ? 'primary.main' : 'transparent',
+                            '&:hover': { bgcolor: activeCenterTab.type === 'sql' ? 'background.paper' : 'action.hover' },
+                          }}
+                        >
+                          <Typography variant="caption" sx={{
+                            fontWeight: activeCenterTab.type === 'sql' ? 600 : 400,
+                            color: activeCenterTab.type === 'sql' ? 'text.primary' : 'text.secondary',
+                            fontSize: '0.75rem',
+                          }}>
+                            SQL Editor
+                          </Typography>
+                        </Box>
+                        {/* ER diagram tabs */}
+                        {erDiagramTabs.map(tab => (
+                          <Box
+                            key={tab.id}
+                            onClick={() => setActiveCenterTab({ type: 'er', id: tab.id })}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                              px: 1.5,
+                              py: 0.5,
+                              cursor: 'pointer',
+                              borderRight: '1px solid',
+                              borderColor: DIVIDER_COLOR,
+                              minWidth: 'fit-content',
+                              whiteSpace: 'nowrap',
+                              bgcolor: activeCenterTab.type === 'er' && activeCenterTab.id === tab.id ? 'background.paper' : 'transparent',
+                              borderBottom: activeCenterTab.type === 'er' && activeCenterTab.id === tab.id ? '2px solid' : '2px solid transparent',
+                              borderBottomColor: activeCenterTab.type === 'er' && activeCenterTab.id === tab.id ? 'primary.main' : 'transparent',
+                              '&:hover': { bgcolor: activeCenterTab.type === 'er' && activeCenterTab.id === tab.id ? 'background.paper' : 'action.hover' },
+                            }}
+                          >
+                            <AccountTreeIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                            <Typography variant="caption" sx={{
+                              fontWeight: activeCenterTab.type === 'er' && activeCenterTab.id === tab.id ? 600 : 400,
+                              color: activeCenterTab.type === 'er' && activeCenterTab.id === tab.id ? 'text.primary' : 'text.secondary',
+                              fontSize: '0.75rem',
+                            }}>
+                              ER: {tab.connectionName}
+                            </Typography>
+                            <IconButton
+                              size="small"
+                              onClick={(e) => { e.stopPropagation(); handleCloseERTab(tab.id); }}
+                              sx={{
+                                p: '1px',
+                                opacity: activeCenterTab.type === 'er' && activeCenterTab.id === tab.id ? 0.7 : 0,
+                                '&:hover': { opacity: 1 },
+                                '.MuiBox-root:hover > &': { opacity: 0.5 },
+                              }}
+                              aria-label={`Close ER: ${tab.connectionName}`}
+                            >
+                              <CloseIcon sx={{ fontSize: 14 }} />
+                            </IconButton>
+                          </Box>
+                        ))}
                       </Box>
-                    </Panel>
+                    )}
+                    {/* Center panel content */}
+                    {activeCenterTab.type === 'sql' ? (
+                      <PanelGroup
+                        direction="vertical"
+                        style={{
+                          flex: 1,
+                          isolation: 'isolate',
+                        }}
+                        autoSaveId="center-vertical-panels"
+                      >
+                        {/* SQL Editor */}
+                        <Panel
+                          defaultSize={50}
+                          minSize={20}
+                          id="sql-editor-panel"
+                        >
+                          <Box sx={{ height: '100%', borderBottom: '1px solid', borderColor: DIVIDER_COLOR }}>
+                            <ErrorBoundary panelName="SQL Editor">
+                              <SQLEditor
+                                ref={sqlEditorRef}
+                                onExecuteQuery={handleExecuteQuery}
+                                onImproveQuery={handleImproveQuery}
+                                isImproving={isImproving}
+                                tabs={sqlTabs.tabs}
+                                activeTab={sqlTabs.activeTab}
+                                activeTabId={sqlTabs.activeTabId}
+                                onTabChange={sqlTabs.setActiveTab}
+                                onCreateTab={() => activeConnection && sqlTabs.createTab(activeConnection.id)}
+                                onCloseTab={sqlTabs.closeTab}
+                                onContentChange={sqlTabs.updateTabContent}
+                                databaseInfo={activeConnection?.databases?.[0] ?? null}
+                                errorLine={errorLine}
+                                activeConnection={activeConnection}
+                                connections={connections}
+                                connectionErrors={connectionErrors}
+                                onSwitchConnection={handleConnect}
+                              />
+                            </ErrorBoundary>
+                          </Box>
+                        </Panel>
 
-                    {/* Resize Handle */}
-                    <PanelResizeHandle
-                      style={{
-                        height: '4px',
-                        cursor: 'row-resize',
-                        background: DIVIDER_COLOR,
-                        transition: 'background 0.15s',
-                      }}
-                    />
+                        {/* Resize Handle */}
+                        <PanelResizeHandle
+                          style={{
+                            height: '4px',
+                            cursor: 'row-resize',
+                            background: DIVIDER_COLOR,
+                            transition: 'background 0.15s',
+                          }}
+                        />
 
-                    {/* Query Results */}
-                    <Panel
-                      defaultSize={50}
-                      minSize={20}
-                      id="query-results-panel"
-                    >
-                      <Box sx={{ height: '100%' }}>
-                        <ErrorBoundary panelName="Query Results">
-                          <QueryResults result={queryResult} executedQuery={lastExecutedQuery} onExecuteQuery={handleExecuteQuery} onFixInChat={handleFixInChat} />
-                        </ErrorBoundary>
-                      </Box>
-                    </Panel>
-                  </PanelGroup>
+                        {/* Query Results */}
+                        <Panel
+                          defaultSize={50}
+                          minSize={20}
+                          id="query-results-panel"
+                        >
+                          <Box sx={{ height: '100%' }}>
+                            <ErrorBoundary panelName="Query Results">
+                              <QueryResults result={queryResult} executedQuery={lastExecutedQuery} onExecuteQuery={handleExecuteQuery} onFixInChat={handleFixInChat} />
+                            </ErrorBoundary>
+                          </Box>
+                        </Panel>
+                      </PanelGroup>
+                    ) : (
+                      /* ER Diagram tab content */
+                      (() => {
+                        const erTab = erDiagramTabs.find(t => t.id === activeCenterTab.id);
+                        const erConn = erTab ? connections.find(c => c.id === erTab.connectionId) : null;
+                        return (
+                          <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                            <ErrorBoundary panelName="ER Diagram">
+                              <ERDiagram
+                                tables={erConn?.databases?.[0]?.tables ?? []}
+                                constraints={erConn?.databases?.[0]?.constraints ?? []}
+                              />
+                            </ErrorBoundary>
+                          </Box>
+                        );
+                      })()
+                    )}
+                  </Box>
                 ) : (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>

@@ -2977,3 +2977,20 @@ TASK-213 completed. Chart card UX fixes in ChartBlock.tsx.
 - Tooltip still shows correctly on hover with dark theme styling
 - NOTE: uv run ruff check / pytest could not be executed (approval blocked), but changes are frontend-only TypeScript
 - Next priorities: TASK-208 (ER diagram restructure, high), TASK-212 (cell editing bug, medium), TASK-209 (ER zoom/FK, medium)
+
+TASK-208 completed. ER diagram: removed left panel tabs, opens via context menu in main content area.
+- Removed Explorer / ER Diagram tabs from left panel (DatabasePanel) — left panel now always shows Explorer
+- Added "ER Diagram" item to connection right-click context menu in DatabasePanel (only shown for active connections)
+- New onOpenERDiagram prop on DatabasePanel, wired to index.tsx handleOpenERDiagram handler
+- ER diagram opens as a tab in the center content area (alongside SQL editor)
+  - Center panel has a tab bar with "SQL Editor" tab + per-connection ER diagram tabs
+  - Each ER tab shows AccountTree icon + "ER: <connectionName>" title + close button (X)
+  - Tab bar only appears when at least one ER diagram tab is open
+  - Clicking existing connection ER tab activates it instead of creating duplicate
+  - Closing active ER tab switches back to SQL editor view
+- State management: erDiagramTabs array + activeCenterTab union type { type: 'sql' } | { type: 'er', id: string }
+- ERDiagram component reused as-is (tables + constraints from the connection)
+- npx tsc --noEmit — 0 new errors (pre-existing SchemaSyncModal errors unchanged)
+- npm run build (next build) — compiled successfully
+- No Python code modified — ruff/pytest unaffected
+- Next priorities: TASK-209 (ER zoom/FK fixes, medium, now unblocked), TASK-212 (cell editing bug, medium), TASK-210 (ER context menu, low, now unblocked), TASK-216 (chat DB dropdown, medium)

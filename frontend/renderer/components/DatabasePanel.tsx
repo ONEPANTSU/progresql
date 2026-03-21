@@ -76,6 +76,7 @@ import {
   Code as CodeIcon,
   ContentCopy as CopyIcon,
   CompareArrows as CompareArrowsIcon,
+  AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
 import { DatabaseServer, AuthUser } from '../types';
 import ConnectionForm from './ConnectionForm';
@@ -97,6 +98,7 @@ interface DatabasePanelProps {
   onExplainObject?: (objectName: string, objectType: string, definition?: string) => void;
   onQueryTable?: (tableName: string) => void;
   onApplySQL?: (sql: string) => void;
+  onOpenERDiagram?: (connectionId: string) => void;
   isRestoringConnections?: boolean;
   connectingId?: string | null;
   connectionErrors?: Record<string, string>;
@@ -202,6 +204,7 @@ export default function DatabasePanel({
   onExplainObject,
   onQueryTable,
   onApplySQL,
+  onOpenERDiagram,
   isRestoringConnections = false,
   connectingId = null,
   connectionErrors = {},
@@ -264,6 +267,11 @@ export default function DatabasePanel({
       case 'create_schema':
         if (onQueryTable) {
           onQueryTable(`CREATE SCHEMA new_schema;\n`);
+        }
+        break;
+      case 'er_diagram':
+        if (onOpenERDiagram) {
+          onOpenERDiagram(selectedConnection.id);
         }
         break;
     }
@@ -1585,6 +1593,14 @@ export default function DatabasePanel({
           </ListItemIcon>
           Refresh
         </MenuItem>
+        {selectedConnection?.isActive && onOpenERDiagram && (
+          <MenuItem onClick={() => handleMenuAction('er_diagram')}>
+            <ListItemIcon>
+              <AccountTreeIcon sx={{ fontSize: TREE_ICON_SIZE }} />
+            </ListItemIcon>
+            ER Diagram
+          </MenuItem>
+        )}
         <Divider />
         <MenuItem onClick={() => handleMenuAction('create_schema')}>
           <ListItemIcon>
