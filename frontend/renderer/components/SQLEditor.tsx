@@ -85,6 +85,10 @@ const progreSQLHighlight = HighlightStyle.define([
   { tag: tags.propertyName, color: '#61afef' },        // column/table names
   { tag: tags.function(tags.variableName), color: '#61afef' },
   { tag: tags.standard(tags.name), color: '#e5c07b' },
+  { tag: tags.special(tags.string), color: '#98c379' },  // quoted identifiers "public"
+  { tag: tags.literal, color: '#d19a66' },
+  { tag: tags.name, color: '#e6edf3' },
+  { tag: tags.content, color: '#e6edf3' },
 ]);
 
 // Error line decoration system
