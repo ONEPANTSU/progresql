@@ -72,21 +72,17 @@ function getDataKeys(data: Record<string, unknown>[]): { xKey: string; yKeys: st
   return { xKey, yKeys: yKeys.length > 0 ? yKeys : keys.slice(1) };
 }
 
-/** Custom tooltip that only shows the hovered series, not all of them. */
+/** Custom tooltip that only shows the single hovered series. */
 const SingleSeriesTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload || payload.length === 0) return null;
 
-  // Filter to only entries that are actually being hovered (have a non-null value)
-  // In grouped bar charts, Recharts sends all series but we only want the active one.
-  // The active bar's dataKey is typically the first one with a matching payload entry.
-  const visibleEntries = payload.filter((entry: any) => entry.value != null);
-
-  // If there's only one series or it's not a grouped scenario, show all visible
-  // For grouped bars, Recharts doesn't natively mark which bar is hovered,
-  // so we show all visible entries but formatted cleanly.
-  // However, when a specific bar is hovered, only that bar's entry has the "active" state.
-  // We check the `dataKey` against `payload` — in practice Recharts sends all,
-  // but we can at least display them cleanly.
+  // Find the single entry closest to the cursor.
+  // Recharts sends all series but only the hovered bar/line is truly "active".
+  // We pick the first entry whose value is non-null; for bar charts with
+  // `cursor={false}`, only the hovered bar triggers the tooltip.
+  const entry = payload.length === 1
+    ? payload[0]
+    : payload.find((e: any) => e.value != null) ?? payload[0];
 
   return (
     <Box sx={{
@@ -101,20 +97,18 @@ const SingleSeriesTooltip = ({ active, payload, label }: any) => {
       <Typography variant="caption" sx={{ color: '#9ca3af', display: 'block', mb: 0.5 }}>
         {label}
       </Typography>
-      {visibleEntries.map((entry: any, i: number) => (
-        <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.25 }}>
-          <Box sx={{
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            backgroundColor: entry.color,
-            flexShrink: 0,
-          }} />
-          <Typography variant="caption" sx={{ color: '#e5e7eb' }}>
-            {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}
-          </Typography>
-        </Box>
-      ))}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.25 }}>
+        <Box sx={{
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          backgroundColor: entry.color,
+          flexShrink: 0,
+        }} />
+        <Typography variant="caption" sx={{ color: '#e5e7eb' }}>
+          {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}
+        </Typography>
+      </Box>
     </Box>
   );
 };
@@ -149,6 +143,7 @@ const BarChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string;
           <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
           <RechartsTooltip
             cursor={false}
+            shared={false}
             content={<SingleSeriesTooltip />}
           />
           <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
@@ -175,6 +170,7 @@ const LineChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
           <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
           <RechartsTooltip
             cursor={false}
+            shared={false}
             content={<SingleSeriesTooltip />}
           />
           <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
@@ -201,6 +197,7 @@ const AreaChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
           <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
           <RechartsTooltip
             cursor={false}
+            shared={false}
             content={<SingleSeriesTooltip />}
           />
           <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
