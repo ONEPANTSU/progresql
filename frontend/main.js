@@ -306,8 +306,14 @@ ipcMain.handle('connect-database', async (event, connectionConfig) => {
   }
 });
 
-ipcMain.handle('execute-query', async (event, query) => {
+ipcMain.handle('execute-query', async (event, params) => {
   try {
+    // Support both old format (string) and new format ({ connectionId, query })
+    const queryText = typeof params === 'string' ? params : params.query;
+    if (!queryText) {
+      throw new Error('No query text provided');
+    }
+
     if (!global.dbClient) {
       throw new Error('No database connection');
     }
@@ -325,7 +331,7 @@ ipcMain.handle('execute-query', async (event, query) => {
       log.debug('Reconnected successfully, proceeding with query');
     }
 
-    const result = await global.dbClient.query(query);
+    const result = await global.dbClient.query(queryText);
     return {
       success: true,
       rows: result.rows,
