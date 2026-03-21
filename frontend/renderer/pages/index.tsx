@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -13,6 +13,7 @@ import ChatPanel, { ChatPanelHandle } from '../components/ChatPanel';
 import SettingsPanel from '../components/SettingsPanel';
 import EditConnectionDialog from '../components/EditConnectionDialog';
 import ErrorBoundary from '../components/ErrorBoundary';
+import ElementDetailsModal from '../components/ElementDetailsModal';
 import StatusBar from '../components/StatusBar';
 import { DatabaseServer, DatabaseStructureResponse, Field, QueryResult } from '../types';
 import { useAuth } from '../providers/AuthProvider';
@@ -66,6 +67,8 @@ export default function Home() {
   const [errorLine, setErrorLine] = useState<number | null>(null);
   const [erDiagramTabs, setErDiagramTabs] = useState<Array<{ id: string; connectionId: string; connectionName: string }>>([]);
   const [activeCenterTab, setActiveCenterTab] = useState<{ type: 'sql'; id?: string } | { type: 'er'; id: string }>({ type: 'sql' });
+  const [erDetailsModalOpen, setErDetailsModalOpen] = useState(false);
+  const [erDetailsElement, setErDetailsElement] = useState<any>(null);
   const sqlEditorRef = useRef<SQLEditorHandle>(null);
   const chatPanelRef = useRef<ChatPanelHandle>(null);
   const agent = useAgent();
@@ -614,6 +617,16 @@ export default function Home() {
     sqlEditorRef.current?.replaceSelection(sql);
   };
 
+  const handleERViewTableInfo = useCallback((tableName: string, connectionId: string) => {
+    const conn = connections.find(c => c.id === connectionId);
+    if (!conn) return;
+    const tables = conn.databases?.[0]?.tables ?? [];
+    const table = tables.find(t => t.table_name === tableName);
+    if (!table) return;
+    setErDetailsElement(table);
+    setErDetailsModalOpen(true);
+  }, [connections]);
+
   const handleOpenERDiagram = (connectionId: string) => {
     const conn = connections.find(c => c.id === connectionId);
     if (!conn) return;
@@ -979,6 +992,7 @@ export default function Home() {
                               <ERDiagram
                                 tables={erConn?.databases?.[0]?.tables ?? []}
                                 constraints={erConn?.databases?.[0]?.constraints ?? []}
+                                onViewTableInfo={(tableName) => erTab && handleERViewTableInfo(tableName, erTab.connectionId)}
                               />
                             </ErrorBoundary>
                           </Box>
@@ -1057,6 +1071,15 @@ export default function Home() {
       <SettingsPanel
         open={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+      />
+
+      {/* ER Diagram Element Details Modal */}
+      <ElementDetailsModal
+        open={erDetailsModalOpen}
+        onClose={() => { setErDetailsModalOpen(false); setErDetailsElement(null); }}
+        element={erDetailsElement}
+        elementType="table"
+        onApplySQL={handleApplySQL}
       />
     </Box>
   );

@@ -19,6 +19,7 @@ import {
   ExpandLess as ExpandLessIcon,
   Code as CodeIcon,
   Storage as StorageIcon,
+  KeyboardArrowDown as ChevronDownIcon,
 } from '@mui/icons-material';
 import { useTranslation } from '../../contexts/LanguageContext';
 import type { DatabaseServer } from '../../types';
@@ -82,7 +83,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
     }
   };
 
-  const handleDbPillClick = (event: React.MouseEvent<HTMLElement>) => {
+  const handleDbBarClick = (event: React.MouseEvent<HTMLElement>) => {
     if (connections.length > 0) {
       setDbMenuAnchor(event.currentTarget);
     }
@@ -115,7 +116,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
     setPendingSwitchId(null);
   };
 
-  // Determine which connection to display in the pill
+  // Determine which connection to display
   const displayConnection = chatConnectionId
     ? connections.find(c => c.id === chatConnectionId) ?? activeConnection
     : activeConnection;
@@ -127,12 +128,14 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
       : t('chat.input.placeholder');
 
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
-  const modKey = isMac ? '⌘' : 'Ctrl';
+  const modKey = isMac ? '\u2318' : 'Ctrl';
 
   const sqlLineCount = attachedSQL ? attachedSQL.split('\n').length : 0;
   const sqlPreview = attachedSQL
     ? attachedSQL.split('\n').slice(0, 3).join('\n') + (sqlLineCount > 3 ? '\n...' : '')
     : '';
+
+  const hasError = displayConnection ? !!connectionErrors[displayConnection.id] : false;
 
   return (
     <Box sx={{
@@ -291,130 +294,145 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
           )}
         </Box>
       )}
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
-        {/* DB pill */}
-        <Tooltip title={displayConnection ? t('chat.dbPill.switchDb') : t('chat.dbPill.noConnection')}>
-          <Box
-            onClick={handleDbPillClick}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-              px: 1,
-              py: 0.5,
-              borderRadius: '12px',
-              cursor: connections.length > 0 ? 'pointer' : 'default',
-              bgcolor: 'rgba(255,255,255,0.05)',
-              border: '1px solid',
-              borderColor: 'rgba(255,255,255,0.1)',
-              '&:hover': connections.length > 0 ? {
-                bgcolor: 'rgba(255,255,255,0.08)',
-                borderColor: 'rgba(255,255,255,0.15)',
-              } : {},
-              flexShrink: 0,
-              maxWidth: 160,
-              minHeight: 32,
-            }}
-          >
-            <Box
-              sx={{
-                width: 7,
-                height: 7,
-                borderRadius: '50%',
-                bgcolor: displayConnection
-                  ? (connectionErrors[displayConnection.id] ? 'error.main' : 'success.main')
-                  : 'text.disabled',
-                flexShrink: 0,
-              }}
-            />
-            <Typography
-              variant="caption"
-              sx={{
-                fontSize: '0.7rem',
-                color: 'text.secondary',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {displayConnection
-                ? (displayConnection.connectionName || displayConnection.database)
-                : t('chat.dbPill.noConnection')}
-            </Typography>
-          </Box>
-        </Tooltip>
-        <Menu
-          anchorEl={dbMenuAnchor}
-          open={Boolean(dbMenuAnchor)}
-          onClose={() => setDbMenuAnchor(null)}
-          anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
-          transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-          slotProps={{
-            paper: {
-              sx: {
-                bgcolor: 'rgba(20, 20, 35, 0.85)',
-                backdropFilter: 'blur(16px)',
-                WebkitBackdropFilter: 'blur(16px)',
-                border: '1px solid',
-                borderColor: 'rgba(99, 102, 241, 0.4)',
-                borderRadius: '12px',
-                minWidth: 220,
-                maxHeight: 200,
-                overflowY: 'auto',
-                boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.4), 0 -1px 6px rgba(99, 102, 241, 0.15)',
-                '&::-webkit-scrollbar': { width: 4 },
-                '&::-webkit-scrollbar-thumb': {
-                  background: 'rgba(99, 102, 241, 0.3)',
-                  borderRadius: 2,
-                },
-                '&::-webkit-scrollbar-track': {
-                  background: 'transparent',
-                },
-              },
-            },
+
+      {/* DB selector bar -- above input */}
+      <Box
+        onClick={handleDbBarClick}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.75,
+          px: 1.25,
+          py: 0.75,
+          mb: 1,
+          borderRadius: '8px',
+          cursor: connections.length > 0 ? 'pointer' : 'default',
+          bgcolor: 'rgba(255,255,255,0.04)',
+          border: '1px solid',
+          borderColor: 'rgba(255,255,255,0.08)',
+          transition: 'all 0.15s ease',
+          '&:hover': connections.length > 0 ? {
+            bgcolor: 'rgba(255,255,255,0.07)',
+            borderColor: 'rgba(99, 102, 241, 0.3)',
+          } : {},
+        }}
+      >
+        {/* Status dot */}
+        <Box
+          sx={{
+            width: 7,
+            height: 7,
+            borderRadius: '50%',
+            bgcolor: displayConnection
+              ? (hasError ? 'error.main' : 'success.main')
+              : 'text.disabled',
+            flexShrink: 0,
+          }}
+        />
+        {/* DB icon */}
+        <StorageIcon sx={{ fontSize: '0.85rem', color: 'text.secondary', flexShrink: 0 }} />
+        {/* Connection name */}
+        <Typography
+          variant="caption"
+          sx={{
+            fontSize: '0.75rem',
+            color: 'text.secondary',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            flexGrow: 1,
           }}
         >
-          {connections.map((conn) => (
-            <MenuItem
-              key={conn.id}
-              selected={displayConnection?.id === conn.id}
-              onClick={() => handleConnectionSelect(conn.id)}
-              sx={{
-                borderRadius: '8px',
-                mx: 0.5,
-                my: 0.25,
-                '&.Mui-selected': {
-                  bgcolor: 'rgba(99, 102, 241, 0.15)',
-                  '&:hover': {
-                    bgcolor: 'rgba(99, 102, 241, 0.25)',
-                  },
-                },
+          {displayConnection
+            ? (displayConnection.connectionName || displayConnection.database)
+            : t('chat.dbPill.noConnection')}
+        </Typography>
+        {/* Chevron */}
+        {connections.length > 0 && (
+          <ChevronDownIcon sx={{
+            fontSize: '1rem',
+            color: 'text.disabled',
+            flexShrink: 0,
+            transition: 'transform 0.2s',
+            transform: dbMenuAnchor ? 'rotate(180deg)' : 'rotate(0deg)',
+          }} />
+        )}
+      </Box>
+      <Menu
+        anchorEl={dbMenuAnchor}
+        open={Boolean(dbMenuAnchor)}
+        onClose={() => setDbMenuAnchor(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        slotProps={{
+          paper: {
+            sx: {
+              bgcolor: 'rgba(20, 20, 35, 0.85)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid',
+              borderColor: 'rgba(99, 102, 241, 0.4)',
+              borderRadius: '12px',
+              minWidth: 220,
+              maxHeight: 200,
+              overflowY: 'auto',
+              boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.4), 0 -1px 6px rgba(99, 102, 241, 0.15)',
+              '&::-webkit-scrollbar': { width: 4 },
+              '&::-webkit-scrollbar-thumb': {
+                background: 'rgba(99, 102, 241, 0.3)',
+                borderRadius: 2,
+              },
+              '&::-webkit-scrollbar-track': {
+                background: 'transparent',
+              },
+            },
+          },
+        }}
+      >
+        {connections.map((conn) => (
+          <MenuItem
+            key={conn.id}
+            selected={displayConnection?.id === conn.id}
+            onClick={() => handleConnectionSelect(conn.id)}
+            sx={{
+              borderRadius: '8px',
+              mx: 0.5,
+              my: 0.25,
+              '&.Mui-selected': {
+                bgcolor: 'rgba(99, 102, 241, 0.15)',
                 '&:hover': {
-                  bgcolor: 'rgba(255, 255, 255, 0.06)',
+                  bgcolor: 'rgba(99, 102, 241, 0.25)',
                 },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: '28px !important' }}>
-                <Box
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    bgcolor: conn.isActive
-                      ? (connectionErrors[conn.id] ? 'error.main' : 'success.main')
-                      : 'text.disabled',
-                  }}
-                />
-              </ListItemIcon>
-              <ListItemText
-                primary={conn.connectionName || conn.database}
-                secondary={`${conn.host}:${conn.port}/${conn.database}`}
-                primaryTypographyProps={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.9)' }}
-                secondaryTypographyProps={{ fontSize: '0.65rem', color: 'rgba(255, 255, 255, 0.45)' }}
+              },
+              '&:hover': {
+                bgcolor: 'rgba(255, 255, 255, 0.06)',
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: '28px !important' }}>
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  bgcolor: conn.isActive
+                    ? (connectionErrors[conn.id] ? 'error.main' : 'success.main')
+                    : 'text.disabled',
+                }}
               />
-            </MenuItem>
-          ))}
-        </Menu>
+            </ListItemIcon>
+            <ListItemText
+              primary={conn.connectionName || conn.database}
+              secondary={`${conn.host}:${conn.port}/${conn.database}`}
+              primaryTypographyProps={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.9)' }}
+              secondaryTypographyProps={{ fontSize: '0.65rem', color: 'rgba(255, 255, 255, 0.45)' }}
+            />
+          </MenuItem>
+        ))}
+      </Menu>
+
+      {/* Input row */}
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
         <TextField
           fullWidth
           multiline

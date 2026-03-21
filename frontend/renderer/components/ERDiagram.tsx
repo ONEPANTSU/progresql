@@ -6,8 +6,11 @@ import {
   Background,
   BackgroundVariant,
   useNodesState,
+  useEdgesState,
   ReactFlowProvider,
+  MarkerType,
   type Node,
+  type Edge,
   type NodeTypes,
   type NodeProps,
 } from '@xyflow/react';
@@ -27,7 +30,7 @@ const GRID_GAP_Y = 300;
 const COLUMNS_PER_ROW = 5;
 
 // ---------------------------------------------------------------------------
-// Helpers – localStorage positions
+// Helpers -- localStorage positions
 // ---------------------------------------------------------------------------
 
 interface SavedPositions {
@@ -48,7 +51,7 @@ function savePositions(positions: SavedPositions): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
   } catch {
-    // ignore – quota exceeded etc.
+    // ignore -- quota exceeded etc.
   }
 }
 
@@ -90,7 +93,7 @@ function buildColumnMeta(
 }
 
 // ---------------------------------------------------------------------------
-// TableNode – custom node rendered for each table
+// TableNode -- custom node rendered for each table
 // ---------------------------------------------------------------------------
 
 interface TableColumnInfo {
@@ -102,36 +105,25 @@ interface TableColumnInfo {
   isNullable: boolean;
 }
 
-interface TableConstraintInfo {
-  name: string;
-  type: string;
-  columns: string;
-  detail?: string;
-}
-
-interface ContextMenuState {
-  x: number;
-  y: number;
-  tableName: string;
-  columns: TableColumnInfo[];
-  constraints: TableConstraintInfo[];
-  rowCount?: number;
-}
-
 interface TableNodeData {
   label: string;
   columns: TableColumnInfo[];
   rowCount?: number;
-  tableConstraints: TableConstraintInfo[];
-  onContextMenu?: (
-    e: React.MouseEvent,
-    tableName: string,
-    columns: TableColumnInfo[],
-    constraints: TableConstraintInfo[],
-    rowCount?: number,
-  ) => void;
+  onContextMenu?: (e: React.MouseEvent, tableName: string) => void;
   [key: string]: unknown;
 }
+
+const badgeStyle = (bg: string, fg: string): React.CSSProperties => ({
+  fontSize: 8,
+  fontWeight: 700,
+  color: fg,
+  background: bg,
+  borderRadius: 3,
+  padding: '1px 4px',
+  lineHeight: '13px',
+  flexShrink: 0,
+  letterSpacing: '0.02em',
+});
 
 const TableNode = React.memo(function TableNode({
   data,
@@ -140,7 +132,7 @@ const TableNode = React.memo(function TableNode({
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      data.onContextMenu?.(e, data.label, data.columns, data.tableConstraints, data.rowCount);
+      data.onContextMenu?.(e, data.label);
     },
     [data],
   );
@@ -222,22 +214,22 @@ const TableNode = React.memo(function TableNode({
                   : '2px solid transparent',
             }}
           >
-            {/* Icon */}
+            {/* PK / FK badges */}
             <span
               style={{
-                width: 16,
-                textAlign: 'center',
+                display: 'flex',
+                gap: 3,
                 flexShrink: 0,
-                fontSize: 10,
+                minWidth: col.isPK || col.isFK ? 'auto' : 16,
               }}
             >
               {col.isPK && (
-                <span style={{ color: '#6366f1' }} title="Primary Key">
+                <span style={badgeStyle('#eab308', '#422006')} title="Primary Key">
                   PK
                 </span>
               )}
-              {col.isFK && !col.isPK && (
-                <span style={{ color: '#f59e0b' }} title={`FK -> ${col.fkRef ?? ''}`}>
+              {col.isFK && (
+                <span style={badgeStyle('#6366f1', '#eef2ff')} title={`FK -> ${col.fkRef ?? ''}`}>
                   FK
                 </span>
               )}
@@ -302,256 +294,58 @@ const TableNode = React.memo(function TableNode({
 });
 
 // ---------------------------------------------------------------------------
-// Build constraint info for context menu
+// Build FK edges from constraints
 // ---------------------------------------------------------------------------
 
-function buildConstraintInfos(
-  tableName: string,
-  constraints: Constraint[],
-): TableConstraintInfo[] {
-  const seen = new Map<string, TableConstraintInfo>();
+function buildFKEdges(constraints: Constraint[], tableNames: Set<string>): Edge[] {
+  const edges: Edge[] = [];
+  const seen = new Set<string>();
 
   for (const c of constraints) {
-    if (c.table_name !== tableName) continue;
+    if (c.constraint_type !== 'FOREIGN KEY') continue;
+    if (!c.referenced_table) continue;
+    // Only create edge if both tables exist in the diagram
+    if (!tableNames.has(c.table_name) || !tableNames.has(c.referenced_table)) continue;
 
-    const key = c.constraint_name;
-    const existing = seen.get(key);
-    if (existing) {
-      // Append column for composite constraints
-      if (!existing.columns.includes(c.column_name)) {
-        existing.columns += `, ${c.column_name}`;
-      }
-      continue;
-    }
+    const edgeId = `fk-${c.table_name}-${c.column_name}-${c.referenced_table}`;
+    if (seen.has(edgeId)) continue;
+    seen.add(edgeId);
 
-    let detail: string | undefined;
-    if (c.constraint_type === 'FOREIGN KEY' && c.referenced_table) {
-      detail = `→ ${c.referenced_table}${c.referenced_column ? `.${c.referenced_column}` : ''}`;
-    } else if (c.constraint_type === 'CHECK' && c.check_condition) {
-      detail = c.check_condition;
-    }
-
-    seen.set(key, {
-      name: c.constraint_name,
-      type: c.constraint_type,
-      columns: c.column_name,
-      detail,
+    edges.push({
+      id: edgeId,
+      source: c.table_name,
+      target: c.referenced_table,
+      type: 'smoothstep',
+      animated: false,
+      label: c.column_name,
+      labelStyle: {
+        fontSize: 9,
+        fontWeight: 600,
+        fill: '#a5b4fc',
+        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+      },
+      labelBgStyle: {
+        fill: '#1e293b',
+        fillOpacity: 0.9,
+      },
+      labelBgPadding: [4, 2] as [number, number],
+      labelBgBorderRadius: 3,
+      style: {
+        stroke: '#6366f1',
+        strokeWidth: 1.5,
+        opacity: 0.6,
+      },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: '#6366f1',
+        width: 16,
+        height: 16,
+      },
     });
   }
 
-  return Array.from(seen.values());
+  return edges;
 }
-
-// ---------------------------------------------------------------------------
-// TableContextMenu – popover shown on right-click
-// ---------------------------------------------------------------------------
-
-const CONSTRAINT_TYPE_COLORS: Record<string, string> = {
-  'PRIMARY KEY': '#6366f1',
-  'FOREIGN KEY': '#f59e0b',
-  'UNIQUE': '#06b6d4',
-  'CHECK': '#a78bfa',
-};
-
-interface TableContextMenuProps {
-  menu: ContextMenuState;
-  onClose: () => void;
-}
-
-const TableContextMenu: React.FC<TableContextMenuProps> = ({ menu, onClose }) => {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as HTMLElement)) {
-        onClose();
-      }
-    };
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEsc);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEsc);
-    };
-  }, [onClose]);
-
-  const badgeStyle = (color: string): React.CSSProperties => ({
-    fontSize: 9,
-    fontWeight: 600,
-    color,
-    border: `1px solid ${color}`,
-    borderRadius: 3,
-    padding: '0 3px',
-    lineHeight: '14px',
-    flexShrink: 0,
-  });
-
-  return (
-    <div
-      ref={ref}
-      style={{
-        position: 'fixed',
-        left: menu.x,
-        top: menu.y,
-        zIndex: 10000,
-        background: '#1e293b',
-        border: '1px solid #334155',
-        borderRadius: 8,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-        minWidth: 280,
-        maxWidth: 360,
-        maxHeight: 420,
-        overflowY: 'auto',
-        fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          padding: '8px 12px',
-          background: '#334155',
-          borderRadius: '8px 8px 0 0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <span style={{ fontWeight: 600, fontSize: 13, color: '#f1f5f9' }}>
-          {menu.tableName}
-        </span>
-        {menu.rowCount !== undefined && (
-          <span style={{ fontSize: 10, color: '#94a3b8' }}>
-            {menu.rowCount.toLocaleString()} rows
-          </span>
-        )}
-      </div>
-
-      {/* Columns section */}
-      <div style={{ padding: '6px 0' }}>
-        <div
-          style={{
-            padding: '2px 12px 4px',
-            fontSize: 10,
-            fontWeight: 600,
-            color: '#64748b',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-          }}
-        >
-          Columns
-        </div>
-        {menu.columns.map((col) => (
-          <div
-            key={col.name}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '3px 12px',
-              fontSize: 11,
-              fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-              borderLeft: col.isPK
-                ? '2px solid #6366f1'
-                : col.isFK
-                  ? '2px solid #f59e0b'
-                  : '2px solid transparent',
-              background: col.isPK ? 'rgba(99,102,241,0.08)' : 'transparent',
-            }}
-          >
-            {col.isPK && <span style={badgeStyle('#6366f1')}>PK</span>}
-            {col.isFK && <span style={badgeStyle('#f59e0b')}>FK</span>}
-            <span
-              style={{
-                color: '#e2e8f0',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                flex: 1,
-              }}
-              title={col.name}
-            >
-              {col.name}
-            </span>
-            <span style={{ color: '#64748b', fontSize: 10, flexShrink: 0 }}>
-              {col.dataType}
-            </span>
-            {!col.isNullable && (
-              <span style={{ color: '#ef4444', fontSize: 9, flexShrink: 0 }} title="NOT NULL">
-                NN
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Constraints section */}
-      {menu.constraints.length > 0 && (
-        <div style={{ borderTop: '1px solid #334155', padding: '6px 0' }}>
-          <div
-            style={{
-              padding: '2px 12px 4px',
-              fontSize: 10,
-              fontWeight: 600,
-              color: '#64748b',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}
-          >
-            Constraints
-          </div>
-          {menu.constraints.map((cst) => (
-            <div
-              key={cst.name}
-              style={{
-                padding: '3px 12px',
-                fontSize: 11,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 1,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span
-                  style={badgeStyle(CONSTRAINT_TYPE_COLORS[cst.type] ?? '#64748b')}
-                >
-                  {cst.type}
-                </span>
-                <span
-                  style={{
-                    color: '#94a3b8',
-                    fontSize: 10,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                  title={cst.name}
-                >
-                  {cst.name}
-                </span>
-              </div>
-              <div
-                style={{
-                  fontSize: 10,
-                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                  color: '#cbd5e1',
-                  paddingLeft: 2,
-                }}
-              >
-                ({cst.columns})
-                {cst.detail && (
-                  <span style={{ color: '#64748b', marginLeft: 4 }}>{cst.detail}</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 // ---------------------------------------------------------------------------
 // Node types map (stable reference)
@@ -568,28 +362,18 @@ const nodeTypes: NodeTypes = {
 interface ERDiagramInnerProps {
   tables: Table[];
   constraints: Constraint[];
+  onViewTableInfo?: (tableName: string) => void;
 }
 
-function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
+function ERDiagramInner({ tables, constraints, onViewTableInfo }: ERDiagramInnerProps) {
   const positionsRef = useRef<SavedPositions>(loadPositions());
-  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   const handleNodeContextMenu = useCallback(
-    (
-      e: React.MouseEvent,
-      tableName: string,
-      columns: TableColumnInfo[],
-      tableConstraints: TableConstraintInfo[],
-      rowCount?: number,
-    ) => {
-      setContextMenu({ x: e.clientX, y: e.clientY, tableName, columns, constraints: tableConstraints, rowCount });
+    (_e: React.MouseEvent, tableName: string) => {
+      onViewTableInfo?.(tableName);
     },
-    [],
+    [onViewTableInfo],
   );
-
-  const handleCloseContextMenu = useCallback(() => {
-    setContextMenu(null);
-  }, []);
 
   // Build nodes
   const initialNodes = useMemo<Node<TableNodeData>[]>(() => {
@@ -613,8 +397,6 @@ function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
           };
         });
 
-      const tableConstraints = buildConstraintInfos(table.table_name, constraints);
-
       const savedPos = saved[table.table_name];
       const gridCol = idx % COLUMNS_PER_ROW;
       const gridRow = Math.floor(idx / COLUMNS_PER_ROW);
@@ -630,19 +412,29 @@ function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
           label: table.table_name,
           columns,
           rowCount: table.row_count,
-          tableConstraints,
           onContextMenu: handleNodeContextMenu,
         },
       };
     });
   }, [tables, constraints, handleNodeContextMenu]);
 
+  // Build edges from FK constraints
+  const initialEdges = useMemo<Edge[]>(() => {
+    const tableNames = new Set(tables.map(t => t.table_name));
+    return buildFKEdges(constraints, tableNames);
+  }, [tables, constraints]);
+
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
   // Re-sync when props change
   useEffect(() => {
     setNodes(initialNodes);
   }, [initialNodes, setNodes]);
+
+  useEffect(() => {
+    setEdges(initialEdges);
+  }, [initialEdges, setEdges]);
 
   // Save positions on drag stop
   const onNodeDragStop = useCallback(
@@ -653,9 +445,40 @@ function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
     [],
   );
 
-  const onPaneClick = useCallback(() => {
-    setContextMenu(null);
-  }, []);
+  // Hover animation for edges
+  const onEdgeMouseEnter = useCallback(
+    (_event: React.MouseEvent, edge: Edge) => {
+      setEdges((eds) =>
+        eds.map((e) =>
+          e.id === edge.id
+            ? {
+                ...e,
+                animated: true,
+                style: { ...e.style, opacity: 1, strokeWidth: 2.5 },
+              }
+            : e,
+        ),
+      );
+    },
+    [setEdges],
+  );
+
+  const onEdgeMouseLeave = useCallback(
+    (_event: React.MouseEvent, edge: Edge) => {
+      setEdges((eds) =>
+        eds.map((e) =>
+          e.id === edge.id
+            ? {
+                ...e,
+                animated: false,
+                style: { ...e.style, opacity: 0.6, strokeWidth: 1.5 },
+              }
+            : e,
+        ),
+      );
+    },
+    [setEdges],
+  );
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -673,12 +496,18 @@ function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
         .react-flow__controls button svg {
           fill: #e2e8f0 !important;
         }
+        .react-flow__edge-textbg {
+          rx: 3;
+        }
       `}</style>
       <ReactFlow
         nodes={nodes}
+        edges={edges}
         onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
         onNodeDragStop={onNodeDragStop}
-        onPaneClick={onPaneClick}
+        onEdgeMouseEnter={onEdgeMouseEnter}
+        onEdgeMouseLeave={onEdgeMouseLeave}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.15 }}
@@ -713,9 +542,6 @@ function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
           showInteractive={false}
         />
       </ReactFlow>
-      {contextMenu && (
-        <TableContextMenu menu={contextMenu} onClose={handleCloseContextMenu} />
-      )}
     </div>
   );
 }
@@ -727,15 +553,17 @@ function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
 export interface ERDiagramProps {
   tables: Table[];
   constraints: Constraint[];
+  onViewTableInfo?: (tableName: string) => void;
 }
 
 const ERDiagram: React.FC<ERDiagramProps> = React.memo(function ERDiagram({
   tables,
   constraints,
+  onViewTableInfo,
 }) {
   return (
     <ReactFlowProvider>
-      <ERDiagramInner tables={tables} constraints={constraints} />
+      <ERDiagramInner tables={tables} constraints={constraints} onViewTableInfo={onViewTableInfo} />
     </ReactFlowProvider>
   );
 });
