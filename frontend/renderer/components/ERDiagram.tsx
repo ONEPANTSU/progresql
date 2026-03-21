@@ -368,6 +368,16 @@ interface ERDiagramInnerProps {
 function ERDiagramInner({ tables, constraints, onViewTableInfo }: ERDiagramInnerProps) {
   const positionsRef = useRef<SavedPositions>(loadPositions());
 
+  // Debug: log constraints received
+  useEffect(() => {
+    console.log('[ERDiagram] tables:', tables.length, 'constraints:', constraints.length);
+    if (constraints.length > 0) {
+      console.log('[ERDiagram] sample constraint:', constraints[0]);
+      console.log('[ERDiagram] PK constraints:', constraints.filter(c => c.constraint_type === 'PRIMARY KEY').length);
+      console.log('[ERDiagram] FK constraints:', constraints.filter(c => c.constraint_type === 'FOREIGN KEY').length);
+    }
+  }, [tables, constraints]);
+
   const handleNodeContextMenu = useCallback(
     (_e: React.MouseEvent, tableName: string) => {
       onViewTableInfo?.(tableName);

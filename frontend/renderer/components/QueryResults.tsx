@@ -441,7 +441,7 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
             width: '100%',
           }}>
             <Table stickyHeader size="small" aria-label="Query results table" sx={{
-              tableLayout: 'fixed',
+              tableLayout: 'auto',
               '& .MuiTableHead-root .MuiTableCell-root': {
                 bgcolor: 'grey.100',
                 color: 'text.primary',

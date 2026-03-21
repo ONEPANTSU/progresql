@@ -757,18 +757,6 @@ export default function DatabasePanel({
           {isConnecting && (
             <CircularProgress size={14} thickness={4} sx={{ color: 'warning.main', mr: 0.25 }} />
           )}
-          <IconButton
-            edge="end"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleMenuOpen(e, connection);
-            }}
-            aria-label={`Connection options for ${connection.connectionName || connection.host}`}
-            size="small"
-            sx={{ p: 0.25 }}
-          >
-            <MoreIcon sx={{ fontSize: TREE_ICON_SIZE }} />
-          </IconButton>
           {expandedConnections.has(connection.id) ?
             <ExpandLessIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'text.secondary' }} className="expand-icon expanded" /> :
             <ExpandMoreIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'text.secondary' }} className="expand-icon" />

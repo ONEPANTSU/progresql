@@ -95,19 +95,19 @@ export function getSubscriptionWarning(user: AuthUser | null): SubscriptionWarni
   const now = Date.now();
   const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
-  // Check trial expiry
-  if (user.trialEndsAt) {
-    const trialEnd = new Date(user.trialEndsAt).getTime();
-    if (trialEnd <= now) return 'expired';
-    if (trialEnd - now <= THREE_DAYS_MS) return 'expiring_soon';
-    return null;
-  }
-
-  // Check pro/team plan expiry
+  // Check pro/team plan expiry FIRST (takes priority over trial)
   if ((user.plan === 'pro' || user.plan === 'team') && user.planExpiresAt) {
     const planEnd = new Date(user.planExpiresAt).getTime();
     if (planEnd <= now) return 'expired';
     if (planEnd - now <= THREE_DAYS_MS) return 'expiring_soon';
+    return null;
+  }
+
+  // Check trial expiry (only for free plan)
+  if (user.trialEndsAt) {
+    const trialEnd = new Date(user.trialEndsAt).getTime();
+    if (trialEnd <= now) return 'expired';
+    if (trialEnd - now <= THREE_DAYS_MS) return 'expiring_soon';
     return null;
   }
 
