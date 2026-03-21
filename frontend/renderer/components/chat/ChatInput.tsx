@@ -352,9 +352,24 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
           slotProps={{
             paper: {
               sx: {
-                bgcolor: 'background.paper',
-                border: '1px solid rgba(255,255,255,0.1)',
-                minWidth: 200,
+                bgcolor: 'rgba(20, 20, 35, 0.85)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                border: '1px solid',
+                borderColor: 'rgba(99, 102, 241, 0.4)',
+                borderRadius: '12px',
+                minWidth: 220,
+                maxHeight: 200,
+                overflowY: 'auto',
+                boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.4), 0 -1px 6px rgba(99, 102, 241, 0.15)',
+                '&::-webkit-scrollbar': { width: 4 },
+                '&::-webkit-scrollbar-thumb': {
+                  background: 'rgba(99, 102, 241, 0.3)',
+                  borderRadius: 2,
+                },
+                '&::-webkit-scrollbar-track': {
+                  background: 'transparent',
+                },
               },
             },
           }}
@@ -364,6 +379,20 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
               key={conn.id}
               selected={displayConnection?.id === conn.id}
               onClick={() => handleConnectionSelect(conn.id)}
+              sx={{
+                borderRadius: '8px',
+                mx: 0.5,
+                my: 0.25,
+                '&.Mui-selected': {
+                  bgcolor: 'rgba(99, 102, 241, 0.15)',
+                  '&:hover': {
+                    bgcolor: 'rgba(99, 102, 241, 0.25)',
+                  },
+                },
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.06)',
+                },
+              }}
             >
               <ListItemIcon sx={{ minWidth: '28px !important' }}>
                 <Box
@@ -380,8 +409,8 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
               <ListItemText
                 primary={conn.connectionName || conn.database}
                 secondary={`${conn.host}:${conn.port}/${conn.database}`}
-                primaryTypographyProps={{ fontSize: '0.8rem' }}
-                secondaryTypographyProps={{ fontSize: '0.65rem' }}
+                primaryTypographyProps={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.9)' }}
+                secondaryTypographyProps={{ fontSize: '0.65rem', color: 'rgba(255, 255, 255, 0.45)' }}
               />
             </MenuItem>
           ))}

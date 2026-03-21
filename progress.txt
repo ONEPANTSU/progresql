@@ -3021,3 +3021,18 @@ TASK-209 completed. ER-диаграмма: убрал FK-линии, испра�
 - showInteractive={false} already set on Controls (no lock icon)
 - Python code not modified — ruff/pytest unaffected
 - Next priorities: TASK-216 (chat DB dropdown, medium), TASK-210 (ER context menu, low)
+
+TASK-216 completed. Дропдаун выбора БД в чате — компактный список над полем ввода.
+- Restyled MUI Menu paper in ChatInput.tsx with:
+  - Dark translucent background: rgba(20, 20, 35, 0.85) with backdrop-filter: blur(16px)
+  - Indigo border: rgba(99, 102, 241, 0.4)
+  - Rounded corners: borderRadius 12px
+  - Max height 200px with custom scrollbar (indigo-tinted thumb)
+  - Upward shadow: boxShadow with negative Y offset + subtle indigo glow
+- MenuItem styling: rounded items (8px), indigo selected state, subtle hover
+- Text colors: rgba(255,255,255,0.9) primary, rgba(255,255,255,0.45) secondary
+- Dropdown opens ABOVE pill via anchorOrigin/transformOrigin (already correct from TASK-203)
+- npx tsc --noEmit — no new errors (pre-existing SchemaSyncModal errors unchanged)
+- go build ./... passes
+- Python code not modified — ruff/pytest unaffected
+- Next priorities: TASK-210 (ER context menu, low) — LAST remaining task
