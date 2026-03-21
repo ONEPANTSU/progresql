@@ -185,6 +185,7 @@ interface SQLEditorProps {
   onTabChange: (tabId: string) => void;
   onCreateTab: () => void;
   onCloseTab: (tabId: string) => void;
+  onRenameTab?: (tabId: string, title: string) => void;
   onContentChange: (tabId: string, content: string) => void;
   databaseInfo?: DatabaseInfo | null;
   errorLine?: number | null;
@@ -196,7 +197,7 @@ interface SQLEditorProps {
 
 const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor({
   onExecuteQuery, onImproveQuery, isImproving = false,
-  tabs, activeTab, activeTabId, onTabChange, onCreateTab, onCloseTab, onContentChange,
+  tabs, activeTab, activeTabId, onTabChange, onCreateTab, onCloseTab, onRenameTab, onContentChange,
   databaseInfo, errorLine = null,
   activeConnection = null, connections = [], connectionErrors = {}, onSwitchConnection,
 }, ref) {
@@ -210,6 +211,8 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
   const [isExecuting, setIsExecuting] = useState(false);
   const [connectionMenuAnchor, setConnectionMenuAnchor] = useState<HTMLElement | null>(null);
   const [templateMenuAnchor, setTemplateMenuAnchor] = useState<HTMLElement | null>(null);
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
   const prevTabCountRef = useRef(tabs.length);
   const sqlCompartment = useRef(new Compartment());
   // Placeholder positions (absolute offsets) for Tab-navigation after template insertion
@@ -679,16 +682,53 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
                 },
               }}
             >
-              <Typography
-                variant="caption"
-                sx={{
-                  fontWeight: tab.id === activeTabId ? 600 : 400,
-                  color: tab.id === activeTabId ? 'text.primary' : 'text.secondary',
-                  fontSize: '0.75rem',
-                }}
-              >
-                {tab.title}
-              </Typography>
+              {editingTabId === tab.id ? (
+                <input
+                  autoFocus
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  onBlur={() => {
+                    if (editingTitle.trim() && onRenameTab) onRenameTab(tab.id, editingTitle.trim());
+                    setEditingTabId(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (editingTitle.trim() && onRenameTab) onRenameTab(tab.id, editingTitle.trim());
+                      setEditingTabId(null);
+                    }
+                    if (e.key === 'Escape') setEditingTabId(null);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid rgba(99,102,241,0.5)',
+                    borderRadius: 3,
+                    color: 'inherit',
+                    fontSize: '0.75rem',
+                    fontFamily: 'inherit',
+                    padding: '1px 4px',
+                    width: Math.max(40, editingTitle.length * 7 + 16),
+                    outline: 'none',
+                  }}
+                />
+              ) : (
+                <Typography
+                  variant="caption"
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    setEditingTabId(tab.id);
+                    setEditingTitle(tab.title);
+                  }}
+                  sx={{
+                    fontWeight: tab.id === activeTabId ? 600 : 400,
+                    color: tab.id === activeTabId ? 'text.primary' : 'text.secondary',
+                    fontSize: '0.75rem',
+                    cursor: 'default',
+                  }}
+                >
+                  {tab.title}
+                </Typography>
+              )}
               {tabs.length > 1 && (
                 <IconButton
                   size="small"

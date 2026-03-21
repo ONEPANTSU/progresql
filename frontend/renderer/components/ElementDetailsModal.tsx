@@ -28,6 +28,67 @@ import { createLogger } from '../utils/logger';
 import { useAgent } from '../contexts/AgentContext';
 import { getDescription, setDescription as saveDescription, getDescriptionsForContext } from '../utils/descriptionStorage';
 
+/** Highlight SQL keywords, strings, and numbers for display. */
+function highlightSQL(sql: string): React.ReactNode[] {
+  const SQL_KEYWORDS = /\b(SELECT|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|CROSS|FULL|ON|AND|OR|NOT|IN|IS|NULL|AS|CREATE|ALTER|DROP|TABLE|VIEW|INDEX|FUNCTION|PROCEDURE|TRIGGER|RETURNS|RETURN|BEGIN|END|DECLARE|IF|THEN|ELSE|ELSIF|LOOP|FOR|WHILE|CASE|WHEN|INSERT|INTO|VALUES|UPDATE|SET|DELETE|ORDER|BY|GROUP|HAVING|LIMIT|OFFSET|UNION|ALL|DISTINCT|EXISTS|BETWEEN|LIKE|ILIKE|CAST|COALESCE|NULLIF|TRUE|FALSE|PRIMARY|KEY|FOREIGN|REFERENCES|UNIQUE|CHECK|DEFAULT|CONSTRAINT|CASCADE|RESTRICT|LANGUAGE|VOLATILE|STABLE|IMMUTABLE|STRICT|SECURITY|DEFINER|INVOKER|COST|ROWS|PARALLEL|SAFE|REPLACE|TEMPORARY|TEMP|RECURSIVE|WITH|MATERIALIZED|GRANT|REVOKE|EXECUTE|USAGE|SCHEMA|EXTENSION|TYPE|ENUM|DOMAIN|SEQUENCE|OWNED|NONE|RAISE|NOTICE|EXCEPTION|PERFORM|NEW|OLD|RECORD|SETOF|VARIADIC|INOUT|OUT|NUMERIC|INTEGER|INT|BIGINT|SMALLINT|SERIAL|BIGSERIAL|TEXT|VARCHAR|CHAR|BOOLEAN|BOOL|DATE|TIME|TIMESTAMP|TIMESTAMPTZ|INTERVAL|JSON|JSONB|UUID|BYTEA|FLOAT|DOUBLE|PRECISION|REAL|DECIMAL|VOID|ARRAY|TRIGGER|EVENT|ROW|STATEMENT|BEFORE|AFTER|INSTEAD|OF|EACH|DEFERRABLE|INITIALLY|DEFERRED|IMMEDIATE|OVER|PARTITION|WINDOW|RANGE|UNBOUNDED|PRECEDING|FOLLOWING|CURRENT|FILTER|WITHIN|LATERAL|NATURAL|USING|EXCEPT|INTERSECT|FETCH|FIRST|LAST|NEXT|ONLY|PERCENT|TIES|TABLESAMPLE|BERNOULLI|SYSTEM|REPEATABLE|COLLATE|ASC|DESC|NULLS|ABORT|ACCESS|ADD|ADMIN|AGGREGATE|ALSO|ASSERTION|ASSIGNMENT|AT|ATTRIBUTE|BACKWARD|CACHE|CALLED|CATALOG|CHAIN|CHARACTERISTICS|CHECKPOINT|CLASS|CLOSE|CLUSTER|COLUMNS|COMMENT|COMMENTS|COMMIT|COMMITTED|CONFIGURATION|CONFLICT|CONNECTION|CONTENT|CONTINUE|CONVERSION|COPY|CSV|CURSOR|CYCLE|DATA|DATABASE|DEALLOCATE|DELIMITER|DELIMITERS|DEPENDS|DETACH|DICTIONARY|DISABLE|DISCARD|DO|DOCUMENT|ENABLE|ENCODING|ENCRYPTED|EXCLUDING|EXCLUSIVE|EXPLAIN|FORCE|FORWARD|GENERATED|GLOBAL|HANDLER|HEADER|HOLD|IDENTITY|INCLUDING|INCREMENT|INDEXES|INHERIT|INHERITS|INLINE|INPUT|INSENSITIVE|ISOLATION|LABEL|LARGE|LEAKPROOF|LEVEL|LISTEN|LOAD|LOCAL|LOCATION|LOCK|LOGGED|MAPPING|MATCH|MAXVALUE|METHOD|MINVALUE|MODE|MOVE|NAME|NAMES|NOTHING|NOTIFY|NOWAIT|OBJECT|OIDS|OPERATOR|OPTION|OPTIONS|ORDINALITY|OTHERS|OVERRIDING|OWNED|OWNER|PARSER|PASSING|PASSWORD|PLANS|POLICY|PREPARE|PREPARED|PRESERVE|PRIOR|PRIVILEGES|PROCEDURAL|PROGRAM|PUBLICATION|QUOTE|REASSIGN|RECHECK|REFRESH|REINDEX|RELATIVE|RELEASE|RENAME|REPLICA|RESET|RESTART|ROLE|ROLLBACK|ROUTINE|RULE|SAVEPOINT|SCHEMAS|SCROLL|SEARCH|SEQUENCES|SERIALIZABLE|SERVER|SESSION|SHARE|SHOW|SIMPLE|SKIP|SNAPSHOT|SQL|STANDALONE|START|STATISTICS|STDIN|STDOUT|STORAGE|STORED|SUBSCRIPTION|SUPPORT|SYSID|TABLES|TABLESPACE|TEMP|TEMPLATE|TRANSACTION|TRANSFORM|TRUNCATE|TRUSTED|TYPES|UNCOMMITTED|UNENCRYPTED|UNKNOWN|UNLISTEN|UNLOGGED|UNTIL|VACUUM|VALID|VALIDATE|VALIDATOR|VALUE|VARYING|VERSION|VIEWS|WORK|WRAPPER|WRITE|XML|YES|ZONE|\$\$)\b/gi;
+  const STRING_RE = /'(?:[^'\\]|\\.)*'/g;
+  const NUMBER_RE = /\b\d+(?:\.\d+)?\b/g;
+
+  // Tokenize: split into segments with type info
+  type Token = { text: string; type: 'keyword' | 'string' | 'number' | 'plain' };
+  const tokens: Token[] = [];
+  
+  // Find all matches with positions
+  type Match = { start: number; end: number; type: 'keyword' | 'string' | 'number' };
+  const matches: Match[] = [];
+  
+  let m: RegExpExecArray | null;
+  
+  // Strings first (highest priority)
+  STRING_RE.lastIndex = 0;
+  while ((m = STRING_RE.exec(sql)) !== null) {
+    matches.push({ start: m.index, end: m.index + m[0].length, type: 'string' });
+  }
+  
+  // Keywords
+  SQL_KEYWORDS.lastIndex = 0;
+  while ((m = SQL_KEYWORDS.exec(sql)) !== null) {
+    const overlaps = matches.some(existing => m!.index < existing.end && m!.index + m![0].length > existing.start);
+    if (!overlaps) {
+      matches.push({ start: m.index, end: m.index + m[0].length, type: 'keyword' });
+    }
+  }
+  
+  // Numbers
+  NUMBER_RE.lastIndex = 0;
+  while ((m = NUMBER_RE.exec(sql)) !== null) {
+    const overlaps = matches.some(existing => m!.index < existing.end && m!.index + m![0].length > existing.start);
+    if (!overlaps) {
+      matches.push({ start: m.index, end: m.index + m[0].length, type: 'number' });
+    }
+  }
+  
+  matches.sort((a, b) => a.start - b.start);
+  
+  let pos = 0;
+  const result: React.ReactNode[] = [];
+  for (const match of matches) {
+    if (match.start > pos) {
+      result.push(sql.slice(pos, match.start));
+    }
+    const text = sql.slice(match.start, match.end);
+    const color = match.type === 'keyword' ? '#c792ea' : match.type === 'string' ? '#c3e88d' : '#f78c6c';
+    result.push(<span key={match.start} style={{ color }}>{text}</span>);
+    pos = match.end;
+  }
+  if (pos < sql.length) {
+    result.push(sql.slice(pos));
+  }
+  
+  return result;
+}
+
+
 const log = createLogger('ElementDetailsModal');
 
 import {
@@ -992,7 +1053,7 @@ export default function ElementDetailsModal({
                         },
                       },
                     }}>
-                      {element.routine_definition || 'No function code available'}
+                      {element.routine_definition ? highlightSQL(element.routine_definition) : 'No function code available'}
                     </Box>
                     {element.routine_definition && (
                       <Tooltip title="Copy code to clipboard">
@@ -1075,7 +1136,7 @@ export default function ElementDetailsModal({
                         },
                       },
                     }}>
-                      {element.view_definition || 'No view code available'}
+                      {element.view_definition ? highlightSQL(element.view_definition) : 'No view code available'}
                     </Box>
                     {element.view_definition && (
                       <Tooltip title="Copy code to clipboard">
@@ -1158,7 +1219,7 @@ export default function ElementDetailsModal({
                         },
                       },
                     }}>
-                      {element.procedure_definition || 'No procedure code available'}
+                      {element.procedure_definition ? highlightSQL(element.procedure_definition) : 'No procedure code available'}
                     </Box>
                     {element.procedure_definition && (
                       <Tooltip title="Copy code to clipboard">

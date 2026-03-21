@@ -1682,10 +1682,6 @@ export default function DatabasePanel({
             <ListItemIcon><InfoIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
             View Info
           </MenuItem>,
-          <MenuItem key="view_source" onClick={() => handleObjectMenuAction('view_source')}>
-            <ListItemIcon><CodeIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
-            View Source
-          </MenuItem>,
           <MenuItem key="insert_name" onClick={() => handleObjectMenuAction('insert_name')}>
             <ListItemIcon><ViewIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
             Insert Name
@@ -1719,10 +1715,6 @@ export default function DatabasePanel({
             <ListItemIcon><InfoIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
             View Info
           </MenuItem>,
-          <MenuItem key="view_source" onClick={() => handleObjectMenuAction('view_source')}>
-            <ListItemIcon><CodeIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
-            View Source
-          </MenuItem>,
           <MenuItem key="insert_name" onClick={() => handleObjectMenuAction('insert_name')}>
             <ListItemIcon><FunctionIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
             Insert Name
@@ -1755,10 +1747,6 @@ export default function DatabasePanel({
           <MenuItem key="view_info" onClick={() => handleObjectMenuAction('view_info')}>
             <ListItemIcon><InfoIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
             View Info
-          </MenuItem>,
-          <MenuItem key="view_source" onClick={() => handleObjectMenuAction('view_source')}>
-            <ListItemIcon><CodeIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
-            View Source
           </MenuItem>,
           <MenuItem key="insert_name" onClick={() => handleObjectMenuAction('insert_name')}>
             <ListItemIcon><ProcedureIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>

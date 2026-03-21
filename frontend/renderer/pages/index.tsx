@@ -946,6 +946,7 @@ export default function Home() {
                                 onTabChange={sqlTabs.setActiveTab}
                                 onCreateTab={() => activeConnection && sqlTabs.createTab(activeConnection.id)}
                                 onCloseTab={sqlTabs.closeTab}
+                                onRenameTab={(tabId, title) => sqlTabs.renameTab(tabId, title)}
                                 onContentChange={sqlTabs.updateTabContent}
                                 databaseInfo={activeConnection?.databases?.[0] ?? null}
                                 errorLine={errorLine}

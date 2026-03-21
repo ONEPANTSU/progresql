@@ -122,7 +122,17 @@ export function useSQLTabs(activeConnectionId: string | null): UseSQLTabsReturn 
 
   const createTab = useCallback((connectionId: string): SQLTab => {
     const connectionTabs = allTabs.filter(t => t.connectionId === connectionId);
-    const num = connectionTabs.length + 1;
+    // Find the next available number (avoid duplicates like "Query 2", "Query 2")
+    const usedNumbers = new Set(
+      connectionTabs
+        .map(t => {
+          const m = t.title.match(/^Query (\d+)$/);
+          return m ? parseInt(m[1], 10) : 0;
+        })
+        .filter(n => n > 0)
+    );
+    let num = 1;
+    while (usedNumbers.has(num)) num++;
     const newTab: SQLTab = {
       id: generateTabId(),
       connectionId,
