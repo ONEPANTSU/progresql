@@ -144,7 +144,7 @@ export function useAgentMessages({
   const { showError } = useNotifications();
   const agent = useAgent();
   const streaming = useStreamingMessage({ setChats });
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const addPlaceholderAndSend = useCallback(
     (
@@ -175,6 +175,7 @@ export function useAgentMessages({
           ...payload.context,
           ...(userDescs ? { user_descriptions: userDescs } : {}),
           safe_mode: agent.safeMode,
+          language: language,
         },
       };
 

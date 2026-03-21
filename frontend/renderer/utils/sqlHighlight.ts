@@ -1,7 +1,7 @@
 import hljs from 'highlight.js/lib/core';
-import sql from 'highlight.js/lib/languages/sql';
+import pgsql from 'highlight.js/lib/languages/pgsql';
 
-hljs.registerLanguage('sql', sql);
+hljs.registerLanguage('pgsql', pgsql);
 
 /**
  * Returns HTML string with highlighted SQL syntax.
@@ -9,7 +9,7 @@ hljs.registerLanguage('sql', sql);
  */
 export function highlightSQL(code: string): string {
   try {
-    return hljs.highlight(code, { language: 'sql' }).value;
+    return hljs.highlight(code, { language: 'pgsql' }).value;
   } catch {
     return escapeHtml(code);
   }

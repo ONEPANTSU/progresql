@@ -36,6 +36,7 @@ type AgentRequestContext struct {
 	ActiveTable      string `json:"active_table,omitempty"`
 	UserDescriptions string `json:"user_descriptions,omitempty"`
 	SafeMode         *bool  `json:"safe_mode,omitempty"`
+	Language         string `json:"language,omitempty"` // "ru" or "en"
 }
 
 // ToolResultPayload is the client's response to a tool.call.

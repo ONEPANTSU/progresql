@@ -47,7 +47,8 @@ type PipelineContext struct {
 	ActiveTable      string
 	UserDescriptions string
 	Model            string
-	SafeMode         bool // When true, LLM cannot access data and DML is blocked.
+	SafeMode         bool   // When true, LLM cannot access data and DML is blocked.
+	Language         string // User's UI language: "ru" or "en".
 
 	// ConversationHistory holds previous user/assistant messages for multi-turn context.
 	ConversationHistory []llm.Message
@@ -129,7 +130,11 @@ func (pc *PipelineContext) AddTokensDetailed(usage llm.Usage) {
 // ConversationHistory prepended before the given messages.
 // This enables multi-turn context and consistent security policy for all LLM calls.
 func (pc *PipelineContext) MessagesWithHistory(msgs ...llm.Message) []llm.Message {
-	systemPrompt := SafeModeSystemPrompt(pc.SafeMode)
+	lang := pc.Language
+	if lang == "" {
+		lang = "en"
+	}
+	systemPrompt := SafeModeSystemPrompt(pc.SafeMode, lang)
 	extra := 1 + len(pc.ConversationHistory) // system prompt + history
 	result := make([]llm.Message, 0, extra+len(msgs))
 	result = append(result, llm.Message{Role: "system", Content: systemPrompt})
@@ -299,6 +304,7 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		pctx.SelectedSQL = payload.Context.SelectedSQL
 		pctx.ActiveTable = payload.Context.ActiveTable
 		pctx.UserDescriptions = payload.Context.UserDescriptions
+		pctx.Language = payload.Context.Language
 		if payload.Context.SafeMode != nil {
 			pctx.SafeMode = *payload.Context.SafeMode
 		} else {
@@ -306,6 +312,9 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		}
 	} else {
 		pctx.SafeMode = true // Safe mode is the default.
+	}
+	if pctx.Language == "" {
+		pctx.Language = "en"
 	}
 
 	// Execute steps sequentially.
