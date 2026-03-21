@@ -2932,3 +2932,14 @@ TASK-196 completed. SQL templates dropdown with Tab-navigable placeholders in ed
 - TypeScript: npx tsc --noEmit — 0 errors (pre-existing SchemaSyncModal errors unchanged)
 - No Python code modified — ruff/pytest unaffected (uv run blocked by permissions as in prior tasks)
 - ALL TASKS COMPLETE — no remaining pending tasks in tasks.json
+
+TASK-211 completed. BUG: Removed dangerous Drop Schema from Explorer context menu.
+- Removed "Drop Schema" MenuItem from schema context menu in DatabasePanel.tsx (was CASCADE drop — extremely dangerous)
+- Removed the Divider separator before the deleted menu item
+- Removed 'drop_schema' case from handleObjectMenuAction switch-case (was inserting `DROP SCHEMA IF EXISTS "name" CASCADE;` into editor)
+- Schema context menu now only has: Copy Name, Refresh (safe operations)
+- Other drop operations (drop_function, drop_procedure, drop_sequence, drop_extension) remain — they are less dangerous and per-object
+- TypeScript: no new errors (pre-existing SchemaSyncModal errors unchanged)
+- Go tests: pre-existing failure in api/rest auth_user_test unchanged, all other packages pass
+- No Python code modified — ruff/pytest unaffected
+- Next priorities: TASK-208 (ER diagram, high), TASK-213 (chart buttons, high), TASK-214 (pie chart bug, high), TASK-215 (SQL retry, high)

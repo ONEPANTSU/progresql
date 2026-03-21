@@ -557,11 +557,6 @@ export default function DatabasePanel({
           onQueryTable(`DROP PROCEDURE IF EXISTS "${schemaName || 'public'}"."${name}";\n`);
         }
         break;
-      case 'drop_schema':
-        if (onQueryTable) {
-          onQueryTable(`DROP SCHEMA IF EXISTS "${name}" CASCADE;\n`);
-        }
-        break;
       case 'drop_sequence':
         if (onQueryTable) {
           onQueryTable(`DROP SEQUENCE IF EXISTS "${schemaName || 'public'}"."${name}";\n`);
@@ -1792,11 +1787,6 @@ export default function DatabasePanel({
           <MenuItem key="refresh" onClick={() => handleObjectMenuAction('refresh')}>
             <ListItemIcon><RefreshIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
             Refresh
-          </MenuItem>,
-          <Divider key="div1" />,
-          <MenuItem key="drop_schema" onClick={() => handleObjectMenuAction('drop_schema')} sx={{ color: 'error.main' }}>
-            <ListItemIcon><DeleteIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'error.main' }} /></ListItemIcon>
-            Drop Schema
           </MenuItem>,
         ]}
 
