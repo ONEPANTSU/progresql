@@ -7,6 +7,8 @@ services:
       POSTGRES_USER: "${PROGRESSQL_DB_USER:-progressql}"
       POSTGRES_PASSWORD: "${PROGRESSQL_DB_PASSWORD:-progressql}"
       POSTGRES_DB: "${PROGRESSQL_DB_NAME:-progressql}"
+    ports:
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
