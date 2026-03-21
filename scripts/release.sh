@@ -68,25 +68,30 @@ fi
 
 cd ..
 
-# --- Create tag & GitHub Release ---
+# --- GitHub Release first (without tag) ---
 echo ""
-echo "==> Creating git tag ${TAG}..."
-git tag -a "${TAG}" -m "Client release ${VERSION}" 2>/dev/null || echo "Tag already exists"
-git push origin "${TAG}"
-
-echo "==> Creating GitHub Release..."
-gh release create "${TAG}" \
-  --title "ProgreSQL ${VERSION}" \
-  --generate-notes \
-  2>/dev/null || echo "Release already exists"
-
-echo "==> Uploading macOS artifacts..."
+echo "==> Creating GitHub Release with DMG..."
 UPLOAD_FILES=""
 [ -f "frontend/$DMG" ] && UPLOAD_FILES="$UPLOAD_FILES frontend/$DMG"
 [ -n "$ZIP" ] && UPLOAD_FILES="$UPLOAD_FILES frontend/$ZIP"
-gh release upload "${TAG}" $UPLOAD_FILES --clobber
+
+gh release create "${TAG}" \
+  --title "ProgreSQL ${VERSION}" \
+  --generate-notes \
+  --target main \
+  $UPLOAD_FILES \
+  2>/dev/null || {
+    echo "Release exists, uploading assets..."
+    gh release upload "${TAG}" $UPLOAD_FILES --clobber
+  }
+
+echo "==> ✅ DMG uploaded! Waiting for GitHub to process..."
+sleep 5
+
+# --- Push tag AFTER release+DMG are ready ---
+# gh release create already created the tag, just fetch it locally
+git fetch origin "refs/tags/${TAG}:refs/tags/${TAG}" 2>/dev/null || true
 
 echo ""
-echo "==> ✅ macOS release uploaded!"
-echo "    Tag ${TAG} → Woodpecker deploys DMG to server"
+echo "==> ✅ Release ready! CI will deploy DMG to server."
 echo "    https://github.com/ONEPANTSU/progresql/releases/tag/${TAG}"
