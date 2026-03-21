@@ -92,7 +92,7 @@ const lightTheme = createTheme({
       main: '#16a34a',
     },
     info: {
-      main: '#2563eb',
+      main: '#6366f1',
     },
   },
   typography: sharedTypography,
@@ -280,7 +280,7 @@ const darkTheme = createTheme({
       main: '#4ade80',
     },
     info: {
-      main: '#60a5fa',
+      main: '#818cf8',
     },
   },
   typography: sharedTypography,
