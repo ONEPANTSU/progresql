@@ -2,10 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Paper,
+  Tab,
+  Tabs,
   Typography,
 } from '@mui/material';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import DatabasePanel from '../components/DatabasePanel';
+import ERDiagram from '../components/ERDiagram';
 import SQLEditor, { SQLEditorHandle } from '../components/SQLEditor';
 import QueryResults from '../components/QueryResults';
 import ChatPanel, { ChatPanelHandle } from '../components/ChatPanel';
@@ -61,6 +64,7 @@ export default function Home() {
   const [connectionErrors, setConnectionErrors] = useState<Record<string, string>>({});
   const [isImproving, setIsImproving] = useState(false);
   const [errorLine, setErrorLine] = useState<number | null>(null);
+  const [leftPanelTab, setLeftPanelTab] = useState<'explorer' | 'er-diagram'>('explorer');
   const sqlEditorRef = useRef<SQLEditorHandle>(null);
   const chatPanelRef = useRef<ChatPanelHandle>(null);
   const agent = useAgent();
@@ -697,29 +701,63 @@ export default function Home() {
                     maxSize={50}
                     id="database-panel"
                   >
-                    <Box sx={{ height: '100%', borderRight: '1px solid', borderColor: DIVIDER_COLOR }}>
-                      <ErrorBoundary panelName="Database Panel">
-                        <DatabasePanel
-                          connections={connections}
-                          activeConnection={activeConnection}
-                          onAddConnection={handleAddConnection}
-                          onConnect={handleConnect}
-                          onDisconnect={handleDisconnect}
-                          onDeleteConnection={handleDeleteConnection}
-                          onEditConnection={handleEditConnection}
-                          onRefreshConnection={handleRefreshConnection}
-                          onSelectTable={handleSelectTable}
-                          onSelectView={handleSelectView}
-                          onSelectFunction={handleSelectFunction}
-                          onSelectProcedure={handleSelectProcedure}
-                          onExplainObject={handleExplainObject}
-                          onQueryTable={handleQueryTable}
-                          onApplySQL={handleApplySQL}
-                          isRestoringConnections={isRestoringConnections}
-                          connectingId={connectingId}
-                          connectionErrors={connectionErrors}
-                        />
-                      </ErrorBoundary>
+                    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRight: '1px solid', borderColor: DIVIDER_COLOR }}>
+                      <Tabs
+                        value={leftPanelTab}
+                        onChange={(_e, v) => setLeftPanelTab(v)}
+                        variant="fullWidth"
+                        sx={{
+                          minHeight: 32,
+                          borderBottom: '1px solid',
+                          borderColor: DIVIDER_COLOR,
+                          flexShrink: 0,
+                          '& .MuiTab-root': {
+                            minHeight: 32,
+                            py: 0.5,
+                            fontSize: 11,
+                            textTransform: 'none',
+                            color: 'text.secondary',
+                            '&.Mui-selected': { color: 'text.primary' },
+                          },
+                          '& .MuiTabs-indicator': { height: 2 },
+                        }}
+                      >
+                        <Tab label="Explorer" value="explorer" />
+                        <Tab label="ER Diagram" value="er-diagram" />
+                      </Tabs>
+                      <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                        {leftPanelTab === 'explorer' ? (
+                          <ErrorBoundary panelName="Database Panel">
+                            <DatabasePanel
+                              connections={connections}
+                              activeConnection={activeConnection}
+                              onAddConnection={handleAddConnection}
+                              onConnect={handleConnect}
+                              onDisconnect={handleDisconnect}
+                              onDeleteConnection={handleDeleteConnection}
+                              onEditConnection={handleEditConnection}
+                              onRefreshConnection={handleRefreshConnection}
+                              onSelectTable={handleSelectTable}
+                              onSelectView={handleSelectView}
+                              onSelectFunction={handleSelectFunction}
+                              onSelectProcedure={handleSelectProcedure}
+                              onExplainObject={handleExplainObject}
+                              onQueryTable={handleQueryTable}
+                              onApplySQL={handleApplySQL}
+                              isRestoringConnections={isRestoringConnections}
+                              connectingId={connectingId}
+                              connectionErrors={connectionErrors}
+                            />
+                          </ErrorBoundary>
+                        ) : (
+                          <ErrorBoundary panelName="ER Diagram">
+                            <ERDiagram
+                              tables={activeConnection?.databases?.[0]?.tables ?? []}
+                              constraints={activeConnection?.databases?.[0]?.constraints ?? []}
+                            />
+                          </ErrorBoundary>
+                        )}
+                      </Box>
                     </Box>
                   </Panel>
 

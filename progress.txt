@@ -2761,3 +2761,34 @@ TASK-199 completed. ChartBlock.tsx — Recharts chart rendering component for 6 
 - TypeScript: npx tsc --noEmit --project renderer/tsconfig.json — 0 errors
 - No Python code modified — ruff/pytest unaffected
 - Next priorities: TASK-200 (LLM agent visualizations, medium, now UNBLOCKED), TASK-201 (ER diagram, medium), TASK-202 (connection pill, medium)
+
+TASK-201 completed. ER Diagram — interactive schema visualization in left panel.
+- Installed @xyflow/react dependency
+- Created ERDiagram.tsx component (535 lines) with full React Flow integration:
+  - Custom TableNode (React.memo): dark themed (#1e293b background), shows table name header with row count,
+    columns list in monospace with PK (indigo), FK (amber), NN markers, left-border color coding
+  - FK edges: smoothstep animated edges with arrow markers, labeled "column -> referenced_column",
+    deduplicated by constraint_name for composite FKs
+  - Auto grid layout: 5 columns per row, 320x300px gap, applied when no saved positions
+  - localStorage persistence: positions saved on drag stop (key: "er-diagram-positions"), loaded on mount
+  - MiniMap (pannable, zoomable, dark styled), Controls, Background (dots)
+  - Fit View button (top-right) with expand icon, fitView({ padding: 0.15, duration: 300 })
+  - Zoom range: 0.1x to 2x, ReactFlowProvider wrapper for useReactFlow hook
+  - buildColumnMeta() derives PK/FK status per column from constraints array
+  - useMemo for nodes/edges, useRef for positions to minimize re-renders
+- Modified index.tsx: added MUI Tabs (Explorer / ER Diagram) at top of left panel
+  - leftPanelTab state: 'explorer' | 'er-diagram'
+  - Explorer tab: original DatabasePanel (unchanged)
+  - ER Diagram tab: ERDiagram component with tables/constraints from activeConnection
+  - Both wrapped in ErrorBoundary
+  - Compact tab styling (minHeight 32px, fontSize 11, no text transform)
+- All 6 acceptance criteria met:
+  - All tables displayed with columns (from activeConnection.databases[0].tables)
+  - FK edges shown as arrows between correct tables (from constraints with FOREIGN KEY type)
+  - Drag, zoom, pan — React Flow default + Controls component
+  - Fit to screen — dedicated button + fitView on initial load
+  - Positions persist in localStorage, restored on tab switch
+  - Performance: React.memo on TableNode, useMemo on nodes/edges, maxHeight scroll on large tables
+- TypeScript: npx tsc --noEmit — 0 errors
+- No Python code modified — ruff/pytest unaffected
+- Next priorities: TASK-200 (LLM agent visualizations, medium), TASK-202 (connection pill, medium), TASK-196 (SQL templates, low)

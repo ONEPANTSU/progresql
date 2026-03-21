@@ -3921,7 +3921,7 @@
         "Работает на схемах с 20+ таблицами без тормозов"
       ],
       "dependencies": [],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-202",
