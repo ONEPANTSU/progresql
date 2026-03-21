@@ -71,11 +71,12 @@ type AgentResponsePayload struct {
 
 // AgentResult holds the outcome of an agent action.
 type AgentResult struct {
-	SQL           string          `json:"sql,omitempty"`
-	Explanation   string          `json:"explanation,omitempty"`
-	Candidates    []string        `json:"candidates,omitempty"`
-	QueryResult   json.RawMessage `json:"query_result,omitempty"`
-	Visualization *Visualization  `json:"visualization,omitempty"`
+	SQL             string          `json:"sql,omitempty"`
+	Explanation     string          `json:"explanation,omitempty"`
+	Candidates      []string        `json:"candidates,omitempty"`
+	QueryResult     json.RawMessage `json:"query_result,omitempty"`
+	Visualization   *Visualization  `json:"visualization,omitempty"`
+	ValidationError string          `json:"validation_error,omitempty"`
 }
 
 // Chart type constants for visualization responses.

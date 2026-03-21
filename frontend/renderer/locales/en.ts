@@ -268,6 +268,7 @@ const en = {
   'agentError.unknown': 'An unexpected error occurred. Please try again.',
   'agentError.queryExecution': 'Query execution error. Check SQL syntax.',
   'agentError.sendFailed': 'Failed to send message. Check backend connection.',
+  'agentError.validationFailed': 'SQL validation failed',
   'agentError.backendUnavailable': 'Backend unavailable. Connect to Go backend in settings.',
 
   // ── Notifications (index.tsx) ──

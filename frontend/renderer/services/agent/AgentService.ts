@@ -55,6 +55,7 @@ export interface AgentResult {
   candidates?: string[];
   query_result?: any;
   visualization?: Visualization;
+  validation_error?: string;
 }
 
 export interface ToolCallLogEntry {

@@ -27,6 +27,13 @@ func (s *AutoExecuteStep) Execute(ctx context.Context, pctx *agent.PipelineConte
 		return nil
 	}
 
+	// Skip auto-execute for SQL that failed EXPLAIN validation.
+	if pctx.Result.ValidationError != "" {
+		pctx.Logger.Info("auto_execute skipped: SQL has validation error",
+			zap.String("validation_error", pctx.Result.ValidationError))
+		return nil
+	}
+
 	sql := strings.TrimSpace(pctx.Result.SQL)
 	if sql == "" {
 		return nil

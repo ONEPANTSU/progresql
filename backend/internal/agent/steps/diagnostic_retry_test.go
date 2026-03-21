@@ -194,7 +194,7 @@ func TestDiagnosticRetry_RetrySucceedsOnSecondAttempt(t *testing.T) {
 }
 
 func TestDiagnosticRetry_DiscardedAfterMaxRetries(t *testing.T) {
-	// Candidate always fails EXPLAIN, even after 2 retries — gets discarded.
+	// Candidate always fails EXPLAIN, even after 2 retries — best-effort SQL returned with validation error.
 	// LLM returns SQL that also fails.
 	mockLLM := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := llm.ChatResponse{
@@ -234,13 +234,20 @@ func TestDiagnosticRetry_DiscardedAfterMaxRetries(t *testing.T) {
 	toolCallEnv3 := readEnvelope(t, client)
 	sendToolResult(t, client, "req-diag", toolCallEnv3.CallID, false, nil)
 
+	// Fallback: one more EXPLAIN to get the error message for best-effort output.
+	toolCallEnv4 := readEnvelope(t, client)
+	sendToolResult(t, client, "req-diag", toolCallEnv4.CallID, false, nil)
+
 	select {
 	case err := <-errCh:
-		if err == nil {
-			t.Fatal("expected error when all candidates discarded")
+		if err != nil {
+			t.Fatalf("expected nil error (best-effort SQL with validation_error), got: %v", err)
 		}
-		if !strings.Contains(err.Error(), "failed EXPLAIN validation after retries") {
-			t.Errorf("unexpected error: %v", err)
+		if pctx.Result.ValidationError == "" {
+			t.Fatal("expected ValidationError to be set")
+		}
+		if pctx.Result.SQL == "" {
+			t.Fatal("expected best-effort SQL to be set")
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out")
@@ -354,7 +361,7 @@ func TestDiagnosticRetry_EmptyCandidates(t *testing.T) {
 }
 
 func TestDiagnosticRetry_LLMRetryFailure(t *testing.T) {
-	// When LLM itself fails during retry, candidate is discarded.
+	// When LLM itself fails during retry, candidate gets best-effort output with validation error.
 	mockLLM := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(`{"error":"server error"}`))
@@ -378,14 +385,20 @@ func TestDiagnosticRetry_LLMRetryFailure(t *testing.T) {
 	tc := readEnvelope(t, client)
 	sendToolResult(t, client, "req-diag", tc.CallID, false, nil)
 
-	// LLM retry will fail (500) — candidate discarded.
+	// LLM retry will fail (500) — candidate discarded, then fallback EXPLAIN for error message.
+	tc2 := readEnvelope(t, client)
+	sendToolResult(t, client, "req-diag", tc2.CallID, false, nil)
+
 	select {
 	case err := <-errCh:
-		if err == nil {
-			t.Fatal("expected error when LLM retry fails")
+		if err != nil {
+			t.Fatalf("expected nil error (best-effort SQL with validation_error), got: %v", err)
 		}
-		if !strings.Contains(err.Error(), "failed EXPLAIN validation after retries") {
-			t.Errorf("unexpected error: %v", err)
+		if pctx.Result.ValidationError == "" {
+			t.Fatal("expected ValidationError to be set")
+		}
+		if pctx.Result.SQL == "" {
+			t.Fatal("expected best-effort SQL to be set")
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out")

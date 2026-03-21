@@ -2943,3 +2943,17 @@ TASK-211 completed. BUG: Removed dangerous Drop Schema from Explorer context men
 - Go tests: pre-existing failure in api/rest auth_user_test unchanged, all other packages pass
 - No Python code modified — ruff/pytest unaffected
 - Next priorities: TASK-208 (ER diagram, high), TASK-213 (chart buttons, high), TASK-214 (pie chart bug, high), TASK-215 (SQL retry, high)
+
+TASK-215 completed. SQL auto-retry with LLM error feedback.
+- DiagnosticRetryStep already validates SQL with EXPLAIN and retries up to 2 times via LLM
+- Changed behavior when ALL candidates fail: instead of killing the pipeline with an error, now sends best-effort SQL to user with validation_error annotation
+- Added ValidationError field to AgentResult (backend types.go + frontend AgentService.ts)
+- AutoExecuteStep skips execution when validation_error is set (don't auto-run invalid SQL)
+- SeedExpansionStep skips expansion when validation_error is set (don't expand invalid SQL)
+- ResultAggregationStep skips explanation override when validation_error is set
+- Frontend useAgentMessages.ts shows validation error as blockquote warning under the SQL
+- Added 'agentError.validationFailed' translations: EN="SQL validation failed", RU="SQL не прошёл валидацию"
+- Updated 2 tests (DiscardedAfterMaxRetries, LLMRetryFailure) to verify new behavior: nil error + ValidationError set + best-effort SQL
+- go build ./... passes, all DiagnosticRetry tests pass (8/8)
+- Pre-existing test failures unchanged (E2E streaming, ResultAggregation timeout, Session close)
+- Next priorities: TASK-208 (ER diagram, high), TASK-213 (chart buttons, high), TASK-214 (pie chart bug, high)

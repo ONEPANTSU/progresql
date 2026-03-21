@@ -27,6 +27,12 @@ type SeedExpansionStep struct {
 func (s *SeedExpansionStep) Name() string { return "seed_expansion" }
 
 func (s *SeedExpansionStep) Execute(ctx context.Context, pctx *agent.PipelineContext) error {
+	// Skip expansion for SQL that failed EXPLAIN validation.
+	if pctx.Result.ValidationError != "" {
+		pctx.Logger.Info("seed expansion skipped: SQL has validation error")
+		return nil
+	}
+
 	val, ok := pctx.Get(ContextKeySQLCandidates)
 	if !ok {
 		return fmt.Errorf("sql_candidates not found: diagnostic_retry step must run first")

@@ -82,7 +82,32 @@ func (s *DiagnosticRetryStep) Execute(ctx context.Context, pctx *agent.PipelineC
 	)
 
 	if len(validated) == 0 {
-		return fmt.Errorf("all %d SQL candidates failed EXPLAIN validation after retries", len(candidates))
+		// All candidates failed EXPLAIN validation. Instead of failing the pipeline,
+		// keep the first candidate SQL with the validation error so the user can see it.
+		bestSQL := candidates[0]
+		var bestError string
+
+		explainArgs, _ := json.Marshal(tools.ExplainQueryArgs{SQL: bestSQL})
+		result, err := pctx.DispatchTool(tools.ToolExplainQuery, explainArgs)
+		if err != nil {
+			bestError = err.Error()
+		} else if !result.Success {
+			bestError = result.Error
+		}
+		if bestError == "" {
+			bestError = "SQL validation failed after retries"
+		}
+
+		pctx.Logger.Warn("all candidates failed EXPLAIN, sending best-effort SQL with error",
+			zap.String("last_sql", bestSQL),
+			zap.String("last_error", bestError),
+		)
+		pctx.Set(ContextKeySQLCandidates, []string{bestSQL})
+		pctx.Set(ContextKeySQLCandidate, bestSQL)
+		pctx.Result.SQL = bestSQL
+		pctx.Result.Candidates = []string{bestSQL}
+		pctx.Result.ValidationError = bestError
+		return nil
 	}
 
 	// Update candidates in context.

@@ -100,6 +100,11 @@ function formatAgentResponse(response: AgentResponsePayload, t: TFunction): stri
     }
   }
 
+  // Show validation error annotation when SQL failed EXPLAIN validation after retries.
+  if (response.result.validation_error) {
+    parts.push('\n> ⚠️ ' + t('agentError.validationFailed') + ': ' + response.result.validation_error);
+  }
+
   // Candidates are internal — do not expose to the user.
 
   return parts.join('\n') || t('misc.responseReceived');
