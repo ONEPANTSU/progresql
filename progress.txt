@@ -2669,3 +2669,18 @@ TASK-194 completed. Format SQL button in editor toolbar.
 - Translations added: en (Format SQL) and ru (Форматировать SQL)
 - TypeScript tsc --noEmit passes (0 errors)
 - Next priorities: TASK-193 (autocomplete, high), TASK-197 (SQL verification, high), TASK-195 (error highlighting, medium)
+
+TASK-193 completed. CodeMirror SQL autocomplete with DB schema awareness.
+- Created frontend/renderer/utils/sqlAutocomplete.ts — buildSQLSchema() converts DatabaseInfo to CodeMirror SQLNamespace
+- Switched from generic sql() to sql({dialect: PostgreSQL, schema, upperCaseKeywords: true})
+- Used Compartment for dynamic schema reconfiguration when DB connection changes
+- Added databaseInfo prop to SQLEditor, passed from index.tsx (activeConnection.databases[0])
+- SQL keywords autocomplete: SELECT, FROM, JOIN, etc. (uppercase)
+- Table/view autocomplete: after FROM/JOIN, typing table prefix shows matching tables
+- Column autocomplete: after "table." shows columns of that table
+- Function autocomplete: DB functions appear in suggestions
+- Schema updates dynamically when connection changes (useEffect + compartment.reconfigure)
+- Dark theme: autocomplete dropdown styled with #161b22 bg, #264f78 selection
+- TypeScript tsc --noEmit passes (0 errors)
+- Go tests: pre-existing failures in agent/steps and api/rest (not related to this change)
+- Next priorities: TASK-197 (SQL verification, high), TASK-195 (error highlighting, medium), TASK-196 (SQL templates, low)

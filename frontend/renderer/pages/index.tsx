@@ -744,6 +744,7 @@ export default function Home() {
                             onCreateTab={() => activeConnection && sqlTabs.createTab(activeConnection.id)}
                             onCloseTab={sqlTabs.closeTab}
                             onContentChange={sqlTabs.updateTabContent}
+                            databaseInfo={activeConnection?.databases?.[0] ?? null}
                           />
                         </ErrorBoundary>
                       </Box>

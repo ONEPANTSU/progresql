@@ -3802,7 +3802,7 @@
         "Автокомплит работает и в тёмной и в светлой теме"
       ],
       "dependencies": [],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-194",

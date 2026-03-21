@@ -18,15 +18,16 @@ import {
 } from '@mui/icons-material';
 import { format as formatSQL } from 'sql-formatter';
 import { EditorView, basicSetup } from 'codemirror';
-import { EditorState, Transaction } from '@codemirror/state';
-import { sql } from '@codemirror/lang-sql';
+import { EditorState, Transaction, Compartment } from '@codemirror/state';
+import { sql, PostgreSQL } from '@codemirror/lang-sql';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
 import { EditorView as EditorViewTheme } from '@codemirror/view';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { createLogger } from '../utils/logger';
-import { SQLTab } from '../types';
+import { SQLTab, DatabaseInfo } from '../types';
+import { buildSQLSchema } from '../utils/sqlAutocomplete';
 
 const log = createLogger('SQLEditor');
 
@@ -50,7 +51,13 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
   '.cm-tooltip': { border: '1px solid #30363d', backgroundColor: '#161b22' },
   '.cm-tooltip .cm-tooltip-arrow:before': { borderTopColor: 'transparent', borderBottomColor: 'transparent' },
   '.cm-tooltip .cm-tooltip-arrow:after': { borderTopColor: '#161b22', borderBottomColor: '#161b22' },
-  '.cm-tooltip-autocomplete': { '& > ul > li[aria-selected]': { backgroundColor: '#264f78', color: '#e6edf3' } },
+  '.cm-tooltip-autocomplete': {
+    '& > ul': { fontFamily: 'monospace', fontSize: '13px' },
+    '& > ul > li': { color: '#e6edf3' },
+    '& > ul > li[aria-selected]': { backgroundColor: '#264f78', color: '#e6edf3' },
+  },
+  '.cm-completionIcon': { opacity: 0.7 },
+  '.cm-completionDetail': { color: '#8b949e', fontStyle: 'italic', marginLeft: '8px' },
 }, { dark: true });
 
 const progreSQLHighlight = HighlightStyle.define([
@@ -92,11 +99,13 @@ interface SQLEditorProps {
   onCreateTab: () => void;
   onCloseTab: (tabId: string) => void;
   onContentChange: (tabId: string, content: string) => void;
+  databaseInfo?: DatabaseInfo | null;
 }
 
 const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor({
   onExecuteQuery, onImproveQuery, isImproving = false,
   tabs, activeTab, activeTabId, onTabChange, onCreateTab, onCloseTab, onContentChange,
+  databaseInfo,
 }, ref) {
   const { actualTheme } = useTheme();
   const { t } = useTranslation();
@@ -107,6 +116,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
   const [query, setQuery] = useState(activeTab?.content ?? '');
   const [isExecuting, setIsExecuting] = useState(false);
   const prevTabCountRef = useRef(tabs.length);
+  const sqlCompartment = useRef(new Compartment());
 
   // Auto-scroll tabs container when new tab is added
   useEffect(() => {
@@ -187,9 +197,14 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
           }
         });
 
+        const sqlSchema = buildSQLSchema(databaseInfo);
         const extensions = [
           basicSetup,
-          sql(),
+          sqlCompartment.current.of(sql({
+            dialect: PostgreSQL,
+            schema: sqlSchema,
+            upperCaseKeywords: true,
+          })),
           updateListener,
           EditorView.theme({
             "&": { height: "100%", maxHeight: "100%", overflow: "auto" },
@@ -258,6 +273,20 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
       }
     };
   }, []);
+
+  // Update autocomplete schema when database info changes
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const sqlSchema = buildSQLSchema(databaseInfo);
+    view.dispatch({
+      effects: sqlCompartment.current.reconfigure(sql({
+        dialect: PostgreSQL,
+        schema: sqlSchema,
+        upperCaseKeywords: true,
+      })),
+    });
+  }, [databaseInfo]);
 
   const getQueryToExecute = useCallback((): string => {
     const view = viewRef.current;
