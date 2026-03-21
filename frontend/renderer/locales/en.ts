@@ -102,7 +102,7 @@ const en = {
   'settings.planTrial': 'Trial',
   'settings.planFree': 'Free',
   'settings.proUntil': 'Pro until {date}',
-  'settings.daysRemaining': '{count} {count, plural, one {day} other {days}} remaining',
+  'settings.daysRemaining': '{count} day(s) remaining',
   'settings.upgradePrompt': 'Upgrade to unlock AI features',
   'settings.upgradeButton': 'Upgrade to Pro - $20/mo',
   'settings.upgradeWaiting': 'Waiting for payment\u2026',
