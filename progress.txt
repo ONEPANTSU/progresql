@@ -2916,3 +2916,19 @@ TASK-205 completed. Schema Sync modal — compare schemas between two connection
 - Files created: SchemaSyncModal.tsx
 - Files modified: DatabasePanel.tsx (import, state, button, modal), tasks.json
 - Next priorities: TASK-196 (SQL templates, low) — only remaining pending task
+
+TASK-196 completed. SQL templates dropdown with Tab-navigable placeholders in editor toolbar.
+- Added TemplateIcon (Description) button in toolbar, opens MUI Menu dropdown
+- 7 SQL templates: SELECT, INSERT, UPDATE, DELETE, CREATE TABLE, CREATE INDEX, EXPLAIN ANALYZE
+- Templates use $1, $2, ... placeholders for user-fillable fields
+- insertTemplate(): inserts template at cursor, computes placeholder positions, selects first $1
+- Tab-navigation: pressing Tab jumps to next placeholder ($2, $3, ...) with selection
+  - selectNextPlaceholder() tracks placeholder index and adjusts positions for user-typed content delta
+  - Tab handler in keydown listener: intercepts Tab only while placeholders are active, falls through to default when done
+- findPlaceholders(): regex-based $N extractor, sorted by N then position
+- Placeholder state managed via refs (placeholdersRef, placeholderIdxRef) — no re-renders during navigation
+- Menu items use monospace font for SQL keyword labels (same in all locales, no per-template i18n needed)
+- i18n: added editor.templates key in en.ts ("SQL Templates") and ru.ts ("SQL-шаблоны")
+- TypeScript: npx tsc --noEmit — 0 errors (pre-existing SchemaSyncModal errors unchanged)
+- No Python code modified — ruff/pytest unaffected (uv run blocked by permissions as in prior tasks)
+- ALL TASKS COMPLETE — no remaining pending tasks in tasks.json

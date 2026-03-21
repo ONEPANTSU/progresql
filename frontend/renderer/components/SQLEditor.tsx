@@ -20,6 +20,7 @@ import {
   Close as CloseIcon,
   Code as FormatIcon,
   Storage as StorageIcon,
+  Description as TemplateIcon,
 } from '@mui/icons-material';
 import { format as formatSQL } from 'sql-formatter';
 import { EditorView, basicSetup } from 'codemirror';
@@ -133,6 +134,36 @@ const errorGutter = gutter({
   },
 });
 
+// ── SQL Templates with $N placeholders ──
+const PLACEHOLDER_RE = /\$\d+/g;
+
+interface SQLTemplate {
+  label: string;        // display label (SQL keyword name — same in all locales)
+  sql: string;          // template body with $1, $2, … placeholders
+}
+
+const SQL_TEMPLATES: SQLTemplate[] = [
+  { label: 'SELECT',          sql: 'SELECT $1\nFROM $2\nWHERE $3;' },
+  { label: 'INSERT',          sql: 'INSERT INTO $1 ($2)\nVALUES ($3);' },
+  { label: 'UPDATE',          sql: 'UPDATE $1\nSET $2 = $3\nWHERE $4;' },
+  { label: 'DELETE',          sql: 'DELETE FROM $1\nWHERE $2;' },
+  { label: 'CREATE TABLE',    sql: 'CREATE TABLE $1 (\n  $2 $3 NOT NULL,\n  $4 $5\n);' },
+  { label: 'CREATE INDEX',    sql: 'CREATE INDEX $1\nON $2 ($3);' },
+  { label: 'EXPLAIN ANALYZE', sql: 'EXPLAIN ANALYZE\n$1;' },
+];
+
+/** Find all $N placeholder positions in `text`, ordered by N then by occurrence. */
+function findPlaceholders(text: string): { from: number; to: number }[] {
+  const hits: { from: number; to: number; n: number }[] = [];
+  let m: RegExpExecArray | null;
+  // eslint-disable-next-line no-cond-assign
+  while ((m = PLACEHOLDER_RE.exec(text)) !== null) {
+    hits.push({ from: m.index, to: m.index + m[0].length, n: parseInt(m[0].slice(1), 10) });
+  }
+  hits.sort((a, b) => a.n - b.n || a.from - b.from);
+  return hits.map(({ from, to }) => ({ from, to }));
+}
+
 export interface SQLEditorHandle {
   insertText: (text: string) => void;
   replaceSelection: (text: string) => void;
@@ -174,8 +205,12 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
   const [query, setQuery] = useState(activeTab?.content ?? '');
   const [isExecuting, setIsExecuting] = useState(false);
   const [connectionMenuAnchor, setConnectionMenuAnchor] = useState<HTMLElement | null>(null);
+  const [templateMenuAnchor, setTemplateMenuAnchor] = useState<HTMLElement | null>(null);
   const prevTabCountRef = useRef(tabs.length);
   const sqlCompartment = useRef(new Compartment());
+  // Placeholder positions (absolute offsets) for Tab-navigation after template insertion
+  const placeholdersRef = useRef<{ from: number; to: number }[]>([]);
+  const placeholderIdxRef = useRef<number>(-1);
 
   // Auto-scroll tabs container when new tab is added
   useEffect(() => {
@@ -470,6 +505,82 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
     }
   }, []);
 
+  /** Insert a SQL template into the editor and select the first placeholder. */
+  const insertTemplate = useCallback((tpl: SQLTemplate) => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    const cursor = view.state.selection.main.head;
+    const text = tpl.sql;
+
+    // Insert the template text at cursor
+    view.dispatch({
+      changes: { from: cursor, insert: text },
+      annotations: Transaction.userEvent.of('input'),
+    });
+
+    // Compute absolute placeholder positions
+    const raw = findPlaceholders(text);
+    const phs = raw.map(p => ({ from: p.from + cursor, to: p.to + cursor }));
+    placeholdersRef.current = phs;
+    placeholderIdxRef.current = -1;
+
+    // Select the first placeholder
+    if (phs.length > 0) {
+      placeholderIdxRef.current = 0;
+      const first = phs[0];
+      view.dispatch({
+        selection: { anchor: first.from, head: first.to },
+      });
+    } else {
+      view.dispatch({
+        selection: { anchor: cursor + text.length },
+      });
+    }
+    view.focus();
+    setTemplateMenuAnchor(null);
+  }, []);
+
+  /** Advance to the next placeholder. Returns true if handled. */
+  const selectNextPlaceholder = useCallback((): boolean => {
+    const view = viewRef.current;
+    const phs = placeholdersRef.current;
+    if (!view || phs.length === 0) return false;
+
+    const idx = placeholderIdxRef.current;
+    if (idx < 0 || idx >= phs.length) return false;
+
+    // The current placeholder may have been replaced by user typing.
+    // Compute offset delta from original placeholder to what user typed.
+    const currentPh = phs[idx];
+    const sel = view.state.selection.main;
+    // delta = (what user typed length) - (original placeholder length)
+    const originalLen = currentPh.to - currentPh.from;
+    const typedLen = sel.head - currentPh.from;
+    const delta = typedLen - originalLen;
+
+    // Shift all subsequent placeholders by delta
+    for (let i = idx + 1; i < phs.length; i++) {
+      phs[i] = { from: phs[i].from + delta, to: phs[i].to + delta };
+    }
+
+    const nextIdx = idx + 1;
+    if (nextIdx >= phs.length) {
+      // No more placeholders — clear and let Tab work normally
+      placeholdersRef.current = [];
+      placeholderIdxRef.current = -1;
+      return false;
+    }
+
+    placeholderIdxRef.current = nextIdx;
+    const next = phs[nextIdx];
+    view.dispatch({
+      selection: { anchor: next.from, head: next.to },
+    });
+    view.focus();
+    return true;
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
@@ -486,6 +597,13 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
       if (e.shiftKey && e.altKey && (e.key === 'f' || e.key === 'F')) {
         e.preventDefault();
         formatQuery();
+      }
+      // Tab navigation between template placeholders
+      if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (selectNextPlaceholder()) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
       }
     };
 
@@ -510,7 +628,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
         }
       };
     }
-  }, [executeQuery, formatQuery]);
+  }, [executeQuery, formatQuery, selectNextPlaceholder]);
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -696,6 +814,39 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
 
         {/* Toolbar actions integrated into tab bar */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 'auto', mr: 1, flexShrink: 0 }}>
+          <Tooltip title={t('editor.templates')}>
+            <IconButton
+              size="small"
+              onClick={(e) => setTemplateMenuAnchor(e.currentTarget)}
+              aria-label={t('editor.templates')}
+              sx={{ p: '4px' }}
+            >
+              <TemplateIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+          <Menu
+            anchorEl={templateMenuAnchor}
+            open={Boolean(templateMenuAnchor)}
+            onClose={() => setTemplateMenuAnchor(null)}
+            slotProps={{
+              paper: {
+                sx: {
+                  bgcolor: 'background.paper',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  minWidth: 200,
+                },
+              },
+            }}
+          >
+            {SQL_TEMPLATES.map((tpl) => (
+              <MenuItem key={tpl.label} onClick={() => insertTemplate(tpl)}>
+                <ListItemText
+                  primary={tpl.label}
+                  primaryTypographyProps={{ fontSize: '0.8rem', fontFamily: 'monospace' }}
+                />
+              </MenuItem>
+            ))}
+          </Menu>
           <Tooltip title={isImproving ? t('editor.improving') : t('editor.improveTooltip')}>
             <span>
               <IconButton
