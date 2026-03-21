@@ -2658,3 +2658,14 @@ TASK-207 completed. Stop button replaces Send during AI generation with full can
 - tsc --noEmit passes (0 errors)
 - Pre-existing flaky test: TestSession_SendEnvelopeAfterClose fails both with and without changes
 - Next priorities: TASK-193 (autocomplete, high), TASK-194 (format SQL, high), TASK-197 (SQL verification, high)
+
+TASK-194 completed. Format SQL button in editor toolbar.
+- Added sql-formatter dependency to frontend/package.json
+- New Format SQL button (Code icon) in toolbar between Copy and Clear
+- Formats using postgresql dialect, uppercase keywords, 2-space indentation
+- Hotkey Shift+Alt+F triggers formatting from within the editor
+- Invalid SQL silently ignored (no crash, log warning)
+- Works on all tabs independently (uses current editor view content)
+- Translations added: en (Format SQL) and ru (Форматировать SQL)
+- TypeScript tsc --noEmit passes (0 errors)
+- Next priorities: TASK-193 (autocomplete, high), TASK-197 (SQL verification, high), TASK-195 (error highlighting, medium)

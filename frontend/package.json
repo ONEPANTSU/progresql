@@ -42,6 +42,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-resizable-panels": "^3.0.5",
+    "sql-formatter": "^15.7.2",
     "ws": "^8.19.0"
   },
   "devDependencies": {
@@ -95,8 +96,17 @@
         "height": 400
       },
       "contents": [
-        { "x": 170, "y": 180, "type": "file" },
-        { "x": 490, "y": 180, "type": "link", "path": "/Applications" }
+        {
+          "x": 170,
+          "y": 180,
+          "type": "file"
+        },
+        {
+          "x": 490,
+          "y": 180,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "mac": {

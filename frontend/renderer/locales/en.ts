@@ -146,6 +146,8 @@ const en = {
   'editor.improveAria': 'Improve query with AI',
   'editor.copyTooltip': 'Copy Query (Ctrl+C)',
   'editor.copyAria': 'Copy query',
+  'editor.formatTooltip': 'Format SQL (Shift+Alt+F)',
+  'editor.formatAria': 'Format SQL',
   'editor.clearTooltip': 'Clear Editor',
   'editor.clearAria': 'Clear editor',
   'editor.runTooltip': 'Run (F5 / Ctrl+Enter)',

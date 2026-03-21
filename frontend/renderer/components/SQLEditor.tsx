@@ -14,7 +14,9 @@ import {
   AutoFixHigh as MagicWandIcon,
   Add as AddIcon,
   Close as CloseIcon,
+  Code as FormatIcon,
 } from '@mui/icons-material';
+import { format as formatSQL } from 'sql-formatter';
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState, Transaction } from '@codemirror/state';
 import { sql } from '@codemirror/lang-sql';
@@ -347,6 +349,28 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
     onImproveQuery(selectedSQL || query.trim());
   };
 
+  const formatQuery = useCallback(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const doc = view.state.doc.toString();
+    if (!doc.trim()) return;
+    try {
+      const formatted = formatSQL(doc, {
+        language: 'postgresql',
+        keywordCase: 'upper',
+        tabWidth: 2,
+        useTabs: false,
+      });
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: formatted },
+        annotations: Transaction.userEvent.of('input'),
+      });
+    } catch {
+      // If formatting fails (invalid SQL), silently ignore
+      log.warn('SQL formatting failed');
+    }
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
@@ -359,6 +383,10 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
       if (((e.ctrlKey || e.metaKey) && e.key === 'Enter') || e.key === 'F5') {
         e.preventDefault();
         executeQuery();
+      }
+      if (e.shiftKey && e.altKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        formatQuery();
       }
     };
 
@@ -383,7 +411,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
         }
       };
     }
-  }, [executeQuery]);
+  }, [executeQuery, formatQuery]);
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -496,6 +524,13 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
             <span>
               <IconButton onClick={copyQuery} disabled={!query.trim()} size="small" aria-label={t('editor.copyAria')} sx={{ p: '4px' }}>
                 <CopyIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={t('editor.formatTooltip')}>
+            <span>
+              <IconButton onClick={formatQuery} disabled={!query.trim()} size="small" aria-label={t('editor.formatAria')} sx={{ p: '4px' }}>
+                <FormatIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </span>
           </Tooltip>
