@@ -1,9 +1,7 @@
 import React, { useMemo } from 'react';
 import { Box, Typography, IconButton, Tooltip } from '@mui/material';
 import {
-  ContentCopy as CopyIcon,
   Refresh as RefreshIcon,
-  PlayArrow as ApplyIcon,
 } from '@mui/icons-material';
 import {
   BarChart, Bar,
@@ -26,8 +24,28 @@ const CHART_COLORS = [
 interface ChartBlockProps {
   visualization: MessageVisualization;
   onRefresh?: () => void;
-  onCopySQL?: (sql: string) => void;
-  onApplySQL?: (sql: string) => void;
+}
+
+/** Check whether a value is numeric (number or string that parses as a finite number). */
+function isNumericValue(v: unknown): boolean {
+  if (typeof v === 'number') return true;
+  if (typeof v === 'string' && v.trim() !== '') return !isNaN(Number(v));
+  return false;
+}
+
+/** Coerce string-encoded numbers in data rows to actual numbers so Recharts can plot them. */
+function coerceNumericData(data: Record<string, unknown>[], numericKeys: string[]): Record<string, unknown>[] {
+  if (numericKeys.length === 0) return data;
+  return data.map(row => {
+    const newRow = { ...row };
+    for (const k of numericKeys) {
+      if (typeof newRow[k] === 'string') {
+        const n = Number(newRow[k]);
+        if (isFinite(n)) newRow[k] = n;
+      }
+    }
+    return newRow;
+  });
 }
 
 function getDataKeys(data: Record<string, unknown>[]): { xKey: string; yKeys: string[] } {
@@ -36,18 +54,15 @@ function getDataKeys(data: Record<string, unknown>[]): { xKey: string; yKeys: st
   // First key is typically the label/x-axis, rest are numeric values
   const xKey = keys[0] || '';
   const yKeys = keys.slice(1).filter(k => {
-    return data.some(row => typeof row[k] === 'number');
+    return data.some(row => isNumericValue(row[k]));
   });
   return { xKey, yKeys: yKeys.length > 0 ? yKeys : keys.slice(1) };
 }
 
 const ChartHeader: React.FC<{
   title: string;
-  sql?: string;
   onRefresh?: () => void;
-  onCopySQL?: (sql: string) => void;
-  onApplySQL?: (sql: string) => void;
-}> = ({ title, sql, onRefresh, onCopySQL, onApplySQL }) => (
+}> = ({ title, onRefresh }) => (
   <Box sx={{
     display: 'flex',
     alignItems: 'center',
@@ -65,36 +80,25 @@ const ChartHeader: React.FC<{
           </IconButton>
         </Tooltip>
       )}
-      {sql && onCopySQL && (
-        <Tooltip title="Copy SQL">
-          <IconButton size="small" onClick={() => onCopySQL(sql)} sx={{ color: 'text.secondary' }}>
-            <CopyIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      )}
-      {sql && onApplySQL && (
-        <Tooltip title="Apply SQL">
-          <IconButton size="small" onClick={() => onApplySQL(sql)} sx={{ color: 'text.secondary' }}>
-            <ApplyIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      )}
     </Box>
   </Box>
 );
 
 const BarChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string; yLabel?: string }> = ({ data, xLabel, yLabel }) => {
-  const { xKey, yKeys } = useMemo(() => getDataKeys(data), [data]);
+  const { xKey, yKeys, coercedData } = useMemo(() => {
+    const keys = getDataKeys(data);
+    return { ...keys, coercedData: coerceNumericData(data, keys.yKeys) };
+  }, [data]);
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+      <BarChart data={coercedData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
         <XAxis dataKey={xKey} tick={{ fill: '#9ca3af', fontSize: 12 }} label={xLabel ? { value: xLabel, position: 'insideBottom', offset: -5, fill: '#9ca3af' } : undefined} />
         <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
-        <RechartsTooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#e5e7eb' }} />
+        <RechartsTooltip cursor={{ fill: 'rgba(99,102,241,0.08)' }} contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#e5e7eb' }} />
         <Legend />
         {yKeys.map((key, i) => (
-          <Bar key={key} dataKey={key} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} />
+          <Bar key={key} dataKey={key} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} cursor="default" />
         ))}
       </BarChart>
     </ResponsiveContainer>
@@ -102,10 +106,13 @@ const BarChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string;
 };
 
 const LineChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string; yLabel?: string }> = ({ data, xLabel, yLabel }) => {
-  const { xKey, yKeys } = useMemo(() => getDataKeys(data), [data]);
+  const { xKey, yKeys, coercedData } = useMemo(() => {
+    const keys = getDataKeys(data);
+    return { ...keys, coercedData: coerceNumericData(data, keys.yKeys) };
+  }, [data]);
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <LineChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+      <LineChart data={coercedData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
         <XAxis dataKey={xKey} tick={{ fill: '#9ca3af', fontSize: 12 }} label={xLabel ? { value: xLabel, position: 'insideBottom', offset: -5, fill: '#9ca3af' } : undefined} />
         <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
@@ -120,10 +127,13 @@ const LineChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
 };
 
 const AreaChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string; yLabel?: string }> = ({ data, xLabel, yLabel }) => {
-  const { xKey, yKeys } = useMemo(() => getDataKeys(data), [data]);
+  const { xKey, yKeys, coercedData } = useMemo(() => {
+    const keys = getDataKeys(data);
+    return { ...keys, coercedData: coerceNumericData(data, keys.yKeys) };
+  }, [data]);
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <AreaChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+      <AreaChart data={coercedData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
         <XAxis dataKey={xKey} tick={{ fill: '#9ca3af', fontSize: 12 }} label={xLabel ? { value: xLabel, position: 'insideBottom', offset: -5, fill: '#9ca3af' } : undefined} />
         <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
@@ -138,13 +148,26 @@ const AreaChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
 };
 
 const PieChartView: React.FC<{ data: Record<string, unknown>[] }> = ({ data }) => {
-  const { xKey, yKeys } = useMemo(() => getDataKeys(data), [data]);
+  const { xKey, yKeys, coercedData } = useMemo(() => {
+    const keys = getDataKeys(data);
+    const coerced = coerceNumericData(data, keys.yKeys);
+    return { ...keys, coercedData: coerced };
+  }, [data]);
   const valueKey = yKeys[0] || '';
+
+  if (!coercedData || coercedData.length === 0 || !valueKey) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
+        <Typography variant="body2">Нет данных</Typography>
+      </Box>
+    );
+  }
+
   return (
     <ResponsiveContainer width="100%" height={280}>
       <PieChart>
         <Pie
-          data={data}
+          data={coercedData}
           dataKey={valueKey}
           nameKey={xKey}
           cx="50%"
@@ -153,7 +176,7 @@ const PieChartView: React.FC<{ data: Record<string, unknown>[] }> = ({ data }) =
           label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
           labelLine={{ stroke: '#6b7280' }}
         >
-          {data.map((_, i) => (
+          {coercedData.map((_, i) => (
             <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
           ))}
         </Pie>
@@ -250,10 +273,8 @@ const TableView: React.FC<{ data: Record<string, unknown>[] }> = ({ data }) => {
 const ChartBlock: React.FC<ChartBlockProps> = ({
   visualization,
   onRefresh,
-  onCopySQL,
-  onApplySQL,
 }) => {
-  const { chart_type, title, data, x_label, y_label, sql } = visualization;
+  const { chart_type, title, data, x_label, y_label } = visualization;
 
   const chartContent = useMemo(() => {
     switch (chart_type) {
@@ -285,10 +306,7 @@ const ChartBlock: React.FC<ChartBlockProps> = ({
     }}>
       <ChartHeader
         title={title}
-        sql={sql}
         onRefresh={onRefresh}
-        onCopySQL={onCopySQL}
-        onApplySQL={onApplySQL}
       />
       {chartContent}
     </Box>

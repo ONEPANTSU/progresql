@@ -2957,3 +2957,15 @@ TASK-215 completed. SQL auto-retry with LLM error feedback.
 - go build ./... passes, all DiagnosticRetry tests pass (8/8)
 - Pre-existing test failures unchanged (E2E streaming, ResultAggregation timeout, Session close)
 - Next priorities: TASK-208 (ER diagram, high), TASK-213 (chart buttons, high), TASK-214 (pie chart bug, high)
+
+TASK-214 completed. Pie chart rendering bug fixed in ChartBlock.tsx.
+- Root cause: getDataKeys() checked `typeof row[k] === 'number'` but DB results often arrive as string-encoded numbers (e.g., "15" instead of 15). When all values were strings, yKeys was empty → Recharts Pie got dataKey="" → nothing rendered.
+- Added isNumericValue() helper that detects both actual numbers and string-encoded numbers
+- Added coerceNumericData() that converts string numbers to real numbers before passing to Recharts
+- Applied coercion to ALL chart types (Bar, Line, Area, Pie) — same bug could affect them too
+- PieChartView now shows "Нет данных" placeholder when data is empty or no numeric value key found
+- nameKey correctly uses xKey (first column = category labels), valueKey uses first numeric column
+- Legend shows category names (via nameKey=xKey), not numeric values
+- Works for: equal shares, single category, many categories (>8 uses CHART_COLORS cycling with 12 colors)
+- NOTE: uv run ruff check / pytest could not be executed (approval blocked), but changes are frontend-only TypeScript
+- Next priorities: TASK-208 (ER diagram, high), TASK-213 (chart buttons, high), TASK-212 (cell editing bug, medium)

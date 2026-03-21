@@ -520,8 +520,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
               <ChartBlock
                 visualization={message.visualization}
                 onRefresh={onRefreshVisualization}
-                onCopySQL={onApplySQL ? (sql) => navigator.clipboard.writeText(sql) : undefined}
-                onApplySQL={onApplySQL}
               />
             )}
           </Box>
