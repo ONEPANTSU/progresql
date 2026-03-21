@@ -265,15 +265,16 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
           >{t('subscription.expiringSoon', { days })}</Alert>
         );
       })()}
-      {isSubscriptionExpired && (
+      {isSubscriptionExpired && !trialBannerDismissed && (
         <Alert severity="error" icon={<UpgradeIcon />} sx={{ mx: 1, mt: 1, flexShrink: 0 }}
+          onClose={() => setTrialBannerDismissed(true)}
           action={onOpenSettings && <Button color="error" size="small" variant="outlined" onClick={onOpenSettings}>{t('subscription.upgradeButton')}</Button>}
         >{t('subscription.expired')}</Alert>
       )}
 
       {/* Messages */}
       <Box sx={{ flexGrow: 1, overflow: 'auto', p: 0.75, display: 'flex', flexDirection: 'column', gap: 1, minHeight: 0 }}>
-        {isSubscriptionExpired ? (
+        {isSubscriptionExpired && !trialBannerDismissed ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 3 }}>
             <UpgradeIcon sx={{ fontSize: 36, color: 'text.secondary', mb: 2 }} />
             <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>{t('subscription.chatBlocked')}</Typography>
@@ -300,7 +301,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
       </Box>
 
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
-      {!isSubscriptionExpired && (
+      {(!isSubscriptionExpired || trialBannerDismissed) && (
         <ChatInput ref={chatInputRef} inputValue={inputValue} setInputValue={setInputValue} isTyping={isTyping} isConnected={agent.isConnected} onSendMessage={agentMessages.handleSendMessage} onStopGeneration={agentMessages.stopGeneration} attachedSQL={attachedSQL} onRemoveAttachment={() => setAttachedSQL(null)} activeConnection={activeConnection} connections={connections} connectionErrors={connectionErrors} onSwitchConnection={handleChatSwitchConnection} chatConnectionId={chat.activeChat?.connectionId ?? null} hasSentFirstMessage={chat.activeChat?.hasSentFirstMessage ?? false} />
       )}
     </Paper>

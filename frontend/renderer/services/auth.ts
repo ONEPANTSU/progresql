@@ -3,7 +3,7 @@ import { loadBackendUrl } from '../utils/secureSettingsStorage';
 
 const TOKEN_KEY = 'progresql-auth-token';
 const CURRENT_USER_KEY = 'progresql-current-user';
-const DEFAULT_BACKEND_URL = process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : 'https://progresql.com';
+const DEFAULT_BACKEND_URL = 'https://progresql.com';
 
 function getBackendUrl(): string {
   return loadBackendUrl(DEFAULT_BACKEND_URL);

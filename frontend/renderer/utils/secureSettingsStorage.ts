@@ -28,7 +28,15 @@ function setItem(key: string, value: string): void {
 // ── Public API ──
 
 export function loadBackendUrl(defaultUrl: string): string {
-  return getItem(STORAGE_KEY_BACKEND_URL) || defaultUrl;
+  // Clear any stale localhost URL from previous dev sessions
+  const saved = getItem(STORAGE_KEY_BACKEND_URL);
+  if (saved && saved.includes('localhost')) {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.removeItem(STORAGE_KEY_BACKEND_URL);
+    }
+    return defaultUrl;
+  }
+  return saved || defaultUrl;
 }
 
 export function saveBackendUrl(url: string): void {

@@ -856,7 +856,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
                 size="small"
                 sx={{
                   p: '4px',
-                  color: isImproving ? 'warning.main' : 'text.secondary',
+                  color: isImproving ? 'warning.main' : 'text.primary',
                   '&:hover': { bgcolor: 'action.hover' },
                 }}
               >
