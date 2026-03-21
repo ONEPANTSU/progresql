@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"context"
 	"encoding/json"
 	"sync"
 	"time"
@@ -57,6 +58,10 @@ type Session struct {
 	toolResults   map[string]chan *Envelope
 	toolResultsMu sync.Mutex
 
+	// cancelFuncs stores context cancel functions for active requests, keyed by request_id.
+	cancelFuncs   map[string]context.CancelFunc
+	cancelFuncsMu sync.Mutex
+
 	// history stores conversation messages for multi-turn context (up to MaxHistoryMessages).
 	history   []HistoryMessage
 	historyMu sync.RWMutex
@@ -81,6 +86,7 @@ func NewSession(id string, conn *ws.Conn, hub *Hub, logger *zap.Logger, onMessag
 		log:         logger.With(zap.String("session_id", id)),
 		send:        make(chan []byte, sendBufferSize),
 		toolResults: make(map[string]chan *Envelope),
+		cancelFuncs: make(map[string]context.CancelFunc),
 		onMessage:   onMessage,
 		done:        make(chan struct{}),
 	}
@@ -150,6 +156,14 @@ func (s *Session) Close() error {
 	s.once.Do(func() {
 		close(s.done)
 		err = s.conn.Close()
+
+		// Cancel all active requests.
+		s.cancelFuncsMu.Lock()
+		for reqID, cancel := range s.cancelFuncs {
+			cancel()
+			delete(s.cancelFuncs, reqID)
+		}
+		s.cancelFuncsMu.Unlock()
 
 		// Unblock any pending tool.result waiters.
 		s.toolResultsMu.Lock()
@@ -247,15 +261,55 @@ func (s *Session) readPump() {
 	}
 }
 
+// RegisterCancel stores a cancel function for the given request_id.
+// Called by the pipeline when starting a cancellable request.
+func (s *Session) RegisterCancel(requestID string, cancel context.CancelFunc) {
+	s.cancelFuncsMu.Lock()
+	s.cancelFuncs[requestID] = cancel
+	s.cancelFuncsMu.Unlock()
+}
+
+// UnregisterCancel removes and returns the cancel function for the given request_id.
+func (s *Session) UnregisterCancel(requestID string) {
+	s.cancelFuncsMu.Lock()
+	delete(s.cancelFuncs, requestID)
+	s.cancelFuncsMu.Unlock()
+}
+
 // routeMessage dispatches an incoming envelope by type.
 func (s *Session) routeMessage(env *Envelope) {
 	switch env.Type {
 	case TypeToolResult:
 		s.handleToolResult(env)
+	case TypeAgentCancel:
+		s.handleAgentCancel(env)
 	default:
 		if s.onMessage != nil {
 			s.onMessage(env)
 		}
+	}
+}
+
+// handleAgentCancel cancels the context for an active request.
+func (s *Session) handleAgentCancel(env *Envelope) {
+	requestID := env.RequestID
+	if requestID == "" {
+		s.log.Warn("agent.cancel missing request_id")
+		return
+	}
+
+	s.cancelFuncsMu.Lock()
+	cancel, ok := s.cancelFuncs[requestID]
+	if ok {
+		delete(s.cancelFuncs, requestID)
+	}
+	s.cancelFuncsMu.Unlock()
+
+	if ok {
+		s.log.Info("cancelling request", zap.String("request_id", requestID))
+		cancel()
+	} else {
+		s.log.Warn("no active request to cancel", zap.String("request_id", requestID))
 	}
 }
 

@@ -2641,3 +2641,20 @@ TASK-206 completed. ChatInput — removed disabled from input field during AI ge
 - npx tsc --noEmit — 0 errors
 - npm run build — webpack compiled successfully, DMG/ZIP built
 - Next priorities: TASK-207 (Stop button, critical, deps now met with TASK-206 done), TASK-193 (autocomplete, high), TASK-194 (format SQL, high), TASK-197 (SQL verification, high)
+
+TASK-207 completed. Stop button replaces Send during AI generation with full cancel pipeline.
+- Backend: Added TypeAgentCancel message type and ErrCodeCancelled error code in websocket/types.go
+- Backend: Session tracks cancel functions per request_id (RegisterCancel/UnregisterCancel/handleAgentCancel)
+- Backend: Pipeline uses context.WithCancel instead of context.Background(), checks ctx.Err() between steps
+- Backend: On cancel → sends agent.error with code "cancelled", logs audit, cleans up
+- Backend: Session.Close() cancels all active requests on disconnect
+- Frontend: AgentService.cancelRequest() now sends agent.cancel envelope via WebSocket
+- Frontend: useAgentMessages tracks activeRequestIdRef, exposes stopGeneration() callback
+- Frontend: stopGeneration() cancels request, keeps partial text with " · stopped" suffix
+- Frontend: onError handler ignores "cancelled" code (already handled by stopGeneration)
+- Frontend: ChatInput shows red Stop button (StopIcon) when isTyping, Send button when idle
+- Frontend: i18n keys added: chat.input.stop (en: "Stop generation", ru: "Остановить генерацию")
+- go build ./... passes, go test ./internal/agent/ — all 46 tests pass
+- tsc --noEmit passes (0 errors)
+- Pre-existing flaky test: TestSession_SendEnvelopeAfterClose fails both with and without changes
+- Next priorities: TASK-193 (autocomplete, high), TASK-194 (format SQL, high), TASK-197 (SQL verification, high)

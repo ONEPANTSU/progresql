@@ -162,6 +162,7 @@ const ru: Record<TranslationKey, string> = {
   'chat.input.generating': 'Набирайте следующее сообщение, пока AI думает\u2026',
   'chat.input.sqlLines': '{count} \u0441\u0442\u0440.',
   'chat.input.send': '\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435',
+  'chat.input.stop': '\u041e\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u044c \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044e',
 
   // ── Chat Panel ──
   'chat.settings': '\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438',

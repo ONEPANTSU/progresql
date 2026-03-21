@@ -235,9 +235,21 @@ export class AgentService {
   }
 
   /**
-   * Cancel tracking for a pending request (does not abort server-side processing).
+   * Cancel a pending request: sends agent.cancel to the backend and removes local tracking.
    */
   cancelRequest(requestId: string): void {
+    if (!requestId) return;
+
+    // Send cancel signal to backend.
+    if (this.ws && this.connectionState === 'connected') {
+      const envelope: Envelope = {
+        type: 'agent.cancel',
+        request_id: requestId,
+        payload: {},
+      };
+      this.ws.send(JSON.stringify(envelope));
+    }
+
     this.pendingRequests.delete(requestId);
   }
 

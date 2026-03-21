@@ -159,6 +159,7 @@ const en = {
   'chat.input.generating': 'Type your next message while AI is thinking\u2026',
   'chat.input.sqlLines': '{count} {count, plural, one {line} other {lines}}',
   'chat.input.send': 'Send message',
+  'chat.input.stop': 'Stop generation',
 
   // ── Chat Panel ──
   'chat.settings': 'Settings',

@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import {
   Send as SendIcon,
+  Stop as StopIcon,
   Close as CloseIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
@@ -26,6 +27,7 @@ interface ChatInputProps {
   isTyping: boolean;
   isConnected: boolean;
   onSendMessage: () => void;
+  onStopGeneration?: () => void;
   attachedSQL?: string | null;
   onRemoveAttachment?: () => void;
 }
@@ -36,6 +38,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
   isTyping,
   isConnected,
   onSendMessage,
+  onStopGeneration,
   attachedSQL,
   onRemoveAttachment,
 }, ref) {
@@ -203,33 +206,56 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
             },
           }}
         />
-        <Tooltip title={`Send (Enter / ${modKey}+Enter)`}>
-          <span>
+        {isTyping ? (
+          <Tooltip title={t('chat.input.stop')}>
             <IconButton
-              color="primary"
-              onClick={onSendMessage}
-              aria-label={t('chat.input.send')}
-              disabled={(!inputValue.trim() && !attachedSQL) || isTyping || !isConnected}
+              color="error"
+              onClick={onStopGeneration}
+              aria-label={t('chat.input.stop')}
               sx={{
-                bgcolor: 'primary.main',
-                color: 'primary.contrastText',
+                bgcolor: 'error.main',
+                color: 'error.contrastText',
                 minWidth: 36,
                 minHeight: 36,
                 borderRadius: 1,
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
-                  bgcolor: 'primary.dark',
-                },
-                '&:disabled': {
-                  bgcolor: 'action.disabledBackground',
-                  color: 'action.disabled',
+                  bgcolor: 'error.dark',
                 },
               }}
             >
-              <SendIcon />
+              <StopIcon />
             </IconButton>
-          </span>
-        </Tooltip>
+          </Tooltip>
+        ) : (
+          <Tooltip title={`Send (Enter / ${modKey}+Enter)`}>
+            <span>
+              <IconButton
+                color="primary"
+                onClick={onSendMessage}
+                aria-label={t('chat.input.send')}
+                disabled={(!inputValue.trim() && !attachedSQL) || !isConnected}
+                sx={{
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  minWidth: 36,
+                  minHeight: 36,
+                  borderRadius: 1,
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  '&:hover': {
+                    bgcolor: 'primary.dark',
+                  },
+                  '&:disabled': {
+                    bgcolor: 'action.disabledBackground',
+                    color: 'action.disabled',
+                  },
+                }}
+              >
+                <SendIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
       </Box>
     </Box>
   );

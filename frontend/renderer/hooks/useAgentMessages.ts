@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { Chat, Message } from '../types';
 import { useNotifications } from '../contexts/NotificationContext';
 import { useAgent } from '../contexts/AgentContext';
@@ -116,6 +116,7 @@ export interface UseAgentMessagesReturn {
   handleSendExplainSQL: (sql: string) => void;
   handleSendAnalyzeSchema: () => void;
   handleSendMessage: () => void;
+  stopGeneration: () => void;
 }
 
 interface UseAgentMessagesArgs {
@@ -145,6 +146,23 @@ export function useAgentMessages({
   const agent = useAgent();
   const streaming = useStreamingMessage({ setChats });
   const { t, language } = useTranslation();
+  const activeRequestIdRef = useRef<string | null>(null);
+
+  const stopGeneration = useCallback(() => {
+    const requestId = activeRequestIdRef.current;
+    if (!requestId) return;
+
+    agent.cancelRequest(requestId);
+    activeRequestIdRef.current = null;
+
+    // Keep partial text, append " · stopped" marker.
+    const partialText = streaming.textRef.current;
+    const stoppedText = partialText
+      ? partialText + ' · stopped'
+      : '· stopped';
+    streaming.finishStreaming(stoppedText);
+    setIsTyping(false);
+  }, [agent, streaming, setIsTyping]);
 
   const addPlaceholderAndSend = useCallback(
     (
@@ -179,16 +197,22 @@ export function useAgentMessages({
         },
       };
 
-      agent.sendRequest(enrichedPayload, {
+      const requestId = agent.sendRequest(enrichedPayload, {
         onStream: (delta: string) => {
           streaming.appendDelta(delta);
         },
         onResponse: (response: AgentResponsePayload) => {
+          activeRequestIdRef.current = null;
           const finalText = formatAgentResponse(response, t);
           streaming.finishStreaming(finalText);
           setIsTyping(false);
         },
         onError: (error) => {
+          activeRequestIdRef.current = null;
+          // If cancelled, the stopGeneration handler already finalized the message.
+          if (error.code === 'cancelled') {
+            return;
+          }
           log.error('Agent error:', error.code, error.message);
           const friendlyText = getUserFriendlyError(error, t);
           streaming.cancelStreaming(friendlyText);
@@ -198,6 +222,7 @@ export function useAgentMessages({
           }
         },
       });
+      activeRequestIdRef.current = requestId;
     },
     [agent, setChats, setIsTyping, showError, streaming, t],
   );
@@ -438,5 +463,6 @@ export function useAgentMessages({
     handleSendExplainSQL,
     handleSendAnalyzeSchema,
     handleSendMessage,
+    stopGeneration,
   };
 }

@@ -317,9 +317,22 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		pctx.Language = "en"
 	}
 
-	// Execute steps sequentially.
-	ctx := context.Background()
+	// Execute steps sequentially with cancellable context.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Register cancel so agent.cancel messages can stop this pipeline.
+	session.RegisterCancel(requestID, cancel)
+	defer session.UnregisterCancel(requestID)
+
+	cancelled := false
 	for i, step := range steps {
+		// Check for cancellation before each step.
+		if ctx.Err() != nil {
+			cancelled = true
+			break
+		}
+
 		pctx.Logger.Info("step started",
 			zap.Int("step", i+1),
 			zap.Int("total_steps", len(steps)),
@@ -327,6 +340,12 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		)
 
 		if err := step.Execute(ctx, pctx); err != nil {
+			// Check if the error is due to context cancellation.
+			if ctx.Err() != nil {
+				cancelled = true
+				break
+			}
+
 			// Database not connected: send a friendly agent.response instead of agent.error.
 			if IsDatabaseNotConnected(err) {
 				pctx.Logger.Warn("database not connected, sending friendly response",
@@ -355,6 +374,15 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 			pctx.Logger.Info("skipping remaining steps", zap.String("triggered_by", step.Name()))
 			break
 		}
+	}
+
+	// Handle cancellation: send agent.error with "cancelled" code.
+	if cancelled {
+		pctx.Logger.Info("pipeline cancelled by client")
+		p.sendError(session, requestID, websocket.ErrCodeCancelled, "cancelled")
+		p.emitAuditLog(session, requestID, payload.Action, startTime, len(pctx.ToolCallsLog), pctx.ModelUsed, pctx.TokensUsed, pctx.ToolCallsLog, fmt.Errorf("cancelled by client"))
+		p.recordMetricsEnd(startTime, pctx.TokensUsed, false)
+		return
 	}
 
 	// Send final agent.response.

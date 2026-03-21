@@ -5,6 +5,7 @@ import "encoding/json"
 // Message type constants for WebSocket protocol routing.
 const (
 	TypeAgentRequest  = "agent.request"
+	TypeAgentCancel   = "agent.cancel"
 	TypeToolResult    = "tool.result"
 	TypeToolCall      = "tool.call"
 	TypeAgentStream   = "agent.stream"
@@ -97,6 +98,7 @@ const (
 	ErrCodeSQLBlocked       = "sql_blocked"
 	ErrCodeRateLimited      = "rate_limited"
 	ErrCodeDBNotConnected   = "db_not_connected"
+	ErrCodeCancelled        = "cancelled"
 )
 
 // ParseEnvelope unmarshals raw JSON into an Envelope.

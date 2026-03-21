@@ -271,7 +271,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
 
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
       {!isSubscriptionExpired && (
-        <ChatInput ref={chatInputRef} inputValue={inputValue} setInputValue={setInputValue} isTyping={isTyping} isConnected={agent.isConnected} onSendMessage={agentMessages.handleSendMessage} attachedSQL={attachedSQL} onRemoveAttachment={() => setAttachedSQL(null)} />
+        <ChatInput ref={chatInputRef} inputValue={inputValue} setInputValue={setInputValue} isTyping={isTyping} isConnected={agent.isConnected} onSendMessage={agentMessages.handleSendMessage} onStopGeneration={agentMessages.stopGeneration} attachedSQL={attachedSQL} onRemoveAttachment={() => setAttachedSQL(null)} />
       )}
     </Paper>
   );
