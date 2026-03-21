@@ -44,6 +44,7 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
+  Check as CheckIcon,
 } from '@mui/icons-material';
 
 interface ElementDetailsModalProps {
@@ -570,8 +571,8 @@ export default function ElementDetailsModal({
                           {alteringCol === column.column_name ? (
                             <Box sx={{ display: 'flex', gap: 0.5 }}>
                               <Tooltip title="Apply changes">
-                                <IconButton size="small" color="primary" onClick={() => handleAlterColumn(column.column_name, column.data_type, column.is_nullable)}>
-                                  <EditIcon fontSize="small" />
+                                <IconButton size="small" color="success" onClick={() => handleAlterColumn(column.column_name, column.data_type, column.is_nullable)}>
+                                  <CheckIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                               <Tooltip title="Cancel">
