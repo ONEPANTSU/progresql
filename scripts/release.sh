@@ -86,17 +86,7 @@ UPLOAD_FILES=""
 [ -n "$ZIP" ] && UPLOAD_FILES="$UPLOAD_FILES frontend/$ZIP"
 gh release upload "${TAG}" $UPLOAD_FILES --clobber
 
-# --- Deploy to server ---
-SERVER="root@81.200.157.194"
-REMOTE_DIR="/opt/progresql/downloads"
-
 echo ""
-echo "==> Deploying to server..."
-scp -o StrictHostKeyChecking=no "frontend/${DMG}" "${SERVER}:${REMOTE_DIR}/ProgreSQL-${VERSION}-arm64.dmg"
-[ -n "$ZIP" ] && scp -o StrictHostKeyChecking=no "frontend/${ZIP}" "${SERVER}:${REMOTE_DIR}/ProgreSQL-${VERSION}-arm64-mac.zip"
-ssh -o StrictHostKeyChecking=no "${SERVER}" "cd ${REMOTE_DIR} && ln -sf ProgreSQL-${VERSION}-arm64.dmg ProgreSQL-latest.dmg && ln -sf ProgreSQL-${VERSION}-arm64-mac.zip ProgreSQL-latest.zip"
-
-echo ""
-echo "==> ✅ Release ${VERSION} complete!"
-echo "    GitHub: https://github.com/ONEPANTSU/progresql/releases/tag/${TAG}"
-echo "    Server: https://progresql.com/downloads/ProgreSQL-latest.dmg"
+echo "==> ✅ macOS release uploaded!"
+echo "    Tag ${TAG} → Woodpecker deploys DMG to server"
+echo "    https://github.com/ONEPANTSU/progresql/releases/tag/${TAG}"
