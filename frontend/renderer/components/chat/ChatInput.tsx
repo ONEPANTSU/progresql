@@ -295,17 +295,17 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
         </Box>
       )}
 
-      {/* DB selector bar -- above input */}
+      {/* DB selector pill -- compact, inline above input */}
       <Box
         onClick={handleDbBarClick}
         sx={{
-          display: 'flex',
+          display: 'inline-flex',
           alignItems: 'center',
-          gap: 0.75,
-          px: 1.25,
-          py: 0.75,
-          mb: 1,
-          borderRadius: '8px',
+          gap: 0.5,
+          px: 1,
+          py: 0.25,
+          mb: 0.5,
+          borderRadius: '12px',
           cursor: connections.length > 0 ? 'pointer' : 'default',
           bgcolor: 'rgba(255,255,255,0.04)',
           border: '1px solid',
@@ -317,11 +317,10 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
           } : {},
         }}
       >
-        {/* Status dot */}
         <Box
           sx={{
-            width: 7,
-            height: 7,
+            width: 6,
+            height: 6,
             borderRadius: '50%',
             bgcolor: displayConnection
               ? (hasError ? 'error.main' : 'success.main')
@@ -329,28 +328,24 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
             flexShrink: 0,
           }}
         />
-        {/* DB icon */}
-        <StorageIcon sx={{ fontSize: '0.85rem', color: 'text.secondary', flexShrink: 0 }} />
-        {/* Connection name */}
         <Typography
           variant="caption"
           sx={{
-            fontSize: '0.75rem',
+            fontSize: '0.6875rem',
             color: 'text.secondary',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-            flexGrow: 1,
+            maxWidth: 150,
           }}
         >
           {displayConnection
             ? (displayConnection.connectionName || displayConnection.database)
             : t('chat.dbPill.noConnection')}
         </Typography>
-        {/* Chevron */}
         {connections.length > 0 && (
           <ChevronDownIcon sx={{
-            fontSize: '1rem',
+            fontSize: '0.8rem',
             color: 'text.disabled',
             flexShrink: 0,
             transition: 'transform 0.2s',
@@ -491,16 +486,17 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
                 aria-label={t('chat.input.send')}
                 disabled={(!inputValue.trim() && !attachedSQL) || !isConnected}
                 sx={{
-                  bgcolor: 'primary.main',
-                  color: 'primary.contrastText',
+                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  color: '#fff',
                   minWidth: 36,
                   minHeight: 36,
                   borderRadius: 1,
                   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                   '&:hover': {
-                    bgcolor: 'primary.dark',
+                    background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
                   },
                   '&:disabled': {
+                    background: 'none',
                     bgcolor: 'action.disabledBackground',
                     color: 'action.disabled',
                   },

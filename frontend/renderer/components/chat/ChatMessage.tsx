@@ -456,7 +456,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         sx={{
           width: 28,
           height: 28,
-          bgcolor: isUser ? 'primary.main' : 'grey.200',
+          ...(isUser ? { background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' } : { bgcolor: 'grey.200' }),
           mx: 1,
         }}
       >
@@ -465,13 +465,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
       <Box
         sx={{
           maxWidth: '80%',
-          bgcolor: isUser ? 'primary.main' : 'background.paper',
-          color: isUser ? 'primary.contrastText' : 'text.primary',
+          ...(isUser
+            ? { background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff' }
+            : { bgcolor: 'background.paper', color: 'text.primary', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }
+          ),
           borderRadius: 1.5,
           p: 1.25,
-          ...(!isUser && {
-            boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-          }),
         }}
       >
         {isStreaming ? (

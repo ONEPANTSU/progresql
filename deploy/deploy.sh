@@ -13,7 +13,7 @@ APP_DIR="/opt/progresql"
 IMAGE_NAME="progresql-backend"
 IMAGE_TAG="latest"
 TAR_FILE="/tmp/${IMAGE_NAME}.tar"
-DOCKERFILE="docker/Dockerfile.backend"
+DOCKERFILE="deploy/Dockerfile.backend"
 PLATFORM="linux/amd64"
 
 # ---------------------------------------------------------------------------

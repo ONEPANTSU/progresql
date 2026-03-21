@@ -496,12 +496,23 @@ ipcMain.handle('get-database-structure', async (event) => {
           conname as constraint_name,
           c.relname as table_name,
           n.nspname as table_schema,
-          contype as constraint_type,
-          a.attname as column_name
+          CASE co.contype
+            WHEN 'p' THEN 'PRIMARY KEY'
+            WHEN 'f' THEN 'FOREIGN KEY'
+            WHEN 'u' THEN 'UNIQUE'
+            WHEN 'c' THEN 'CHECK'
+            WHEN 'x' THEN 'EXCLUSION'
+            ELSE co.contype
+          END as constraint_type,
+          a.attname as column_name,
+          ref_c.relname as referenced_table,
+          ref_a.attname as referenced_column
         FROM pg_constraint co
         JOIN pg_class c ON co.conrelid = c.oid
         JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(co.conkey)
         JOIN pg_namespace n ON c.relnamespace = n.oid
+        LEFT JOIN pg_class ref_c ON co.confrelid = ref_c.oid
+        LEFT JOIN pg_attribute ref_a ON ref_a.attrelid = co.confrelid AND ref_a.attnum = ANY(co.confkey)
         WHERE n.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
         ORDER BY c.relname, conname
       `);
@@ -691,7 +702,8 @@ ipcMain.handle('get-database-structure', async (event) => {
       procedures: proceduresResult.rows,
       sequences: sequencesResult.rows,
       types: typesResult.rows,
-      extensions: extensionsResult.rows
+      extensions: extensionsResult.rows,
+      constraints: constraintsResult.rows
     };
 
     log.debug('Database structure created:', {

@@ -22,6 +22,8 @@ const MAX_RECONNECT_DELAY_MS = 60000;
 
 // Per-connection state: Map<connectionId, { config, interval, reconnectTimer, attempt }>
 const connectionStates = new Map();
+// Ensure global.dbClients exists (shared Map of active pg clients)
+if (!global.dbClients) global.dbClients = new Map();
 let mainWindowRef = null;
 let mcpManagerRef = null;
 let toolServerRef = null;

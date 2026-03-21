@@ -1,14 +1,18 @@
 package payment
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
-
-	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/onepantsu/progressql/backend/internal/auth"
@@ -152,23 +156,68 @@ func WebhookHandler(planUpdater PlanUpdater, db *pgxpool.Pool, secret string) ht
 				TxHash:         r.FormValue("txid"),
 			}
 		} else {
-			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			// Read body for logging and flexible parsing.
+			bodyBytes, err := io.ReadAll(r.Body)
+			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
 				return
 			}
+			log.Printf("[webhook] raw JSON body: %s", string(bodyBytes))
+
+			// Try direct decode first.
+			if err := json.Unmarshal(bodyBytes, &payload); err != nil {
+				// CryptoCloud may wrap payload in an object or array.
+				var wrapped map[string]json.RawMessage
+				if err2 := json.Unmarshal(bodyBytes, &wrapped); err2 == nil {
+					// Try common wrapper keys.
+					for _, key := range []string{"data", "result", "payload", "invoice"} {
+						if raw, ok := wrapped[key]; ok {
+							if json.Unmarshal(raw, &payload) == nil && payload.Status != "" {
+								break
+							}
+						}
+					}
+				}
+				// If still empty, try to parse as top-level with different field names.
+				if payload.Status == "" {
+					var generic map[string]interface{}
+					if json.Unmarshal(bodyBytes, &generic) == nil {
+						if s, ok := generic["status"].(string); ok {
+							payload.Status = s
+						}
+						if s, ok := generic["invoice_id"].(string); ok {
+							payload.InvoiceID = s
+						}
+						if s, ok := generic["order_id"].(string); ok {
+							payload.OrderID = s
+						}
+						if s, ok := generic["token"].(string); ok {
+							payload.Token = s
+						}
+					}
+				}
+				if payload.Status == "" {
+					w.WriteHeader(http.StatusBadRequest)
+					json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+					return
+				}
+			}
+			// Restore body for potential downstream use.
+			r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 		}
 
 		log.Printf("[webhook] parsed: status=%s invoice=%s order=%s", payload.Status, payload.InvoiceID, payload.OrderID)
 
-		// Verify the webhook secret token. Secret MUST be configured —
+		// Verify the webhook token. Secret MUST be configured —
 		// without it anyone could forge a webhook and activate subscriptions.
 		if secret == "" {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(errorResponse{Error: "webhook secret not configured"})
 			return
 		}
-		if payload.Token != secret {
+		if !verifyWebhookToken(payload.Token, secret) {
+			log.Printf("[webhook] token verification failed")
 			w.WriteHeader(http.StatusForbidden)
 			json.NewEncoder(w).Encode(errorResponse{Error: "invalid webhook token"})
 			return
@@ -223,7 +272,35 @@ func WebhookHandler(planUpdater PlanUpdater, db *pgxpool.Pool, secret string) ht
 				payload.OrderID)
 		}
 
+		log.Printf("[webhook] payment confirmed for user=%s plan=pro", userID)
+
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}
+}
+
+// verifyWebhookToken checks the webhook token.
+// CryptoCloud v2 sends a JWT signed with HMAC-SHA256 using the shop secret.
+// We also accept a direct match for backward compatibility.
+func verifyWebhookToken(token, secret string) bool {
+	// Direct match (legacy/simple mode).
+	if token == secret {
+		return true
+	}
+	// JWT verification: header.payload.signature (HS256).
+	parts := strings.SplitN(token, ".", 3)
+	if len(parts) != 3 {
+		return false
+	}
+	signingInput := parts[0] + "." + parts[1]
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(signingInput))
+	expectedSig := mac.Sum(nil)
+
+	// Decode the provided signature (base64url, no padding).
+	actualSig, err := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil {
+		return false
+	}
+	return hmac.Equal(expectedSig, actualSig)
 }
