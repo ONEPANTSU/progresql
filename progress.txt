@@ -2684,3 +2684,19 @@ TASK-193 completed. CodeMirror SQL autocomplete with DB schema awareness.
 - TypeScript tsc --noEmit passes (0 errors)
 - Go tests: pre-existing failures in agent/steps and api/rest (not related to this change)
 - Next priorities: TASK-197 (SQL verification, high), TASK-195 (error highlighting, medium), TASK-196 (SQL templates, low)
+
+TASK-197 completed. SQL auto-verification via EXPLAIN in chat.
+- SQLBlock.tsx: added automatic SQL verification via `EXPLAIN <sql>` using electronAPI.executeQuery
+  - Shows ⏳ Verifying… while running, ✅ Verified on success, ❌ Invalid SQL on failure
+  - Invalid SQL shows error message in a tooltip on hover
+  - Skipped (no badge) when DB is not connected (isDatabaseConnected=false)
+  - Skipped for DML/DDL in safe mode (INSERT/UPDATE/DELETE/DROP/ALTER/TRUNCATE/CREATE)
+  - Uses useRef to avoid re-verifying the same SQL, cleanup function to cancel on unmount
+  - Does not verify while streaming (isTyping=true)
+- ChatMessage.tsx: added isDatabaseConnected and safeMode props, passed through to SQLBlock and RenderMarkdown
+- ChatPanel.tsx: passes isDatabaseConnected and agent.safeMode to ChatMessage
+- Locales: added sqlBlock.verifying/verified/verifyInvalid in en.ts and ru.ts
+- TypeScript tsc --noEmit passes (0 errors)
+- Go tests: pre-existing failures in api/rest (nil pgxpool, requires DB), not related to this change
+- Frontend tests: pre-existing failures (missing AuthProvider in test wrappers), not related to this change
+- Next priorities: TASK-195 (error highlighting, medium), TASK-198 (chart types backend, medium), TASK-201 (ER diagram, medium)

@@ -3859,7 +3859,7 @@
         "DML в safe mode не верифицируется"
       ],
       "dependencies": [],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-198",

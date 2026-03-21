@@ -24,6 +24,8 @@ interface ChatMessageProps {
   message: Message;
   isTyping?: boolean;
   isAgentConnected?: boolean;
+  isDatabaseConnected?: boolean;
+  safeMode?: boolean;
   onExplainSQL?: (sql: string) => void;
   onApplySQL?: (sql: string) => void;
   onExecuteQuery?: (query: string) => void;
@@ -207,6 +209,8 @@ interface RenderMarkdownProps {
   text: string;
   isTyping?: boolean;
   isAgentConnected?: boolean;
+  isDatabaseConnected?: boolean;
+  safeMode?: boolean;
   onExplainSQL?: (sql: string) => void;
   onApplySQL?: (sql: string) => void;
   onExecuteQuery?: (query: string) => void;
@@ -216,6 +220,8 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
   text,
   isTyping,
   isAgentConnected,
+  isDatabaseConnected,
+  safeMode,
   onExplainSQL,
   onApplySQL,
   onExecuteQuery,
@@ -306,6 +312,8 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
             sql={codeContent}
             isTyping={isTyping}
             isAgentConnected={isAgentConnected}
+            isDatabaseConnected={isDatabaseConnected}
+            safeMode={safeMode}
             onExplain={onExplainSQL}
             onApply={onApplySQL}
             onExecute={onExecuteQuery}
@@ -421,6 +429,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   message,
   isTyping,
   isAgentConnected,
+  isDatabaseConnected,
+  safeMode,
   onExplainSQL,
   onApplySQL,
   onExecuteQuery,
@@ -497,6 +507,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
               text={message.text}
               isTyping={isTyping}
               isAgentConnected={isAgentConnected}
+              isDatabaseConnected={isDatabaseConnected}
+              safeMode={safeMode}
               onExplainSQL={onExplainSQL}
               onApplySQL={onApplySQL}
               onExecuteQuery={onExecuteQuery}

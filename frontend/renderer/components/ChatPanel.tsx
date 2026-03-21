@@ -261,7 +261,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
         ) : (
           <List sx={{ p: 0 }}>
             {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} isTyping={isTyping} isAgentConnected={agent.isConnected} onExplainSQL={agentMessages.handleSendExplainSQL} onApplySQL={onApplySQL} onExecuteQuery={onExecuteQuery} />
+              <ChatMessage key={message.id} message={message} isTyping={isTyping} isAgentConnected={agent.isConnected} isDatabaseConnected={isDatabaseConnected} safeMode={agent.safeMode} onExplainSQL={agentMessages.handleSendExplainSQL} onApplySQL={onApplySQL} onExecuteQuery={onExecuteQuery} />
             ))}
           </List>
         )}

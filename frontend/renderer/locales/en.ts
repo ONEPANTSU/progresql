@@ -187,6 +187,9 @@ const en = {
   'sqlBlock.explainSql': 'Explain SQL',
   'sqlBlock.applySql': 'Apply SQL to editor',
   'sqlBlock.executeSql': 'Execute SQL',
+  'sqlBlock.verifying': 'Verifying…',
+  'sqlBlock.verified': 'Verified',
+  'sqlBlock.verifyInvalid': 'Invalid SQL',
 
   // ── Error Boundary ──
   'error.crashed': '{panel} crashed',

@@ -190,6 +190,9 @@ const ru: Record<TranslationKey, string> = {
   'sqlBlock.explainSql': '\u041e\u0431\u044a\u044f\u0441\u043d\u0438\u0442\u044c SQL',
   'sqlBlock.applySql': '\u041f\u0440\u0438\u043c\u0435\u043d\u0438\u0442\u044c SQL \u0432 \u0440\u0435\u0434\u0430\u043a\u0442\u043e\u0440\u0435',
   'sqlBlock.executeSql': '\u0412\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u044c SQL',
+  'sqlBlock.verifying': '\u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430\u2026',
+  'sqlBlock.verified': '\u041f\u0440\u043e\u0432\u0435\u0440\u0435\u043d\u043e',
+  'sqlBlock.verifyInvalid': '\u041d\u0435\u0432\u0430\u043b\u0438\u0434\u043d\u044b\u0439 SQL',
 
   // ── Error Boundary ──
   'error.crashed': '{panel} \u0443\u043f\u0430\u043b',
