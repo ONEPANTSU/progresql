@@ -98,6 +98,12 @@ bump-minor: ## Bump minor version (1.0.5 → 1.1.0)
 	cd frontend && npm version minor --no-git-tag-version
 	@echo "Version: $$(node -p 'require(\"./frontend/package.json\").version')"
 
+# --- Agent ---
+
+.PHONY: ralph
+ralph: ## Run Ralph agent (picks next task from tasks.json)
+	bash scripts/ralph.sh
+
 # --- Help ---
 
 .PHONY: help
