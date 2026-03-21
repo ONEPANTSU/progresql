@@ -15,6 +15,7 @@ steps:
       - cp static/payment/icon.png /var/www/progresql/payment/ 2>/dev/null || true
       - cp static/legal/*.html /var/www/progresql/legal/
       - cp static/landing/* /var/www/progresql/landing/
+      - cp static/landing/screenshot.png /var/www/progresql/screenshot.png
       - cp deploy/nginx/progresql.conf /etc/nginx/sites-available/progresql
       - nginx -t && nginx -s reload
       - echo "✅ Landing deployed"
