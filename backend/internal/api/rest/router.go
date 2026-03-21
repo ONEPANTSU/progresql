@@ -53,6 +53,7 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 		&steps.SeedExpansionStep{},
 		&steps.ResultAggregationStep{},
 		&steps.AutoExecuteStep{},
+		&steps.VisualizationStep{},
 	)
 
 	mux.HandleFunc("GET /api/v1/health", healthHandler(cfg.Version))
