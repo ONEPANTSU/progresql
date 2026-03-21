@@ -50,12 +50,15 @@ SQL COMMENTS: Write SQL comments in the same language as your responses.`, langI
 }
 
 // languageInstruction returns a system prompt fragment that instructs the LLM
-// to respond in the user's preferred language.
+// to respond in the same language as the user's message, with the UI language as fallback.
 func languageInstruction(language string) string {
-	switch language {
-	case "ru":
-		return "LANGUAGE: You MUST respond in Russian. All explanations, descriptions, and SQL comments must be in Russian."
-	default:
-		return "LANGUAGE: You MUST respond in English. All explanations, descriptions, and SQL comments must be in English."
+	fallback := "English"
+	if language == "ru" {
+		fallback = "Russian"
 	}
+
+	return fmt.Sprintf("LANGUAGE: You MUST respond in the same language as the user's message. "+
+		"If the user writes in Russian, respond in Russian. If the user writes in English, respond in English. "+
+		"If the user's language is ambiguous (e.g. just SQL code or short commands), default to %s. "+
+		"All explanations, descriptions, and SQL comments must be in the chosen response language.", fallback)
 }

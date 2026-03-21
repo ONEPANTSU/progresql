@@ -92,13 +92,17 @@ interface SchemaSyncModalProps {
 }
 
 // ---------------------------------------------------------------------------
-// Diff engine (public schema only in MVP)
+// Diff engine (all schemas)
 // ---------------------------------------------------------------------------
 
-function getPublicTables(db: DatabaseInfo): Table[] {
-  return (db.tables || []).filter(
-    (t) => !t.table_schema || t.table_schema === 'public'
-  );
+function getAllTables(db: DatabaseInfo): Table[] {
+  return db.tables || [];
+}
+
+/** Schema-qualified key: "schema.table" */
+function tableQualifiedName(t: Table): string {
+  const schema = t.table_schema || 'public';
+  return `${schema}.${t.table_name}`;
 }
 
 function columnKey(c: Column): string {
@@ -142,15 +146,15 @@ function constraintsEqual(a: Constraint, b: Constraint): boolean {
 }
 
 function diffSchemas(sourceDb: DatabaseInfo, targetDb: DatabaseInfo): SchemaDiff {
-  const sourceTables = getPublicTables(sourceDb);
-  const targetTables = getPublicTables(targetDb);
+  const sourceTables = getAllTables(sourceDb);
+  const targetTables = getAllTables(targetDb);
 
-  const sourceMap = new Map(sourceTables.map((t) => [t.table_name, t]));
-  const targetMap = new Map(targetTables.map((t) => [t.table_name, t]));
+  const sourceMap = new Map(sourceTables.map((t) => [tableQualifiedName(t), t]));
+  const targetMap = new Map(targetTables.map((t) => [tableQualifiedName(t), t]));
 
   const tables: TableDiff[] = [];
 
-  // Tables in source but not in target → CREATE TABLE
+  // Tables in source but not in target -> CREATE TABLE
   for (const [name, srcTable] of sourceMap) {
     if (!targetMap.has(name)) {
       tables.push({
@@ -164,7 +168,7 @@ function diffSchemas(sourceDb: DatabaseInfo, targetDb: DatabaseInfo): SchemaDiff
     }
   }
 
-  // Tables in target but not in source → DROP TABLE (destructive)
+  // Tables in target but not in source -> DROP TABLE (destructive)
   for (const [name, tgtTable] of targetMap) {
     if (!sourceMap.has(name)) {
       tables.push({
@@ -178,7 +182,7 @@ function diffSchemas(sourceDb: DatabaseInfo, targetDb: DatabaseInfo): SchemaDiff
     }
   }
 
-  // Tables in both → compare columns, indexes, constraints
+  // Tables in both -> compare columns, indexes, constraints
   for (const [name, srcTable] of sourceMap) {
     const tgtTable = targetMap.get(name);
     if (!tgtTable) continue;
@@ -268,6 +272,15 @@ function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
+/** Quote a potentially schema-qualified name like "myschema.mytable" */
+function quoteQualifiedName(name: string): string {
+  if (name.includes('.')) {
+    const [schema, table] = name.split('.', 2);
+    return `${quoteIdent(schema)}.${quoteIdent(table)}`;
+  }
+  return quoteIdent(name);
+}
+
 function columnTypeSQL(col: Column): string {
   let t = col.data_type;
   if (col.character_maximum_length) {
@@ -279,6 +292,16 @@ function columnTypeSQL(col: Column): string {
 }
 
 function generateCreateTable(diff: TableDiff): string {
+  const qualifiedName = quoteQualifiedName(diff.tableName);
+  // Ensure schema exists if not public
+  let schemaSQL = '';
+  if (diff.tableName.includes('.')) {
+    const schema = diff.tableName.split('.', 2)[0];
+    if (schema !== 'public') {
+      schemaSQL = `CREATE SCHEMA IF NOT EXISTS ${quoteIdent(schema)};\n`;
+    }
+  }
+
   const cols = diff.columns
     .filter((d) => d.kind === 'add' && d.column)
     .map((d) => {
@@ -298,7 +321,7 @@ function generateCreateTable(diff: TableDiff): string {
     cols.push(`  PRIMARY KEY (${pkCols})`);
   }
 
-  let sql = `CREATE TABLE ${quoteIdent(diff.tableName)} (\n${cols.join(',\n')}\n);`;
+  let sql = `${schemaSQL}CREATE TABLE ${qualifiedName} (\n${cols.join(',\n')}\n);`;
 
   // Non-PK constraints
   const otherConstraints = diff.constraints
@@ -306,14 +329,14 @@ function generateCreateTable(diff: TableDiff): string {
   for (const cd of otherConstraints) {
     const c = cd.constraint!;
     if (c.constraint_type === 'FOREIGN KEY') {
-      sql += `\nALTER TABLE ${quoteIdent(diff.tableName)} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} FOREIGN KEY (${quoteIdent(c.column_name)}) REFERENCES ${quoteIdent(c.referenced_table || '')}(${quoteIdent(c.referenced_column || '')})`;
+      sql += `\nALTER TABLE ${qualifiedName} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} FOREIGN KEY (${quoteIdent(c.column_name)}) REFERENCES ${quoteIdent(c.referenced_table || '')}(${quoteIdent(c.referenced_column || '')})`;
       if (c.on_delete) sql += ` ON DELETE ${c.on_delete}`;
       if (c.on_update) sql += ` ON UPDATE ${c.on_update}`;
       sql += ';';
     } else if (c.constraint_type === 'UNIQUE') {
-      sql += `\nALTER TABLE ${quoteIdent(diff.tableName)} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} UNIQUE (${quoteIdent(c.column_name)});`;
+      sql += `\nALTER TABLE ${qualifiedName} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} UNIQUE (${quoteIdent(c.column_name)});`;
     } else if (c.constraint_type === 'CHECK' && c.check_condition) {
-      sql += `\nALTER TABLE ${quoteIdent(diff.tableName)} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} CHECK (${c.check_condition});`;
+      sql += `\nALTER TABLE ${qualifiedName} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} CHECK (${c.check_condition});`;
     }
   }
 
@@ -324,7 +347,7 @@ function generateCreateTable(diff: TableDiff): string {
       sql += `\n${idx.index_definition};`;
     } else {
       const unique = idx.is_unique ? 'UNIQUE ' : '';
-      sql += `\nCREATE ${unique}INDEX ${quoteIdent(idx.index_name)} ON ${quoteIdent(diff.tableName)} (${idx.columns.map(quoteIdent).join(', ')});`;
+      sql += `\nCREATE ${unique}INDEX ${quoteIdent(idx.index_name)} ON ${qualifiedName} (${idx.columns.map(quoteIdent).join(', ')});`;
     }
   }
 
@@ -333,7 +356,7 @@ function generateCreateTable(diff: TableDiff): string {
 
 function generateAlterTable(diff: TableDiff): string {
   const statements: string[] = [];
-  const tbl = quoteIdent(diff.tableName);
+  const tbl = quoteQualifiedName(diff.tableName);
 
   // Add columns
   for (const cd of diff.columns.filter((d) => d.kind === 'add' && d.column)) {
@@ -444,7 +467,7 @@ function generateAlterTable(diff: TableDiff): string {
 }
 
 function generateDropTable(diff: TableDiff): string {
-  return `DROP TABLE ${quoteIdent(diff.tableName)};`;
+  return `DROP TABLE ${quoteQualifiedName(diff.tableName)};`;
 }
 
 function generateSQL(diff: TableDiff): string {
@@ -626,7 +649,7 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
         <Typography variant="h6" component="span">
           Schema Sync
         </Typography>
-        <Chip label="MVP: public schema" size="small" variant="outlined" sx={{ ml: 'auto' }} />
+        <Chip label="All schemas" size="small" variant="outlined" sx={{ ml: 'auto' }} />
       </DialogTitle>
 
       <DialogContent dividers sx={{ p: 2 }}>

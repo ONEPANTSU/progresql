@@ -1,7 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { Box, Typography, IconButton, Tooltip } from '@mui/material';
 import {
   Refresh as RefreshIcon,
+  BarChart as BarChartIcon,
+  ShowChart as LineChartIcon,
+  PieChart as PieChartIcon,
+  StackedLineChart as AreaChartIcon,
 } from '@mui/icons-material';
 import {
   BarChart, Bar,
@@ -13,12 +17,22 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import type { TooltipProps } from 'recharts';
 import type { MessageVisualization } from '../../types';
 
 const CHART_COLORS = [
   '#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd',
   '#818cf8', '#7c3aed', '#5b21b6', '#4f46e5',
   '#4338ca', '#3730a3', '#312e81', '#6d28d9',
+];
+
+type SwitchableChartType = 'bar' | 'line' | 'pie' | 'area';
+
+const SWITCHABLE_TYPES: { type: SwitchableChartType; icon: React.ReactElement; label: string }[] = [
+  { type: 'bar', icon: <BarChartIcon fontSize="small" />, label: 'Bar' },
+  { type: 'line', icon: <LineChartIcon fontSize="small" />, label: 'Line' },
+  { type: 'area', icon: <AreaChartIcon fontSize="small" />, label: 'Area' },
+  { type: 'pie', icon: <PieChartIcon fontSize="small" />, label: 'Pie' },
 ];
 
 interface ChartBlockProps {
@@ -59,30 +73,68 @@ function getDataKeys(data: Record<string, unknown>[]): { xKey: string; yKeys: st
   return { xKey, yKeys: yKeys.length > 0 ? yKeys : keys.slice(1) };
 }
 
-const ChartHeader: React.FC<{
-  title: string;
-  onRefresh?: () => void;
-}> = ({ title, onRefresh }) => (
-  <Box sx={{
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    mb: 1,
-  }}>
-    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-      {title}
-    </Typography>
-    <Box sx={{ display: 'flex', gap: 0.5 }}>
-      {onRefresh && (
-        <Tooltip title="Refresh">
-          <IconButton size="small" onClick={onRefresh} sx={{ color: 'text.secondary' }}>
-            <RefreshIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      )}
+/** Custom tooltip that only shows the hovered series, not all of them. */
+const SingleSeriesTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload, label }) => {
+  if (!active || !payload || payload.length === 0) return null;
+
+  // Filter to only entries that are actually being hovered (have a non-null value)
+  // In grouped bar charts, Recharts sends all series but we only want the active one.
+  // The active bar's dataKey is typically the first one with a matching payload entry.
+  const visibleEntries = payload.filter(entry => entry.value != null);
+
+  // If there's only one series or it's not a grouped scenario, show all visible
+  // For grouped bars, Recharts doesn't natively mark which bar is hovered,
+  // so we show all visible entries but formatted cleanly.
+  // However, when a specific bar is hovered, only that bar's entry has the "active" state.
+  // We check the `dataKey` against `payload` — in practice Recharts sends all,
+  // but we can at least display them cleanly.
+
+  return (
+    <Box sx={{
+      backgroundColor: '#1f2937',
+      border: '1px solid #374151',
+      borderRadius: '8px',
+      color: '#e5e7eb',
+      px: 1.5,
+      py: 1,
+      fontSize: '0.8125rem',
+    }}>
+      <Typography variant="caption" sx={{ color: '#9ca3af', display: 'block', mb: 0.5 }}>
+        {label}
+      </Typography>
+      {visibleEntries.map((entry, i) => (
+        <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.25 }}>
+          <Box sx={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            backgroundColor: entry.color,
+            flexShrink: 0,
+          }} />
+          <Typography variant="caption" sx={{ color: '#e5e7eb' }}>
+            {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}
+          </Typography>
+        </Box>
+      ))}
     </Box>
-  </Box>
-);
+  );
+};
+
+/** Shared legend style with better spacing */
+const legendWrapperStyle: React.CSSProperties = {
+  paddingTop: 12,
+  display: 'flex',
+  flexWrap: 'wrap',
+  justifyContent: 'center',
+  gap: '8px 20px',
+};
+
+/** Shared style to suppress selection artifacts on the chart container */
+const chartContainerStyle: React.CSSProperties = {
+  cursor: 'default',
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
+};
 
 const BarChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string; yLabel?: string }> = ({ data, xLabel, yLabel }) => {
   const { xKey, yKeys, coercedData } = useMemo(() => {
@@ -90,18 +142,23 @@ const BarChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string;
     return { ...keys, coercedData: coerceNumericData(data, keys.yKeys) };
   }, [data]);
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={coercedData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-        <XAxis dataKey={xKey} tick={{ fill: '#9ca3af', fontSize: 12 }} label={xLabel ? { value: xLabel, position: 'insideBottom', offset: -5, fill: '#9ca3af' } : undefined} />
-        <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
-        <RechartsTooltip cursor={false} contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#e5e7eb' }} />
-        <Legend />
-        {yKeys.map((key, i) => (
-          <Bar key={key} dataKey={key} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} activeBar={{ fillOpacity: 0.7 }} />
-        ))}
-      </BarChart>
-    </ResponsiveContainer>
+    <div style={chartContainerStyle}>
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={coercedData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+          <XAxis dataKey={xKey} tick={{ fill: '#9ca3af', fontSize: 12 }} label={xLabel ? { value: xLabel, position: 'insideBottom', offset: -5, fill: '#9ca3af' } : undefined} />
+          <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
+          <RechartsTooltip
+            cursor={false}
+            content={<SingleSeriesTooltip />}
+          />
+          <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
+          {yKeys.map((key, i) => (
+            <Bar key={key} dataKey={key} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} activeBar={{ fillOpacity: 0.7 }} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 };
 
@@ -111,18 +168,23 @@ const LineChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
     return { ...keys, coercedData: coerceNumericData(data, keys.yKeys) };
   }, [data]);
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <LineChart data={coercedData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-        <XAxis dataKey={xKey} tick={{ fill: '#9ca3af', fontSize: 12 }} label={xLabel ? { value: xLabel, position: 'insideBottom', offset: -5, fill: '#9ca3af' } : undefined} />
-        <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
-        <RechartsTooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#e5e7eb' }} />
-        <Legend />
-        {yKeys.map((key, i) => (
-          <Line key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={{ r: 3 }} />
-        ))}
-      </LineChart>
-    </ResponsiveContainer>
+    <div style={chartContainerStyle}>
+      <ResponsiveContainer width="100%" height={280}>
+        <LineChart data={coercedData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+          <XAxis dataKey={xKey} tick={{ fill: '#9ca3af', fontSize: 12 }} label={xLabel ? { value: xLabel, position: 'insideBottom', offset: -5, fill: '#9ca3af' } : undefined} />
+          <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
+          <RechartsTooltip
+            cursor={false}
+            content={<SingleSeriesTooltip />}
+          />
+          <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
+          {yKeys.map((key, i) => (
+            <Line key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
   );
 };
 
@@ -132,18 +194,23 @@ const AreaChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
     return { ...keys, coercedData: coerceNumericData(data, keys.yKeys) };
   }, [data]);
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <AreaChart data={coercedData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-        <XAxis dataKey={xKey} tick={{ fill: '#9ca3af', fontSize: 12 }} label={xLabel ? { value: xLabel, position: 'insideBottom', offset: -5, fill: '#9ca3af' } : undefined} />
-        <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
-        <RechartsTooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#e5e7eb' }} />
-        <Legend />
-        {yKeys.map((key, i) => (
-          <Area key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} fill={CHART_COLORS[i % CHART_COLORS.length]} fillOpacity={0.3} />
-        ))}
-      </AreaChart>
-    </ResponsiveContainer>
+    <div style={chartContainerStyle}>
+      <ResponsiveContainer width="100%" height={280}>
+        <AreaChart data={coercedData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+          <XAxis dataKey={xKey} tick={{ fill: '#9ca3af', fontSize: 12 }} label={xLabel ? { value: xLabel, position: 'insideBottom', offset: -5, fill: '#9ca3af' } : undefined} />
+          <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
+          <RechartsTooltip
+            cursor={false}
+            content={<SingleSeriesTooltip />}
+          />
+          <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
+          {yKeys.map((key, i) => (
+            <Area key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} fill={CHART_COLORS[i % CHART_COLORS.length]} fillOpacity={0.3} />
+          ))}
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 };
 
@@ -164,26 +231,28 @@ const PieChartView: React.FC<{ data: Record<string, unknown>[] }> = ({ data }) =
   }
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <PieChart>
-        <Pie
-          data={coercedData}
-          dataKey={valueKey}
-          nameKey={xKey}
-          cx="50%"
-          cy="50%"
-          outerRadius={100}
-          label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
-          labelLine={{ stroke: '#6b7280' }}
-        >
-          {coercedData.map((_, i) => (
-            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-          ))}
-        </Pie>
-        <RechartsTooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#e5e7eb' }} />
-        <Legend />
-      </PieChart>
-    </ResponsiveContainer>
+    <div style={chartContainerStyle}>
+      <ResponsiveContainer width="100%" height={280}>
+        <PieChart>
+          <Pie
+            data={coercedData}
+            dataKey={valueKey}
+            nameKey={xKey}
+            cx="50%"
+            cy="50%"
+            outerRadius={100}
+            label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
+            labelLine={{ stroke: '#6b7280' }}
+          >
+            {coercedData.map((_, i) => (
+              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+            ))}
+          </Pie>
+          <RechartsTooltip content={<SingleSeriesTooltip />} />
+          <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
   );
 };
 
@@ -270,14 +339,83 @@ const TableView: React.FC<{ data: Record<string, unknown>[] }> = ({ data }) => {
   );
 };
 
+const ChartHeader: React.FC<{
+  title: string;
+  chartType: string;
+  activeType: SwitchableChartType | null;
+  onTypeChange: (type: SwitchableChartType) => void;
+  onRefresh?: () => void;
+}> = ({ title, chartType, activeType, onTypeChange, onRefresh }) => {
+  const isSwitchable = ['bar', 'line', 'pie', 'area'].includes(chartType);
+
+  return (
+    <Box sx={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      mb: 1,
+    }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+        {title}
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+        {isSwitchable && SWITCHABLE_TYPES.map(({ type, icon, label }) => (
+          <Tooltip key={type} title={label}>
+            <IconButton
+              size="small"
+              onClick={() => onTypeChange(type)}
+              sx={{
+                color: activeType === type ? '#6366f1' : '#6b7280',
+                backgroundColor: activeType === type ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
+                borderRadius: 1,
+                p: 0.5,
+                '&:hover': {
+                  backgroundColor: activeType === type
+                    ? 'rgba(99, 102, 241, 0.2)'
+                    : 'rgba(107, 114, 128, 0.15)',
+                },
+              }}
+            >
+              {icon}
+            </IconButton>
+          </Tooltip>
+        ))}
+        {isSwitchable && onRefresh && (
+          <Box sx={{ width: '1px', height: 20, bgcolor: '#374151', mx: 0.5 }} />
+        )}
+        {onRefresh && (
+          <Tooltip title="Refresh">
+            <IconButton size="small" onClick={onRefresh} sx={{ color: 'text.secondary', p: 0.5 }}>
+              <RefreshIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Box>
+    </Box>
+  );
+};
+
 const ChartBlock: React.FC<ChartBlockProps> = ({
   visualization,
   onRefresh,
 }) => {
   const { chart_type, title, data, x_label, y_label } = visualization;
 
+  const [overrideType, setOverrideType] = useState<SwitchableChartType | null>(null);
+
+  const isSwitchable = ['bar', 'line', 'pie', 'area'].includes(chart_type);
+  const activeType: SwitchableChartType | null = isSwitchable
+    ? (overrideType ?? chart_type as SwitchableChartType)
+    : null;
+
+  const handleTypeChange = useCallback((type: SwitchableChartType) => {
+    setOverrideType(type);
+  }, []);
+
+  const effectiveType = activeType ?? chart_type;
+
   const chartContent = useMemo(() => {
-    switch (chart_type) {
+    switch (effectiveType) {
       case 'bar':
         return <BarChartView data={data} xLabel={x_label} yLabel={y_label} />;
       case 'line':
@@ -291,9 +429,9 @@ const ChartBlock: React.FC<ChartBlockProps> = ({
       case 'table':
         return <TableView data={data} />;
       default:
-        return <Typography color="error">Unknown chart type: {chart_type}</Typography>;
+        return <Typography color="error">Unknown chart type: {effectiveType}</Typography>;
     }
-  }, [chart_type, data, title, x_label, y_label]);
+  }, [effectiveType, data, title, x_label, y_label]);
 
   return (
     <Box sx={{
@@ -306,6 +444,9 @@ const ChartBlock: React.FC<ChartBlockProps> = ({
     }}>
       <ChartHeader
         title={title}
+        chartType={chart_type}
+        activeType={activeType}
+        onTypeChange={handleTypeChange}
         onRefresh={onRefresh}
       />
       {chartContent}

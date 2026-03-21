@@ -74,7 +74,7 @@ func (s *AnalyzeSchemaStep) Execute(ctx context.Context, pctx *agent.PipelineCon
 	}
 
 	if len(allTables) == 0 {
-		return fmt.Errorf("no tables found in any schema")
+		return s.handleEmptyDatabase(ctx, pctx)
 	}
 
 	pctx.Logger.Info("tables discovered", zap.Int("count", len(allTables)))
@@ -165,6 +165,51 @@ func (s *AnalyzeSchemaStep) Execute(ctx context.Context, pctx *agent.PipelineCon
 		zap.Int("explanation_length", len(explanation)),
 		zap.Int("tokens", pctx.TokensUsed),
 	)
+
+	return nil
+}
+
+// handleEmptyDatabase streams a helpful LLM response when the database has no tables.
+func (s *AnalyzeSchemaStep) handleEmptyDatabase(ctx context.Context, pctx *agent.PipelineContext) error {
+	pctx.Logger.Info("database is empty, no tables found — generating helpful response")
+
+	model := pctx.Model
+
+	prompt := "You are a PostgreSQL database assistant. The user is connected to a database, " +
+		"but the database is completely empty — there are no tables, views, or other objects in any schema.\n\n" +
+		"The user asked: " + pctx.UserMessage + "\n\n" +
+		"Respond helpfully. Tell the user that the database is empty and has no tables yet. " +
+		"Suggest that they can create tables using CREATE TABLE statements, " +
+		"or import an existing schema. Be brief and friendly.\n\n" +
+		"IMPORTANT: Always respond in the same language as the user's message. " +
+		"If the user writes in Russian, respond in Russian. If in English, respond in English."
+
+	req := llm.ChatRequest{
+		Model: model,
+		Messages: pctx.MessagesWithHistory(
+			llm.Message{Role: "user", Content: prompt},
+		),
+	}
+
+	resp, err := pctx.StreamLLM(ctx, req)
+	if err != nil {
+		// Fallback: static bilingual message if LLM is unavailable.
+		pctx.Logger.Warn("LLM unavailable for empty-database response, using fallback", zap.Error(err))
+		pctx.Result.Explanation = "База данных пуста — в ней нет таблиц. " +
+			"Вы можете создать таблицы с помощью CREATE TABLE или импортировать существующую схему.\n\n" +
+			"The database is empty — there are no tables. " +
+			"You can create tables using CREATE TABLE or import an existing schema."
+		return nil
+	}
+
+	if len(resp.Choices) > 0 && resp.Choices[0].Message.Content != "" {
+		pctx.Result.Explanation = resp.Choices[0].Message.Content
+	} else {
+		pctx.Result.Explanation = "База данных пуста — в ней нет таблиц. " +
+			"Вы можете создать таблицы с помощью CREATE TABLE или импортировать существующую схему.\n\n" +
+			"The database is empty — there are no tables. " +
+			"You can create tables using CREATE TABLE or import an existing schema."
+	}
 
 	return nil
 }

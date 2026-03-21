@@ -518,10 +518,18 @@ func TestSchemaGrounding_ObjectTableFormat(t *testing.T) {
 }
 
 func TestSchemaGrounding_NoTablesFound(t *testing.T) {
+	// When the database is empty (no tables), the step should respond with a helpful
+	// message and set SkipRemaining, instead of returning an error.
+	chunks := []string{
+		makeStreamChunkWithUsage("The database is empty.", 20, 10, 30),
+	}
+	mockLLM := sseServer(t, chunks)
+	defer mockLLM.Close()
+
 	hub := websocket.NewHub()
 	session, client := wsDialer(t, hub)
 
-	llmClient := llm.NewClient("test-key")
+	llmClient := llm.NewClient("test-key", llm.WithBaseURL(mockLLM.URL), llm.WithMaxRetries(0))
 	pctx := buildPipelineContext(t, session, llmClient)
 
 	step := &SchemaGroundingStep{}
@@ -534,13 +542,25 @@ func TestSchemaGrounding_NoTablesFound(t *testing.T) {
 	env := readEnvelope(t, client)
 	sendToolResult(t, client, env.RequestID, env.CallID, true, []string{})
 
+	// Drain agent.stream messages sent to the WebSocket client.
+	for {
+		client.SetReadDeadline(time.Now().Add(2 * time.Second))
+		_, _, err := client.ReadMessage()
+		if err != nil {
+			break
+		}
+	}
+
 	select {
 	case err := <-errCh:
-		if err == nil {
-			t.Fatal("expected error for empty tables")
+		if err != nil {
+			t.Fatalf("expected no error for empty database, got: %v", err)
 		}
-		if !strings.Contains(err.Error(), "no tables found") {
-			t.Errorf("unexpected error: %v", err)
+		if !pctx.SkipRemaining {
+			t.Error("expected SkipRemaining to be true")
+		}
+		if pctx.Result.Explanation == "" {
+			t.Error("expected non-empty Explanation for empty database response")
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("step timed out")

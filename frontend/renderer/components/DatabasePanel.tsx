@@ -212,6 +212,7 @@ export default function DatabasePanel({
   const { t } = useTranslation();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [connMenuPosition, setConnMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [selectedConnection, setSelectedConnection] = useState<DatabaseServer | null>(null);
   const [expandedConnections, setExpandedConnections] = useState<Set<string>>(new Set());
   const [expandedDatabases, setExpandedDatabases] = useState<Set<string>>(new Set());
@@ -236,12 +237,22 @@ export default function DatabasePanel({
   };
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, connection: DatabaseServer) => {
+    setConnMenuPosition(null);
     setAnchorEl(event.currentTarget);
+    setSelectedConnection(connection);
+  };
+
+  const handleConnectionContextMenu = (event: React.MouseEvent, connection: DatabaseServer) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setAnchorEl(null);
+    setConnMenuPosition({ top: event.clientY, left: event.clientX });
     setSelectedConnection(connection);
   };
 
   const handleMenuClose = () => {
     setAnchorEl(null);
+    setConnMenuPosition(null);
     setSelectedConnection(null);
   };
 
@@ -700,6 +711,7 @@ export default function DatabasePanel({
       {/* Connection Header */}
       <ListItemButton
         onClick={() => toggleConnectionExpansion(connection.id)}
+        onContextMenu={(e) => handleConnectionContextMenu(e, connection)}
         sx={{
           py: 0,
           px: 1,
@@ -1479,18 +1491,6 @@ export default function DatabasePanel({
                 </IconButton>
               </Tooltip>
             )}
-            {activeConnection && (
-              <Tooltip title="Refresh Database Structure">
-                <IconButton
-                  onClick={() => onRefreshConnection(activeConnection.id)}
-                  aria-label="Refresh database structure"
-                  size="small"
-                  sx={{ p: 0.25, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-                >
-                  <RefreshIcon sx={{ fontSize: TREE_ICON_SIZE }} />
-                </IconButton>
-              </Tooltip>
-            )}
             {connections.filter((c) => c.isActive).length >= 2 && (
               <Tooltip title="Schema Sync">
                 <IconButton
@@ -1547,16 +1547,21 @@ export default function DatabasePanel({
       {/* Connection Menu */}
       <Menu
         anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
+        open={Boolean(anchorEl) || Boolean(connMenuPosition)}
         onClose={handleMenuClose}
-        anchorOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'left',
-        }}
+        {...(connMenuPosition ? {
+          anchorReference: 'anchorPosition' as const,
+          anchorPosition: connMenuPosition,
+        } : {
+          anchorOrigin: {
+            vertical: 'top' as const,
+            horizontal: 'right' as const,
+          },
+          transformOrigin: {
+            vertical: 'top' as const,
+            horizontal: 'left' as const,
+          },
+        })}
         slotProps={{
           paper: {
             sx: {

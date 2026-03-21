@@ -21,6 +21,7 @@ func buildAnalyzeContext(t *testing.T, session *websocket.Session, llmClient *ll
 	pctx := agent.NewPipelineContext()
 	pctx.RequestID = "req-analyze"
 	pctx.Action = "analyze_schema"
+	pctx.UserMessage = "расскажи что знаешь о бд"
 	pctx.Session = session
 	pctx.ToolDispatcher = websocket.NewToolDispatcher(session)
 	pctx.LLMClient = llmClient
@@ -197,10 +198,18 @@ func TestAnalyzeSchema_ListSchemasFails(t *testing.T) {
 }
 
 func TestAnalyzeSchema_NoTables(t *testing.T) {
+	// When the database is empty (no tables in any schema), the step should respond
+	// with a helpful message instead of returning an error.
+	chunks := []string{
+		makeStreamChunkWithUsage("The database is empty.", 20, 10, 30),
+	}
+	mockLLM := sseServer(t, chunks)
+	defer mockLLM.Close()
+
 	hub := websocket.NewHub()
 	session, client := wsDialer(t, hub)
 
-	llmClient := llm.NewClient("test-key", llm.WithMaxRetries(0))
+	llmClient := llm.NewClient("test-key", llm.WithBaseURL(mockLLM.URL), llm.WithMaxRetries(0))
 	pctx := buildAnalyzeContext(t, session, llmClient)
 
 	errCh := make(chan error, 1)
@@ -217,13 +226,22 @@ func TestAnalyzeSchema_NoTables(t *testing.T) {
 	env = readEnvelope(t, client)
 	sendToolResult(t, client, env.RequestID, env.CallID, true, []string{})
 
+	// Drain agent.stream messages sent to the WebSocket client.
+	for {
+		client.SetReadDeadline(time.Now().Add(2 * time.Second))
+		_, _, err := client.ReadMessage()
+		if err != nil {
+			break
+		}
+	}
+
 	select {
 	case err := <-errCh:
-		if err == nil {
-			t.Fatal("expected error for no tables")
+		if err != nil {
+			t.Fatalf("expected no error for empty database, got: %v", err)
 		}
-		if !strings.Contains(err.Error(), "no tables found") {
-			t.Errorf("unexpected error: %v", err)
+		if pctx.Result.Explanation == "" {
+			t.Error("expected non-empty Explanation for empty database response")
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out")
