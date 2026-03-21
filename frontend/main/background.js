@@ -758,7 +758,8 @@ ipcMain.handle('get-database-structure', async (event, connectionId) => {
       procedures: proceduresResult.rows,
       sequences: sequencesResult.rows,
       types: typesResult.rows,
-      extensions: extensionsResult.rows
+      extensions: extensionsResult.rows,
+      constraints: constraintsResult.rows
     };
 
     log.debug('Database structure created:', {
