@@ -14,9 +14,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (existing) {
       setUser(existing);
       migrateToUserStorage();
+      // Fetch fresh profile from server on startup
+      authService.refreshUser().then(updated => {
+        if (updated) setUser(updated);
+      }).catch(() => {});
     }
     setIsReady(true);
   }, []);
+
+  // Periodically refresh user profile (every 5 minutes)
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => {
+      authService.refreshUser().then(updated => {
+        if (updated) setUser(updated);
+      }).catch(() => {});
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [!!user]);
 
   const login = useCallback(async (email: string, password: string): Promise<AuthUser> => {
     const loggedIn = await authService.login(email, password);
