@@ -17,7 +17,6 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import type { TooltipProps } from 'recharts';
 import type { MessageVisualization } from '../../types';
 
 const CHART_COLORS = [
@@ -74,13 +73,13 @@ function getDataKeys(data: Record<string, unknown>[]): { xKey: string; yKeys: st
 }
 
 /** Custom tooltip that only shows the hovered series, not all of them. */
-const SingleSeriesTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload, label }) => {
+const SingleSeriesTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload || payload.length === 0) return null;
 
   // Filter to only entries that are actually being hovered (have a non-null value)
   // In grouped bar charts, Recharts sends all series but we only want the active one.
   // The active bar's dataKey is typically the first one with a matching payload entry.
-  const visibleEntries = payload.filter(entry => entry.value != null);
+  const visibleEntries = payload.filter((entry: any) => entry.value != null);
 
   // If there's only one series or it's not a grouped scenario, show all visible
   // For grouped bars, Recharts doesn't natively mark which bar is hovered,
@@ -102,7 +101,7 @@ const SingleSeriesTooltip: React.FC<TooltipProps<number, string>> = ({ active, p
       <Typography variant="caption" sx={{ color: '#9ca3af', display: 'block', mb: 0.5 }}>
         {label}
       </Typography>
-      {visibleEntries.map((entry, i) => (
+      {visibleEntries.map((entry: any, i: number) => (
         <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.25 }}>
           <Box sx={{
             width: 8,
