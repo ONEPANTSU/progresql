@@ -52,13 +52,17 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      onSendMessage();
+      if (!isTyping) {
+        onSendMessage();
+      }
     }
   };
 
   const placeholder = !isConnected
     ? t('chat.input.backendUnavailable')
-    : t('chat.input.placeholder');
+    : isTyping
+      ? t('chat.input.generating')
+      : t('chat.input.placeholder');
 
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
   const modKey = isMac ? '⌘' : 'Ctrl';
@@ -180,7 +184,6 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
           inputRef={inputRef}
-          disabled={isTyping}
           size="small"
           inputProps={{ 'aria-label': 'Chat message input' }}
           sx={{

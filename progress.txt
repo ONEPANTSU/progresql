@@ -2629,3 +2629,15 @@ TASK-190 completed. Self-hosted CI/CD — runner configuration and workflow migr
 - No Python code modified — ruff/pytest unaffected
 - Note: after deploying runner on server, run: RUNNER_TOKEN=<token> bash deploy/runner/setup-runner.sh
 - No pending tasks remain in tasks.json.
+
+TASK-206 completed. ChatInput — removed disabled from input field during AI generation.
+- Removed disabled={isTyping} from TextField in ChatInput.tsx — user can now type while AI is generating
+- Added isTyping guard in handleKeyDown — Enter key sends message only when not generating
+- Send button remains disabled during generation (unchanged, already had isTyping in disabled condition)
+- Placeholder changes to "Type your next message while AI is thinking…" during generation
+- Added i18n key 'chat.input.generating' in en.ts and ru.ts
+- Focus does not jump during streaming — TextField stays interactive
+- Typed text is preserved after generation completes
+- npx tsc --noEmit — 0 errors
+- npm run build — webpack compiled successfully, DMG/ZIP built
+- Next priorities: TASK-207 (Stop button, critical, deps now met with TASK-206 done), TASK-193 (autocomplete, high), TASK-194 (format SQL, high), TASK-197 (SQL verification, high)

@@ -156,6 +156,7 @@ const en = {
   // ── Chat Input ──
   'chat.input.placeholder': 'Ask a question about your database\u2026',
   'chat.input.backendUnavailable': 'Backend unavailable\u2026',
+  'chat.input.generating': 'Type your next message while AI is thinking\u2026',
   'chat.input.sqlLines': '{count} {count, plural, one {line} other {lines}}',
   'chat.input.send': 'Send message',
 

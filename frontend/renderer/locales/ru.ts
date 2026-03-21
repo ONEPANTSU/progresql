@@ -158,7 +158,8 @@ const ru: Record<TranslationKey, string> = {
 
   // ── Chat Input ──
   'chat.input.placeholder': '\u0417\u0430\u0434\u0430\u0439\u0442\u0435 \u0432\u043e\u043f\u0440\u043e\u0441 \u043e \u0432\u0430\u0448\u0435\u0439 \u0431\u0430\u0437\u0435 \u0434\u0430\u043d\u043d\u044b\u0445\u2026',
-  'chat.input.backendUnavailable': '\u0411\u044d\u043a\u0435\u043d\u0434 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d\u2026',
+  'chat.input.backendUnavailable': 'Бэкенд недоступен\u2026',
+  'chat.input.generating': 'Набирайте следующее сообщение, пока AI думает\u2026',
   'chat.input.sqlLines': '{count} \u0441\u0442\u0440.',
   'chat.input.send': '\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435',
 

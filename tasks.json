@@ -3788,6 +3788,237 @@
       ],
       "dependencies": [],
       "status": "done"
+    },
+    {
+      "id": "TASK-193",
+      "category": "client-editor",
+      "priority": "high",
+      "description": "Расширить CodeMirror autocomplete для подсказки таблиц, колонок, схем и функций из подключённой БД. При наборе после FROM/JOIN предлагать таблицы, после SELECT — колонки, после точки — колонки конкретной таблицы. Автокомплит триггерится автоматически.",
+      "acceptance_criteria": [
+        "Начал писать SE → появляется SELECT и другие SQL keywords",
+        "Написал FROM us → предлагает users, user_sessions и другие подходящие таблицы",
+        "Написал SELECT u. → предлагает все колонки таблицы users",
+        "После смены подключения — список обновляется",
+        "Автокомплит работает и в тёмной и в светлой теме"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-194",
+      "category": "client-editor",
+      "priority": "high",
+      "description": "Добавить кнопку Format SQL в тулбар редактора. Библиотека sql-formatter, диалект postgresql, uppercase keywords, отступы 2 пробела. Hotkey Shift+Alt+F.",
+      "acceptance_criteria": [
+        "Кнопка и hotkey форматируют SQL",
+        "select id,name from users where id=1 → правильно отформатировано с uppercase, отступами",
+        "Невалидный SQL не ломает редактор",
+        "Работает на всех вкладках независимо"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-195",
+      "category": "client-editor",
+      "priority": "medium",
+      "description": "При ошибке SQL — подсвечивать строку с ошибкой в редакторе (красная подсветка + иконка на gutter) + кнопка Fix in Chat в панели результатов.",
+      "acceptance_criteria": [
+        "Ошибочная строка подсвечена красным в редакторе",
+        "Кнопка Fix in Chat видна в панели результатов при ошибке",
+        "Клик отправляет нужный контекст в чат",
+        "После успешного запуска подсветка исчезает"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-196",
+      "category": "client-editor",
+      "priority": "low",
+      "description": "Dropdown в тулбаре редактора с 7 готовыми SQL-шаблонами (SELECT, INSERT, UPDATE, DELETE, CREATE INDEX, EXPLAIN ANALYZE). Плейсхолдеры с Tab-навигацией.",
+      "acceptance_criteria": [
+        "Все 7 шаблонов доступны из dropdown",
+        "После вставки курсор на первом плейсхолдере",
+        "Tab переходит к следующему плейсхолдеру"
+      ],
+      "dependencies": [
+        "TASK-193"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-197",
+      "category": "client-chat",
+      "priority": "high",
+      "description": "Автоматически прогнать SQL из чата через EXPLAIN и показать статус верификации (✅ Verified / ❌ Invalid SQL / ⏳ Verifying). Не запускается без БД и для DML в safe mode.",
+      "acceptance_criteria": [
+        "SQL из чата получает статус ✅ или ❌",
+        "Невалидный SQL показывает понятный текст ошибки",
+        "При отключённой БД верификация не запускается",
+        "DML в safe mode не верифицируется"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-198",
+      "category": "backend",
+      "priority": "medium",
+      "description": "Определить 6 типов графиков (bar, line, pie, area, metric, table) и расширить agent.response полем visualization с chart_type, title, data, x_label, y_label, sql.",
+      "acceptance_criteria": [
+        "WebSocket протокол расширен полем visualization в agent.response",
+        "Go-структуры обновлены",
+        "Протокол backward-compatible (старые клиенты не ломаются)"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-199",
+      "category": "client-charts",
+      "priority": "medium",
+      "description": "Новый компонент ChartBlock.tsx на Recharts для рендеринга bar/line/pie/area/metric/table визуализаций в чате. Тёмная тема ProgreSQL, кнопки Refresh/Copy SQL/Apply.",
+      "acceptance_criteria": [
+        "Все 6 типов рендерятся корректно",
+        "Refresh работает (перезапрашивает данные через electronAPI)",
+        "Стиль соответствует тёмной теме редактора",
+        "Нет горизонтального overflow"
+      ],
+      "dependencies": [
+        "TASK-198"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-200",
+      "category": "backend",
+      "priority": "medium",
+      "description": "Научить LLM-агент возвращать визуализации при аналитических вопросах. Триггеры: покажи, график, динамика, топ N, статистика. Агент выбирает тип графика, выполняет SELECT, трансформирует в visualization.",
+      "acceptance_criteria": [
+        "Топ 10 пользователей по заказам → bar chart",
+        "Динамика выручки за 30 дней → line chart",
+        "Распределение заказов по статусам → pie chart",
+        "Сколько всего пользователей → metric"
+      ],
+      "dependencies": [
+        "TASK-198",
+        "TASK-199"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-201",
+      "category": "client-er",
+      "priority": "medium",
+      "description": "Новая вкладка ER Diagram в левой панели. React Flow (@xyflow/react) для интерактивной ER-диаграммы с таблицами, колонками, FK-связями. Drag, zoom, pan, minimap, fit-to-screen. Позиции сохраняются в localStorage.",
+      "acceptance_criteria": [
+        "Все таблицы отображаются с колонками",
+        "FK-связи показаны стрелками между правильными таблицами",
+        "Можно двигать таблицы, зумить, паниться",
+        "Fit to screen работает",
+        "Позиции таблиц сохраняются после закрытия вкладки",
+        "Работает на схемах с 20+ таблицами без тормозов"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-202",
+      "category": "client-connections",
+      "priority": "medium",
+      "description": "Pill/badge в тулбаре SQL редактора с именем текущего подключения. Клик открывает dropdown со списком подключений. Цвет: зелёный (connected), серый (disconnected), красный (error).",
+      "acceptance_criteria": [
+        "Название текущей БД видно в тулбаре редактора всегда",
+        "Можно переключить подключение прямо из редактора",
+        "Цвет отражает статус соединения"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-203",
+      "category": "client-connections",
+      "priority": "medium",
+      "description": "Pill в ChatInput для выбора к какой БД обращается AI. Dropdown со всеми подключёнными БД. Предупреждение при смене в существующем чате.",
+      "acceptance_criteria": [
+        "Pill с названием активной БД виден в чате",
+        "Dropdown позволяет переключить источник",
+        "AI использует выбранную БД для tool calls",
+        "Предупреждение при смене в существующем чате"
+      ],
+      "dependencies": [
+        "TASK-202"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-204",
+      "category": "client-connections",
+      "priority": "medium",
+      "description": "Рефакторинг модели подключений — несколько активных одновременно. Каждая SQL-вкладка привязана к конкретному connectionId. executeQuery принимает connectionId.",
+      "acceptance_criteria": [
+        "Можно подключиться к двум БД одновременно",
+        "Разные вкладки редактора могут работать с разными БД",
+        "Отключение одной БД не затрагивает другие вкладки",
+        "DatabasePanel не имеет понятия одна активная — все подключённые показаны как активные"
+      ],
+      "dependencies": [
+        "TASK-202",
+        "TASK-203"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-205",
+      "category": "client-schema-sync",
+      "priority": "low",
+      "description": "Модальное окно Schema Sync — выбор Source и Target подключений, diff схем, генерация SQL-миграции. Группировка по таблицам, чекбоксы, Preview SQL, Copy as migration. Только public схема в MVP.",
+      "acceptance_criteria": [
+        "Добавил колонку в dev → diff показывает ALTER TABLE ADD COLUMN",
+        "Деструктивные изменения по умолчанию выключены",
+        "Группировка по таблицам с checkbox",
+        "Preview SQL показывает финальный скрипт из выбранных операций",
+        "Порядок SQL корректный (CREATE TABLE раньше ADD COLUMN)",
+        "Copy as migration и Insert to editor работают",
+        "Сгенерированный SQL синтаксически валидный"
+      ],
+      "dependencies": [
+        "TASK-204"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-206",
+      "category": "client-chat",
+      "priority": "critical",
+      "description": "Убрать disabled с поля ввода в ChatInput во время генерации. Пользователь должен мочь набирать текст. Кнопка Send остаётся disabled. Placeholder меняется на подсказку.",
+      "acceptance_criteria": [
+        "Во время генерации можно кликнуть в поле и начать набирать текст",
+        "Набранный текст сохраняется после завершения генерации",
+        "Кнопка Send заблокирована во время генерации",
+        "Фокус не прыгает при стриминге"
+      ],
+      "dependencies": [],
+      "status": "done"
+    },
+    {
+      "id": "TASK-207",
+      "category": "client-chat",
+      "priority": "critical",
+      "description": "Кнопка Stop вместо Send во время генерации. Отправляет agent.cancel по WebSocket. Бэкенд прерывает pipeline через context cancellation. Частичный ответ остаётся в чате с пометкой · stopped.",
+      "acceptance_criteria": [
+        "Кнопка Stop появляется во время генерации вместо Send",
+        "Нажатие Stop немедленно прекращает стриминг на клиенте",
+        "Бэкенд получает cancel и прерывает pipeline",
+        "Частичный ответ сохраняется в чате с пометкой · stopped",
+        "После остановки можно сразу отправить новый вопрос",
+        "Если генерация завершилась до нажатия Stop — ничего не ломается"
+      ],
+      "dependencies": [
+        "TASK-206"
+      ],
+      "status": "pending"
     }
   ]
 }
