@@ -394,6 +394,7 @@ export interface Chat {
   updatedAt: Date;
   messages: Message[];
   hasSentFirstMessage: boolean;
+  connectionId?: string;
 }
 
 export interface MessageVisualization {

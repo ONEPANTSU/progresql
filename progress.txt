@@ -2807,3 +2807,21 @@ TASK-202 completed. Connection pill/badge in SQL editor toolbar.
 - Go backend tests have pre-existing failures (not introduced by this change)
 - Files modified: SQLEditor.tsx, pages/index.tsx, locales/en.ts, locales/ru.ts
 - Next priorities: TASK-203 (DB pill in ChatInput, depends TASK-202), TASK-200 (LLM visualizations), TASK-204 (multi-connection refactor)
+
+TASK-203 completed. DB pill in ChatInput for selecting which database AI uses.
+- Added pill/badge to ChatInput (left of text field) showing active DB name with status dot
+- Colored dot: green (connected), grey (disconnected), red (error) — same pattern as SQLEditor pill
+- Click opens MUI Menu dropdown with all connected databases
+- Selecting a different DB updates the chat's connectionId and triggers actual connection switch
+- Per-chat connectionId tracking: Chat type extended with optional connectionId field
+- When switching DB in a chat that already has messages, shows warning banner:
+  "Switching database will affect AI context in this chat. Continue?" with Confirm/Cancel buttons
+- New chat automatically inherits activeConnection's connectionId
+- connection_id passed to backend via AgentRequestPayload context for AI tool calls
+- ChatPanel passes activeConnection, connections, connectionErrors, onSwitchConnection to ChatInput
+- index.tsx passes connection props to ChatPanel (same as SQLEditor)
+- Translation keys added (en + ru): chat.dbPill.noConnection, .switchDb, .switchWarning, .switchConfirm, .switchCancel
+- TypeScript: npx tsc --noEmit --project renderer/tsconfig.json — 0 errors
+- Go build passes, no Python code modified — ruff/pytest unaffected
+- Files modified: ChatInput.tsx, ChatPanel.tsx, index.tsx, useAgentMessages.ts, AgentService.ts, types/index.ts, en.ts, ru.ts
+- Next priorities: TASK-200 (LLM agent visualizations, medium), TASK-204 (multi-connection refactor, medium, now UNBLOCKED), TASK-196 (SQL templates, low)

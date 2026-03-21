@@ -6,6 +6,10 @@ import {
   Typography,
   Tooltip,
   Collapse,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -14,8 +18,10 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Code as CodeIcon,
+  Storage as StorageIcon,
 } from '@mui/icons-material';
 import { useTranslation } from '../../contexts/LanguageContext';
+import type { DatabaseServer } from '../../types';
 
 export interface ChatInputHandle {
   focus: () => void;
@@ -30,6 +36,12 @@ interface ChatInputProps {
   onStopGeneration?: () => void;
   attachedSQL?: string | null;
   onRemoveAttachment?: () => void;
+  activeConnection?: DatabaseServer | null;
+  connections?: DatabaseServer[];
+  connectionErrors?: Record<string, string>;
+  onSwitchConnection?: (connectionId: string) => void;
+  chatConnectionId?: string | null;
+  hasSentFirstMessage?: boolean;
 }
 
 const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput({
@@ -41,10 +53,19 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
   onStopGeneration,
   attachedSQL,
   onRemoveAttachment,
+  activeConnection,
+  connections = [],
+  connectionErrors = {},
+  onSwitchConnection,
+  chatConnectionId,
+  hasSentFirstMessage = false,
 }, ref) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [dbMenuAnchor, setDbMenuAnchor] = useState<HTMLElement | null>(null);
+  const [showSwitchWarning, setShowSwitchWarning] = useState(false);
+  const [pendingSwitchId, setPendingSwitchId] = useState<string | null>(null);
 
   useImperativeHandle(ref, () => ({
     focus() {
@@ -60,6 +81,44 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
       }
     }
   };
+
+  const handleDbPillClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (connections.length > 0) {
+      setDbMenuAnchor(event.currentTarget);
+    }
+  };
+
+  const handleConnectionSelect = (connectionId: string) => {
+    setDbMenuAnchor(null);
+    if (connectionId === activeConnection?.id) return;
+
+    // If chat already has messages, show warning
+    if (hasSentFirstMessage && chatConnectionId && chatConnectionId !== connectionId) {
+      setPendingSwitchId(connectionId);
+      setShowSwitchWarning(true);
+      return;
+    }
+
+    onSwitchConnection?.(connectionId);
+  };
+
+  const confirmSwitch = () => {
+    if (pendingSwitchId) {
+      onSwitchConnection?.(pendingSwitchId);
+    }
+    setShowSwitchWarning(false);
+    setPendingSwitchId(null);
+  };
+
+  const cancelSwitch = () => {
+    setShowSwitchWarning(false);
+    setPendingSwitchId(null);
+  };
+
+  // Determine which connection to display in the pill
+  const displayConnection = chatConnectionId
+    ? connections.find(c => c.id === chatConnectionId) ?? activeConnection
+    : activeConnection;
 
   const placeholder = !isConnected
     ? t('chat.input.backendUnavailable')
@@ -83,6 +142,61 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
       borderColor: 'divider',
       bgcolor: 'background.paper'
     }}>
+      {/* Switch warning banner */}
+      {showSwitchWarning && (
+        <Box sx={{
+          mb: 1,
+          p: 1,
+          borderRadius: 1,
+          bgcolor: 'warning.main',
+          color: 'warning.contrastText',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          fontSize: '0.75rem',
+        }}>
+          <Typography variant="caption" sx={{ flexGrow: 1, color: 'inherit', fontWeight: 500 }}>
+            {t('chat.dbPill.switchWarning')}
+          </Typography>
+          <Box
+            component="button"
+            onClick={confirmSwitch}
+            sx={{
+              border: '1px solid',
+              borderColor: 'inherit',
+              borderRadius: 0.5,
+              px: 1,
+              py: 0.25,
+              bgcolor: 'transparent',
+              color: 'inherit',
+              cursor: 'pointer',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' },
+            }}
+          >
+            {t('chat.dbPill.switchConfirm')}
+          </Box>
+          <Box
+            component="button"
+            onClick={cancelSwitch}
+            sx={{
+              border: '1px solid',
+              borderColor: 'inherit',
+              borderRadius: 0.5,
+              px: 1,
+              py: 0.25,
+              bgcolor: 'transparent',
+              color: 'inherit',
+              cursor: 'pointer',
+              fontSize: '0.7rem',
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' },
+            }}
+          >
+            {t('chat.dbPill.switchCancel')}
+          </Box>
+        </Box>
+      )}
       {/* Attached SQL card */}
       {attachedSQL && (
         <Box sx={{
@@ -178,6 +292,100 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
         </Box>
       )}
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+        {/* DB pill */}
+        <Tooltip title={displayConnection ? t('chat.dbPill.switchDb') : t('chat.dbPill.noConnection')}>
+          <Box
+            onClick={handleDbPillClick}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              px: 1,
+              py: 0.5,
+              borderRadius: '12px',
+              cursor: connections.length > 0 ? 'pointer' : 'default',
+              bgcolor: 'rgba(255,255,255,0.05)',
+              border: '1px solid',
+              borderColor: 'rgba(255,255,255,0.1)',
+              '&:hover': connections.length > 0 ? {
+                bgcolor: 'rgba(255,255,255,0.08)',
+                borderColor: 'rgba(255,255,255,0.15)',
+              } : {},
+              flexShrink: 0,
+              maxWidth: 160,
+              minHeight: 32,
+            }}
+          >
+            <Box
+              sx={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                bgcolor: displayConnection
+                  ? (connectionErrors[displayConnection.id] ? 'error.main' : 'success.main')
+                  : 'text.disabled',
+                flexShrink: 0,
+              }}
+            />
+            <Typography
+              variant="caption"
+              sx={{
+                fontSize: '0.7rem',
+                color: 'text.secondary',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {displayConnection
+                ? (displayConnection.connectionName || displayConnection.database)
+                : t('chat.dbPill.noConnection')}
+            </Typography>
+          </Box>
+        </Tooltip>
+        <Menu
+          anchorEl={dbMenuAnchor}
+          open={Boolean(dbMenuAnchor)}
+          onClose={() => setDbMenuAnchor(null)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          slotProps={{
+            paper: {
+              sx: {
+                bgcolor: 'background.paper',
+                border: '1px solid rgba(255,255,255,0.1)',
+                minWidth: 200,
+              },
+            },
+          }}
+        >
+          {connections.map((conn) => (
+            <MenuItem
+              key={conn.id}
+              selected={displayConnection?.id === conn.id}
+              onClick={() => handleConnectionSelect(conn.id)}
+            >
+              <ListItemIcon sx={{ minWidth: '28px !important' }}>
+                <Box
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    bgcolor: conn.isActive
+                      ? (connectionErrors[conn.id] ? 'error.main' : 'success.main')
+                      : 'text.disabled',
+                  }}
+                />
+              </ListItemIcon>
+              <ListItemText
+                primary={conn.connectionName || conn.database}
+                secondary={`${conn.host}:${conn.port}/${conn.database}`}
+                primaryTypographyProps={{ fontSize: '0.8rem' }}
+                secondaryTypographyProps={{ fontSize: '0.65rem' }}
+              />
+            </MenuItem>
+          ))}
+        </Menu>
         <TextField
           fullWidth
           multiline

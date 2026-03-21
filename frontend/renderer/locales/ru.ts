@@ -180,6 +180,12 @@ const ru: Record<TranslationKey, string> = {
   'chat.configureApiKey': '\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u0442\u0435 API-\u043a\u043b\u044e\u0447 \u0431\u044d\u043a\u0435\u043d\u0434\u0430 \u0432 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430\u0445.',
   'chat.authError': '\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 API-\u043a\u043b\u044e\u0447. \u041d\u0430\u0436\u043c\u0438\u0442\u0435, \u0447\u0442\u043e\u0431\u044b \u043e\u0442\u043a\u0440\u044b\u0442\u044c \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438.',
 
+  'chat.dbPill.noConnection': 'Нет БД',
+  'chat.dbPill.switchDb': 'Переключить базу данных',
+  'chat.dbPill.switchWarning': 'Переключение БД изменит контекст AI в этом чате. Продолжить?',
+  'chat.dbPill.switchConfirm': 'Переключить',
+  'chat.dbPill.switchCancel': 'Отмена',
+
   // ── Chat Message ──
   'chat.copySql': '\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c SQL',
   'chat.executeSql': '\u0412\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u044c SQL',

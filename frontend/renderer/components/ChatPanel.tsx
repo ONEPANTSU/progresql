@@ -1,4 +1,4 @@
-import React, { useState, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import {
   Box,
   Paper,
@@ -44,6 +44,10 @@ interface ChatPanelProps {
   onApplySQL?: (sql: string) => void;
   isDatabaseConnected?: boolean;
   onOpenSettings?: () => void;
+  activeConnection?: import('../types').DatabaseServer | null;
+  connections?: import('../types').DatabaseServer[];
+  connectionErrors?: Record<string, string>;
+  onSwitchConnection?: (connectionId: string) => void;
 }
 
 // Typing indicator removed — streaming messages already show content appearing in real-time
@@ -61,7 +65,7 @@ function formatModelName(model: string): string {
 }
 
 const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel(
-  { isOpen, onClose, onExecuteQuery, onApplySQL, isDatabaseConnected = false, onOpenSettings },
+  { isOpen, onClose, onExecuteQuery, onApplySQL, isDatabaseConnected = false, onOpenSettings, activeConnection, connections = [], connectionErrors = {}, onSwitchConnection },
   ref,
 ) {
   const agent = useAgent();
@@ -86,7 +90,33 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
     handleCreateChat: chat.handleCreateChat,
     attachedSQL,
     setAttachedSQL,
+    connectionId: chat.activeChat?.connectionId ?? activeConnection?.id ?? null,
   });
+
+  // Stamp active chat with connectionId when it doesn't have one yet
+  useEffect(() => {
+    if (chat.activeChatId && activeConnection?.id) {
+      chat.setChats(prev => prev.map(c =>
+        c.id === chat.activeChatId && !c.connectionId
+          ? { ...c, connectionId: activeConnection.id }
+          : c
+      ));
+    }
+  }, [chat.activeChatId, activeConnection?.id]);
+
+  // Handle switching connection from ChatInput pill
+  const handleChatSwitchConnection = useCallback((connectionId: string) => {
+    // Update the chat's connectionId
+    if (chat.activeChatId) {
+      chat.setChats(prev => prev.map(c =>
+        c.id === chat.activeChatId
+          ? { ...c, connectionId }
+          : c
+      ));
+    }
+    // Also switch the actual database connection
+    onSwitchConnection?.(connectionId);
+  }, [chat.activeChatId, chat.setChats, onSwitchConnection]);
 
   useImperativeHandle(ref, () => ({
     sendImproveSQL: agentMessages.handleSendImproveSQL,
@@ -271,7 +301,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
 
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
       {!isSubscriptionExpired && (
-        <ChatInput ref={chatInputRef} inputValue={inputValue} setInputValue={setInputValue} isTyping={isTyping} isConnected={agent.isConnected} onSendMessage={agentMessages.handleSendMessage} onStopGeneration={agentMessages.stopGeneration} attachedSQL={attachedSQL} onRemoveAttachment={() => setAttachedSQL(null)} />
+        <ChatInput ref={chatInputRef} inputValue={inputValue} setInputValue={setInputValue} isTyping={isTyping} isConnected={agent.isConnected} onSendMessage={agentMessages.handleSendMessage} onStopGeneration={agentMessages.stopGeneration} attachedSQL={attachedSQL} onRemoveAttachment={() => setAttachedSQL(null)} activeConnection={activeConnection} connections={connections} connectionErrors={connectionErrors} onSwitchConnection={handleChatSwitchConnection} chatConnectionId={chat.activeChat?.connectionId ?? null} hasSentFirstMessage={chat.activeChat?.hasSentFirstMessage ?? false} />
       )}
     </Paper>
   );

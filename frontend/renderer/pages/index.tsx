@@ -880,6 +880,10 @@ export default function Home() {
                         onApplySQL={handleApplySQL}
                         isDatabaseConnected={activeConnection !== null}
                         onOpenSettings={() => setIsSettingsOpen(true)}
+                        activeConnection={activeConnection}
+                        connections={connections}
+                        connectionErrors={connectionErrors}
+                        onSwitchConnection={handleConnect}
                       />
                     </ErrorBoundary>
                   </Panel>

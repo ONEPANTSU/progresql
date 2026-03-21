@@ -176,6 +176,11 @@ const en = {
   'chat.dbNotConnected': 'Database not connected. Connect to PostgreSQL to use AI tools.',
   'chat.configureApiKey': 'Configure the backend API key in settings.',
   'chat.authError': 'Invalid API key. Click to open settings.',
+  'chat.dbPill.noConnection': 'No DB',
+  'chat.dbPill.switchDb': 'Switch database',
+  'chat.dbPill.switchWarning': 'Switching database will affect AI context in this chat. Continue?',
+  'chat.dbPill.switchConfirm': 'Switch',
+  'chat.dbPill.switchCancel': 'Cancel',
 
   // ── Chat Message ──
   'chat.copySql': 'Copy SQL',

@@ -129,6 +129,7 @@ interface UseAgentMessagesArgs {
   handleCreateChat: () => string;
   attachedSQL?: string | null;
   setAttachedSQL?: (v: string | null) => void;
+  connectionId?: string | null;
 }
 
 export function useAgentMessages({
@@ -141,6 +142,7 @@ export function useAgentMessages({
   handleCreateChat,
   attachedSQL,
   setAttachedSQL,
+  connectionId,
 }: UseAgentMessagesArgs): UseAgentMessagesReturn {
   const { showError } = useNotifications();
   const agent = useAgent();
@@ -194,6 +196,7 @@ export function useAgentMessages({
           ...(userDescs ? { user_descriptions: userDescs } : {}),
           safe_mode: agent.safeMode,
           language: language,
+          ...(connectionId ? { connection_id: connectionId } : {}),
         },
       };
 

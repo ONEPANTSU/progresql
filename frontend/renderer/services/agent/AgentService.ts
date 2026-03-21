@@ -32,6 +32,7 @@ export interface AgentRequestPayload {
     user_descriptions?: string;
     safe_mode?: boolean;
     language?: string;
+    connection_id?: string;
   };
 }
 
