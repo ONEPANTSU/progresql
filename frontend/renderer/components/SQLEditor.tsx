@@ -6,6 +6,10 @@ import {
   IconButton,
   Tooltip,
   CircularProgress,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import {
   PlayArrow as RunIcon,
@@ -15,6 +19,7 @@ import {
   Add as AddIcon,
   Close as CloseIcon,
   Code as FormatIcon,
+  Storage as StorageIcon,
 } from '@mui/icons-material';
 import { format as formatSQL } from 'sql-formatter';
 import { EditorView, basicSetup } from 'codemirror';
@@ -26,7 +31,7 @@ import { EditorView as EditorViewTheme, Decoration, GutterMarker, gutter } from 
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { createLogger } from '../utils/logger';
-import { SQLTab, DatabaseInfo } from '../types';
+import { SQLTab, DatabaseInfo, DatabaseServer } from '../types';
 import { buildSQLSchema } from '../utils/sqlAutocomplete';
 
 const log = createLogger('SQLEditor');
@@ -148,12 +153,17 @@ interface SQLEditorProps {
   onContentChange: (tabId: string, content: string) => void;
   databaseInfo?: DatabaseInfo | null;
   errorLine?: number | null;
+  activeConnection?: DatabaseServer | null;
+  connections?: DatabaseServer[];
+  connectionErrors?: Record<string, string>;
+  onSwitchConnection?: (connectionId: string) => void;
 }
 
 const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor({
   onExecuteQuery, onImproveQuery, isImproving = false,
   tabs, activeTab, activeTabId, onTabChange, onCreateTab, onCloseTab, onContentChange,
   databaseInfo, errorLine = null,
+  activeConnection = null, connections = [], connectionErrors = {}, onSwitchConnection,
 }, ref) {
   const { actualTheme } = useTheme();
   const { t } = useTranslation();
@@ -163,6 +173,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [query, setQuery] = useState(activeTab?.content ?? '');
   const [isExecuting, setIsExecuting] = useState(false);
+  const [connectionMenuAnchor, setConnectionMenuAnchor] = useState<HTMLElement | null>(null);
   const prevTabCountRef = useRef(tabs.length);
   const sqlCompartment = useRef(new Compartment());
 
@@ -584,6 +595,104 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
             <AddIcon sx={{ fontSize: 16 }} />
           </IconButton>
         </Tooltip>
+
+        {/* Connection pill/badge */}
+        <Tooltip title={activeConnection ? t('editor.switchConnection') : t('editor.noConnection')}>
+          <Box
+            onClick={(e) => connections.length > 0 ? setConnectionMenuAnchor(e.currentTarget) : undefined}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              px: 1,
+              py: 0.25,
+              mx: 0.5,
+              borderRadius: '12px',
+              cursor: connections.length > 0 ? 'pointer' : 'default',
+              bgcolor: 'rgba(255,255,255,0.05)',
+              border: '1px solid',
+              borderColor: 'rgba(255,255,255,0.1)',
+              '&:hover': connections.length > 0 ? {
+                bgcolor: 'rgba(255,255,255,0.08)',
+                borderColor: 'rgba(255,255,255,0.15)',
+              } : {},
+              flexShrink: 0,
+              maxWidth: 180,
+            }}
+          >
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                bgcolor: activeConnection
+                  ? (connectionErrors[activeConnection.id] ? 'error.main' : 'success.main')
+                  : 'text.disabled',
+                flexShrink: 0,
+              }}
+            />
+            <Typography
+              variant="caption"
+              sx={{
+                fontSize: '0.7rem',
+                color: 'text.secondary',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {activeConnection
+                ? (activeConnection.connectionName || activeConnection.database)
+                : t('editor.noConnection')}
+            </Typography>
+          </Box>
+        </Tooltip>
+        <Menu
+          anchorEl={connectionMenuAnchor}
+          open={Boolean(connectionMenuAnchor)}
+          onClose={() => setConnectionMenuAnchor(null)}
+          slotProps={{
+            paper: {
+              sx: {
+                bgcolor: 'background.paper',
+                border: '1px solid rgba(255,255,255,0.1)',
+                minWidth: 200,
+              },
+            },
+          }}
+        >
+          {connections.map((conn) => (
+            <MenuItem
+              key={conn.id}
+              selected={activeConnection?.id === conn.id}
+              onClick={() => {
+                if (onSwitchConnection && conn.id !== activeConnection?.id) {
+                  onSwitchConnection(conn.id);
+                }
+                setConnectionMenuAnchor(null);
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: '28px !important' }}>
+                <Box
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    bgcolor: conn.isActive
+                      ? (connectionErrors[conn.id] ? 'error.main' : 'success.main')
+                      : 'text.disabled',
+                  }}
+                />
+              </ListItemIcon>
+              <ListItemText
+                primary={conn.connectionName || conn.database}
+                secondary={`${conn.host}:${conn.port}/${conn.database}`}
+                primaryTypographyProps={{ fontSize: '0.8rem' }}
+                secondaryTypographyProps={{ fontSize: '0.65rem' }}
+              />
+            </MenuItem>
+          ))}
+        </Menu>
 
         {/* Toolbar actions integrated into tab bar */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 'auto', mr: 1, flexShrink: 0 }}>

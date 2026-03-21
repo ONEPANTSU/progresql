@@ -2792,3 +2792,18 @@ TASK-201 completed. ER Diagram — interactive schema visualization in left pane
 - TypeScript: npx tsc --noEmit — 0 errors
 - No Python code modified — ruff/pytest unaffected
 - Next priorities: TASK-200 (LLM agent visualizations, medium), TASK-202 (connection pill, medium), TASK-196 (SQL templates, low)
+
+TASK-202 completed. Connection pill/badge in SQL editor toolbar.
+- Added pill/badge between "New Tab" button and toolbar actions in SQLEditor.tsx
+- Pill shows current connection name (or "No connection" when disconnected)
+- Colored dot: green (connected), grey (disconnected), red (error)
+- Click opens MUI Menu dropdown with all connections
+- Each connection in dropdown shows: name, host:port/database, status dot
+- Selecting a connection triggers onSwitchConnection callback (wired to handleConnect in index.tsx)
+- New props on SQLEditor: activeConnection, connections, connectionErrors, onSwitchConnection
+- Translation keys added: editor.switchConnection, editor.noConnection (en + ru)
+- TypeScript: npx tsc --noEmit — 0 errors
+- No Python code modified — ruff/pytest unaffected
+- Go backend tests have pre-existing failures (not introduced by this change)
+- Files modified: SQLEditor.tsx, pages/index.tsx, locales/en.ts, locales/ru.ts
+- Next priorities: TASK-203 (DB pill in ChatInput, depends TASK-202), TASK-200 (LLM visualizations), TASK-204 (multi-connection refactor)

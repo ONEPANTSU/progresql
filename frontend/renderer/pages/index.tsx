@@ -810,6 +810,10 @@ export default function Home() {
                             onContentChange={sqlTabs.updateTabContent}
                             databaseInfo={activeConnection?.databases?.[0] ?? null}
                             errorLine={errorLine}
+                            activeConnection={activeConnection}
+                            connections={connections}
+                            connectionErrors={connectionErrors}
+                            onSwitchConnection={handleConnect}
                           />
                         </ErrorBoundary>
                       </Box>

@@ -154,6 +154,8 @@ const en = {
   'editor.executing': 'Executing\u2026',
   'editor.run': 'Run',
   'editor.loading': 'Loading editor\u2026',
+  'editor.switchConnection': 'Switch database connection',
+  'editor.noConnection': 'No connection',
 
   // ── Chat Input ──
   'chat.input.placeholder': 'Ask a question about your database\u2026',
