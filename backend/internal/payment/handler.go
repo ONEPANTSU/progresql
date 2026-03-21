@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"log"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/onepantsu/progressql/backend/internal/auth"
 )
@@ -126,12 +128,38 @@ func WebhookHandler(planUpdater PlanUpdater, db *pgxpool.Pool, secret string) ht
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
+		log.Printf("[webhook] received postback Content-Type=%s", r.Header.Get("Content-Type"))
+
 		var payload webhookPayload
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
-			return
+
+		contentType := r.Header.Get("Content-Type")
+		if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+			// CryptoCloud v2 sends postbacks as form-urlencoded.
+			if err := r.ParseForm(); err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+				return
+			}
+			payload = webhookPayload{
+				Status:         r.FormValue("status"),
+				InvoiceID:      r.FormValue("invoice_id"),
+				OrderID:        r.FormValue("order_id"),
+				AmountCrypto:   r.FormValue("amount_crypto"),
+				Currency:       r.FormValue("currency"),
+				Token:          r.FormValue("token"),
+				CryptoCurrency: r.FormValue("currency_received"),
+				CryptoNetwork:  r.FormValue("network"),
+				TxHash:         r.FormValue("txid"),
+			}
+		} else {
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+				return
+			}
 		}
+
+		log.Printf("[webhook] parsed: status=%s invoice=%s order=%s", payload.Status, payload.InvoiceID, payload.OrderID)
 
 		// Verify the webhook secret token. Secret MUST be configured —
 		// without it anyone could forge a webhook and activate subscriptions.

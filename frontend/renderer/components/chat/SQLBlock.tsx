@@ -147,6 +147,7 @@ const SQLBlock: React.FC<SQLBlockProps> = ({
         aria-label="SQL code block"
         sx={{
           bgcolor: 'grey.50',
+          color: 'text.primary',
           p: 1.5,
           pr: 5,
           borderRadius: 1,

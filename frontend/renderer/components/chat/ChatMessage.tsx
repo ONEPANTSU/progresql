@@ -384,6 +384,7 @@ const HighlightedSQLPre: React.FC<{ sql: string }> = ({ sql }) => {
       className="hljs"
       sx={{
         bgcolor: 'grey.50',
+        color: 'text.primary',
         border: '1px solid',
         borderColor: 'grey.300',
         borderRadius: 1,

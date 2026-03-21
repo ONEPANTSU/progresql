@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -314,6 +315,29 @@ func TestStatusConstants(t *testing.T) {
 	}
 	if StatusExpired != "expired" {
 		t.Errorf("StatusExpired = %q", StatusExpired)
+	}
+}
+
+func TestWebhookHandler_FormURLEncoded(t *testing.T) {
+	// CryptoCloud v2 sends postbacks as application/x-www-form-urlencoded.
+	secret := "test-secret"
+	mock := &mockPlanUpdater{}
+	handler := WebhookHandler(mock, nil, secret)
+
+	form := "status=success&order_id=user_550e8400-e29b-41d4-a716-446655440000&token=" + secret + "&currency_received=BTC&network=bitcoin&txid=abc123"
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", strings.NewReader(form))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	if len(mock.calls) != 1 {
+		t.Fatalf("expected 1 SetPlan call, got %d", len(mock.calls))
+	}
+	if mock.calls[0].UserID != "550e8400-e29b-41d4-a716-446655440000" {
+		t.Errorf("unexpected userID: %s", mock.calls[0].UserID)
 	}
 }
 
