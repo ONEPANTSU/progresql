@@ -396,12 +396,22 @@ export interface Chat {
   hasSentFirstMessage: boolean;
 }
 
+export interface MessageVisualization {
+  chart_type: 'bar' | 'line' | 'pie' | 'area' | 'metric' | 'table';
+  title: string;
+  data: Record<string, unknown>[];
+  x_label?: string;
+  y_label?: string;
+  sql?: string;
+}
+
 export interface Message {
   id: string;
   text: string;
   sender: 'user' | 'bot';
   timestamp: Date;
   isStreaming?: boolean;
+  visualization?: MessageVisualization;
 }
 
 // WebSocket message types

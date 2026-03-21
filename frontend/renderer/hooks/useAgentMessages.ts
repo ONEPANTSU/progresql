@@ -204,7 +204,15 @@ export function useAgentMessages({
         onResponse: (response: AgentResponsePayload) => {
           activeRequestIdRef.current = null;
           const finalText = formatAgentResponse(response, t);
-          streaming.finishStreaming(finalText);
+          const viz = response.result.visualization;
+          streaming.finishStreaming(finalText, viz ? {
+            chart_type: viz.chart_type,
+            title: viz.title,
+            data: viz.data as Record<string, unknown>[],
+            x_label: viz.x_label,
+            y_label: viz.y_label,
+            sql: viz.sql,
+          } : undefined);
           setIsTyping(false);
         },
         onError: (error) => {

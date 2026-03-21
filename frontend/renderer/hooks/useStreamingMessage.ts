@@ -1,5 +1,5 @@
 import { useRef, useCallback } from 'react';
-import { Chat } from '../types';
+import { Chat, MessageVisualization } from '../types';
 
 /**
  * Hook that batches agent.stream deltas via requestAnimationFrame
@@ -20,7 +20,7 @@ export interface StreamingMessageState {
   /** Append a delta chunk — batched via rAF */
   appendDelta: (delta: string) => void;
   /** Finalize streaming — flush final text, mark message as not streaming */
-  finishStreaming: (finalText: string) => void;
+  finishStreaming: (finalText: string, visualization?: MessageVisualization) => void;
   /** Cancel streaming (on error) */
   cancelStreaming: (errorText: string) => void;
 }
@@ -72,7 +72,7 @@ export function useStreamingMessage({ setChats }: UseStreamingMessageArgs): Stre
     }
   }, [flushToState]);
 
-  const finishStreaming = useCallback((finalText: string) => {
+  const finishStreaming = useCallback((finalText: string, visualization?: MessageVisualization) => {
     // Cancel any pending rAF
     if (rafIdRef.current !== null) {
       cancelAnimationFrame(rafIdRef.current);
@@ -89,7 +89,9 @@ export function useStreamingMessage({ setChats }: UseStreamingMessageArgs): Stre
         ? {
             ...chat,
             messages: chat.messages.map(m =>
-              m.id === messageId ? { ...m, text: finalText, isStreaming: false } : m
+              m.id === messageId
+                ? { ...m, text: finalText, isStreaming: false, ...(visualization ? { visualization } : {}) }
+                : m
             ),
           }
         : chat

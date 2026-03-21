@@ -39,11 +39,21 @@ export interface AgentStreamPayload {
   delta: string;
 }
 
+export interface Visualization {
+  chart_type: 'bar' | 'line' | 'pie' | 'area' | 'metric' | 'table';
+  title: string;
+  data: Record<string, unknown>[];
+  x_label?: string;
+  y_label?: string;
+  sql?: string;
+}
+
 export interface AgentResult {
   sql?: string;
   explanation?: string;
   candidates?: string[];
   query_result?: any;
+  visualization?: Visualization;
 }
 
 export interface ToolCallLogEntry {

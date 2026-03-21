@@ -15,6 +15,7 @@ import {
 } from '@mui/icons-material';
 import { Message } from '../../types';
 import SQLBlock from './SQLBlock';
+import ChartBlock from './ChartBlock';
 import { createLogger } from '../../utils/logger';
 import { highlightSQL } from '../../utils/sqlHighlight';
 
@@ -29,6 +30,7 @@ interface ChatMessageProps {
   onExplainSQL?: (sql: string) => void;
   onApplySQL?: (sql: string) => void;
   onExecuteQuery?: (query: string) => void;
+  onRefreshVisualization?: () => void;
 }
 
 function isSQLCode(text: string): boolean {
@@ -434,6 +436,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   onExplainSQL,
   onApplySQL,
   onExecuteQuery,
+  onRefreshVisualization,
 }) => {
   const isUser = message.sender === 'user';
   const isStreaming = message.isStreaming === true;
@@ -513,6 +516,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
               onApplySQL={onApplySQL}
               onExecuteQuery={onExecuteQuery}
             />
+            {message.visualization && (
+              <ChartBlock
+                visualization={message.visualization}
+                onRefresh={onRefreshVisualization}
+                onCopySQL={onApplySQL ? (sql) => navigator.clipboard.writeText(sql) : undefined}
+                onApplySQL={onApplySQL}
+              />
+            )}
           </Box>
         )}
         <Typography
