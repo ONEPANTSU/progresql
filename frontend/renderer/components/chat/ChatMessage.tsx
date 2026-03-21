@@ -296,11 +296,11 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
           </Typography>
         );
       }
-    } else if (line.startsWith('```sql') || line.startsWith('```')) {
+    } else if (line.trimStart().startsWith('```')) {
       const codeLines: string[] = [];
-      const language = line.replace('```', '').trim() || 'text';
+      const language = line.trimStart().replace('```', '').trim() || 'text';
       i++;
-      while (i < lines.length && !lines[i].startsWith('```')) {
+      while (i < lines.length && !lines[i].trimStart().startsWith('```')) {
         codeLines.push(lines[i]);
         i++;
       }
