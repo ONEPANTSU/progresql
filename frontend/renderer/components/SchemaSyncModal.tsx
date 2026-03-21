@@ -649,7 +649,6 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
         <Typography variant="h6" component="span">
           Schema Sync
         </Typography>
-        <Chip label="All schemas" size="small" variant="outlined" sx={{ ml: 'auto' }} />
       </DialogTitle>
 
       <DialogContent dividers sx={{ p: 2 }}>
@@ -698,7 +697,7 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
             startIcon={loading ? <CircularProgress size={16} /> : <CompareIcon />}
             size="small"
           >
-            {loading ? 'Comparing...' : 'Compare Schemas'}
+            {loading ? 'Comparing...' : 'Compare'}
           </Button>
         </Box>
 

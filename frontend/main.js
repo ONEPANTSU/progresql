@@ -347,36 +347,54 @@ ipcMain.handle('execute-query', async (event, params) => {
   }
 });
 
-ipcMain.handle('get-database-structure', async (event) => {
+ipcMain.handle('get-database-structure', async (event, connectionId) => {
   try {
-    if (!global.dbClient) {
+    // Resolve the correct client for the given connectionId
+    let client;
+    if (connectionId && global.dbClients && global.dbClients.has(connectionId)) {
+      client = global.dbClients.get(connectionId);
+    } else if (global.dbClient) {
+      client = global.dbClient;
+    } else if (global.dbClients && global.dbClients.size > 0) {
+      client = global.dbClients.values().next().value;
+    } else {
       throw new Error('No database connection');
     }
 
     // Check if connection is still alive, try reconnect if stale
     try {
-      await global.dbClient.query('SELECT 1');
+      await client.query('SELECT 1');
     } catch (connError) {
       log.warn('Connection check failed in get-database-structure, attempting reconnect:', connError.message);
-      global.dbClient = null;
+      if (connectionId && global.dbClients) {
+        global.dbClients.delete(connectionId);
+      } else {
+        global.dbClient = null;
+      }
       const reconnected = await dbHealth.tryImmediateReconnect();
       if (!reconnected) {
         throw new Error('Database connection lost. Auto-reconnect in progress...');
       }
+      if (connectionId && global.dbClients && global.dbClients.has(connectionId)) {
+        client = global.dbClients.get(connectionId);
+      } else if (global.dbClient) {
+        client = global.dbClient;
+      }
+      if (!client) throw new Error('Reconnect failed — no client available');
       log.debug('Reconnected successfully, proceeding with getDatabaseStructure');
     }
 
-    log.debug('Getting database structure...');
+    log.debug('Getting database structure for connection:', connectionId || 'default');
 
     // Get current database name
-    const dbNameResult = await global.dbClient.query('SELECT current_database() as name');
+    const dbNameResult = await client.query('SELECT current_database() as name');
     const currentDb = dbNameResult.rows[0].name;
     log.debug('Current database:', currentDb);
 
     // Get schemas - use pg_namespace instead of information_schema
     let schemasResult;
     try {
-      schemasResult = await global.dbClient.query(`
+      schemasResult = await client.query(`
         SELECT nspname as schema_name, nspowner::regrole::text as schema_owner
         FROM pg_namespace
         WHERE nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
@@ -391,7 +409,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get tables - use pg_tables instead of information_schema
     let tablesResult;
     try {
-      tablesResult = await global.dbClient.query(`
+      tablesResult = await client.query(`
         SELECT
           tablename as table_name,
           'BASE TABLE' as table_type,
@@ -410,7 +428,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get views - use pg_views instead of information_schema
     let viewsResult;
     try {
-      viewsResult = await global.dbClient.query(`
+      viewsResult = await client.query(`
         SELECT
           viewname as view_name,
           definition as view_definition,
@@ -431,7 +449,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get columns - use pg_attribute instead of information_schema
     let columnsResult;
     try {
-      columnsResult = await global.dbClient.query(`
+      columnsResult = await client.query(`
         SELECT
           c.relname as table_name,
           n.nspname as table_schema,
@@ -473,7 +491,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get indexes - use pg_indexes
     let indexesResult;
     try {
-      indexesResult = await global.dbClient.query(`
+      indexesResult = await client.query(`
         SELECT
           indexname as index_name,
           tablename as table_name,
@@ -491,7 +509,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get constraints - use pg_constraint instead of information_schema
     let constraintsResult;
     try {
-      constraintsResult = await global.dbClient.query(`
+      constraintsResult = await client.query(`
         SELECT
           conname as constraint_name,
           c.relname as table_name,
@@ -524,7 +542,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get triggers - use pg_trigger instead of information_schema
     let triggersResult;
     try {
-      triggersResult = await global.dbClient.query(`
+      triggersResult = await client.query(`
         SELECT
           tgname as trigger_name,
           c.relname as table_name,
@@ -550,7 +568,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get functions - use pg_proc instead of information_schema
     let functionsResult;
     try {
-      functionsResult = await global.dbClient.query(`
+      functionsResult = await client.query(`
         SELECT
           p.proname as routine_name,
           'FUNCTION' as routine_type,
@@ -571,7 +589,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get procedures - use pg_proc instead of information_schema
     let proceduresResult;
     try {
-      proceduresResult = await global.dbClient.query(`
+      proceduresResult = await client.query(`
         SELECT
           p.proname as routine_name,
           n.nspname as routine_schema,
@@ -591,7 +609,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get sequences - use pg_sequence instead of information_schema
     let sequencesResult;
     try {
-      sequencesResult = await global.dbClient.query(`
+      sequencesResult = await client.query(`
         SELECT
           c.relname as sequence_name,
           n.nspname as sequence_schema,
@@ -618,7 +636,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get extensions
     let extensionsResult;
     try {
-      extensionsResult = await global.dbClient.query(`
+      extensionsResult = await client.query(`
         SELECT
           extname as name,
           extversion as version,
@@ -634,7 +652,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get types - use pg_type instead of information_schema
     let typesResult;
     try {
-      typesResult = await global.dbClient.query(`
+      typesResult = await client.query(`
         SELECT
           t.typname as name,
           n.nspname as schema,
