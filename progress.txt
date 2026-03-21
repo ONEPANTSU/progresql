@@ -2845,3 +2845,44 @@ TASK-200 completed. VisualizationStep — LLM-powered chart generation for analy
 - go build ./... passes, go test — all new tests pass (pre-existing TestSession_SendEnvelopeAfterClose, TestAuth_RegisterAndLogin, TestResultAggregation failures unchanged)
 - No Python code modified — ruff/pytest not applicable (no Python source in project)
 - Next priorities: TASK-204 (multi-connection refactor, medium), TASK-196 (SQL templates, low), TASK-205 (Schema Sync, low, needs TASK-204)
+
+TASK-204 completed. Refactoring connection model — multiple simultaneous active connections.
+- Main process (background.js):
+  - Replaced single global.dbClient with global.dbClients = new Map<connectionId, pg.Client>()
+  - Added getClientForConnection(connectionId) helper
+  - Backward-compat: global.dbClient getter returns first available client (for MCP/tool-server)
+  - connect-database: accepts connectionId in config, stores client in map, MCP init only on first connection
+  - execute-query: accepts { connectionId, query }, routes to correct client with fallback
+  - get-database-structure: accepts connectionId, uses specific client
+  - disconnect-database: accepts connectionId, only closes that client, stops MCP/tools when last disconnects
+  - window-all-closed: properly closes all clients and clears map
+- db-health.js: completely rewritten for per-connection health tracking
+  - connectionStates Map<connectionId, { config, interval, timer, attempt }>
+  - onConnected(connectionId, config, mainWindow) — per-connection health check
+  - onDisconnected(connectionId) — stops only that connection's health check
+  - tryImmediateReconnect(connectionId) — reconnects specific connection
+  - All IPC events (db-connection-lost, db-reconnecting, etc.) include connectionId
+- preload.js: updated API signatures
+  - executeQuery(connectionId, query), getDatabaseStructure(connectionId), disconnectDatabase(connectionId)
+  - connectDatabase config includes connectionId
+- electronAPI.d.ts: TypeScript types updated for all new signatures
+  - DB health events include optional connectionId
+- Frontend (index.tsx):
+  - performConnection: no longer deactivates other connections (key change for multi-connection!)
+  - Restore on load: restores ALL previously active connections in parallel
+  - handleDisconnect: only disconnects specific connection, switches activeConnection to another if needed
+  - handleDeleteConnection: disconnects before deleting if connection was active
+  - handleExecuteQuery: derives connectionId from active tab (sqlTabs.activeTab?.connectionId)
+  - handleRefreshConnection: passes connectionId to getDatabaseStructure
+  - Reconnect handlers: use connectionId from events to target specific connection
+- DatabasePanel: already renders all connections with per-connection isActive status — no changes needed
+- useSQLTabs: already has connectionId per tab — no changes needed
+- SQLBlock.tsx (chat): updated executeQuery call to new 2-arg signature (empty connectionId for fallback)
+- Acceptance criteria met:
+  1. Can connect to two DBs simultaneously (separate clients in global.dbClients map)
+  2. Different editor tabs work with different DBs (connectionId per tab, routed to correct client)
+  3. Disconnecting one DB doesn't affect other tabs (only removes that client from map)
+  4. DatabasePanel has no concept of single active — all connected shown as active (green dot)
+- No Python code modified — ruff/pytest unaffected
+- Files modified: background.js, db-health.js, preload.js, electronAPI.d.ts, index.tsx, SQLBlock.tsx
+- Next priorities: TASK-196 (SQL templates, low), TASK-205 (Schema Sync, low, needs TASK-204 done)

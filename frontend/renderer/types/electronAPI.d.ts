@@ -56,10 +56,10 @@ declare global {
   interface Window {
     electronAPI: {
       // Database operations — return flat objects with success/message pattern
-      connectDatabase: (config: DatabaseConnectionConfig) => Promise<ConnectDatabaseResult>;
-      executeQuery: (query: string) => Promise<ExecuteQueryResult>;
-      getDatabaseStructure: () => Promise<DatabaseStructureResponse>;
-      disconnectDatabase: () => Promise<DisconnectDatabaseResult>;
+      connectDatabase: (config: DatabaseConnectionConfig & { connectionId: string }) => Promise<ConnectDatabaseResult>;
+      executeQuery: (connectionId: string, query: string) => Promise<ExecuteQueryResult>;
+      getDatabaseStructure: (connectionId?: string) => Promise<DatabaseStructureResponse>;
+      disconnectDatabase: (connectionId: string) => Promise<DisconnectDatabaseResult>;
       // MCP operations
       mcpIsAvailable: () => Promise<{ available: boolean; hasApi: boolean }>;
       mcpListTools: () => Promise<ElectronAPIResponse<McpToolDescriptor[]>>;
@@ -73,10 +73,10 @@ declare global {
       onAppReady: (callback: () => void) => void;
       removeAppReadyListener: () => void;
       // Database connection state events (auto-reconnect)
-      onDBConnectionLost: (callback: (data: { message: string }) => void) => void;
-      onDBReconnecting: (callback: (data: { attempt: number; maxAttempts: number; delayMs: number }) => void) => void;
-      onDBReconnected: (callback: (data: { message: string }) => void) => void;
-      onDBReconnectFailed: (callback: (data: { message: string }) => void) => void;
+      onDBConnectionLost: (callback: (data: { connectionId?: string; message: string }) => void) => void;
+      onDBReconnecting: (callback: (data: { connectionId?: string; attempt: number; maxAttempts: number; delayMs: number }) => void) => void;
+      onDBReconnected: (callback: (data: { connectionId?: string; message: string }) => void) => void;
+      onDBReconnectFailed: (callback: (data: { connectionId?: string; message: string }) => void) => void;
       removeDBConnectionListeners: () => void;
       // External URLs
       openExternal: (url: string) => Promise<void>;

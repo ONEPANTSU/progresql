@@ -1,12 +1,13 @@
 /**
  * Database health check and auto-reconnect module.
+ * Supports multiple simultaneous connections.
  *
  * Usage:
  *   const dbHealth = require('./db-health');
  *   // After successful connect:
- *   dbHealth.onConnected(connectionConfig, mainWindow);
+ *   dbHealth.onConnected(connectionId, connectionConfig, mainWindow);
  *   // On user-initiated disconnect:
- *   dbHealth.onDisconnected();
+ *   dbHealth.onDisconnected(connectionId);
  *   // On app quit:
  *   dbHealth.shutdown();
  */
@@ -19,11 +20,9 @@ const MAX_RECONNECT_ATTEMPTS = 10;
 const BASE_RECONNECT_DELAY_MS = 2000;
 const MAX_RECONNECT_DELAY_MS = 60000;
 
-let lastConnectionConfig = null;
+// Per-connection state: Map<connectionId, { config, interval, reconnectTimer, attempt }>
+const connectionStates = new Map();
 let mainWindowRef = null;
-let healthCheckInterval = null;
-let reconnectTimer = null;
-let reconnectAttempt = 0;
 let mcpManagerRef = null;
 let toolServerRef = null;
 
@@ -38,67 +37,79 @@ function notifyRenderer(channel, data) {
   }
 }
 
-function startHealthCheck() {
-  stopHealthCheck();
-  healthCheckInterval = setInterval(async () => {
-    if (!global.dbClient) return;
+function startHealthCheck(connectionId) {
+  const state = connectionStates.get(connectionId);
+  if (!state) return;
+
+  stopHealthCheck(connectionId);
+
+  state.healthCheckInterval = setInterval(async () => {
+    const client = global.dbClients.get(connectionId);
+    if (!client) return;
     try {
-      await global.dbClient.query('SELECT 1');
+      await client.query('SELECT 1');
     } catch (err) {
-      log.warn('Health check failed:', err.message);
-      global.dbClient = null;
-      stopHealthCheck();
-      notifyRenderer('db-connection-lost', { message: err.message });
-      startAutoReconnect();
+      log.warn(`Health check failed [${connectionId}]:`, err.message);
+      global.dbClients.delete(connectionId);
+      stopHealthCheck(connectionId);
+      notifyRenderer('db-connection-lost', { connectionId, message: err.message });
+      startAutoReconnect(connectionId);
     }
   }, HEALTH_CHECK_INTERVAL_MS);
 }
 
-function stopHealthCheck() {
-  if (healthCheckInterval) {
-    clearInterval(healthCheckInterval);
-    healthCheckInterval = null;
+function stopHealthCheck(connectionId) {
+  const state = connectionStates.get(connectionId);
+  if (!state) return;
+  if (state.healthCheckInterval) {
+    clearInterval(state.healthCheckInterval);
+    state.healthCheckInterval = null;
   }
 }
 
-function stopAutoReconnect() {
-  if (reconnectTimer) {
-    clearTimeout(reconnectTimer);
-    reconnectTimer = null;
+function stopAutoReconnect(connectionId) {
+  const state = connectionStates.get(connectionId);
+  if (!state) return;
+  if (state.reconnectTimer) {
+    clearTimeout(state.reconnectTimer);
+    state.reconnectTimer = null;
   }
-  reconnectAttempt = 0;
+  state.reconnectAttempt = 0;
 }
 
-async function startAutoReconnect() {
-  if (!lastConnectionConfig) {
-    log.warn('No stored connection config for auto-reconnect');
+async function startAutoReconnect(connectionId) {
+  const state = connectionStates.get(connectionId);
+  if (!state || !state.config) {
+    log.warn(`No stored connection config for auto-reconnect [${connectionId}]`);
     return;
   }
-  if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
-    log.error('Max reconnect attempts reached, giving up');
+  if (state.reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+    log.error(`Max reconnect attempts reached [${connectionId}], giving up`);
     notifyRenderer('db-reconnect-failed', {
+      connectionId,
       message: `Failed to reconnect after ${MAX_RECONNECT_ATTEMPTS} attempts`
     });
-    reconnectAttempt = 0;
+    state.reconnectAttempt = 0;
     return;
   }
 
-  reconnectAttempt++;
+  state.reconnectAttempt++;
   const delay = Math.min(
-    BASE_RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempt - 1),
+    BASE_RECONNECT_DELAY_MS * Math.pow(2, state.reconnectAttempt - 1),
     MAX_RECONNECT_DELAY_MS
   );
-  log.info(`Auto-reconnect attempt ${reconnectAttempt}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms`);
+  log.info(`Auto-reconnect [${connectionId}] attempt ${state.reconnectAttempt}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms`);
   notifyRenderer('db-reconnecting', {
-    attempt: reconnectAttempt,
+    connectionId,
+    attempt: state.reconnectAttempt,
     maxAttempts: MAX_RECONNECT_ATTEMPTS,
     delayMs: delay
   });
 
-  reconnectTimer = setTimeout(async () => {
+  state.reconnectTimer = setTimeout(async () => {
     try {
       const { Client } = require('pg');
-      const cfg = lastConnectionConfig;
+      const cfg = state.config;
       const client = new Client({
         host: cfg.host,
         port: cfg.port,
@@ -112,53 +123,55 @@ async function startAutoReconnect() {
       });
 
       client.on('error', (err) => {
-        log.error('Reconnected client error:', err.message);
-        global.dbClient = null;
-        stopHealthCheck();
-        notifyRenderer('db-connection-lost', { message: err.message });
-        startAutoReconnect();
+        log.error(`Reconnected client error [${connectionId}]:`, err.message);
+        global.dbClients.delete(connectionId);
+        stopHealthCheck(connectionId);
+        notifyRenderer('db-connection-lost', { connectionId, message: err.message });
+        startAutoReconnect(connectionId);
       });
 
       client.on('end', () => {
-        log.debug('Reconnected client ended');
-        global.dbClient = null;
+        log.debug(`Reconnected client ended [${connectionId}]`);
+        global.dbClients.delete(connectionId);
       });
 
       await client.connect();
-      global.dbClient = client;
-      reconnectAttempt = 0;
-      log.info('Auto-reconnect successful');
+      global.dbClients.set(connectionId, client);
+      state.reconnectAttempt = 0;
+      log.info(`Auto-reconnect successful [${connectionId}]`);
 
-      // Re-initialize MCP and tool servers
-      if (mcpManagerRef) {
-        try {
-          await mcpManagerRef.stopMcpServer();
-          const mcpResult = await mcpManagerRef.initializeMcpServer(cfg);
-          if (mcpResult.success) {
-            log.debug('MCP server re-initialized after reconnect');
+      // Re-initialize MCP and tool servers if this was the only connection
+      if (global.dbClients.size === 1) {
+        if (mcpManagerRef) {
+          try {
+            await mcpManagerRef.stopMcpServer();
+            const mcpResult = await mcpManagerRef.initializeMcpServer(cfg);
+            if (mcpResult.success) {
+              log.debug('MCP server re-initialized after reconnect');
+            }
+          } catch (mcpErr) {
+            log.warn('MCP re-init failed after reconnect:', mcpErr.message);
           }
-        } catch (mcpErr) {
-          log.warn('MCP re-init failed after reconnect:', mcpErr.message);
+        }
+
+        if (toolServerRef) {
+          try {
+            await toolServerRef.stopToolServer();
+            const tsResult = await toolServerRef.startToolServer();
+            if (tsResult.success) {
+              log.debug('Tool server re-started after reconnect');
+            }
+          } catch (tsErr) {
+            log.warn('Tool server re-start failed after reconnect:', tsErr.message);
+          }
         }
       }
 
-      if (toolServerRef) {
-        try {
-          await toolServerRef.stopToolServer();
-          const tsResult = await toolServerRef.startToolServer();
-          if (tsResult.success) {
-            log.debug('Tool server re-started after reconnect');
-          }
-        } catch (tsErr) {
-          log.warn('Tool server re-start failed after reconnect:', tsErr.message);
-        }
-      }
-
-      notifyRenderer('db-reconnected', { message: 'Reconnected successfully' });
-      startHealthCheck();
+      notifyRenderer('db-reconnected', { connectionId, message: 'Reconnected successfully' });
+      startHealthCheck(connectionId);
     } catch (err) {
-      log.warn(`Reconnect attempt ${reconnectAttempt} failed:`, err.message);
-      startAutoReconnect();
+      log.warn(`Reconnect attempt ${state.reconnectAttempt} failed [${connectionId}]:`, err.message);
+      startAutoReconnect(connectionId);
     }
   }, delay);
 }
@@ -167,48 +180,77 @@ async function startAutoReconnect() {
  * Call after a successful database connection.
  * Stores the config for auto-reconnect and starts health checks.
  */
-function onConnected(connectionConfig, mainWindow) {
-  lastConnectionConfig = connectionConfig;
+function onConnected(connectionId, connectionConfig, mainWindow) {
   mainWindowRef = mainWindow;
-  stopAutoReconnect();
-  startHealthCheck();
+
+  // Stop any existing state for this connection
+  if (connectionStates.has(connectionId)) {
+    stopAutoReconnect(connectionId);
+    stopHealthCheck(connectionId);
+  }
+
+  connectionStates.set(connectionId, {
+    config: connectionConfig,
+    healthCheckInterval: null,
+    reconnectTimer: null,
+    reconnectAttempt: 0,
+  });
+
+  startHealthCheck(connectionId);
 }
 
 /**
- * Call when the user explicitly disconnects.
+ * Call when the user explicitly disconnects a specific connection.
  * Stops health checks and clears reconnect state.
  */
-function onDisconnected() {
-  stopAutoReconnect();
-  stopHealthCheck();
-  lastConnectionConfig = null;
+function onDisconnected(connectionId) {
+  if (connectionId) {
+    stopAutoReconnect(connectionId);
+    stopHealthCheck(connectionId);
+    connectionStates.delete(connectionId);
+  } else {
+    // Legacy: disconnect all
+    shutdown();
+  }
 }
 
 /**
- * Call on app quit to clean up timers.
+ * Call on app quit to clean up all timers.
  */
 function shutdown() {
-  stopAutoReconnect();
-  stopHealthCheck();
+  for (const [id] of connectionStates) {
+    stopAutoReconnect(id);
+    stopHealthCheck(id);
+  }
+  connectionStates.clear();
 }
 
 /**
- * Attempt a single immediate reconnect (no delay).
+ * Attempt a single immediate reconnect for a specific connection (no delay).
  * Returns true if reconnect succeeded, false otherwise.
- * On failure, starts the normal auto-reconnect process.
  */
-async function tryImmediateReconnect() {
-  if (!lastConnectionConfig) {
-    log.warn('No stored connection config for immediate reconnect');
+async function tryImmediateReconnect(connectionId) {
+  // If no connectionId, try with the first available state
+  if (!connectionId) {
+    if (connectionStates.size === 0) {
+      log.warn('No stored connection config for immediate reconnect');
+      return false;
+    }
+    connectionId = connectionStates.keys().next().value;
+  }
+
+  const state = connectionStates.get(connectionId);
+  if (!state || !state.config) {
+    log.warn(`No stored connection config for immediate reconnect [${connectionId}]`);
     return false;
   }
 
-  stopHealthCheck();
-  notifyRenderer('db-connection-lost', { message: 'Connection lost, reconnecting...' });
+  stopHealthCheck(connectionId);
+  notifyRenderer('db-connection-lost', { connectionId, message: 'Connection lost, reconnecting...' });
 
   try {
     const { Client } = require('pg');
-    const cfg = lastConnectionConfig;
+    const cfg = state.config;
     const client = new Client({
       host: cfg.host,
       port: cfg.port,
@@ -222,55 +264,29 @@ async function tryImmediateReconnect() {
     });
 
     client.on('error', (err) => {
-      log.error('Reconnected client error:', err.message);
-      global.dbClient = null;
-      stopHealthCheck();
-      notifyRenderer('db-connection-lost', { message: err.message });
-      startAutoReconnect();
+      log.error(`Reconnected client error [${connectionId}]:`, err.message);
+      global.dbClients.delete(connectionId);
+      stopHealthCheck(connectionId);
+      notifyRenderer('db-connection-lost', { connectionId, message: err.message });
+      startAutoReconnect(connectionId);
     });
 
     client.on('end', () => {
-      log.debug('Reconnected client ended');
-      global.dbClient = null;
+      log.debug(`Reconnected client ended [${connectionId}]`);
+      global.dbClients.delete(connectionId);
     });
 
     await client.connect();
-    global.dbClient = client;
-    reconnectAttempt = 0;
-    log.debug('Immediate reconnect successful');
+    global.dbClients.set(connectionId, client);
+    state.reconnectAttempt = 0;
+    log.debug(`Immediate reconnect successful [${connectionId}]`);
 
-    // Re-initialize MCP and tool servers
-    if (mcpManagerRef) {
-      try {
-        await mcpManagerRef.stopMcpServer();
-        const mcpResult = await mcpManagerRef.initializeMcpServer(cfg);
-        if (mcpResult.success) {
-          log.debug('MCP server re-initialized after immediate reconnect');
-        }
-      } catch (mcpErr) {
-        log.warn('MCP re-init failed after immediate reconnect:', mcpErr.message);
-      }
-    }
-
-    if (toolServerRef) {
-      try {
-        await toolServerRef.stopToolServer();
-        const tsResult = await toolServerRef.startToolServer();
-        if (tsResult.success) {
-          log.debug('Tool server re-started after immediate reconnect');
-        }
-      } catch (tsErr) {
-        log.warn('Tool server re-start failed after immediate reconnect:', tsErr.message);
-      }
-    }
-
-    notifyRenderer('db-reconnected', { message: 'Reconnected successfully' });
-    startHealthCheck();
+    notifyRenderer('db-reconnected', { connectionId, message: 'Reconnected successfully' });
+    startHealthCheck(connectionId);
     return true;
   } catch (err) {
-    log.warn('Immediate reconnect failed:', err.message);
-    // Fall back to auto-reconnect with exponential backoff
-    startAutoReconnect();
+    log.warn(`Immediate reconnect failed [${connectionId}]:`, err.message);
+    startAutoReconnect(connectionId);
     return false;
   }
 }

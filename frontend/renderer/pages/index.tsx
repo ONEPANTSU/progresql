@@ -121,41 +121,35 @@ export default function Home() {
         log.debug('No connections found or notification already shown');
       }
 
-      // Restore active connection if exists
-      const active = globalConnections.find((c: DatabaseServer) => c.isActive);
-      if (active) {
-        setActiveConnection(active);
-        // Wait for app-ready event from main process before reconnecting
-        // This ensures electronAPI and all IPC handlers are fully available
-        const restoreConnection = () => {
-          // Call performConnection directly with the loaded connection object.
-          // We cannot use handleConnect(active.id) here because it reads from
-          // the `connections` state captured by the useEffect closure, which is
-          // still [] at this point (React hasn't flushed setConnections yet).
-          performConnection(active);
+      // Restore all active connections (multi-connection support)
+      const activeConns = globalConnections.filter((c: DatabaseServer) => c.isActive);
+      if (activeConns.length > 0) {
+        // Set the first active as the "selected" connection
+        setActiveConnection(activeConns[0]);
+
+        const restoreAllConnections = async () => {
+          // Reconnect all previously active connections in parallel
+          await Promise.all(activeConns.map(conn => performConnection(conn)));
           setIsRestoringConnections(false);
         };
 
-        // Restore connection — use app-ready event OR immediate call, never both
+        // Restore connections — use app-ready event OR immediate call, never both
         let restored = false;
         const safeRestore = () => {
-          if (restored) return; // Prevent double-restore
+          if (restored) return;
           restored = true;
-          restoreConnection();
+          restoreAllConnections();
         };
 
         if (window.electronAPI?.onAppReady) {
-          // Wait for app-ready event from main process before restoring
           window.electronAPI.onAppReady(() => {
-            log.debug('Received app-ready, restoring connection');
+            log.debug('Received app-ready, restoring connections');
             safeRestore();
           });
-          // Also restore immediately in case app-ready already fired
-          log.debug('electronAPI available, restoring connection immediately');
+          log.debug('electronAPI available, restoring connections immediately');
           safeRestore();
         } else {
-          // Fallback for environments where electronAPI is not yet available
-          log.debug('electronAPI not available, restoring connection directly');
+          log.debug('electronAPI not available, restoring connections directly');
           safeRestore();
         }
       } else {
@@ -239,20 +233,24 @@ export default function Home() {
       setConnectionError(`Reconnecting... (attempt ${data.attempt}/${data.maxAttempts})`);
     });
 
-    window.electronAPI.onDBReconnected(async () => {
-      log.info('Database reconnected successfully');
+    window.electronAPI.onDBReconnected(async (data) => {
+      const reconnectedId = data.connectionId;
+      log.info('Database reconnected successfully:', reconnectedId);
       setIsReconnecting(false);
       setConnectionError(null);
       notifyRef.current.showSuccess('Database reconnected');
 
       // Refresh database structure after reconnect
-      if (activeConnection && window.electronAPI?.getDatabaseStructure) {
+      const targetId = reconnectedId || activeConnection?.id;
+      if (targetId && window.electronAPI?.getDatabaseStructure) {
         try {
-          const structureResult = await window.electronAPI.getDatabaseStructure();
+          const structureResult = await window.electronAPI.getDatabaseStructure(targetId);
           if (structureResult.success) {
-            setDatabaseStructure(structureResult);
+            if (targetId === activeConnection?.id) {
+              setDatabaseStructure(structureResult);
+            }
             setConnections(prev => prev.map(c =>
-              c.id === activeConnection.id
+              c.id === targetId
                 ? { ...c, databases: structureResult.databases || [] }
                 : c
             ));
@@ -264,15 +262,19 @@ export default function Home() {
     });
 
     window.electronAPI.onDBReconnectFailed((data) => {
-      log.error('Auto-reconnect failed:', data.message);
+      const failedId = data.connectionId;
+      log.error('Auto-reconnect failed:', data.message, failedId);
       setIsReconnecting(false);
       setConnectionError(data.message);
-      // Mark connection as inactive since reconnect failed
-      if (activeConnection) {
+      // Mark the specific connection as inactive since reconnect failed
+      const targetId = failedId || activeConnection?.id;
+      if (targetId) {
         setConnections(prev => prev.map(c =>
-          c.id === activeConnection.id ? { ...c, isActive: false } : c
+          c.id === targetId ? { ...c, isActive: false } : c
         ));
-        setActiveConnection(null);
+        if (activeConnection?.id === targetId) {
+          setActiveConnection(null);
+        }
       }
       notifyRef.current.showError(data.message);
     });
@@ -344,6 +346,7 @@ export default function Home() {
       setConnectionError(null); // Clear any previous errors
 
       const connectionConfig = {
+        connectionId: connection.id,
         host: connection.host,
         port: connection.port,
         username: connection.username,
@@ -366,35 +369,33 @@ export default function Home() {
         // Get database structure
         log.debug('Getting database structure...');
         try {
-          const structureResult = await window.electronAPI.getDatabaseStructure();
+          const structureResult = await window.electronAPI.getDatabaseStructure(connectionId);
 
           if (structureResult.success) {
             setDatabaseStructure(structureResult);
 
-            // Single setConnections call: deactivate all others + activate current with database info
+            // Mark this connection as active (keep others' isActive unchanged)
             setConnections(prev => prev.map(c =>
               c.id === connectionId ? {
                 ...c,
                 databases: structureResult.databases || [],
                 isActive: true
-              } : { ...c, isActive: false }
+              } : c
             ));
 
             log.debug('Connection updated with database structure');
           } else {
             log.error('Failed to get database structure:', structureResult.message);
-            // Single setConnections call: deactivate all others + activate current
             setConnections(prev => prev.map(c =>
-              c.id === connectionId ? { ...c, isActive: true } : { ...c, isActive: false }
+              c.id === connectionId ? { ...c, isActive: true } : c
             ));
             setConnectionError(`Failed to get database structure: ${structureResult.message}`);
             showError(t('notify.dbStructureErrorDetail', { error: structureResult.message || '' }));
           }
         } catch (structureError) {
           log.error('Error getting database structure:', structureError);
-          // Single setConnections call: deactivate all others + activate current
           setConnections(prev => prev.map(c =>
-            c.id === connectionId ? { ...c, isActive: true } : { ...c, isActive: false }
+            c.id === connectionId ? { ...c, isActive: true } : c
           ));
           showError(t('notify.dbStructureError'));
         }
@@ -418,14 +419,23 @@ export default function Home() {
 
   const handleDisconnect = async (connectionId: string) => {
     try {
-      const result = await window.electronAPI.disconnectDatabase();
+      const result = await window.electronAPI.disconnectDatabase(connectionId);
       if (result.success) {
         setConnections(prev => prev.map(c =>
-          c.id === connectionId ? { ...c, isActive: false } : c
+          c.id === connectionId ? { ...c, isActive: false, databases: [] } : c
         ));
-        setActiveConnection(null);
-        setQueryResult(null);
-        setDatabaseStructure(null);
+        // If the disconnected connection was the active one, switch to another connected or null
+        if (activeConnection?.id === connectionId) {
+          setConnections(prev => {
+            const otherActive = prev.find(c => c.isActive && c.id !== connectionId);
+            setActiveConnection(otherActive ?? null);
+            if (!otherActive) {
+              setQueryResult(null);
+              setDatabaseStructure(null);
+            }
+            return prev;
+          });
+        }
       }
     } catch (error) {
       log.error('Disconnection error:', error);
@@ -462,14 +472,20 @@ export default function Home() {
     setConnectionToEdit(null);
   };
 
-  const handleDeleteConnection = (connectionId: string) => {
+  const handleDeleteConnection = async (connectionId: string) => {
     const connectionToDelete = connections.find(c => c.id === connectionId);
+    // Disconnect if active before deleting
+    if (connectionToDelete?.isActive) {
+      try { await window.electronAPI.disconnectDatabase(connectionId); } catch (_) { /* ignore */ }
+    }
     setConnections(prev => prev.filter(c => c.id !== connectionId));
-    // If the deleted connection was active, clear active connection
     if (activeConnection?.id === connectionId) {
-      setActiveConnection(null);
-      setQueryResult(null);
-      setDatabaseStructure(null);
+      const otherActive = connections.find(c => c.isActive && c.id !== connectionId);
+      setActiveConnection(otherActive ?? null);
+      if (!otherActive) {
+        setQueryResult(null);
+        setDatabaseStructure(null);
+      }
     }
     if (connectionToDelete) {
       showSuccess(t('notify.connectionDeleted', { name: connectionToDelete.connectionName }));
@@ -488,7 +504,7 @@ export default function Home() {
         return;
       }
 
-      const structureResult = await window.electronAPI.getDatabaseStructure();
+      const structureResult = await window.electronAPI.getDatabaseStructure(connectionId);
 
       if (structureResult.success) {
         setDatabaseStructure(structureResult);
@@ -622,10 +638,12 @@ export default function Home() {
       showError('Database is reconnecting. Please wait...');
       return;
     }
-    log.debug('Executing query');
+    // Use the active tab's connectionId, falling back to activeConnection
+    const connId = sqlTabs.activeTab?.connectionId ?? activeConnection?.id ?? '';
+    log.debug('Executing query on connection:', connId);
     try {
       setLastExecutedQuery(query);
-      const result = await window.electronAPI.executeQuery(query);
+      const result = await window.electronAPI.executeQuery(connId, query);
       if (result.success) {
         setQueryResult({
           rows: result.rows || [],

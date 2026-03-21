@@ -10,6 +10,29 @@ const log = createLogger('Main');
 // Set app name for macOS Dock, Cmd+Tab, and window title
 app.name = 'ProgreSQL';
 
+// Multi-connection support: Map<connectionId, pg.Client>
+global.dbClients = new Map();
+
+// Helper: get pg.Client for a given connectionId
+function getClientForConnection(connectionId) {
+  if (!connectionId) throw new Error('No connectionId provided');
+  const client = global.dbClients.get(connectionId);
+  if (!client) throw new Error(`No database connection for connectionId: ${connectionId}`);
+  return client;
+}
+
+// Backward-compat: global.dbClient getter returns first available client (for MCP/tool-server)
+Object.defineProperty(global, 'dbClient', {
+  get() {
+    if (global.dbClients.size === 0) return null;
+    return global.dbClients.values().next().value;
+  },
+  set(val) {
+    // no-op for backward compat — individual handlers manage dbClients map
+  },
+  configurable: true,
+});
+
 let mainWindow;
 
 // ── Auto-updater (production only) ──
@@ -214,6 +237,13 @@ function createWindow() {
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', async () => {
+  // Close all database connections
+  for (const [id, client] of global.dbClients) {
+    try { await client.end(); } catch (_) { /* ignore */ }
+  }
+  global.dbClients.clear();
+  dbHealth.shutdown();
+
   // Stop tool server and MCP server before quitting
   await toolServer.stopToolServer();
   await mcpManager.stopMcpServer();
@@ -238,17 +268,11 @@ app.on('activate', () => {
 
 // IPC handlers for database operations
 ipcMain.handle('connect-database', async (event, connectionConfig) => {
-  log.debug('connect-database called', { host: connectionConfig.host, port: connectionConfig.port, database: connectionConfig.database, username: connectionConfig.username });
+  const connectionId = connectionConfig.connectionId;
+  log.debug('connect-database called', { connectionId, host: connectionConfig.host, port: connectionConfig.port, database: connectionConfig.database, username: connectionConfig.username });
 
   try {
     const { Client } = require('pg');
-    log.debug('Creating PostgreSQL client with config:', {
-      host: connectionConfig.host,
-      port: connectionConfig.port,
-      user: connectionConfig.username,
-      password: connectionConfig.password ? '[HIDDEN]' : 'undefined',
-      database: connectionConfig.database
-    });
 
     const client = new Client({
       host: connectionConfig.host,
@@ -256,7 +280,6 @@ ipcMain.handle('connect-database', async (event, connectionConfig) => {
       user: connectionConfig.username,
       password: connectionConfig.password,
       database: connectionConfig.database,
-      // Add connection timeout and keep-alive settings
       connectionTimeoutMillis: 10000,
       idleTimeoutMillis: 30000,
       keepAlive: true,
@@ -265,77 +288,60 @@ ipcMain.handle('connect-database', async (event, connectionConfig) => {
 
     // Add error handlers for connection issues
     client.on('error', (err) => {
-      log.error('Database connection error:', err);
-      // Clear the global client reference on error
-      global.dbClient = null;
+      log.error(`Database connection error [${connectionId}]:`, err);
+      global.dbClients.delete(connectionId);
     });
 
     client.on('end', () => {
-      log.debug('Database connection ended');
-      global.dbClient = null;
+      log.debug(`Database connection ended [${connectionId}]`);
+      global.dbClients.delete(connectionId);
     });
 
     log.debug('Connecting to database...');
     await client.connect();
     log.debug('Connection successful');
 
-    // Store client reference
-    global.dbClient = client;
+    // Store client in multi-connection map
+    global.dbClients.set(connectionId, client);
 
-    // Stop existing MCP server if running (for connection switching)
-    log.debug('Stopping existing MCP server (if any) before reinitializing...');
-    try {
-      await mcpManager.stopMcpServer();
-    } catch (stopError) {
-      log.warn('Error stopping existing MCP server (may not exist):', stopError.message);
-    }
-
-    // Initialize MCP server with NEW connection config
-    // Это перезапустит MCP сервер с новыми параметрами подключения
-    log.debug('Initializing MCP server with connection config:', {
-      host: connectionConfig.host,
-      port: connectionConfig.port,
-      database: connectionConfig.database,
-      username: connectionConfig.username,
-    });
-    try {
-      const mcpResult = await mcpManager.initializeMcpServer(connectionConfig);
-      if (mcpResult.success) {
-        log.debug('MCP server initialized successfully with new connection');
-      } else {
-        log.warn('MCP server initialization failed:', mcpResult.message);
-        // Continue without MCP - fallback to direct queries
+    // Initialize MCP server with this connection config (uses first/latest connection)
+    // MCP is a singleton — re-initialize only if this is the first connection
+    if (global.dbClients.size === 1) {
+      log.debug('First connection — initializing MCP server');
+      try {
+        await mcpManager.stopMcpServer();
+      } catch (stopError) {
+        log.warn('Error stopping existing MCP server (may not exist):', stopError.message);
       }
-    } catch (mcpError) {
-      log.error('MCP server initialization error:', mcpError);
-      // Continue without MCP - fallback to direct queries
-    }
-
-    // Start tool server for Go backend communication
-    try {
-      const tsResult = await toolServer.startToolServer();
-      if (tsResult.success) {
-        log.debug(`Tool server started on port ${tsResult.port}`);
+      try {
+        const mcpResult = await mcpManager.initializeMcpServer(connectionConfig);
+        if (mcpResult.success) {
+          log.debug('MCP server initialized successfully');
+        } else {
+          log.warn('MCP server initialization failed:', mcpResult.message);
+        }
+      } catch (mcpError) {
+        log.error('MCP server initialization error:', mcpError);
       }
-    } catch (tsError) {
-      log.error('Tool server start error:', tsError.message);
-      // Continue without tool server — not a fatal error
+
+      // Start tool server for Go backend communication
+      try {
+        const tsResult = await toolServer.startToolServer();
+        if (tsResult.success) {
+          log.debug(`Tool server started on port ${tsResult.port}`);
+        }
+      } catch (tsError) {
+        log.error('Tool server start error:', tsError.message);
+      }
     }
 
-    // Start periodic health check for auto-reconnect
-    dbHealth.onConnected(connectionConfig, mainWindow);
+    // Start periodic health check for this connection
+    dbHealth.onConnected(connectionId, connectionConfig, mainWindow);
 
     return { success: true, message: 'Connected successfully' };
   } catch (error) {
     log.error('Connection error:', error);
-    log.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      code: error.code,
-      stack: error.stack
-    });
 
-    // Provide more detailed error messages
     let errorMessage = error.message;
     if (error.code === 'ECONNREFUSED') {
       errorMessage = `Connection refused. Check if PostgreSQL is running on ${connectionConfig.host}:${connectionConfig.port}`;
@@ -353,26 +359,39 @@ ipcMain.handle('connect-database', async (event, connectionConfig) => {
   }
 });
 
-ipcMain.handle('execute-query', async (event, query) => {
+ipcMain.handle('execute-query', async (event, params) => {
+  // Support both old format (string) and new format ({ connectionId, query })
+  const connectionId = typeof params === 'string' ? null : params.connectionId;
+  const query = typeof params === 'string' ? params : params.query;
+
   try {
-    if (!global.dbClient) {
+    let client;
+    if (connectionId && global.dbClients.has(connectionId)) {
+      client = global.dbClients.get(connectionId);
+    } else if (global.dbClients.size > 0) {
+      // Fallback: use first available client
+      client = global.dbClients.values().next().value;
+    } else {
       throw new Error('No database connection');
     }
 
-    // Check if connection is still alive, try reconnect if stale
+    // Check if connection is still alive
     try {
-      await global.dbClient.query('SELECT 1');
+      await client.query('SELECT 1');
     } catch (connError) {
-      log.warn('Connection check failed in execute-query, attempting reconnect:', connError.message);
-      global.dbClient = null;
-      const reconnected = await dbHealth.tryImmediateReconnect();
+      log.warn(`Connection check failed [${connectionId}], attempting reconnect:`, connError.message);
+      if (connectionId) global.dbClients.delete(connectionId);
+      const reconnected = await dbHealth.tryImmediateReconnect(connectionId);
       if (!reconnected) {
         throw new Error('Database connection lost. Auto-reconnect in progress...');
       }
+      // Get the reconnected client
+      client = global.dbClients.get(connectionId) || global.dbClients.values().next().value;
+      if (!client) throw new Error('Reconnect failed — no client available');
       log.debug('Reconnected successfully, proceeding with query');
     }
 
-    const result = await global.dbClient.query(query);
+    const result = await client.query(query);
     return {
       success: true,
       rows: result.rows,
@@ -388,36 +407,43 @@ ipcMain.handle('execute-query', async (event, query) => {
   }
 });
 
-ipcMain.handle('get-database-structure', async (event) => {
+ipcMain.handle('get-database-structure', async (event, connectionId) => {
   try {
-    if (!global.dbClient) {
+    let client;
+    if (connectionId && global.dbClients.has(connectionId)) {
+      client = global.dbClients.get(connectionId);
+    } else if (global.dbClients.size > 0) {
+      client = global.dbClients.values().next().value;
+    } else {
       throw new Error('No database connection');
     }
 
-    // Check if connection is still alive, try reconnect if stale
+    // Check if connection is still alive
     try {
-      await global.dbClient.query('SELECT 1');
+      await client.query('SELECT 1');
     } catch (connError) {
-      log.warn('Connection check failed in get-database-structure, attempting reconnect:', connError.message);
-      global.dbClient = null;
-      const reconnected = await dbHealth.tryImmediateReconnect();
+      log.warn(`Connection check failed in get-database-structure [${connectionId}]:`, connError.message);
+      if (connectionId) global.dbClients.delete(connectionId);
+      const reconnected = await dbHealth.tryImmediateReconnect(connectionId);
       if (!reconnected) {
         throw new Error('Database connection lost. Auto-reconnect in progress...');
       }
+      client = connectionId ? global.dbClients.get(connectionId) : global.dbClients.values().next().value;
+      if (!client) throw new Error('Reconnect failed — no client available');
       log.debug('Reconnected successfully, proceeding with getDatabaseStructure');
     }
 
     log.debug('Getting database structure...');
 
     // Get current database name
-    const dbNameResult = await global.dbClient.query('SELECT current_database() as name');
+    const dbNameResult = await client.query('SELECT current_database() as name');
     const currentDb = dbNameResult.rows[0].name;
     log.debug('Current database:', currentDb);
 
     // Get schemas - use pg_namespace instead of information_schema
     let schemasResult;
     try {
-      schemasResult = await global.dbClient.query(`
+      schemasResult = await client.query(`
         SELECT nspname as schema_name, nspowner::regrole::text as schema_owner
         FROM pg_namespace
         WHERE nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
@@ -432,7 +458,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get tables - use pg_tables instead of information_schema
     let tablesResult;
     try {
-      tablesResult = await global.dbClient.query(`
+      tablesResult = await client.query(`
         SELECT
           tablename as table_name,
           'BASE TABLE' as table_type,
@@ -451,7 +477,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get views - use pg_views instead of information_schema
     let viewsResult;
     try {
-      viewsResult = await global.dbClient.query(`
+      viewsResult = await client.query(`
         SELECT
           viewname as view_name,
           definition as view_definition,
@@ -472,7 +498,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get columns - use pg_attribute instead of information_schema
     let columnsResult;
     try {
-      columnsResult = await global.dbClient.query(`
+      columnsResult = await client.query(`
         SELECT
           c.relname as table_name,
           n.nspname as table_schema,
@@ -514,7 +540,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get indexes - use pg_indexes
     let indexesResult;
     try {
-      indexesResult = await global.dbClient.query(`
+      indexesResult = await client.query(`
         SELECT
           indexname as index_name,
           tablename as table_name,
@@ -532,7 +558,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get constraints - use pg_constraint instead of information_schema
     let constraintsResult;
     try {
-      constraintsResult = await global.dbClient.query(`
+      constraintsResult = await client.query(`
         SELECT
           conname as constraint_name,
           c.relname as table_name,
@@ -554,7 +580,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get triggers - use pg_trigger instead of information_schema
     let triggersResult;
     try {
-      triggersResult = await global.dbClient.query(`
+      triggersResult = await client.query(`
         SELECT
           tgname as trigger_name,
           c.relname as table_name,
@@ -580,7 +606,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get functions - use pg_proc instead of information_schema
     let functionsResult;
     try {
-      functionsResult = await global.dbClient.query(`
+      functionsResult = await client.query(`
         SELECT
           p.proname as routine_name,
           'FUNCTION' as routine_type,
@@ -601,7 +627,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get procedures - use pg_proc instead of information_schema
     let proceduresResult;
     try {
-      proceduresResult = await global.dbClient.query(`
+      proceduresResult = await client.query(`
         SELECT
           p.proname as routine_name,
           n.nspname as routine_schema,
@@ -621,7 +647,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get sequences - use pg_sequence instead of information_schema
     let sequencesResult;
     try {
-      sequencesResult = await global.dbClient.query(`
+      sequencesResult = await client.query(`
         SELECT
           c.relname as sequence_name,
           n.nspname as sequence_schema,
@@ -648,7 +674,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get extensions
     let extensionsResult;
     try {
-      extensionsResult = await global.dbClient.query(`
+      extensionsResult = await client.query(`
         SELECT
           extname as name,
           extversion as version,
@@ -664,7 +690,7 @@ ipcMain.handle('get-database-structure', async (event) => {
     // Get types - use pg_type instead of information_schema
     let typesResult;
     try {
-      typesResult = await global.dbClient.query(`
+      typesResult = await client.query(`
         SELECT
           t.typname as name,
           n.nspname as schema,
@@ -758,21 +784,23 @@ ipcMain.handle('get-database-structure', async (event) => {
   }
 });
 
-ipcMain.handle('disconnect-database', async (event) => {
+ipcMain.handle('disconnect-database', async (event, connectionId) => {
   try {
-    // Stop auto-reconnect and health check (user-initiated disconnect)
-    dbHealth.onDisconnected();
+    // Stop auto-reconnect and health check for this connection
+    dbHealth.onDisconnected(connectionId);
 
-    // Stop tool server
-    await toolServer.stopToolServer();
-
-    // Stop MCP server
-    await mcpManager.stopMcpServer();
-
-    if (global.dbClient) {
-      await global.dbClient.end();
-      global.dbClient = null;
+    const client = global.dbClients.get(connectionId);
+    if (client) {
+      await client.end();
+      global.dbClients.delete(connectionId);
     }
+
+    // If no more connections, stop MCP and tool servers
+    if (global.dbClients.size === 0) {
+      await toolServer.stopToolServer();
+      await mcpManager.stopMcpServer();
+    }
+
     return { success: true, message: 'Disconnected successfully' };
   } catch (error) {
     return { success: false, message: error.message };

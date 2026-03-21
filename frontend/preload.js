@@ -20,10 +20,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       throw error;
     }
   },
-  executeQuery: async (query) => {
+  executeQuery: async (connectionId, query) => {
     try {
-      log.debug('executeQuery called', query);
-      const result = await ipcRenderer.invoke('execute-query', query);
+      log.debug('executeQuery called', { connectionId, query });
+      const result = await ipcRenderer.invoke('execute-query', { connectionId, query });
       log.debug('executeQuery result:', result);
       return result;
     } catch (error) {
@@ -31,10 +31,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       throw error;
     }
   },
-  getDatabaseStructure: async () => {
+  getDatabaseStructure: async (connectionId) => {
     try {
-      log.debug('getDatabaseStructure called');
-      const result = await ipcRenderer.invoke('get-database-structure');
+      log.debug('getDatabaseStructure called', { connectionId });
+      const result = await ipcRenderer.invoke('get-database-structure', connectionId);
       log.debug('getDatabaseStructure result:', result);
       return result;
     } catch (error) {
@@ -42,10 +42,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       throw error;
     }
   },
-  disconnectDatabase: async () => {
+  disconnectDatabase: async (connectionId) => {
     try {
-      log.debug('disconnectDatabase called');
-      const result = await ipcRenderer.invoke('disconnect-database');
+      log.debug('disconnectDatabase called', { connectionId });
+      const result = await ipcRenderer.invoke('disconnect-database', connectionId);
       log.debug('disconnectDatabase result:', result);
       return result;
     } catch (error) {

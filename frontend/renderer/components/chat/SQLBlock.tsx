@@ -86,7 +86,7 @@ const SQLBlock: React.FC<SQLBlockProps> = ({
       setVerificationStatus('verifying');
       setVerificationError(null);
       try {
-        const result = await window.electronAPI.executeQuery(`EXPLAIN ${sql}`);
+        const result = await window.electronAPI.executeQuery('', `EXPLAIN ${sql}`);
         if (cancelled) return;
         if (result.success) {
           setVerificationStatus('verified');
