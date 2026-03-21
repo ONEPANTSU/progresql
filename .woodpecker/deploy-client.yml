@@ -8,7 +8,9 @@ when:
 steps:
   - name: deploy-downloads
     image: alpine:latest
-    secrets: [GITHUB_TOKEN]
+    environment:
+      GITHUB_TOKEN:
+        from_secret: GITHUB_TOKEN
     volumes:
       - /opt/progresql/downloads:/opt/progresql/downloads
     commands:
