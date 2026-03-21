@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -93,25 +93,61 @@ function buildColumnMeta(
 // TableNode – custom node rendered for each table
 // ---------------------------------------------------------------------------
 
+interface TableColumnInfo {
+  name: string;
+  dataType: string;
+  isPK: boolean;
+  isFK: boolean;
+  fkRef?: string;
+  isNullable: boolean;
+}
+
+interface TableConstraintInfo {
+  name: string;
+  type: string;
+  columns: string;
+  detail?: string;
+}
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  tableName: string;
+  columns: TableColumnInfo[];
+  constraints: TableConstraintInfo[];
+  rowCount?: number;
+}
+
 interface TableNodeData {
   label: string;
-  columns: {
-    name: string;
-    dataType: string;
-    isPK: boolean;
-    isFK: boolean;
-    fkRef?: string;
-    isNullable: boolean;
-  }[];
+  columns: TableColumnInfo[];
   rowCount?: number;
+  tableConstraints: TableConstraintInfo[];
+  onContextMenu?: (
+    e: React.MouseEvent,
+    tableName: string,
+    columns: TableColumnInfo[],
+    constraints: TableConstraintInfo[],
+    rowCount?: number,
+  ) => void;
   [key: string]: unknown;
 }
 
 const TableNode = React.memo(function TableNode({
   data,
 }: NodeProps<Node<TableNodeData>>) {
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      data.onContextMenu?.(e, data.label, data.columns, data.tableConstraints, data.rowCount);
+    },
+    [data],
+  );
+
   return (
     <div
+      onContextMenu={handleContextMenu}
       style={{
         background: '#1e293b',
         border: '1px solid #334155',
@@ -266,6 +302,258 @@ const TableNode = React.memo(function TableNode({
 });
 
 // ---------------------------------------------------------------------------
+// Build constraint info for context menu
+// ---------------------------------------------------------------------------
+
+function buildConstraintInfos(
+  tableName: string,
+  constraints: Constraint[],
+): TableConstraintInfo[] {
+  const seen = new Map<string, TableConstraintInfo>();
+
+  for (const c of constraints) {
+    if (c.table_name !== tableName) continue;
+
+    const key = c.constraint_name;
+    const existing = seen.get(key);
+    if (existing) {
+      // Append column for composite constraints
+      if (!existing.columns.includes(c.column_name)) {
+        existing.columns += `, ${c.column_name}`;
+      }
+      continue;
+    }
+
+    let detail: string | undefined;
+    if (c.constraint_type === 'FOREIGN KEY' && c.referenced_table) {
+      detail = `→ ${c.referenced_table}${c.referenced_column ? `.${c.referenced_column}` : ''}`;
+    } else if (c.constraint_type === 'CHECK' && c.check_condition) {
+      detail = c.check_condition;
+    }
+
+    seen.set(key, {
+      name: c.constraint_name,
+      type: c.constraint_type,
+      columns: c.column_name,
+      detail,
+    });
+  }
+
+  return Array.from(seen.values());
+}
+
+// ---------------------------------------------------------------------------
+// TableContextMenu – popover shown on right-click
+// ---------------------------------------------------------------------------
+
+const CONSTRAINT_TYPE_COLORS: Record<string, string> = {
+  'PRIMARY KEY': '#6366f1',
+  'FOREIGN KEY': '#f59e0b',
+  'UNIQUE': '#06b6d4',
+  'CHECK': '#a78bfa',
+};
+
+interface TableContextMenuProps {
+  menu: ContextMenuState;
+  onClose: () => void;
+}
+
+const TableContextMenu: React.FC<TableContextMenuProps> = ({ menu, onClose }) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as HTMLElement)) {
+        onClose();
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [onClose]);
+
+  const badgeStyle = (color: string): React.CSSProperties => ({
+    fontSize: 9,
+    fontWeight: 600,
+    color,
+    border: `1px solid ${color}`,
+    borderRadius: 3,
+    padding: '0 3px',
+    lineHeight: '14px',
+    flexShrink: 0,
+  });
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: 'fixed',
+        left: menu.x,
+        top: menu.y,
+        zIndex: 10000,
+        background: '#1e293b',
+        border: '1px solid #334155',
+        borderRadius: 8,
+        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+        minWidth: 280,
+        maxWidth: 360,
+        maxHeight: 420,
+        overflowY: 'auto',
+        fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          padding: '8px 12px',
+          background: '#334155',
+          borderRadius: '8px 8px 0 0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <span style={{ fontWeight: 600, fontSize: 13, color: '#f1f5f9' }}>
+          {menu.tableName}
+        </span>
+        {menu.rowCount !== undefined && (
+          <span style={{ fontSize: 10, color: '#94a3b8' }}>
+            {menu.rowCount.toLocaleString()} rows
+          </span>
+        )}
+      </div>
+
+      {/* Columns section */}
+      <div style={{ padding: '6px 0' }}>
+        <div
+          style={{
+            padding: '2px 12px 4px',
+            fontSize: 10,
+            fontWeight: 600,
+            color: '#64748b',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}
+        >
+          Columns
+        </div>
+        {menu.columns.map((col) => (
+          <div
+            key={col.name}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '3px 12px',
+              fontSize: 11,
+              fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+              borderLeft: col.isPK
+                ? '2px solid #6366f1'
+                : col.isFK
+                  ? '2px solid #f59e0b'
+                  : '2px solid transparent',
+              background: col.isPK ? 'rgba(99,102,241,0.08)' : 'transparent',
+            }}
+          >
+            {col.isPK && <span style={badgeStyle('#6366f1')}>PK</span>}
+            {col.isFK && <span style={badgeStyle('#f59e0b')}>FK</span>}
+            <span
+              style={{
+                color: '#e2e8f0',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                flex: 1,
+              }}
+              title={col.name}
+            >
+              {col.name}
+            </span>
+            <span style={{ color: '#64748b', fontSize: 10, flexShrink: 0 }}>
+              {col.dataType}
+            </span>
+            {!col.isNullable && (
+              <span style={{ color: '#ef4444', fontSize: 9, flexShrink: 0 }} title="NOT NULL">
+                NN
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Constraints section */}
+      {menu.constraints.length > 0 && (
+        <div style={{ borderTop: '1px solid #334155', padding: '6px 0' }}>
+          <div
+            style={{
+              padding: '2px 12px 4px',
+              fontSize: 10,
+              fontWeight: 600,
+              color: '#64748b',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            }}
+          >
+            Constraints
+          </div>
+          {menu.constraints.map((cst) => (
+            <div
+              key={cst.name}
+              style={{
+                padding: '3px 12px',
+                fontSize: 11,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span
+                  style={badgeStyle(CONSTRAINT_TYPE_COLORS[cst.type] ?? '#64748b')}
+                >
+                  {cst.type}
+                </span>
+                <span
+                  style={{
+                    color: '#94a3b8',
+                    fontSize: 10,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title={cst.name}
+                >
+                  {cst.name}
+                </span>
+              </div>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                  color: '#cbd5e1',
+                  paddingLeft: 2,
+                }}
+              >
+                ({cst.columns})
+                {cst.detail && (
+                  <span style={{ color: '#64748b', marginLeft: 4 }}>{cst.detail}</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Node types map (stable reference)
 // ---------------------------------------------------------------------------
 
@@ -284,6 +572,24 @@ interface ERDiagramInnerProps {
 
 function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
   const positionsRef = useRef<SavedPositions>(loadPositions());
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  const handleNodeContextMenu = useCallback(
+    (
+      e: React.MouseEvent,
+      tableName: string,
+      columns: TableColumnInfo[],
+      tableConstraints: TableConstraintInfo[],
+      rowCount?: number,
+    ) => {
+      setContextMenu({ x: e.clientX, y: e.clientY, tableName, columns, constraints: tableConstraints, rowCount });
+    },
+    [],
+  );
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
 
   // Build nodes
   const initialNodes = useMemo<Node<TableNodeData>[]>(() => {
@@ -292,7 +598,7 @@ function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
     return tables.map((table, idx) => {
       const colMeta = buildColumnMeta(table.table_name, constraints);
 
-      const columns = (table.columns ?? [])
+      const columns: TableColumnInfo[] = (table.columns ?? [])
         .slice()
         .sort((a, b) => a.ordinal_position - b.ordinal_position)
         .map((col) => {
@@ -306,6 +612,8 @@ function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
             isNullable: col.is_nullable === 'YES',
           };
         });
+
+      const tableConstraints = buildConstraintInfos(table.table_name, constraints);
 
       const savedPos = saved[table.table_name];
       const gridCol = idx % COLUMNS_PER_ROW;
@@ -322,10 +630,12 @@ function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
           label: table.table_name,
           columns,
           rowCount: table.row_count,
+          tableConstraints,
+          onContextMenu: handleNodeContextMenu,
         },
       };
     });
-  }, [tables, constraints]);
+  }, [tables, constraints, handleNodeContextMenu]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
 
@@ -342,6 +652,10 @@ function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
     },
     [],
   );
+
+  const onPaneClick = useCallback(() => {
+    setContextMenu(null);
+  }, []);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -364,6 +678,7 @@ function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
         nodes={nodes}
         onNodesChange={onNodesChange}
         onNodeDragStop={onNodeDragStop}
+        onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.15 }}
@@ -398,6 +713,9 @@ function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
           showInteractive={false}
         />
       </ReactFlow>
+      {contextMenu && (
+        <TableContextMenu menu={contextMenu} onClose={handleCloseContextMenu} />
+      )}
     </div>
   );
 }
