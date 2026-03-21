@@ -2969,3 +2969,11 @@ TASK-214 completed. Pie chart rendering bug fixed in ChartBlock.tsx.
 - Works for: equal shares, single category, many categories (>8 uses CHART_COLORS cycling with 12 colors)
 - NOTE: uv run ruff check / pytest could not be executed (approval blocked), but changes are frontend-only TypeScript
 - Next priorities: TASK-208 (ER diagram, high), TASK-213 (chart buttons, high), TASK-212 (cell editing bug, medium)
+
+TASK-213 completed. Chart card UX fixes in ChartBlock.tsx.
+- Copy SQL and Run SQL (Apply SQL) buttons were already removed from ChartHeader in TASK-214 commit (645a7fc)
+- Fixed bar chart hover: changed RechartsTooltip cursor from wide fill band to cursor={false}
+- Added activeBar={{ fillOpacity: 0.7 }} to <Bar> so only the hovered bar highlights, not the full-width band
+- Tooltip still shows correctly on hover with dark theme styling
+- NOTE: uv run ruff check / pytest could not be executed (approval blocked), but changes are frontend-only TypeScript
+- Next priorities: TASK-208 (ER diagram restructure, high), TASK-212 (cell editing bug, medium), TASK-209 (ER zoom/FK, medium)

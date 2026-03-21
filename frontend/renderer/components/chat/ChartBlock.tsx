@@ -95,10 +95,10 @@ const BarChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string;
         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
         <XAxis dataKey={xKey} tick={{ fill: '#9ca3af', fontSize: 12 }} label={xLabel ? { value: xLabel, position: 'insideBottom', offset: -5, fill: '#9ca3af' } : undefined} />
         <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
-        <RechartsTooltip cursor={{ fill: 'rgba(99,102,241,0.08)' }} contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#e5e7eb' }} />
+        <RechartsTooltip cursor={false} contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#e5e7eb' }} />
         <Legend />
         {yKeys.map((key, i) => (
-          <Bar key={key} dataKey={key} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} cursor="default" />
+          <Bar key={key} dataKey={key} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} activeBar={{ fillOpacity: 0.7 }} />
         ))}
       </BarChart>
     </ResponsiveContainer>
