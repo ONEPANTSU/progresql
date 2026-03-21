@@ -3872,7 +3872,7 @@
         "Протокол backward-compatible (старые клиенты не ломаются)"
       ],
       "dependencies": [],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-199",

@@ -319,6 +319,162 @@ func TestNewEnvelope(t *testing.T) {
 	}
 }
 
+func TestVisualization_MarshalUnmarshal(t *testing.T) {
+	viz := &Visualization{
+		ChartType: ChartTypeBar,
+		Title:     "Top 10 users by orders",
+		Data: []map[string]interface{}{
+			{"name": "Alice", "orders": 42},
+			{"name": "Bob", "orders": 35},
+			{"name": "Charlie", "orders": 28},
+		},
+		XLabel: "User",
+		YLabel: "Orders",
+		SQL:    "SELECT name, COUNT(*) as orders FROM users JOIN orders ON users.id = orders.user_id GROUP BY name ORDER BY orders DESC LIMIT 10",
+	}
+
+	payload := AgentResponsePayload{
+		Action: "generate_sql",
+		Result: AgentResult{
+			SQL:           "SELECT name, COUNT(*) as orders FROM users JOIN orders ON users.id = orders.user_id GROUP BY name ORDER BY orders DESC LIMIT 10",
+			Explanation:   "Bar chart of top 10 users by order count",
+			Visualization: viz,
+		},
+		ModelUsed:  "qwen/qwen3-coder",
+		TokensUsed: 500,
+	}
+
+	env, err := NewEnvelopeWithID(TypeAgentResponse, "req-viz", "", &payload)
+	if err != nil {
+		t.Fatalf("NewEnvelopeWithID: %v", err)
+	}
+
+	data, err := env.Marshal()
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+
+	parsed, err := ParseEnvelope(data)
+	if err != nil {
+		t.Fatalf("ParseEnvelope: %v", err)
+	}
+
+	var decoded AgentResponsePayload
+	if err := parsed.DecodePayload(&decoded); err != nil {
+		t.Fatalf("DecodePayload: %v", err)
+	}
+
+	if decoded.Result.Visualization == nil {
+		t.Fatal("Visualization is nil")
+	}
+	v := decoded.Result.Visualization
+	if v.ChartType != ChartTypeBar {
+		t.Errorf("ChartType = %q, want %q", v.ChartType, ChartTypeBar)
+	}
+	if v.Title != "Top 10 users by orders" {
+		t.Errorf("Title = %q", v.Title)
+	}
+	if len(v.Data) != 3 {
+		t.Errorf("Data length = %d, want 3", len(v.Data))
+	}
+	if v.XLabel != "User" {
+		t.Errorf("XLabel = %q, want %q", v.XLabel, "User")
+	}
+	if v.YLabel != "Orders" {
+		t.Errorf("YLabel = %q, want %q", v.YLabel, "Orders")
+	}
+	if v.SQL == "" {
+		t.Error("SQL is empty")
+	}
+}
+
+func TestVisualization_BackwardCompatible(t *testing.T) {
+	// AgentResult without Visualization should marshal without the field.
+	payload := AgentResponsePayload{
+		Action: "generate_sql",
+		Result: AgentResult{
+			SQL:         "SELECT 1",
+			Explanation: "Simple query",
+		},
+		TokensUsed: 100,
+	}
+
+	env, err := NewEnvelopeWithID(TypeAgentResponse, "req-no-viz", "", &payload)
+	if err != nil {
+		t.Fatalf("NewEnvelopeWithID: %v", err)
+	}
+
+	data, err := env.Marshal()
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+
+	// Verify that "visualization" key is absent from JSON.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("Unmarshal raw: %v", err)
+	}
+	var payloadRaw map[string]json.RawMessage
+	if err := json.Unmarshal(raw["payload"], &payloadRaw); err != nil {
+		t.Fatalf("Unmarshal payload: %v", err)
+	}
+	var resultRaw map[string]json.RawMessage
+	if err := json.Unmarshal(payloadRaw["result"], &resultRaw); err != nil {
+		t.Fatalf("Unmarshal result: %v", err)
+	}
+	if _, exists := resultRaw["visualization"]; exists {
+		t.Error("visualization key should be absent when nil, but it is present")
+	}
+}
+
+func TestVisualization_AllChartTypes(t *testing.T) {
+	chartTypes := []string{ChartTypeBar, ChartTypeLine, ChartTypePie, ChartTypeArea, ChartTypeMetric, ChartTypeTable}
+	for _, ct := range chartTypes {
+		viz := Visualization{
+			ChartType: ct,
+			Title:     ct + " chart",
+			Data:      []map[string]interface{}{{"value": 1}},
+		}
+		data, err := json.Marshal(viz)
+		if err != nil {
+			t.Fatalf("Marshal %s: %v", ct, err)
+		}
+		var decoded Visualization
+		if err := json.Unmarshal(data, &decoded); err != nil {
+			t.Fatalf("Unmarshal %s: %v", ct, err)
+		}
+		if decoded.ChartType != ct {
+			t.Errorf("ChartType = %q, want %q", decoded.ChartType, ct)
+		}
+	}
+}
+
+func TestVisualization_MetricType(t *testing.T) {
+	// Metric type: single value, no axis labels needed.
+	viz := Visualization{
+		ChartType: ChartTypeMetric,
+		Title:     "Total Users",
+		Data:      []map[string]interface{}{{"value": 12345}},
+	}
+	data, err := json.Marshal(viz)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	var decoded Visualization
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if decoded.XLabel != "" {
+		t.Errorf("XLabel should be empty for metric, got %q", decoded.XLabel)
+	}
+	if decoded.YLabel != "" {
+		t.Errorf("YLabel should be empty for metric, got %q", decoded.YLabel)
+	}
+	if decoded.SQL != "" {
+		t.Errorf("SQL should be empty, got %q", decoded.SQL)
+	}
+}
+
 func TestToolResultPayload_WithError(t *testing.T) {
 	payload := ToolResultPayload{
 		Success: false,

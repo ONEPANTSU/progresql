@@ -71,10 +71,31 @@ type AgentResponsePayload struct {
 
 // AgentResult holds the outcome of an agent action.
 type AgentResult struct {
-	SQL         string          `json:"sql,omitempty"`
-	Explanation string          `json:"explanation,omitempty"`
-	Candidates  []string        `json:"candidates,omitempty"`
-	QueryResult json.RawMessage `json:"query_result,omitempty"`
+	SQL           string          `json:"sql,omitempty"`
+	Explanation   string          `json:"explanation,omitempty"`
+	Candidates    []string        `json:"candidates,omitempty"`
+	QueryResult   json.RawMessage `json:"query_result,omitempty"`
+	Visualization *Visualization  `json:"visualization,omitempty"`
+}
+
+// Chart type constants for visualization responses.
+const (
+	ChartTypeBar    = "bar"
+	ChartTypeLine   = "line"
+	ChartTypePie    = "pie"
+	ChartTypeArea   = "area"
+	ChartTypeMetric = "metric"
+	ChartTypeTable  = "table"
+)
+
+// Visualization describes a chart or data visualization returned by the agent.
+type Visualization struct {
+	ChartType string                   `json:"chart_type"`
+	Title     string                   `json:"title"`
+	Data      []map[string]interface{} `json:"data"`
+	XLabel    string                   `json:"x_label,omitempty"`
+	YLabel    string                   `json:"y_label,omitempty"`
+	SQL       string                   `json:"sql,omitempty"`
 }
 
 // ToolCallLogEntry records a single tool invocation for audit purposes.

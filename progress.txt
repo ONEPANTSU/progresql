@@ -2727,3 +2727,14 @@ TASK-195 completed. SQL error line highlighting in editor + Fix in Chat button i
 - TypeScript: npx tsc --noEmit — 0 errors, npm run build (next build) — compiled successfully
 - No Python code modified — ruff/pytest unaffected
 - Next priorities: TASK-198 (chart types backend, medium), TASK-201 (ER diagram, medium), TASK-202 (connection pill, medium)
+
+TASK-198 completed. Visualization types — 6 chart types and visualization field in agent.response.
+- Created Visualization struct in websocket/types.go: ChartType, Title, Data ([]map[string]interface{}), XLabel, YLabel, SQL
+- 6 chart type constants: bar, line, pie, area, metric, table (ChartTypeBar..ChartTypeTable)
+- Added *Visualization field to AgentResult with omitempty — backward-compatible (nil → absent from JSON)
+- PipelineContext.Result already carries AgentResult → future steps (TASK-200) can set pctx.Result.Visualization
+- Pipeline.HandleMessage sends pctx.Result in agent.response — visualization field automatically included when set
+- 4 new tests: Visualization marshal/unmarshal (bar chart with 3 data points, x/y labels, SQL), backward compatibility (nil → key absent), all 6 chart types round-trip, metric type (no axis labels)
+- go build ./... passes, go test ./internal/websocket/... — all tests pass (14 tests total)
+- No Python code modified — ruff/pytest unaffected
+- Next priorities: TASK-199 (ChartBlock.tsx component, medium, now UNBLOCKED), TASK-201 (ER diagram, medium), TASK-202 (connection pill, medium)
