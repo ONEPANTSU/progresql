@@ -2886,3 +2886,33 @@ TASK-204 completed. Refactoring connection model — multiple simultaneous activ
 - No Python code modified — ruff/pytest unaffected
 - Files modified: background.js, db-health.js, preload.js, electronAPI.d.ts, index.tsx, SQLBlock.tsx
 - Next priorities: TASK-196 (SQL templates, low), TASK-205 (Schema Sync, low, needs TASK-204 done)
+
+TASK-205 completed. Schema Sync modal — compare schemas between two connections, generate SQL migration.
+- Created SchemaSyncModal.tsx component (frontend/renderer/components/SchemaSyncModal.tsx)
+  - Source/Target connection selection from active connections dropdown
+  - Full schema diff engine comparing tables, columns, indexes, constraints (public schema only in MVP)
+  - SQL migration generation: CREATE TABLE, ALTER TABLE (ADD/ALTER/DROP COLUMN), DROP TABLE
+  - Proper identifier quoting with quoteIdent()
+  - Grouping by tables with checkboxes for selective migration
+  - "Select all" checkbox with indeterminate state
+  - Destructive changes (DROP TABLE, DROP COLUMN) hidden by default, toggled via "Show destructive" switch
+  - Per-table accordion with inline SQL preview
+  - Preview SQL button for combined migration script
+  - Copy as migration (clipboard) and Insert to Editor actions
+  - Summary chips: N create, N alter, N drop
+  - Sort order: CREATE TABLE before ALTER TABLE before DROP TABLE
+- Integrated into DatabasePanel.tsx:
+  - CompareArrows icon button in toolbar (visible when 2+ active connections)
+  - SchemaSyncModal rendered with connections and onApplySQL props
+- Acceptance criteria:
+  1. Added column in dev → diff shows ALTER TABLE ADD COLUMN (column diff detects missing columns)
+  2. Destructive changes disabled by default (showDestructive=false, destructive tables unchecked)
+  3. Grouping by tables with checkbox (each table is an Accordion with Checkbox)
+  4. Preview SQL shows final script from selected operations (combined SQL from all checked tables)
+  5. Order: CREATE TABLE before ALTER/DROP (sorted by kind: add=0, alter=1, drop=2)
+  6. Copy as migration and Insert to editor work (clipboard API + onApplySQL callback)
+  7. Generated SQL is syntactically valid (proper quoting, semicolons, ALTER TABLE syntax)
+- No Python code modified — ruff/pytest unaffected
+- Files created: SchemaSyncModal.tsx
+- Files modified: DatabasePanel.tsx (import, state, button, modal), tasks.json
+- Next priorities: TASK-196 (SQL templates, low) — only remaining pending task

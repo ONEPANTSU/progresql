@@ -30,6 +30,7 @@ import {
   Alert,
 } from '@mui/material';
 import ElementDetailsModal from './ElementDetailsModal';
+import SchemaSyncModal from './SchemaSyncModal';
 import { createLogger } from '../utils/logger';
 import { useTranslation } from '../contexts/LanguageContext';
 
@@ -74,6 +75,7 @@ import {
   Replay as RetryIcon,
   Code as CodeIcon,
   ContentCopy as CopyIcon,
+  CompareArrows as CompareArrowsIcon,
 } from '@mui/icons-material';
 import { DatabaseServer, AuthUser } from '../types';
 import ConnectionForm from './ConnectionForm';
@@ -219,6 +221,7 @@ export default function DatabasePanel({
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedElement, setSelectedElement] = useState<any>(null);
   const [selectedElementType, setSelectedElementType] = useState<string>('');
+  const [schemaSyncOpen, setSchemaSyncOpen] = useState(false);
 
   const handleAddConnection = (connectionData: any) => {
     const newConnection: Omit<DatabaseServer, 'id' | 'databases' | 'isActive'> = {
@@ -1485,6 +1488,18 @@ export default function DatabasePanel({
                 </IconButton>
               </Tooltip>
             )}
+            {connections.filter((c) => c.isActive).length >= 2 && (
+              <Tooltip title="Schema Sync">
+                <IconButton
+                  onClick={() => setSchemaSyncOpen(true)}
+                  aria-label="Compare and sync schemas"
+                  size="small"
+                  sx={{ p: 0.25, color: 'text.secondary', '&:hover': { color: 'secondary.main' } }}
+                >
+                  <CompareArrowsIcon sx={{ fontSize: TREE_ICON_SIZE }} />
+                </IconButton>
+              </Tooltip>
+            )}
             <Tooltip title="Add New Connection">
               <IconButton
                 onClick={() => setIsAddDialogOpen(true)}
@@ -2016,6 +2031,14 @@ export default function DatabasePanel({
         onClose={handleCloseDetails}
         element={selectedElement}
         elementType={selectedElementType as any}
+        onApplySQL={onApplySQL}
+      />
+
+      {/* Schema Sync Modal */}
+      <SchemaSyncModal
+        open={schemaSyncOpen}
+        onClose={() => setSchemaSyncOpen(false)}
+        connections={connections}
         onApplySQL={onApplySQL}
       />
 
