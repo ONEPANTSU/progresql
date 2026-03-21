@@ -3011,3 +3011,13 @@ TASK-212 completed. BUG: Cell editing — save icon now green checkmark, UPDATE 
 - npx tsc --noEmit — 0 new errors (pre-existing SchemaSyncModal errors unchanged)
 - Python code not modified — ruff/pytest unaffected
 - Next priorities: TASK-209 (ER zoom/FK fixes, medium), TASK-216 (chat DB dropdown, medium), TASK-210 (ER context menu, low)
+
+TASK-209 completed. ER-диаграмма: убрал FK-линии, исправил кнопки зума, убрал дубль Fit View.
+- Removed FK edges (initialEdges, useEdgesState, edges prop, defaultEdgeOptions) — no lines between tables
+- Removed Handle/Position components from TableNode (connection points for edges no longer needed)
+- Removed unused imports: Handle, Position, Edge, useEdgesState, useReactFlow
+- Added CSS overrides for ReactFlow Controls buttons: dark background (#1e293b), light icons (#e2e8f0), hover (#334155)
+- Removed duplicate Fit View button (top-right absolute positioned button) — only Controls (bottom-left) remains
+- showInteractive={false} already set on Controls (no lock icon)
+- Python code not modified — ruff/pytest unaffected
+- Next priorities: TASK-216 (chat DB dropdown, medium), TASK-210 (ER context menu, low)

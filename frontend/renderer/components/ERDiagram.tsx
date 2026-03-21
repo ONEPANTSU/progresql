@@ -6,13 +6,8 @@ import {
   Background,
   BackgroundVariant,
   useNodesState,
-  useEdgesState,
-  useReactFlow,
   ReactFlowProvider,
-  Handle,
-  Position,
   type Node,
-  type Edge,
   type NodeTypes,
   type NodeProps,
 } from '@xyflow/react';
@@ -129,18 +124,6 @@ const TableNode = React.memo(function TableNode({
         boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
       }}
     >
-      {/* Handles for edges */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        style={{ background: '#6366f1', width: 8, height: 8 }}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        style={{ background: '#6366f1', width: 8, height: 8 }}
-      />
-
       {/* Header */}
       <div
         style={{
@@ -300,7 +283,6 @@ interface ERDiagramInnerProps {
 }
 
 function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
-  const { fitView } = useReactFlow();
   const positionsRef = useRef<SavedPositions>(loadPositions());
 
   // Build nodes
@@ -345,64 +327,12 @@ function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
     });
   }, [tables, constraints]);
 
-  // Build edges from FK constraints
-  const initialEdges = useMemo<Edge[]>(() => {
-    const fkConstraints = constraints.filter(
-      (c) =>
-        c.constraint_type === 'FOREIGN KEY' &&
-        c.referenced_table &&
-        c.referenced_column,
-    );
-
-    // Deduplicate by constraint_name (composite FKs share constraint_name)
-    const seen = new Set<string>();
-
-    return fkConstraints
-      .filter((c) => {
-        if (seen.has(c.constraint_name)) return false;
-        seen.add(c.constraint_name);
-        return true;
-      })
-      .map((c) => ({
-        id: `edge-${c.constraint_name}`,
-        source: c.table_name,
-        target: c.referenced_table!,
-        type: 'smoothstep',
-        animated: true,
-        label: `${c.column_name} -> ${c.referenced_column}`,
-        labelStyle: {
-          fontSize: 9,
-          fill: '#94a3b8',
-          fontFamily: 'monospace',
-        },
-        labelBgStyle: {
-          fill: '#1e293b',
-          fillOpacity: 0.85,
-        },
-        style: {
-          stroke: '#6366f1',
-          strokeWidth: 1.5,
-        },
-        markerEnd: {
-          type: 'arrowclosed' as const,
-          color: '#6366f1',
-          width: 16,
-          height: 16,
-        },
-      }));
-  }, [constraints]);
-
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
   // Re-sync when props change
   useEffect(() => {
     setNodes(initialNodes);
   }, [initialNodes, setNodes]);
-
-  useEffect(() => {
-    setEdges(initialEdges);
-  }, [initialEdges, setEdges]);
 
   // Save positions on drag stop
   const onNodeDragStop = useCallback(
@@ -413,28 +343,32 @@ function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
     [],
   );
 
-  // Fit view handler
-  const handleFitView = useCallback(() => {
-    fitView({ padding: 0.15, duration: 300 });
-  }, [fitView]);
-
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      {/* Dark-theme overrides for ReactFlow Controls buttons */}
+      <style>{`
+        .react-flow__controls button {
+          background: #1e293b !important;
+          border-color: #334155 !important;
+          fill: #e2e8f0 !important;
+          color: #e2e8f0 !important;
+        }
+        .react-flow__controls button:hover {
+          background: #334155 !important;
+        }
+        .react-flow__controls button svg {
+          fill: #e2e8f0 !important;
+        }
+      `}</style>
       <ReactFlow
         nodes={nodes}
-        edges={edges}
         onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
         onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.15 }}
         minZoom={0.1}
         maxZoom={2}
-        defaultEdgeOptions={{
-          type: 'smoothstep',
-          animated: true,
-        }}
         proOptions={{ hideAttribution: true }}
         style={{ background: '#111827' }}
       >
@@ -464,50 +398,6 @@ function ERDiagramInner({ tables, constraints }: ERDiagramInnerProps) {
           showInteractive={false}
         />
       </ReactFlow>
-
-      {/* Fit-to-screen button */}
-      <button
-        onClick={handleFitView}
-        title="Fit to screen"
-        style={{
-          position: 'absolute',
-          top: 12,
-          right: 12,
-          zIndex: 10,
-          background: '#334155',
-          color: '#e2e8f0',
-          border: '1px solid #475569',
-          borderRadius: 6,
-          padding: '6px 12px',
-          fontSize: 12,
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-          transition: 'background 0.15s',
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = '#475569';
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = '#334155';
-        }}
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-        </svg>
-        Fit View
-      </button>
     </div>
   );
 }
