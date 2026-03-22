@@ -78,16 +78,22 @@ export default function Home() {
   // Guard: redirect unauthenticated users to login, unverified to verify-email
   const shouldRedirect = !isAuthenticated || !isEmailVerified;
   useEffect(() => {
+    const api = (window as any).electronAPI;
     if (!isAuthenticated) {
-      // Use IPC navigation in Electron to avoid Windows file:// path bugs
-      if ((window as any).electronAPI?.navigate) {
-        (window as any).electronAPI.navigate('/login');
+      if (api) {
+        try { api.navigate('/login'); } catch (_) {}
+        if (api.getPageUrl) {
+          setTimeout(() => { window.location.href = api.getPageUrl('/login'); }, 100);
+        }
       } else {
         router.replace('/login');
       }
     } else if (!isEmailVerified) {
-      if ((window as any).electronAPI?.navigate) {
-        (window as any).electronAPI.navigate('/verify-email');
+      if (api) {
+        try { api.navigate('/verify-email'); } catch (_) {}
+        if (api.getPageUrl) {
+          setTimeout(() => { window.location.href = api.getPageUrl('/verify-email'); }, 100);
+        }
       } else {
         router.replace('/verify-email');
       }

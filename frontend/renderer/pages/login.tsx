@@ -12,11 +12,15 @@ import { useTranslation } from '../contexts/LanguageContext';
  * (JS chunks fail to load → white screen). Full reload is reliable.
  */
 function navigateTo(route: string, router: ReturnType<typeof useRouter>) {
-  if (typeof window !== 'undefined' && (window as any).electronAPI?.navigate) {
-    // Electron: use IPC to load the correct HTML file (avoids Windows file:// path bugs)
-    (window as any).electronAPI.navigate(route);
+  const api = typeof window !== 'undefined' ? (window as any).electronAPI : null;
+  if (api) {
+    // Electron: try IPC first, fallback to absolute file:// URL
+    try { api.navigate(route); } catch (_) {}
+    // Also set location as backup — use absolute path from preload
+    if (api.getPageUrl) {
+      setTimeout(() => { window.location.href = api.getPageUrl(route); }, 100);
+    }
   } else {
-    // Dev mode or web: use Next.js router
     router.replace(route);
   }
 }

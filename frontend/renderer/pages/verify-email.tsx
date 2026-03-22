@@ -7,8 +7,12 @@ import { useTranslation } from '../contexts/LanguageContext';
 
 /** Navigate via IPC in Electron to avoid file:// routing issues on Windows */
 function navigateTo(route: string, router: ReturnType<typeof useRouter>) {
-  if (typeof window !== 'undefined' && (window as any).electronAPI?.navigate) {
-    (window as any).electronAPI.navigate(route);
+  const api = typeof window !== 'undefined' ? (window as any).electronAPI : null;
+  if (api) {
+    try { api.navigate(route); } catch (_) {}
+    if (api.getPageUrl) {
+      setTimeout(() => { window.location.href = api.getPageUrl(route); }, 100);
+    }
   } else {
     router.replace(route);
   }
