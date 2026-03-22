@@ -1,7 +1,8 @@
 # Client deploy — triggered by tag: client-v*
 # DMG built locally via `make release-mac`, uploaded to GitHub Release
-# This pipeline downloads DMG from GitHub and deploys to server
-# Retries up to 10 minutes waiting for DMG to appear in the release.
+# EXE built by GitHub Actions, uploaded to same release
+# This pipeline downloads DMG+EXE from GitHub and deploys to server
+# Retries up to 10 minutes waiting for assets to appear in the release.
 when:
   - event: tag
     ref: refs/tags/client-v*
@@ -37,7 +38,18 @@ steps:
         fi
         echo "==> Downloading DMG..."
         curl -sL -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/octet-stream" "https://api.github.com/repos/ONEPANTSU/progresql/releases/assets/$DMG_ID" -o "/opt/progresql/downloads/ProgreSQL-$VERSION-arm64.dmg"
+      - echo "==> Checking for EXE in release..."
+      - |
+        EXE_ID=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".exe")) | .id')
+        if [ -n "$EXE_ID" ] && [ "$EXE_ID" != "null" ]; then
+          echo "==> EXE found (asset $EXE_ID), downloading..."
+          curl -sL -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/octet-stream" "https://api.github.com/repos/ONEPANTSU/progresql/releases/assets/$EXE_ID" -o "/opt/progresql/downloads/ProgreSQL-$VERSION-Setup.exe"
+          cd /opt/progresql/downloads
+          ln -sf "ProgreSQL-$VERSION-Setup.exe" ProgreSQL-latest.exe
+        else
+          echo "==> No EXE found in release (Windows build may still be running)"
+        fi
       - cd /opt/progresql/downloads
       - ln -sf "ProgreSQL-$VERSION-arm64.dmg" ProgreSQL-latest.dmg
       - echo "==> Downloads:"
-      - ls -lh /opt/progresql/downloads/*.dmg
+      - ls -lh /opt/progresql/downloads/

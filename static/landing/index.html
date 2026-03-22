@@ -733,11 +733,48 @@ h2 {
   background-repeat: no-repeat;
 }
 
+.pricing-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 40px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.pricing-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.pricing-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.pricing-step-arrow {
+  color: var(--text-disabled);
+  font-size: 0.9rem;
+}
+
 .pricing-note {
   text-align: center;
   color: var(--text-disabled);
   font-size: 0.85rem;
-  margin-top: 32px;
+  margin-top: 16px;
   line-height: 1.6;
 }
 
@@ -925,7 +962,7 @@ h2 {
   <section class="hero">
     <div class="container">
       <h1 id="heroTitle" aria-label="Your AI copilot for PostgreSQL"></h1>
-      <p class="hero-subtitle fade-in" data-en="Generate, improve and explain SQL queries in seconds. ProgreSQL reads your real schema — no copy-paste, no hallucinations." data-ru="Генерируйте, улучшайте и объясняйте SQL-запросы за секунды. ProgreSQL читает реальную схему — без копирования, без галлюцинаций.">Generate, improve and explain SQL queries in seconds. ProgreSQL reads your real schema — no copy-paste, no hallucinations.</p>
+      <p class="hero-subtitle fade-in" data-en="Connect to PostgreSQL, ask in plain English — get production-ready SQL in seconds. Schema-aware AI that reads your real tables, not a generic chatbot." data-ru="Подключитесь к PostgreSQL, спросите на обычном языке — получите готовый SQL за секунды. AI, знающий вашу реальную схему, а не универсальный чат-бот.">Connect to PostgreSQL, ask in plain English — get production-ready SQL in seconds. Schema-aware AI that reads your real tables, not a generic chatbot.</p>
       <div class="hero-cta-group fade-in">
         <a href="#" class="btn-primary download-link download-link-with-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1021,7 +1058,7 @@ h2 {
         <div class="glass-card feature-card fade-in">
           <span class="feature-icon" aria-hidden="true">&#128421;</span>
           <h3 data-en="Native desktop app" data-ru="Нативное приложение">Native desktop app</h3>
-          <p data-en="macOS app with dark and light mode, resizable panels and instant startup." data-ru="Приложение для macOS с темной и светлой темой, изменяемыми панелями и мгновенным запуском.">macOS app with dark and light mode, resizable panels and instant startup.</p>
+          <p data-en="Desktop app for macOS &amp; Windows with dark and light mode, resizable panels and instant startup." data-ru="Десктопное приложение для macOS и Windows с темной и светлой темой, изменяемыми панелями и мгновенным запуском.">Desktop app for macOS &amp; Windows with dark and light mode, resizable panels and instant startup.</p>
         </div>
       </div>
     </div>
@@ -1050,7 +1087,7 @@ h2 {
         <div class="glass-card arch-block">AI Backend<br><small style="color:var(--text-secondary);font-weight:400;font-size:0.8rem;" data-en="(schema only)" data-ru="(только схема)">(schema only)</small></div>
       </div>
       <p class="arch-danger fade-in" data-en="No rows &middot; No passwords &middot; No data" data-ru="Без строк &middot; Без паролей &middot; Без данных">No rows &middot; No passwords &middot; No data</p>
-      <p class="arch-description fade-in" data-en="By default, ProgreSQL runs in Safe Mode — AI can only read your schema and generate SELECT queries. You can switch to Unsafe Mode in Settings to allow INSERT, UPDATE, and DELETE. The AI backend only receives table names, column types and indexes — never your actual data." data-ru="По умолчанию ProgreSQL работает в безопасном режиме (Safe Mode) — AI может только читать вашу схему и генерировать SELECT-запросы. Вы можете переключиться в небезопасный режим (Unsafe Mode) в настройках, чтобы разрешить INSERT, UPDATE и DELETE. AI-бэкенд получает только имена таблиц, типы колонок и индексы — никогда ваши реальные данные.">By default, ProgreSQL runs in Safe Mode — AI can only read your schema and generate SELECT queries. You can switch to Unsafe Mode in Settings to allow INSERT, UPDATE, and DELETE. The AI backend only receives table names, column types and indexes — never your actual data.</p>
+      <p class="arch-description fade-in" data-en="By default, ProgreSQL runs in Safe Mode — AI can only read your schema and generate SELECT queries. You can enable Write Mode in Settings to allow INSERT, UPDATE, and DELETE. The AI backend only receives table names, column types and indexes — never your actual data." data-ru="По умолчанию ProgreSQL работает в безопасном режиме (Safe Mode) — AI может только читать вашу схему и генерировать SELECT-запросы. Вы можете включить режим записи (Write Mode) в настройках, чтобы разрешить INSERT, UPDATE и DELETE. AI-бэкенд получает только имена таблиц, типы колонок и индексы — никогда ваши реальные данные.">By default, ProgreSQL runs in Safe Mode — AI can only read your schema and generate SELECT queries. You can enable Write Mode in Settings to allow INSERT, UPDATE, and DELETE. The AI backend only receives table names, column types and indexes — never your actual data.</p>
     </div>
   </section>
 
@@ -1066,8 +1103,10 @@ h2 {
             <span class="amount">$0</span>
           </div>
           <ul class="pricing-features">
-            <li data-en="SQL editor &amp; schema explorer" data-ru="SQL-редактор и обозреватель схемы">SQL editor &amp; schema explorer</li>
+            <li data-en="SQL editor with autocomplete" data-ru="SQL-редактор с автодополнением">SQL editor with autocomplete</li>
+            <li data-en="Visual schema explorer &amp; ER diagrams" data-ru="Визуальный обозреватель схемы и ER-диаграммы">Visual schema explorer &amp; ER diagrams</li>
             <li data-en="Connect to any PostgreSQL" data-ru="Подключение к любому PostgreSQL">Connect to any PostgreSQL</li>
+            <li data-en="Multiple connections at once" data-ru="Несколько подключений одновременно">Multiple connections at once</li>
             <li data-en="Free forever" data-ru="Бесплатно навсегда">Free forever</li>
           </ul>
           <a href="#" class="btn-secondary download-link" style="justify-content:center;" data-en="Download free &rarr;" data-ru="Скачать бесплатно &rarr;">Download free &rarr;</a>
@@ -1076,17 +1115,26 @@ h2 {
           <div class="pricing-badge" data-en="Most popular" data-ru="Популярный">Most popular</div>
           <div class="pricing-title">Pro</div>
           <div class="pricing-price">
-            <span class="amount">$20</span><span class="period" data-en="/month (crypto)" data-ru="/мес (крипто)">/month (crypto)</span>
+            <span class="amount">$20</span><span class="period" data-en="/month" data-ru="/мес">/month</span>
           </div>
           <ul class="pricing-features">
             <li data-en="Unlimited AI chat &amp; SQL generation" data-ru="Безлимитный AI-чат и генерация SQL">Unlimited AI chat &amp; SQL generation</li>
-            <li data-en="Improve &amp; explain queries" data-ru="Улучшение и объяснение запросов">Improve &amp; explain queries</li>
+            <li data-en="Improve, explain &amp; optimize queries" data-ru="Улучшение, объяснение и оптимизация запросов">Improve, explain &amp; optimize queries</li>
+            <li data-en="Schema comparison &amp; migrations" data-ru="Сравнение схем и миграции">Schema comparison &amp; migrations</li>
+            <li data-en="Analytics charts &amp; visualizations" data-ru="Аналитические графики и визуализации">Analytics charts &amp; visualizations</li>
             <li data-en="Priority support via Telegram" data-ru="Приоритетная поддержка в Telegram">Priority support via Telegram</li>
           </ul>
-          <a href="#" class="btn-primary download-link" style="justify-content:center;" data-en="Download &amp; upgrade &rarr;" data-ru="Скачать и обновить &rarr;">Download &amp; upgrade &rarr;</a>
+          <a href="#" class="btn-primary download-link" style="justify-content:center;" data-en="Download free &rarr;" data-ru="Скачать бесплатно &rarr;">Download free &rarr;</a>
         </div>
       </div>
-      <p class="pricing-note fade-in" data-en="Pay with crypto inside the app (USDT, BTC, TON). License activates instantly." data-ru="Оплата криптовалютой внутри приложения (USDT, BTC, TON). Лицензия активируется мгновенно.">Pay with crypto inside the app (USDT, BTC, TON). License activates instantly.</p>
+      <div class="pricing-steps fade-in">
+        <div class="pricing-step"><span class="pricing-step-num">1</span><span data-en="Download the app" data-ru="Скачайте приложение">Download the app</span></div>
+        <div class="pricing-step-arrow">&rarr;</div>
+        <div class="pricing-step"><span class="pricing-step-num">2</span><span data-en="Open Settings &rarr; Subscription" data-ru="Откройте Настройки &rarr; Подписка">Open Settings &rarr; Subscription</span></div>
+        <div class="pricing-step-arrow">&rarr;</div>
+        <div class="pricing-step"><span class="pricing-step-num">3</span><span data-en="Pay with crypto — done" data-ru="Оплатите криптой — готово">Pay with crypto — done</span></div>
+      </div>
+      <p class="pricing-note fade-in" data-en="Upgrade to Pro inside the app. Pay with crypto (USDT, BTC, TON) — license activates instantly." data-ru="Обновление до Pro внутри приложения. Оплата криптовалютой (USDT, BTC, TON) — лицензия активируется мгновенно.">Upgrade to Pro inside the app. Pay with crypto (USDT, BTC, TON) — license activates instantly.</p>
     </div>
   </section>
 
@@ -1120,7 +1168,7 @@ h2 {
             <svg class="faq-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 8 10 13 15 8"/></svg>
           </button>
           <div class="faq-answer">
-            <div class="faq-answer-inner" data-en="macOS 12 (Monterey) and above. Windows and Linux versions are coming soon." data-ru="macOS 12 (Monterey) и выше. Версии для Windows и Linux скоро появятся.">macOS 12 (Monterey) and above. Windows and Linux versions are coming soon.</div>
+            <div class="faq-answer-inner" data-en="macOS 12 (Monterey) and above, and Windows 10/11. Linux support is coming soon." data-ru="macOS 12 (Monterey) и выше, а также Windows 10/11. Поддержка Linux скоро появится.">macOS 12 (Monterey) and above, and Windows 10/11. Linux support is coming soon.</div>
           </div>
         </div>
         <div class="faq-item fade-in">
@@ -1139,6 +1187,24 @@ h2 {
           </button>
           <div class="faq-answer">
             <div class="faq-answer-inner" data-en="Yes. The free plan includes the full SQL editor and schema explorer, so you can explore the app before deciding to upgrade." data-ru="Да. Бесплатный план включает полный SQL-редактор и обозреватель схемы, чтобы вы могли оценить приложение перед обновлением.">Yes. The free plan includes the full SQL editor and schema explorer, so you can explore the app before deciding to upgrade.</div>
+          </div>
+        </div>
+        <div class="faq-item fade-in">
+          <button class="faq-question" aria-expanded="false">
+            <span data-en="Can the AI see my actual data (rows)?" data-ru="Может ли AI видеть мои реальные данные (строки)?">Can the AI see my actual data (rows)?</span>
+            <svg class="faq-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 8 10 13 15 8"/></svg>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner" data-en="No. The AI only receives schema metadata — table names, column types, and indexes. Your actual row data stays on your machine and is never sent anywhere." data-ru="Нет. AI получает только метаданные схемы — имена таблиц, типы колонок и индексы. Ваши реальные данные остаются на вашем компьютере и никуда не отправляются.">No. The AI only receives schema metadata — table names, column types, and indexes. Your actual row data stays on your machine and is never sent anywhere.</div>
+          </div>
+        </div>
+        <div class="faq-item fade-in">
+          <button class="faq-question" aria-expanded="false">
+            <span data-en="Does ProgreSQL need internet to work?" data-ru="Нужен ли ProgreSQL интернет для работы?">Does ProgreSQL need internet to work?</span>
+            <svg class="faq-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 8 10 13 15 8"/></svg>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner" data-en="The SQL editor and schema explorer work offline — you just need a database connection. AI features (chat, generation, optimization) require internet since they use our AI backend." data-ru="SQL-редактор и обозреватель схемы работают офлайн — нужно только подключение к базе данных. AI-функции (чат, генерация, оптимизация) требуют интернет, так как используют наш AI-бэкенд.">The SQL editor and schema explorer work offline — you just need a database connection. AI features (chat, generation, optimization) require internet since they use our AI backend.</div>
           </div>
         </div>
         <div class="faq-item fade-in">
@@ -1162,7 +1228,7 @@ h2 {
       <div class="fade-in" style="text-align:center;">
         <a href="#" class="btn-primary download-link download-link-with-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span class="download-label">Download Now — it's free</span>
+          <span class="download-label">Download Now</span>
         </a>
       </div>
     </div>
@@ -1221,19 +1287,10 @@ h2 {
 
     var labels = document.querySelectorAll('.download-label');
     labels.forEach(function(label) {
-      var parent = label.closest('.footer-cta');
-      if (parent) {
-        if (lang === 'ru') {
-          label.textContent = 'Скачать для ' + osName + ' — бесплатно';
-        } else {
-          label.textContent = 'Download for ' + osName + ' — it\'s free';
-        }
+      if (lang === 'ru') {
+        label.textContent = 'Скачать для ' + osName;
       } else {
-        if (lang === 'ru') {
-          label.textContent = 'Скачать для ' + osName;
-        } else {
-          label.textContent = 'Download for ' + osName;
-        }
+        label.textContent = 'Download for ' + osName;
       }
     });
   }
