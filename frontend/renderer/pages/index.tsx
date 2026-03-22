@@ -79,9 +79,19 @@ export default function Home() {
   const shouldRedirect = !isAuthenticated || !isEmailVerified;
   useEffect(() => {
     if (!isAuthenticated) {
-      router.replace('/login');
+      // Full page reload in Electron production — client-side routing
+      // with file:// protocol fails on Windows (white screen)
+      if ((window as any).electronAPI) {
+        window.location.href = './login.html';
+      } else {
+        router.replace('/login');
+      }
     } else if (!isEmailVerified) {
-      router.replace('/verify-email');
+      if ((window as any).electronAPI) {
+        window.location.href = './verify-email.html';
+      } else {
+        router.replace('/verify-email');
+      }
     }
   }, [isAuthenticated, isEmailVerified, router]);
 

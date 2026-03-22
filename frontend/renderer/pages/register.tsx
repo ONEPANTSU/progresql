@@ -7,6 +7,16 @@ import Logo from '../components/Logo';
 import { useTranslation } from '../contexts/LanguageContext';
 import { authService } from '../services/auth';
 
+/** Full page reload in Electron production to avoid file:// routing issues on Windows */
+function navigateTo(route: string, router: ReturnType<typeof useRouter>) {
+  if (typeof window !== 'undefined' && (window as any).electronAPI) {
+    const page = route === '/' ? 'index' : route.replace(/^\//, '');
+    window.location.href = `./${page}.html`;
+  } else {
+    router.replace(route);
+  }
+}
+
 interface PasswordCheck {
   key: string;
   met: boolean;
@@ -73,9 +83,9 @@ export default function RegisterPage() {
       navigatingRef.current = true;
       setNavigating(true);
       if (!isEmailVerified) {
-        router.replace('/verify-email');
+        navigateTo('/verify-email', router);
       } else {
-        router.replace('/');
+        navigateTo('/', router);
       }
     }
   }, [isAuthenticated, isEmailVerified, router]);
@@ -110,7 +120,7 @@ export default function RegisterPage() {
       // Navigate explicitly to avoid race with useEffect
       navigatingRef.current = true;
       setNavigating(true);
-      await router.replace('/verify-email');
+      navigateTo('/verify-email', router);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('auth.register.error'));
       setLoading(false);

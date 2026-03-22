@@ -6,6 +6,22 @@ import { useAuth } from '../providers/AuthProvider';
 import Logo from '../components/Logo';
 import { useTranslation } from '../contexts/LanguageContext';
 
+/**
+ * Navigate using full page reload in Electron production.
+ * Next.js client-side routing with file:// protocol breaks on Windows
+ * (JS chunks fail to load → white screen). Full reload is reliable.
+ */
+function navigateTo(route: string, router: ReturnType<typeof useRouter>) {
+  if (typeof window !== 'undefined' && (window as any).electronAPI) {
+    // Electron production: full page reload to the target HTML file
+    const page = route === '/' ? 'index' : route.replace(/^\//, '');
+    window.location.href = `./${page}.html`;
+  } else {
+    // Dev mode or web: use Next.js router
+    router.replace(route);
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { login, isAuthenticated, isEmailVerified } = useAuth();
@@ -24,9 +40,9 @@ export default function LoginPage() {
       navigatingRef.current = true;
       setNavigating(true);
       if (!isEmailVerified) {
-        router.replace('/verify-email');
+        navigateTo('/verify-email', router);
       } else {
-        router.replace('/');
+        navigateTo('/', router);
       }
     }
   }, [isAuthenticated, isEmailVerified, router]);
@@ -49,9 +65,9 @@ export default function LoginPage() {
       navigatingRef.current = true;
       setNavigating(true);
       if (loggedInUser && !loggedInUser.emailVerified) {
-        await router.replace('/verify-email');
+        navigateTo('/verify-email', router);
       } else {
-        await router.replace('/');
+        navigateTo('/', router);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

@@ -6,6 +6,16 @@ import { authService } from '../services/auth';
 import Logo from '../components/Logo';
 import { useTranslation } from '../contexts/LanguageContext';
 
+/** Full page reload in Electron production to avoid file:// routing issues on Windows */
+function navigateTo(route: string, router: ReturnType<typeof useRouter>) {
+  if (typeof window !== 'undefined' && (window as any).electronAPI) {
+    const page = route === '/' ? 'index' : route.replace(/^\//, '');
+    window.location.href = `./${page}.html`;
+  } else {
+    router.replace(route);
+  }
+}
+
 type Step = 'email' | 'code' | 'done';
 
 export default function ForgotPasswordPage() {
@@ -102,7 +112,7 @@ export default function ForgotPasswordPage() {
         {step === 'done' && (
           <>
             <Alert severity="success" sx={{ mb: 2 }}>{t('auth.forgot.success')}</Alert>
-            <Button variant="contained" fullWidth onClick={() => router.replace('/login')}>
+            <Button variant="contained" fullWidth onClick={() => navigateTo('/login', router)}>
               {t('auth.forgot.loginButton')}
             </Button>
           </>

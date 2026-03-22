@@ -5,6 +5,16 @@ import { useAuth } from '../providers/AuthProvider';
 import Logo from '../components/Logo';
 import { useTranslation } from '../contexts/LanguageContext';
 
+/** Full page reload in Electron production to avoid file:// routing issues on Windows */
+function navigateTo(route: string, router: ReturnType<typeof useRouter>) {
+  if (typeof window !== 'undefined' && (window as any).electronAPI) {
+    const page = route === '/' ? 'index' : route.replace(/^\//, '');
+    window.location.href = `./${page}.html`;
+  } else {
+    router.replace(route);
+  }
+}
+
 const COOLDOWN_SECONDS = 60;
 const CODE_VALIDITY_MINUTES = 15;
 const CODE_LENGTH = 6;
@@ -31,11 +41,11 @@ export default function VerifyEmailPage() {
     if (!isAuthenticated) {
       navigatingRef.current = true;
       setNavigating(true);
-      router.replace('/login');
+      navigateTo('/login', router);
     } else if (isEmailVerified) {
       navigatingRef.current = true;
       setNavigating(true);
-      router.replace('/');
+      navigateTo('/', router);
     }
   }, [isAuthenticated, isEmailVerified, router]);
 
@@ -142,7 +152,7 @@ export default function VerifyEmailPage() {
       await verifyCode(code);
       navigatingRef.current = true;
       setNavigating(true);
-      await router.replace('/');
+      await navigateTo('/', router);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('auth.verify.invalidCode'));
       setLoading(false);
@@ -158,7 +168,7 @@ export default function VerifyEmailPage() {
 
   const handleLogout = () => {
     logout();
-    router.replace('/login');
+    navigateTo('/login', router);
   };
 
   if (!isAuthenticated || isEmailVerified || navigating) {
