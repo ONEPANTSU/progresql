@@ -61,9 +61,20 @@ export default function LoginPage() {
     }
   };
 
+  // Fallback: if navigation gets stuck, reset after 5 seconds
+  React.useEffect(() => {
+    if (!navigating) return;
+    const timer = setTimeout(() => {
+      console.warn('[LOGIN] Navigation timeout — resetting');
+      navigatingRef.current = false;
+      setNavigating(false);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [navigating]);
+
   if (navigating) {
     return (
-      <Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default' }}>
         <CircularProgress />
       </Box>
     );

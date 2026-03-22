@@ -134,9 +134,14 @@ export default function Home() {
         setActiveConnection(activeConns[0]);
 
         const restoreAllConnections = async () => {
-          // Reconnect all previously active connections in parallel
-          await Promise.all(activeConns.map(conn => performConnection(conn)));
-          setIsRestoringConnections(false);
+          try {
+            // Reconnect all previously active connections in parallel
+            await Promise.all(activeConns.map(conn => performConnection(conn)));
+          } catch (err) {
+            log.error('Error restoring connections:', err);
+          } finally {
+            setIsRestoringConnections(false);
+          }
         };
 
         // Restore connections — use app-ready event OR immediate call, never both
@@ -363,7 +368,17 @@ export default function Home() {
 
       log.debug('Calling electronAPI.connectDatabase');
 
-      const result = await window.electronAPI.connectDatabase(connectionConfig);
+      // Timeout to prevent hanging IPC calls (e.g., on Windows first load)
+      const connectWithTimeout = (config: typeof connectionConfig, timeoutMs = 15000) => {
+        return Promise.race([
+          window.electronAPI.connectDatabase(config),
+          new Promise<{ success: false; message: string }>((_, reject) =>
+            setTimeout(() => reject(new Error('Connection timed out. Please try again.')), timeoutMs)
+          ),
+        ]);
+      };
+
+      const result = await connectWithTimeout(connectionConfig);
 
       if (result.success) {
         log.debug('Connection successful');
