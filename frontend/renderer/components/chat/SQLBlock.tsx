@@ -73,7 +73,7 @@ const SQLBlock: React.FC<SQLBlockProps> = ({
       setVerificationStatus('skipped');
       return;
     }
-    if (safeMode && isDMLStatement(sql)) {
+    if (isDMLStatement(sql)) {
       setVerificationStatus('skipped');
       return;
     }

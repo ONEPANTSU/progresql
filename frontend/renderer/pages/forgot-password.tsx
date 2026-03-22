@@ -73,7 +73,7 @@ export default function ForgotPasswordPage() {
             </Typography>
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             <Box component="form" onSubmit={handleSendCode} sx={{ display: 'grid', gap: 2 }}>
-              <TextField label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} required fullWidth autoFocus />
+              <TextField label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} fullWidth autoFocus />
               <Button type="submit" variant="contained" disabled={loading}>
                 {loading ? t('auth.forgot.sendingCode') : t('auth.forgot.sendCode')}
               </Button>
@@ -89,9 +89,9 @@ export default function ForgotPasswordPage() {
             </Typography>
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             <Box component="form" onSubmit={handleResetPassword} sx={{ display: 'grid', gap: 2 }}>
-              <TextField label={t('auth.forgot.codeLabel')} value={code} onChange={e => setCode(e.target.value)} required fullWidth autoFocus />
-              <TextField label={t('auth.forgot.newPasswordLabel')} type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required fullWidth />
-              <TextField label={t('auth.forgot.confirmPassword')} type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required fullWidth />
+              <TextField label={t('auth.forgot.codeLabel')} value={code} onChange={e => setCode(e.target.value)} fullWidth autoFocus />
+              <TextField label={t('auth.forgot.newPasswordLabel')} type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} fullWidth />
+              <TextField label={t('auth.forgot.confirmPassword')} type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} fullWidth />
               <Button type="submit" variant="contained" disabled={loading}>
                 {loading ? t('auth.forgot.changingPassword') : t('auth.forgot.changePassword')}
               </Button>

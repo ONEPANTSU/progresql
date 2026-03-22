@@ -74,7 +74,7 @@ export default function ConnectionForm({ onConnect, initialData, isEditMode = fa
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     log.debug('Form submitted');
 
     if (!validateForm()) {
@@ -95,7 +95,7 @@ export default function ConnectionForm({ onConnect, initialData, isEditMode = fa
 
   const handleInputChange = (field: keyof DatabaseConnection, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    
+
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
@@ -108,7 +108,7 @@ export default function ConnectionForm({ onConnect, initialData, isEditMode = fa
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="Connection Name"
+            label={t('connection.name')}
             value={formData.connectionName}
             onChange={(e) => handleInputChange('connectionName', e.target.value)}
             error={!!errors.connectionName}
@@ -121,7 +121,7 @@ export default function ConnectionForm({ onConnect, initialData, isEditMode = fa
         <Grid item xs={12} sm={6}>
           <TextField
             fullWidth
-            label="Host"
+            label={t('connection.host')}
             value={formData.host}
             onChange={(e) => handleInputChange('host', e.target.value)}
             error={!!errors.host}
@@ -134,7 +134,7 @@ export default function ConnectionForm({ onConnect, initialData, isEditMode = fa
         <Grid item xs={12} sm={6}>
           <TextField
             fullWidth
-            label="Port"
+            label={t('connection.port')}
             type="number"
             value={formData.port}
             onChange={(e) => handleInputChange('port', parseInt(e.target.value) || 0)}
@@ -149,7 +149,7 @@ export default function ConnectionForm({ onConnect, initialData, isEditMode = fa
         <Grid item xs={12} sm={6}>
           <TextField
             fullWidth
-            label="Username"
+            label={t('connection.username')}
             value={formData.username}
             onChange={(e) => handleInputChange('username', e.target.value)}
             error={!!errors.username}
@@ -162,11 +162,11 @@ export default function ConnectionForm({ onConnect, initialData, isEditMode = fa
         <Grid item xs={12} sm={6}>
           <TextField
             fullWidth
-            label="Password"
+            label={t('connection.password')}
             type="password"
             value={formData.password}
             onChange={(e) => handleInputChange('password', e.target.value)}
-            placeholder="Enter your password"
+            placeholder={t('connection.passwordPlaceholder')}
             variant="outlined"
           />
         </Grid>
@@ -174,7 +174,7 @@ export default function ConnectionForm({ onConnect, initialData, isEditMode = fa
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="Database"
+            label={t('connection.database')}
             value={formData.database}
             onChange={(e) => handleInputChange('database', e.target.value)}
             error={!!errors.database}
@@ -191,18 +191,17 @@ export default function ConnectionForm({ onConnect, initialData, isEditMode = fa
             variant="contained"
             size="large"
             disabled={isConnecting}
-            sx={{ mt: 2 }}
+            sx={{
+              mt: 2,
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #7c3aed)',
+              '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed, #6d28d9)' },
+              '&.Mui-disabled': { background: 'linear-gradient(135deg, #a5b4fc, #c4b5fd)', color: 'rgba(255,255,255,0.7)' },
+            }}
           >
 {isConnecting ? (isEditMode ? t('connection.updating') : t('connection.connecting')) : (isEditMode ? t('connection.update') : t('connection.connect'))}
           </Button>
         </Grid>
       </Grid>
-
-      <Alert severity="info" sx={{ mt: 3 }}>
-        <Typography variant="body2">
-          {t('connection.hint')}
-        </Typography>
-      </Alert>
     </Box>
   );
 }

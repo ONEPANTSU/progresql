@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
   const navigatingRef = useRef(false);
   const [navigating, setNavigating] = useState(false);
@@ -32,6 +33,14 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errs: { email?: string; password?: string } = {};
+    if (!email.trim()) errs.email = t('auth.login.emailRequired') || 'Email is required';
+    if (!password) errs.password = t('auth.login.passwordRequired') || 'Password is required';
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      return;
+    }
+    setFieldErrors({});
     setError(null);
     setLoading(true);
     try {
@@ -45,7 +54,9 @@ export default function LoginPage() {
         await router.replace('/');
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t('auth.login.error'));
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[LOGIN] Login failed:', msg, err);
+      setError(msg || t('auth.login.error'));
       setLoading(false);
     }
   };
@@ -82,9 +93,9 @@ export default function LoginPage() {
           {t('auth.login.subtitle')}
         </Typography>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        <Box component="form" onSubmit={handleSubmit} sx={{ display: 'grid', gap: 2 }}>
-          <TextField label={t('auth.login.email')} type="email" value={email} onChange={e => setEmail(e.target.value)} required fullWidth autoFocus />
-          <TextField label={t('auth.login.password')} type="password" value={password} onChange={e => setPassword(e.target.value)} required fullWidth />
+        <Box component="form" noValidate onSubmit={handleSubmit} sx={{ display: 'grid', gap: 2 }}>
+          <TextField label={t('auth.login.email')} type="email" value={email} onChange={e => { setEmail(e.target.value); setFieldErrors(prev => ({ ...prev, email: undefined })); }} error={!!fieldErrors.email} helperText={fieldErrors.email} fullWidth autoFocus />
+          <TextField label={t('auth.login.password')} type="password" value={password} onChange={e => { setPassword(e.target.value); setFieldErrors(prev => ({ ...prev, password: undefined })); }} error={!!fieldErrors.password} helperText={fieldErrors.password} fullWidth />
           <Button type="submit" variant="contained" disabled={loading}>
             {loading ? t('auth.login.submitting') : t('auth.login.submit')}
           </Button>
@@ -134,5 +145,3 @@ export default function LoginPage() {
     </Box>
   );
 }
-
-

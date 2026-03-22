@@ -240,6 +240,28 @@ export default function DatabasePanel({
   const [selectedElementType, setSelectedElementType] = useState<string>('');
   const [schemaSyncOpen, setSchemaSyncOpen] = useState(false);
 
+  // Re-sync selectedElement with fresh data from connections after refresh
+  useEffect(() => {
+    if (!detailsModalOpen || !selectedElement || !selectedElementType) return;
+    // Only refresh table elements (they have columns that can change)
+    if (selectedElementType !== 'table') return;
+    const tableName = selectedElement.table_name;
+    const schemaName = selectedElement.table_schema || 'public';
+    if (!tableName) return;
+    for (const conn of connections) {
+      if (!conn.databases) continue;
+      for (const db of conn.databases) {
+        const table = db.tables?.find(
+          (t: any) => t.table_name === tableName && (t.table_schema || 'public') === schemaName
+        );
+        if (table) {
+          setSelectedElement(table);
+          return;
+        }
+      }
+    }
+  }, [connections, detailsModalOpen, selectedElementType]);
+
   const handleAddConnection = (connectionData: any) => {
     const newConnection: Omit<DatabaseServer, 'id' | 'databases' | 'isActive'> = {
       ...connectionData,
@@ -529,7 +551,7 @@ export default function DatabasePanel({
         const s = schemaName || 'public';
         if (onQueryTable) {
           onQueryTable(
-            `CREATE TABLE ${"${s}"}.new_table (\n  id SERIAL PRIMARY KEY,\n  name VARCHAR(255) NOT NULL,\n  created_at TIMESTAMP DEFAULT NOW()\n);\n`
+            `CREATE TABLE ${`${s}`}.new_table (\n  id SERIAL PRIMARY KEY,\n  name VARCHAR(255) NOT NULL,\n  created_at TIMESTAMP DEFAULT NOW()\n);\n`
           );
         }
         break;
@@ -765,7 +787,7 @@ export default function DatabasePanel({
           {isConnecting ? (
             <CircularProgress size={TREE_ICON_SIZE} thickness={4} sx={{ color: 'warning.main' }} />
           ) : (
-            <ConnectionIcon sx={{ fontSize: TREE_ICON_SIZE, color: connection.isActive ? 'success.main' : connError ? 'error.main' : 'text.secondary' }} />
+            <ConnectionIcon sx={{ fontSize: TREE_ICON_SIZE, color: connError ? 'error.main' : '#8b5cf6' }} />
           )}
         </ListItemIcon>
         <ListItemText
@@ -775,9 +797,6 @@ export default function DatabasePanel({
           secondaryTypographyProps={{ sx: { fontSize: '0.6875rem', color: 'warning.main', lineHeight: 1 } }}
         />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-          {isConnecting && (
-            <CircularProgress size={14} thickness={4} sx={{ color: 'warning.main', mr: 0.25 }} />
-          )}
           {expandedConnections.has(connection.id) ?
             <ExpandLessIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'text.secondary' }} className="expand-icon expanded" /> :
             <ExpandMoreIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'text.secondary' }} className="expand-icon" />
@@ -800,7 +819,7 @@ export default function DatabasePanel({
             '& .MuiAlert-action': { pt: 0, pr: 0 },
           }}
           action={
-            <Tooltip title="Retry connection">
+            <Tooltip title={t('db.retryConnection')}>
               <IconButton
                 size="small"
                 color="inherit"
@@ -845,7 +864,7 @@ export default function DatabasePanel({
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: '20px' }}>
-                    <DatabaseIconNew sx={{ fontSize: LEAF_ICON_SIZE, color: '#8b5cf6' }} />
+                    <DatabaseIconNew sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} />
                   </ListItemIcon>
                   <ListItemText
                     primary={database.name}
@@ -1459,7 +1478,7 @@ export default function DatabasePanel({
             <Typography variant="subtitle2" sx={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
               {t('db.sections.connections')}
             </Typography>
-            <Tooltip title="Add New Connection">
+            <Tooltip title={t('db.addConnection')}>
               <IconButton
                 color="primary"
                 onClick={() => setIsAddDialogOpen(true)}
@@ -1489,7 +1508,7 @@ export default function DatabasePanel({
           maxWidth="sm"
           fullWidth
         >
-          <DialogTitle>Add New Database Connection</DialogTitle>
+          <DialogTitle>{t('db.addNewConnection')}</DialogTitle>
           <DialogContent>
             <ConnectionForm
               onConnect={handleAddConnection}
@@ -1497,7 +1516,7 @@ export default function DatabasePanel({
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => setIsAddDialogOpen(false)}>{t('details.cancel')}</Button>
           </DialogActions>
         </Dialog>
       </Box>
@@ -1519,13 +1538,13 @@ export default function DatabasePanel({
             />
             {isRestoringConnections && (
               <Typography component="span" variant="caption" sx={{ fontSize: '0.6875rem', color: 'primary.main' }}>
-                Restoring...
+                {t('db.restoring')}
               </Typography>
             )}
           </Box>
           <Box sx={{ display: 'flex', gap: 0.25 }}>
             {activeConnection && onAnalyzeSchema && (
-              <Tooltip title="Analyze Schema">
+              <Tooltip title={t('db.analyzeSchema')}>
                 <IconButton
                   onClick={onAnalyzeSchema}
                   aria-label="Analyze database schema"
@@ -1537,7 +1556,7 @@ export default function DatabasePanel({
               </Tooltip>
             )}
             {connections.filter((c) => c.isActive).length >= 2 && (
-              <Tooltip title="Schema Sync">
+              <Tooltip title={t('db.schemaSync')}>
                 <IconButton
                   onClick={() => setSchemaSyncOpen(true)}
                   aria-label="Compare and sync schemas"
@@ -1548,7 +1567,7 @@ export default function DatabasePanel({
                 </IconButton>
               </Tooltip>
             )}
-            <Tooltip title="Add New Connection">
+            <Tooltip title={t('db.addConnection')}>
               <IconButton
                 onClick={() => setIsAddDialogOpen(true)}
                 aria-label="Add new database connection"
@@ -1702,7 +1721,7 @@ export default function DatabasePanel({
           </MenuItem>,
           <MenuItem key="copy_name" onClick={() => handleObjectMenuAction('copy_name')}>
             <ListItemIcon><CopyIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
-            Copy Name
+            {t('db.copyName')}
           </MenuItem>,
           onExplainObject && <Divider key="div1" />,
           onExplainObject && (
@@ -1735,7 +1754,7 @@ export default function DatabasePanel({
           </MenuItem>,
           <MenuItem key="copy_name" onClick={() => handleObjectMenuAction('copy_name')}>
             <ListItemIcon><CopyIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
-            Copy Name
+            {t('db.copyName')}
           </MenuItem>,
           onExplainObject && <Divider key="div1" />,
           onExplainObject && (
@@ -1768,7 +1787,7 @@ export default function DatabasePanel({
           </MenuItem>,
           <MenuItem key="copy_name" onClick={() => handleObjectMenuAction('copy_name')}>
             <ListItemIcon><CopyIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
-            Copy Name
+            {t('db.copyName')}
           </MenuItem>,
           onExplainObject && <Divider key="div1" />,
           onExplainObject && (
@@ -1801,7 +1820,7 @@ export default function DatabasePanel({
           </MenuItem>,
           <MenuItem key="copy_name" onClick={() => handleObjectMenuAction('copy_name')}>
             <ListItemIcon><CopyIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
-            Copy Name
+            {t('db.copyName')}
           </MenuItem>,
           onExplainObject && <Divider key="div1" />,
           onExplainObject && (
@@ -1826,7 +1845,7 @@ export default function DatabasePanel({
         {contextMenuObject?.type === 'schema' && [
           <MenuItem key="copy_name" onClick={() => handleObjectMenuAction('copy_name')}>
             <ListItemIcon><CopyIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
-            Copy Name
+            {t('db.copyName')}
           </MenuItem>,
           <MenuItem key="refresh" onClick={() => handleObjectMenuAction('refresh')}>
             <ListItemIcon><RefreshIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
@@ -1900,7 +1919,7 @@ export default function DatabasePanel({
         {contextMenuObject?.type === 'sequence' && [
           <MenuItem key="copy_name" onClick={() => handleObjectMenuAction('copy_name')}>
             <ListItemIcon><CopyIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
-            Copy Name
+            {t('db.copyName')}
           </MenuItem>,
           <Divider key="div1" />,
           <MenuItem key="drop_sequence" onClick={() => handleObjectMenuAction('drop_sequence')} sx={{ color: 'error.main' }}>
@@ -1911,7 +1930,7 @@ export default function DatabasePanel({
         {contextMenuObject?.type === 'extension' && [
           <MenuItem key="copy_name" onClick={() => handleObjectMenuAction('copy_name')}>
             <ListItemIcon><CopyIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
-            Copy Name
+            {t('db.copyName')}
           </MenuItem>,
           <Divider key="div1" />,
           <MenuItem key="drop_extension" onClick={() => handleObjectMenuAction('drop_extension')} sx={{ color: 'error.main' }}>
@@ -1922,7 +1941,7 @@ export default function DatabasePanel({
         {contextMenuObject?.type === 'type' && [
           <MenuItem key="copy_name" onClick={() => handleObjectMenuAction('copy_name')}>
             <ListItemIcon><CopyIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
-            Copy Name
+            {t('db.copyName')}
           </MenuItem>,
           <Divider key="div1" />,
           <MenuItem key="drop_type" onClick={() => handleObjectMenuAction('drop_type')} sx={{ color: 'error.main' }}>
@@ -1981,7 +2000,7 @@ export default function DatabasePanel({
           </MenuItem>,
           <MenuItem key="copy_name" onClick={() => handleObjectMenuAction('copy_name')}>
             <ListItemIcon><CopyIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
-            Copy Name
+            {t('db.copyName')}
           </MenuItem>,
           <Divider key="div1" />,
           <MenuItem key="alter_column" onClick={() => handleObjectMenuAction('alter_column')}>
@@ -2000,7 +2019,7 @@ export default function DatabasePanel({
           </MenuItem>,
           <MenuItem key="copy_name" onClick={() => handleObjectMenuAction('copy_name')}>
             <ListItemIcon><CopyIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
-            Copy Name
+            {t('db.copyName')}
           </MenuItem>,
           <Divider key="div1" />,
           <MenuItem key="drop_index" onClick={() => handleObjectMenuAction('drop_index')} sx={{ color: 'error.main' }}>
@@ -2015,7 +2034,7 @@ export default function DatabasePanel({
           </MenuItem>,
           <MenuItem key="copy_name" onClick={() => handleObjectMenuAction('copy_name')}>
             <ListItemIcon><CopyIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
-            Copy Name
+            {t('db.copyName')}
           </MenuItem>,
           <Divider key="div1" />,
           <MenuItem key="drop_constraint" onClick={() => handleObjectMenuAction('drop_constraint')} sx={{ color: 'error.main' }}>
@@ -2030,12 +2049,12 @@ export default function DatabasePanel({
           </MenuItem>,
           <MenuItem key="copy_name" onClick={() => handleObjectMenuAction('copy_name')}>
             <ListItemIcon><CopyIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
-            Copy Name
+            {t('db.copyName')}
           </MenuItem>,
           <Divider key="div1" />,
           <MenuItem key="drop_trigger" onClick={() => handleObjectMenuAction('drop_trigger')} sx={{ color: 'error.main' }}>
             <ListItemIcon><DeleteIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'error.main' }} /></ListItemIcon>
-            Drop Trigger
+            {t('db.dropTrigger')}
           </MenuItem>,
         ]}
       </Menu>
@@ -2047,7 +2066,7 @@ export default function DatabasePanel({
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Add New Database Connection</DialogTitle>
+        <DialogTitle>{t('db.addNewConnection')}</DialogTitle>
         <DialogContent>
           <ConnectionForm
             onConnect={handleAddConnection}
@@ -2055,7 +2074,7 @@ export default function DatabasePanel({
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setIsAddDialogOpen(false)}>{t('details.cancel')}</Button>
         </DialogActions>
       </Dialog>
 

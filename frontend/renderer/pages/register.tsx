@@ -149,10 +149,10 @@ export default function RegisterPage() {
           {t('auth.register.subtitle')}
         </Typography>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        <Box component="form" onSubmit={handleSubmit} sx={{ display: 'grid', gap: 2 }}>
-          <TextField label={t('auth.register.name')} value={name} onChange={e => setName(e.target.value)} required fullWidth autoFocus />
-          <TextField label={t('auth.register.email')} type="email" value={email} onChange={e => setEmail(e.target.value)} required fullWidth />
-          <TextField label={t('auth.register.password')} type="password" value={password} onChange={e => setPassword(e.target.value)} required fullWidth />
+        <Box component="form" noValidate onSubmit={handleSubmit} sx={{ display: 'grid', gap: 2 }}>
+          <TextField label={t('auth.register.name')} value={name} onChange={e => setName(e.target.value)} fullWidth autoFocus />
+          <TextField label={t('auth.register.email')} type="email" value={email} onChange={e => setEmail(e.target.value)} fullWidth />
+          <TextField label={t('auth.register.password')} type="password" value={password} onChange={e => setPassword(e.target.value)} fullWidth />
 
           {/* Password strength indicator */}
           {password.length > 0 && (

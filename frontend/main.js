@@ -33,6 +33,7 @@ function createWindow() {
       contextIsolation: true,
       sandbox: false, // Allow preload.js to require local modules (./logger, etc.)
       enableRemoteModule: false,
+      webSecurity: !isDev, // Disable CORS in dev mode to allow localhost → prod API
       preload: path.join(__dirname, 'preload.js')
     },
     title: 'ProgreSQL',
@@ -130,7 +131,7 @@ app.whenReady().then(() => {
         ...details.responseHeaders,
         'Content-Security-Policy': [
           isDev
-            ? "default-src 'self' http://localhost:* ws://localhost:*; script-src 'self' 'unsafe-eval' 'unsafe-inline' http://localhost:*; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:* https://api.openai.com https://openrouter.ai https://*.openrouter.ai;"
+            ? "default-src 'self' http://localhost:* ws://localhost:*; script-src 'self' 'unsafe-eval' 'unsafe-inline' http://localhost:*; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: file:; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:* https://progresql.com https://*.progresql.com wss://progresql.com https://api.openai.com https://openrouter.ai https://*.openrouter.ai;"
             : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: file:; connect-src 'self' https://progresql.com https://*.progresql.com ws://localhost:* wss://localhost:* wss://progresql.com https://api.openai.com https://openrouter.ai https://*.openrouter.ai;"
         ]
       }
@@ -163,6 +164,9 @@ app.on('activate', () => {
   }
 });
 
+// Multi-connection support
+if (!global.dbClients) global.dbClients = new Map();
+
 // IPC handlers for database operations
 ipcMain.handle('connect-database', async (event, connectionConfig) => {
   log.debug('connect-database called', {
@@ -184,17 +188,21 @@ ipcMain.handle('connect-database', async (event, connectionConfig) => {
       database: connectionConfig.database
     });
 
-    // Close previous client if exists (prevent stale event listeners from nullifying global.dbClient)
-    if (global.dbClient) {
-      log.debug('Closing previous database connection before creating new one');
+    // Close previous client for this connectionId if exists
+    const connId = connectionConfig.connectionId;
+    if (connId && global.dbClients.has(connId)) {
+      log.debug('Closing previous connection for id:', connId);
       try {
-        global.dbClient.removeAllListeners();
-        await global.dbClient.end();
+        const prev = global.dbClients.get(connId);
+        prev.removeAllListeners();
+        await prev.end();
       } catch (closeErr) {
         log.warn('Error closing previous connection (non-fatal):', closeErr.message);
       }
-      global.dbClient = null;
+      global.dbClients.delete(connId);
     }
+    // Clear legacy single client ref (don't close — it may be shared with another connId in the Map)
+    global.dbClient = null;
 
     // Guard against empty password (causes SCRAM error)
     if (!connectionConfig.password) {
@@ -213,11 +221,14 @@ ipcMain.handle('connect-database', async (event, connectionConfig) => {
       keepAliveInitialDelayMillis: 10000
     });
 
-    // Add error handlers — only clear global.dbClient if THIS client is still the active one
+    // Add error handlers — clean up from both legacy and Map
     client.on('error', (err) => {
       log.error('Connection error:', err);
       if (global.dbClient === client) {
         global.dbClient = null;
+      }
+      if (connId && global.dbClients && global.dbClients.get(connId) === client) {
+        global.dbClients.delete(connId);
       }
     });
 
@@ -226,14 +237,20 @@ ipcMain.handle('connect-database', async (event, connectionConfig) => {
       if (global.dbClient === client) {
         global.dbClient = null;
       }
+      if (connId && global.dbClients && global.dbClients.get(connId) === client) {
+        global.dbClients.delete(connId);
+      }
     });
 
     log.debug('Connecting to database...');
     await client.connect();
     log.debug('Connection successful');
 
-    // Store client reference
+    // Store client reference (both legacy single + multi-connection Map)
     global.dbClient = client;
+    if (connId) {
+      global.dbClients.set(connId, client);
+    }
 
     // Stop existing MCP server if running (for connection switching)
     log.debug('Stopping existing MCP server (if any) before reinitializing...');
@@ -314,24 +331,33 @@ ipcMain.handle('execute-query', async (event, params) => {
       throw new Error('No query text provided');
     }
 
-    if (!global.dbClient) {
+    // Resolve client: prefer connectionId from Map, fallback to global.dbClient
+    const connectionId = typeof params === 'object' ? params.connectionId : undefined;
+    let client;
+    if (connectionId && global.dbClients && global.dbClients.has(connectionId)) {
+      client = global.dbClients.get(connectionId);
+    } else if (global.dbClient) {
+      client = global.dbClient;
+    } else {
       throw new Error('No database connection');
     }
 
     // Check if connection is still alive, try reconnect if stale
     try {
-      await global.dbClient.query('SELECT 1');
+      await client.query('SELECT 1');
     } catch (connError) {
       log.warn('Connection check failed in execute-query, attempting reconnect:', connError.message);
-      global.dbClient = null;
+      if (connectionId && global.dbClients) global.dbClients.delete(connectionId);
+      if (global.dbClient === client) global.dbClient = null;
       const reconnected = await dbHealth.tryImmediateReconnect();
       if (!reconnected) {
         throw new Error('Database connection lost. Auto-reconnect in progress...');
       }
+      client = global.dbClient;
       log.debug('Reconnected successfully, proceeding with query');
     }
 
-    const result = await global.dbClient.query(queryText);
+    const result = await client.query(queryText);
     return {
       success: true,
       rows: result.rows,
@@ -670,7 +696,10 @@ ipcMain.handle('get-database-structure', async (event, connectionId) => {
 
       return {
         ...table,
-        columns: tableColumns,
+        columns: tableColumns.map(col => ({
+          ...col,
+          is_nullable: col.is_nullable === true || col.is_nullable === 'YES' ? 'YES' : 'NO',
+        })),
         indexes: tableIndexes,
         constraints: tableConstraints,
         triggers: tableTriggers
@@ -708,7 +737,7 @@ ipcMain.handle('get-database-structure', async (event, connectionId) => {
 });
 
 
-ipcMain.handle('disconnect-database', async (event) => {
+ipcMain.handle('disconnect-database', async (event, connectionId) => {
   try {
     // Stop auto-reconnect and health check (user-initiated disconnect)
     dbHealth.onDisconnected();
@@ -719,7 +748,16 @@ ipcMain.handle('disconnect-database', async (event) => {
     // Stop MCP server
     await mcpManager.stopMcpServer();
 
-    if (global.dbClient) {
+    // Close specific connection from Map
+    if (connectionId && global.dbClients && global.dbClients.has(connectionId)) {
+      const client = global.dbClients.get(connectionId);
+      try {
+        client.removeAllListeners();
+        await client.end();
+      } catch (_) { /* ignore */ }
+      global.dbClients.delete(connectionId);
+      if (global.dbClient === client) global.dbClient = null;
+    } else if (global.dbClient) {
       await global.dbClient.end();
       global.dbClient = null;
     }

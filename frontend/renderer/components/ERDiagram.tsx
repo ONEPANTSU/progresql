@@ -7,16 +7,21 @@ import {
   BackgroundVariant,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   ReactFlowProvider,
   MarkerType,
+  Handle,
+  Position,
   type Node,
   type Edge,
   type NodeTypes,
   type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import Dagre from '@dagrejs/dagre';
 
 import type { Table, Constraint } from '../types';
+import { useTranslation } from '../contexts/LanguageContext';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -28,6 +33,35 @@ const NODE_ESTIMATED_HEIGHT = 200;
 const GRID_GAP_X = 320;
 const GRID_GAP_Y = 300;
 const COLUMNS_PER_ROW = 5;
+
+// ---------------------------------------------------------------------------
+// Auto-layout using Dagre
+// ---------------------------------------------------------------------------
+
+function getAutoLayout<T extends Record<string, unknown>>(nodes: Node<T>[], edges: Edge[], direction: 'TB' | 'LR' = 'LR'): Node<T>[] {
+  const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+  g.setGraph({ rankdir: direction, nodesep: 60, ranksep: 100, edgesep: 30 });
+
+  nodes.forEach((node) => {
+    const colCount = (node.data as unknown as TableNodeData)?.columns?.length ?? 4;
+    const h = 40 + colCount * 22; // header + rows
+    g.setNode(node.id, { width: NODE_WIDTH, height: Math.max(h, 80) });
+  });
+
+  edges.forEach((edge) => {
+    g.setEdge(edge.source, edge.target);
+  });
+
+  Dagre.layout(g);
+
+  return nodes.map((node) => {
+    const pos = g.node(node.id);
+    return {
+      ...node,
+      position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - (pos.height ?? 80) / 2 },
+    };
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Helpers -- localStorage positions
@@ -56,6 +90,26 @@ function savePositions(positions: SavedPositions): void {
 }
 
 // ---------------------------------------------------------------------------
+// Normalize constraint_type from raw pg codes to human-readable names.
+// pg_constraint.contype returns single-letter codes ('p','f','u','c','x').
+// Some handlers CASE-map them in SQL, but we must handle both formats.
+// ---------------------------------------------------------------------------
+
+const CONSTRAINT_TYPE_MAP: Record<string, string> = {
+  p: 'PRIMARY KEY',
+  f: 'FOREIGN KEY',
+  u: 'UNIQUE',
+  c: 'CHECK',
+  x: 'EXCLUDE',
+};
+
+function normalizeConstraintType(ct: string): string {
+  if (!ct) return ct;
+  const lower = ct.toLowerCase();
+  return CONSTRAINT_TYPE_MAP[lower] ?? ct;
+}
+
+// ---------------------------------------------------------------------------
 // Derive PK / FK sets per table from constraints
 // ---------------------------------------------------------------------------
 
@@ -75,11 +129,12 @@ function buildColumnMeta(
     if (c.table_name !== tableName) continue;
 
     const existing = map.get(c.column_name) ?? { isPK: false, isFK: false };
+    const ctype = normalizeConstraintType(c.constraint_type);
 
-    if (c.constraint_type === 'PRIMARY KEY') {
+    if (ctype === 'PRIMARY KEY') {
       existing.isPK = true;
     }
-    if (c.constraint_type === 'FOREIGN KEY') {
+    if (ctype === 'FOREIGN KEY') {
       existing.isFK = true;
       if (c.referenced_table && c.referenced_column) {
         existing.fkRef = `${c.referenced_table}.${c.referenced_column}`;
@@ -207,11 +262,9 @@ const TableNode = React.memo(function TableNode({
               fontSize: 11,
               fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
               background: col.isPK ? 'rgba(99,102,241,0.08)' : 'transparent',
-              borderLeft: col.isPK
+              borderLeft: (col.isPK || col.isFK)
                 ? '2px solid #6366f1'
-                : col.isFK
-                  ? '2px solid #f59e0b'
-                  : '2px solid transparent',
+                : '2px solid transparent',
             }}
           >
             {/* PK / FK badges */}
@@ -224,12 +277,12 @@ const TableNode = React.memo(function TableNode({
               }}
             >
               {col.isPK && (
-                <span style={badgeStyle('#eab308', '#422006')} title="Primary Key">
+                <span style={{ fontSize: 8, fontWeight: 700, color: '#a78bfa', flexShrink: 0, letterSpacing: '0.02em' }} title="Primary Key">
                   PK
                 </span>
               )}
               {col.isFK && (
-                <span style={badgeStyle('#6366f1', '#eef2ff')} title={`FK -> ${col.fkRef ?? ''}`}>
+                <span style={{ fontSize: 8, fontWeight: 700, color: '#a78bfa', flexShrink: 0, letterSpacing: '0.02em' }} title={`FK → ${col.fkRef ?? ''}`}>
                   FK
                 </span>
               )}
@@ -289,6 +342,18 @@ const TableNode = React.memo(function TableNode({
           </div>
         )}
       </div>
+
+      {/* React Flow Handles — required for edge connections */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{ width: 6, height: 6, background: '#6366f1', border: 'none', opacity: 0.6 }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        style={{ width: 6, height: 6, background: '#6366f1', border: 'none', opacity: 0.6 }}
+      />
     </div>
   );
 });
@@ -302,7 +367,7 @@ function buildFKEdges(constraints: Constraint[], tableNames: Set<string>): Edge[
   const seen = new Set<string>();
 
   for (const c of constraints) {
-    if (c.constraint_type !== 'FOREIGN KEY') continue;
+    if (normalizeConstraintType(c.constraint_type) !== 'FOREIGN KEY') continue;
     if (!c.referenced_table) continue;
     // Only create edge if both tables exist in the diagram
     if (!tableNames.has(c.table_name) || !tableNames.has(c.referenced_table)) continue;
@@ -367,16 +432,8 @@ interface ERDiagramInnerProps {
 
 function ERDiagramInner({ tables, constraints, onViewTableInfo }: ERDiagramInnerProps) {
   const positionsRef = useRef<SavedPositions>(loadPositions());
-
-  // Debug: log constraints received
-  useEffect(() => {
-    console.log('[ERDiagram] tables:', tables.length, 'constraints:', constraints.length);
-    if (constraints.length > 0) {
-      console.log('[ERDiagram] sample constraint:', constraints[0]);
-      console.log('[ERDiagram] PK constraints:', constraints.filter(c => c.constraint_type === 'PRIMARY KEY').length);
-      console.log('[ERDiagram] FK constraints:', constraints.filter(c => c.constraint_type === 'FOREIGN KEY').length);
-    }
-  }, [tables, constraints]);
+  const { fitView } = useReactFlow();
+  const { t } = useTranslation();
 
   const handleNodeContextMenu = useCallback(
     (_e: React.MouseEvent, tableName: string) => {
@@ -490,6 +547,20 @@ function ERDiagramInner({ tables, constraints, onViewTableInfo }: ERDiagramInner
     [setEdges],
   );
 
+  const handleAutoLayout = useCallback(() => {
+    const layouted = getAutoLayout(nodes, edges, 'LR');
+    setNodes(layouted);
+    // Save new positions
+    const newPositions: SavedPositions = {};
+    layouted.forEach((n) => {
+      newPositions[n.id] = { x: n.position.x, y: n.position.y };
+    });
+    positionsRef.current = newPositions;
+    savePositions(newPositions);
+    // Fit view after layout
+    setTimeout(() => fitView({ padding: 0.15 }), 50);
+  }, [nodes, edges, setNodes, fitView]);
+
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       {/* Dark-theme overrides for ReactFlow Controls buttons */}
@@ -552,6 +623,38 @@ function ERDiagramInner({ tables, constraints, onViewTableInfo }: ERDiagramInner
           showInteractive={false}
         />
       </ReactFlow>
+
+      {/* Auto-layout button */}
+      <button
+        onClick={handleAutoLayout}
+        title={t('er.autoLayoutTooltip')}
+        style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+          color: '#fff',
+          border: 'none',
+          borderRadius: 6,
+          padding: '6px 14px',
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          boxShadow: '0 2px 8px rgba(99,102,241,0.3)',
+          zIndex: 5,
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+        </svg>
+        {t('er.autoLayout')}
+      </button>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 {
   "name": "progresql",
   "productName": "ProgreSQL",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "PostgreSQL Client Application built with Nextron",
   "license": "ISC",
   "author": "ONEPANTSU",
@@ -31,6 +31,7 @@
     "@codemirror/state": "^6.4.0",
     "@codemirror/theme-one-dark": "^6.1.2",
     "@codemirror/view": "^6.23.0",
+    "@dagrejs/dagre": "^2.0.4",
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
     "@mui/icons-material": "^5.14.19",

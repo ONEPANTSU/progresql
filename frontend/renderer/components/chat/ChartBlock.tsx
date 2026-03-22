@@ -307,7 +307,7 @@ const BarChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string;
           />
           <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
           {yKeys.map((key, i) => (
-            <Bar key={key} dataKey={key} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} activeBar={{ fillOpacity: 0.7 }} />
+            <Bar key={key} dataKey={key} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} activeBar={false} />
           ))}
         </BarChart>
       </ResponsiveContainer>
@@ -333,10 +333,11 @@ const LineChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
           <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
           <RechartsTooltip
             content={<AllSeriesTooltip />}
+            trigger="hover"
           />
           <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
           {yKeys.map((key, i) => (
-            <Line key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+            <Line key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} isAnimationActive={false} />
           ))}
         </LineChart>
       </ResponsiveContainer>
@@ -362,10 +363,11 @@ const AreaChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
           <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
           <RechartsTooltip
             content={<AllSeriesTooltip />}
+            trigger="hover"
           />
           <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
           {yKeys.map((key, i) => (
-            <Area key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} fill={CHART_COLORS[i % CHART_COLORS.length]} fillOpacity={0.3} />
+            <Area key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} fill={CHART_COLORS[i % CHART_COLORS.length]} fillOpacity={0.3} isAnimationActive={false} />
           ))}
         </AreaChart>
       </ResponsiveContainer>
@@ -398,10 +400,14 @@ const PieChartView: React.FC<{ data: Record<string, unknown>[] }> = ({ data }) =
             dataKey={valueKey}
             nameKey={xKey}
             cx="50%"
-            cy="50%"
-            outerRadius={100}
-            label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
-            labelLine={{ stroke: '#6b7280' }}
+            cy="45%"
+            outerRadius={90}
+            innerRadius={35}
+            paddingAngle={1}
+            label={coercedData.length <= 6
+              ? ({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`
+              : false}
+            labelLine={coercedData.length <= 6 ? { stroke: '#6b7280' } : false}
           >
             {coercedData.map((_, i) => (
               <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />

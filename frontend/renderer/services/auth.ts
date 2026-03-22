@@ -155,11 +155,18 @@ export const authService = {
 
   async login(email: string, password: string): Promise<AuthUser> {
     const baseUrl = getBackendUrl();
-    const res = await fetch(`${baseUrl}/api/v1/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
+    const url = `${baseUrl}/api/v1/auth/login`;
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+    } catch (fetchErr) {
+      console.error('[AUTH] fetch failed:', fetchErr);
+      throw new Error(`Failed to fetch: ${fetchErr instanceof Error ? fetchErr.message : fetchErr}`);
+    }
 
     if (!res.ok) {
       const body = await res.json().catch(() => null);

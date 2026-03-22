@@ -613,8 +613,19 @@ export default function Home() {
     sqlEditorRef.current?.replaceSelection(query);
   };
 
-  const handleApplySQL = (sql: string) => {
-    sqlEditorRef.current?.replaceSelection(sql);
+  const handleApplySQL = (sql: string, targetConnectionId?: string) => {
+    if (targetConnectionId) {
+      // Switch to the target connection if different from current
+      const targetConn = connections.find(c => c.id === targetConnectionId);
+      if (targetConn && targetConn.id !== activeConnection?.id) {
+        setActiveConnection(targetConn);
+      }
+      // Create a new tab on the target connection with the SQL
+      const newTab = sqlTabs.createTab(targetConnectionId);
+      sqlTabs.updateTabContent(newTab.id, sql);
+    } else {
+      sqlEditorRef.current?.replaceSelection(sql);
+    }
   };
 
   const handleERViewTableInfo = useCallback((tableName: string, connectionId: string) => {

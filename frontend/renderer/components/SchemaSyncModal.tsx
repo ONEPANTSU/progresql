@@ -22,19 +22,18 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Switch,
 } from '@mui/material';
 import {
   CompareArrows as CompareIcon,
+  SwapHoriz as SwapIcon,
   ExpandMore as ExpandMoreIcon,
-  ContentCopy as CopyIcon,
-  Code as CodeIcon,
   Warning as WarningIcon,
   Add as AddIcon,
   Remove as RemoveIcon,
   Edit as EditIcon,
 } from '@mui/icons-material';
 import type { DatabaseServer, DatabaseInfo, Table, Column, Index, Constraint } from '../types';
+import { useTranslation } from '../contexts/LanguageContext';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -88,7 +87,7 @@ interface SchemaSyncModalProps {
   open: boolean;
   onClose: () => void;
   connections: DatabaseServer[];
-  onApplySQL?: (sql: string) => void;
+  onApplySQL?: (sql: string, targetConnectionId?: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -291,16 +290,9 @@ function columnTypeSQL(col: Column): string {
   return t;
 }
 
+/** Generate CREATE TABLE without FK constraints (FKs are added separately for correct ordering) */
 function generateCreateTable(diff: TableDiff): string {
   const qualifiedName = quoteQualifiedName(diff.tableName);
-  // Ensure schema exists if not public
-  let schemaSQL = '';
-  if (diff.tableName.includes('.')) {
-    const schema = diff.tableName.split('.', 2)[0];
-    if (schema !== 'public') {
-      schemaSQL = `CREATE SCHEMA IF NOT EXISTS ${quoteIdent(schema)};\n`;
-    }
-  }
 
   const cols = diff.columns
     .filter((d) => d.kind === 'add' && d.column)
@@ -321,19 +313,16 @@ function generateCreateTable(diff: TableDiff): string {
     cols.push(`  PRIMARY KEY (${pkCols})`);
   }
 
-  let sql = `${schemaSQL}CREATE TABLE ${qualifiedName} (\n${cols.join(',\n')}\n);`;
+  let sql = `CREATE TABLE ${qualifiedName} (\n${cols.join(',\n')}\n);`;
 
-  // Non-PK constraints
-  const otherConstraints = diff.constraints
-    .filter((d) => d.kind === 'add' && d.constraint && d.constraint.constraint_type !== 'PRIMARY KEY');
-  for (const cd of otherConstraints) {
+  // Non-FK, non-PK constraints (UNIQUE, CHECK) — safe to add inline
+  const inlineConstraints = diff.constraints
+    .filter((d) => d.kind === 'add' && d.constraint &&
+      d.constraint.constraint_type !== 'PRIMARY KEY' &&
+      d.constraint.constraint_type !== 'FOREIGN KEY');
+  for (const cd of inlineConstraints) {
     const c = cd.constraint!;
-    if (c.constraint_type === 'FOREIGN KEY') {
-      sql += `\nALTER TABLE ${qualifiedName} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} FOREIGN KEY (${quoteIdent(c.column_name)}) REFERENCES ${quoteIdent(c.referenced_table || '')}(${quoteIdent(c.referenced_column || '')})`;
-      if (c.on_delete) sql += ` ON DELETE ${c.on_delete}`;
-      if (c.on_update) sql += ` ON UPDATE ${c.on_update}`;
-      sql += ';';
-    } else if (c.constraint_type === 'UNIQUE') {
+    if (c.constraint_type === 'UNIQUE') {
       sql += `\nALTER TABLE ${qualifiedName} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} UNIQUE (${quoteIdent(c.column_name)});`;
     } else if (c.constraint_type === 'CHECK' && c.check_condition) {
       sql += `\nALTER TABLE ${qualifiedName} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} CHECK (${c.check_condition});`;
@@ -352,6 +341,23 @@ function generateCreateTable(diff: TableDiff): string {
   }
 
   return sql;
+}
+
+/** Generate FK constraint statements for a CREATE TABLE diff (added after all tables exist) */
+function generateCreateTableFKs(diff: TableDiff): string {
+  const qualifiedName = quoteQualifiedName(diff.tableName);
+  const fks = diff.constraints
+    .filter((d) => d.kind === 'add' && d.constraint?.constraint_type === 'FOREIGN KEY');
+  if (fks.length === 0) return '';
+  const statements: string[] = [];
+  for (const cd of fks) {
+    const c = cd.constraint!;
+    let stmt = `ALTER TABLE ${qualifiedName} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} FOREIGN KEY (${quoteIdent(c.column_name)}) REFERENCES ${quoteIdent(c.referenced_table || '')}(${quoteIdent(c.referenced_column || '')})`;
+    if (c.on_delete) stmt += ` ON DELETE ${c.on_delete}`;
+    if (c.on_update) stmt += ` ON UPDATE ${c.on_update}`;
+    statements.push(stmt + ';');
+  }
+  return statements.join('\n');
 }
 
 function generateAlterTable(diff: TableDiff): string {
@@ -504,15 +510,22 @@ const kindColor: Record<DiffKind, 'success' | 'error' | 'warning'> = {
 };
 
 export default function SchemaSyncModal({ open, onClose, connections, onApplySQL }: SchemaSyncModalProps) {
+  const { t } = useTranslation();
   const [sourceId, setSourceId] = useState<string>('');
   const [targetId, setTargetId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [diff, setDiff] = useState<SchemaDiff | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [showDestructive, setShowDestructive] = useState(false);
-  const [previewSQL, setPreviewSQL] = useState(false);
-  const [copied, setCopied] = useState(false);
+
+  // Reset state when modal opens
+  React.useEffect(() => {
+    if (open) {
+      setDiff(null);
+      setError(null);
+      setSelected(new Set());
+    }
+  }, [open]);
 
   const activeConnections = useMemo(
     () => connections.filter((c) => c.isActive),
@@ -522,7 +535,7 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
   const handleCompare = useCallback(async () => {
     if (!sourceId || !targetId) return;
     if (sourceId === targetId) {
-      setError('Source and Target must be different connections');
+      setError(t('schemaSync.sameConnection'));
       return;
     }
 
@@ -562,7 +575,7 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
     } finally {
       setLoading(false);
     }
-  }, [sourceId, targetId]);
+  }, [sourceId, targetId, t]);
 
   const toggleTable = useCallback((tableName: string) => {
     setSelected((prev) => {
@@ -578,45 +591,88 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
 
   const toggleAll = useCallback(() => {
     if (!diff) return;
-    const visibleTables = diff.tables.filter((t) => showDestructive || !t.isDestructive);
+    const visibleTables = diff.tables.filter((t) => true);
     const allSelected = visibleTables.every((t) => selected.has(t.tableName));
     if (allSelected) {
       setSelected(new Set());
     } else {
       setSelected(new Set(visibleTables.map((t) => t.tableName)));
     }
-  }, [diff, showDestructive, selected]);
+  }, [diff, selected]);
 
   const visibleTables = useMemo(() => {
     if (!diff) return [];
-    return diff.tables.filter((t) => showDestructive || !t.isDestructive);
-  }, [diff, showDestructive]);
+    return diff.tables;
+  }, [diff]);
 
   const finalSQL = useMemo(() => {
     if (!diff) return '';
+    const selectedTables = diff.tables.filter((t) => selected.has(t.tableName));
     const parts: string[] = [];
-    for (const td of diff.tables) {
-      if (!selected.has(td.tableName)) continue;
-      if (!showDestructive && td.isDestructive && td.kind === 'drop') continue;
-      parts.push(`-- ${kindLabel[td.kind]} TABLE: ${td.tableName}`);
-      parts.push(generateSQL(td));
+
+    // 1. CREATE SCHEMA (deduplicated, before any tables)
+    const schemas = new Set<string>();
+    for (const td of selectedTables) {
+      if (td.kind === 'add' && td.tableName.includes('.')) {
+        const schema = td.tableName.split('.', 2)[0];
+        if (schema !== 'public') schemas.add(schema);
+      }
+    }
+    if (schemas.size > 0) {
+      for (const s of schemas) {
+        parts.push(`CREATE SCHEMA IF NOT EXISTS ${quoteIdent(s)};`);
+      }
       parts.push('');
     }
-    return parts.join('\n').trim();
-  }, [diff, selected, showDestructive]);
 
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(finalSQL);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [finalSQL]);
+    // 2. CREATE TABLE (without FK constraints)
+    const creates = selectedTables.filter((t) => t.kind === 'add');
+    for (const td of creates) {
+      parts.push(`-- CREATE TABLE: ${td.tableName}`);
+      parts.push(generateCreateTable(td));
+      parts.push('');
+    }
+
+    // 3. FK constraints for new tables (after ALL tables exist)
+    const fkParts: string[] = [];
+    for (const td of creates) {
+      const fkSQL = generateCreateTableFKs(td);
+      if (fkSQL) fkParts.push(fkSQL);
+    }
+    if (fkParts.length > 0) {
+      parts.push('-- FOREIGN KEY CONSTRAINTS');
+      parts.push(fkParts.join('\n'));
+      parts.push('');
+    }
+
+    // 4. ALTER TABLE
+    const alters = selectedTables.filter((t) => t.kind === 'alter');
+    for (const td of alters) {
+      parts.push(`-- ALTER TABLE: ${td.tableName}`);
+      parts.push(generateAlterTable(td));
+      parts.push('');
+    }
+
+    // 5. DROP TABLE (tables with FKs to other dropped tables go first)
+    const drops = selectedTables.filter((t) => t.kind === 'drop');
+    if (drops.length > 0) {
+      for (const td of drops) {
+        parts.push(`-- DROP TABLE: ${td.tableName}`);
+        parts.push(generateDropTable(td));
+        parts.push('');
+      }
+    }
+
+    return parts.join('\n').trim();
+  }, [diff, selected]);
+
 
   const handleInsertToEditor = useCallback(() => {
     if (onApplySQL && finalSQL) {
-      onApplySQL(finalSQL);
+      onApplySQL(finalSQL, targetId || undefined);
       onClose();
     }
-  }, [onApplySQL, finalSQL, onClose]);
+  }, [onApplySQL, finalSQL, targetId, onClose]);
 
   const getConnectionLabel = (conn: DatabaseServer) => {
     return `${conn.connectionName || conn.database} (${conn.host}:${conn.port}/${conn.database})`;
@@ -635,7 +691,7 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="md"
+      maxWidth="sm"
       fullWidth
       PaperProps={{
         sx: {
@@ -644,21 +700,21 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
         },
       }}
     >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
-        <CompareIcon sx={{ color: 'primary.main' }} />
-        <Typography variant="h6" component="span">
-          Schema Sync
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1, px: 2 }}>
+        <CompareIcon sx={{ color: 'primary.main', fontSize: 20 }} />
+        <Typography variant="subtitle1" component="span" fontWeight={600}>
+          {t('schemaSync.title')}
         </Typography>
       </DialogTitle>
 
-      <DialogContent dividers sx={{ p: 2 }}>
-        {/* Connection selectors */}
-        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+      <DialogContent dividers sx={{ p: 1.5 }}>
+        {/* Connection selectors — vertical layout */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1.5 }}>
           <FormControl fullWidth size="small">
-            <InputLabel>Source (reference)</InputLabel>
+            <InputLabel>{t('schemaSync.source')}</InputLabel>
             <Select
               value={sourceId}
-              label="Source (reference)"
+              label={t('schemaSync.source')}
               onChange={(e) => { setSourceId(e.target.value); setDiff(null); }}
             >
               {activeConnections.map((c) => (
@@ -669,15 +725,30 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
             </Select>
           </FormControl>
 
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <CompareIcon sx={{ color: 'text.secondary' }} />
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Tooltip title={t('schemaSync.swap')}>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    const tmp = sourceId;
+                    setSourceId(targetId);
+                    setTargetId(tmp);
+                    setDiff(null);
+                  }}
+                  disabled={!sourceId && !targetId}
+                >
+                  <SwapIcon sx={{ color: 'text.secondary', transform: 'rotate(90deg)' }} />
+                </IconButton>
+              </span>
+            </Tooltip>
           </Box>
 
           <FormControl fullWidth size="small">
-            <InputLabel>Target (to migrate)</InputLabel>
+            <InputLabel>{t('schemaSync.target')}</InputLabel>
             <Select
               value={targetId}
-              label="Target (to migrate)"
+              label={t('schemaSync.target')}
               onChange={(e) => { setTargetId(e.target.value); setDiff(null); }}
             >
               {activeConnections.map((c) => (
@@ -689,34 +760,39 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
           </FormControl>
         </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1.5 }}>
           <Button
             variant="contained"
             onClick={handleCompare}
             disabled={!sourceId || !targetId || loading}
-            startIcon={loading ? <CircularProgress size={16} /> : <CompareIcon />}
+            startIcon={loading ? <CircularProgress size={16} /> : undefined}
             size="small"
+            sx={{
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #7c3aed)',
+              '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed, #6d28d9)' },
+              '&.Mui-disabled': { background: 'rgba(99, 102, 241, 0.3)', color: 'rgba(255,255,255,0.5)' },
+            }}
           >
-            {loading ? 'Comparing...' : 'Compare'}
+            {loading ? t('schemaSync.comparing') : t('schemaSync.compare')}
           </Button>
         </Box>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
 
         {activeConnections.length < 2 && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            At least 2 active connections are required for schema comparison.
+          <Alert severity="info" sx={{ mb: 1 }}>
+            {t('schemaSync.minConnections')}
           </Alert>
         )}
 
         {/* Diff results */}
         {diff && !diff.hasChanges && (
           <Alert severity="success">
-            Schemas are identical. No migration needed.
+            {t('schemaSync.identical')}
           </Alert>
         )}
 
@@ -734,23 +810,6 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
                 <Chip icon={<RemoveIcon />} label={`${diffSummary.drop} drop`} size="small" color="error" variant="outlined" />
               )}
 
-              <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      size="small"
-                      checked={showDestructive}
-                      onChange={(e) => setShowDestructive(e.target.checked)}
-                    />
-                  }
-                  label={
-                    <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <WarningIcon sx={{ fontSize: 14, color: 'warning.main' }} />
-                      Show destructive
-                    </Typography>
-                  }
-                />
-              </Box>
             </Box>
 
             {/* Select all */}
@@ -769,7 +828,7 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
                 }
                 label={
                   <Typography variant="caption" color="text.secondary">
-                    Select all ({visibleTables.length} tables)
+                    {t('schemaSync.selectAll')} ({visibleTables.length} tables)
                   </Typography>
                 }
               />
@@ -849,61 +908,18 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
               </Accordion>
             ))}
 
-            <Divider sx={{ my: 2 }} />
+            <Divider sx={{ my: 1.5 }} />
 
-            {/* Preview SQL */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<CodeIcon />}
-                onClick={() => setPreviewSQL(!previewSQL)}
-              >
-                {previewSQL ? 'Hide' : 'Preview'} SQL
-              </Button>
-              <Tooltip title={copied ? 'Copied!' : 'Copy as migration'}>
-                <span>
-                  <IconButton
-                    size="small"
-                    onClick={handleCopy}
-                    disabled={!finalSQL}
-                  >
-                    <CopyIcon sx={{ fontSize: 18 }} />
-                  </IconButton>
-                </span>
-              </Tooltip>
-              <Typography variant="caption" color="text.secondary">
-                {selected.size} of {visibleTables.length} tables selected
-              </Typography>
-            </Box>
-
-            {previewSQL && (
-              <Box
-                component="pre"
-                sx={{
-                  m: 0,
-                  p: 1.5,
-                  bgcolor: 'grey.900',
-                  color: 'grey.100',
-                  borderRadius: 1,
-                  fontSize: '0.75rem',
-                  fontFamily: 'monospace',
-                  overflow: 'auto',
-                  maxHeight: 300,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {finalSQL || '-- No changes selected'}
-              </Box>
-            )}
+            <Typography variant="caption" color="text.secondary">
+              {t('schemaSync.tablesSelected').replace('{selected}', String(selected.size)).replace('{total}', String(visibleTables.length))}
+            </Typography>
           </>
         )}
       </DialogContent>
 
       <DialogActions sx={{ px: 2, py: 1.5 }}>
         <Button onClick={onClose} size="small">
-          Close
+          {t('schemaSync.close')}
         </Button>
         {onApplySQL && (
           <Button
@@ -911,9 +927,8 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
             size="small"
             onClick={handleInsertToEditor}
             disabled={!finalSQL}
-            startIcon={<CodeIcon />}
           >
-            Insert to Editor
+            {t('schemaSync.insertToEditor')}
           </Button>
         )}
       </DialogActions>

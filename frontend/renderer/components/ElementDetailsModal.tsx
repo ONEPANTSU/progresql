@@ -26,6 +26,7 @@ import {
 } from '@mui/material';
 import { createLogger } from '../utils/logger';
 import { getDescription, setDescription as saveDescription } from '../utils/descriptionStorage';
+import { useTranslation } from '../contexts/LanguageContext';
 
 /** Highlight SQL keywords, strings, and numbers for display. */
 function highlightSQL(sql: string): React.ReactNode[] {
@@ -36,19 +37,19 @@ function highlightSQL(sql: string): React.ReactNode[] {
   // Tokenize: split into segments with type info
   type Token = { text: string; type: 'keyword' | 'string' | 'number' | 'plain' };
   const tokens: Token[] = [];
-  
+
   // Find all matches with positions
   type Match = { start: number; end: number; type: 'keyword' | 'string' | 'number' };
   const matches: Match[] = [];
-  
+
   let m: RegExpExecArray | null;
-  
+
   // Strings first (highest priority)
   STRING_RE.lastIndex = 0;
   while ((m = STRING_RE.exec(sql)) !== null) {
     matches.push({ start: m.index, end: m.index + m[0].length, type: 'string' });
   }
-  
+
   // Keywords
   SQL_KEYWORDS.lastIndex = 0;
   while ((m = SQL_KEYWORDS.exec(sql)) !== null) {
@@ -57,7 +58,7 @@ function highlightSQL(sql: string): React.ReactNode[] {
       matches.push({ start: m.index, end: m.index + m[0].length, type: 'keyword' });
     }
   }
-  
+
   // Numbers
   NUMBER_RE.lastIndex = 0;
   while ((m = NUMBER_RE.exec(sql)) !== null) {
@@ -66,9 +67,9 @@ function highlightSQL(sql: string): React.ReactNode[] {
       matches.push({ start: m.index, end: m.index + m[0].length, type: 'number' });
     }
   }
-  
+
   matches.sort((a, b) => a.start - b.start);
-  
+
   let pos = 0;
   const result: React.ReactNode[] = [];
   for (const match of matches) {
@@ -83,7 +84,7 @@ function highlightSQL(sql: string): React.ReactNode[] {
   if (pos < sql.length) {
     result.push(sql.slice(pos));
   }
-  
+
   return result;
 }
 
@@ -146,6 +147,7 @@ export default function ElementDetailsModal({
   onExplainInChat,
   onRefreshData,
 }: ElementDetailsModalProps) {
+  const { t } = useTranslation();
   const [userDescription, setUserDescription] = useState('');
   const [descriptionSaved, setDescriptionSaved] = useState(false);
   const [columnDescriptions, setColumnDescriptions] = useState<Record<string, string>>({});
@@ -463,7 +465,7 @@ export default function ElementDetailsModal({
 
   const getElementTitle = () => {
     if (!element) return '';
-    
+
     switch (elementType) {
       case 'table':
         return `Table: ${element.table_name}`;
@@ -528,7 +530,7 @@ export default function ElementDetailsModal({
                 Columns ({element.columns.length})
               </Typography>
               {onApplySQL && (
-                <Tooltip title="Add Column">
+                <Tooltip title={t('details.addColumn')}>
                   <IconButton size="small" onClick={() => { setShowAddColumn(true); setAlteringCol(null); }}>
                     <AddIcon fontSize="small" />
                   </IconButton>
@@ -545,12 +547,12 @@ export default function ElementDetailsModal({
             {/* Add Column Form */}
             {showAddColumn && onApplySQL && (
               <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-                <Typography variant="body2" sx={{ fontWeight: 500, mb: 1.5 }}>Add Column</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500, mb: 1.5 }}>{t('details.addColumn')}</Typography>
                 <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                   <TextField
                     autoFocus
                     size="small"
-                    label="Name"
+                    label={t('details.name')}
                     value={newColName}
                     onChange={(e) => setNewColName(e.target.value)}
                     sx={{ minWidth: 140 }}
@@ -559,22 +561,22 @@ export default function ElementDetailsModal({
                   <TextField
                     select
                     size="small"
-                    label="Type"
+                    label={t('details.colType')}
                     value={newColType}
                     onChange={(e) => setNewColType(e.target.value)}
                     sx={{ minWidth: 150 }}
                   >
-                    {PG_DATA_TYPES.map((t) => (
-                      <MenuItem key={t} value={t}>{t}</MenuItem>
+                    {PG_DATA_TYPES.map((dtype) => (
+                      <MenuItem key={dtype} value={dtype}>{dtype}</MenuItem>
                     ))}
                   </TextField>
                   <FormControlLabel
                     control={<Checkbox size="small" checked={newColNullable} onChange={(e) => setNewColNullable(e.target.checked)} />}
-                    label={<Typography variant="body2">Nullable</Typography>}
+                    label={<Typography variant="body2">{t('details.colNullable')}</Typography>}
                   />
                   <TextField
                     size="small"
-                    label="Default"
+                    label={t('details.default')}
                     value={newColDefault}
                     onChange={(e) => setNewColDefault(e.target.value)}
                     sx={{ minWidth: 120 }}
@@ -619,8 +621,8 @@ export default function ElementDetailsModal({
                             onChange={(e) => setAlterColType(e.target.value)}
                             sx={{ minWidth: 120, '& .MuiInput-input': { fontSize: '0.8125rem' } }}
                           >
-                            {PG_DATA_TYPES.map((t) => (
-                              <MenuItem key={t} value={t}>{t}</MenuItem>
+                            {PG_DATA_TYPES.map((dtype) => (
+                              <MenuItem key={dtype} value={dtype}>{dtype}</MenuItem>
                             ))}
                           </TextField>
                         ) : (
@@ -631,7 +633,7 @@ export default function ElementDetailsModal({
                         {alteringCol === column.column_name ? (
                           <FormControlLabel
                             control={<Checkbox size="small" checked={alterColNullable} onChange={(e) => setAlterColNullable(e.target.checked)} />}
-                            label={<Typography variant="body2" sx={{ fontSize: '0.7rem' }}>{alterColNullable ? 'Nullable' : 'NOT NULL'}</Typography>}
+                            label={<Typography variant="body2" sx={{ fontSize: '0.7rem' }}>{alterColNullable ? t('details.colNullable') : 'NOT NULL'}</Typography>}
                           />
                         ) : (
                           <Chip
@@ -652,7 +654,7 @@ export default function ElementDetailsModal({
                           <TextField
                             size="small"
                             variant="standard"
-                            placeholder="No default"
+                            placeholder={t('details.noDefault')}
                             value={alterColDefault}
                             onChange={(e) => setAlterColDefault(e.target.value)}
                             sx={{ minWidth: 100, '& .MuiInput-input': { fontSize: '0.8125rem' } }}
@@ -676,7 +678,7 @@ export default function ElementDetailsModal({
                             size="small"
                             variant="standard"
                             fullWidth
-                            placeholder="Add description..."
+                            placeholder={t('details.addDescriptionPlaceholder')}
                             value={editingColDescValue}
                             onChange={(e) => setEditingColDescValue(e.target.value)}
                             onBlur={() => handleSaveColumnDescription(column.column_name, editingColDescValue)}
@@ -706,7 +708,7 @@ export default function ElementDetailsModal({
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>
                           {alteringCol === column.column_name ? (
                             <Box sx={{ display: 'flex', gap: 0.5 }}>
-                              <Tooltip title="Apply changes">
+                              <Tooltip title={t('details.applyChanges')}>
                                 <IconButton size="small" color="success" disabled={executingSQL} onClick={() => handleAlterColumn(column.column_name, column.data_type, column.is_nullable, column.column_default)}>
                                   <CheckIcon fontSize="small" />
                                 </IconButton>
@@ -719,7 +721,7 @@ export default function ElementDetailsModal({
                             </Box>
                           ) : (
                             <Box sx={{ display: 'flex', gap: 0.5 }}>
-                              <Tooltip title="Alter Column">
+                              <Tooltip title={t('details.alterColumn')}>
                                 <IconButton size="small" onClick={() => {
                                   setAlteringCol(column.column_name);
                                   setAlterColType(column.data_type);
@@ -730,7 +732,7 @@ export default function ElementDetailsModal({
                                   <EditIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
-                              <Tooltip title="Drop Column">
+                              <Tooltip title={t('details.dropColumn')}>
                                 <IconButton size="small" onClick={() => setDropColTarget(column.column_name)}>
                                   <DeleteIcon fontSize="small" color="error" />
                                 </IconButton>
@@ -747,16 +749,16 @@ export default function ElementDetailsModal({
 
             {/* Drop Column Confirmation Dialog */}
             <Dialog open={dropColTarget !== null} onClose={() => setDropColTarget(null)} maxWidth="xs">
-              <DialogTitle>Drop Column</DialogTitle>
+              <DialogTitle>{t('details.dropColumnTitle')}</DialogTitle>
               <DialogContent>
                 <Typography>
-                  Are you sure you want to drop column <strong>{dropColTarget}</strong>?{onExecuteSQL ? ' This will execute the ALTER TABLE DROP COLUMN statement against the database.' : ' This will insert the ALTER TABLE DROP COLUMN statement into the editor.'}
+                  {t('details.dropConfirm')} <strong>{dropColTarget}</strong>?{onExecuteSQL ? ' This will execute the ALTER TABLE DROP COLUMN statement against the database.' : ' This will insert the ALTER TABLE DROP COLUMN statement into the editor.'}
                 </Typography>
               </DialogContent>
               <DialogActions>
                 <Button onClick={() => setDropColTarget(null)}>Cancel</Button>
                 <Button color="error" variant="contained" disabled={executingSQL} onClick={() => dropColTarget && handleDropColumn(dropColTarget)}>
-                  {executingSQL ? 'Executing...' : onExecuteSQL ? 'Drop Column' : 'Generate DROP SQL'}
+                  {executingSQL ? 'Executing...' : onExecuteSQL ? t('details.dropColumn') : t('details.dropSql')}
                 </Button>
               </DialogActions>
             </Dialog>
@@ -1101,13 +1103,13 @@ export default function ElementDetailsModal({
                 <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Function Code</TableCell>
                 <TableCell>
                   <Box sx={{ position: 'relative' }}>
-                    <Box sx={{ 
-                      maxHeight: 500, 
-                      overflow: 'auto', 
+                    <Box sx={{
+                      maxHeight: 500,
+                      overflow: 'auto',
                       bgcolor: 'background.paper',
                       border: '1px solid',
                       borderColor: 'divider',
-                      p: 2, 
+                      p: 2,
                       borderRadius: 2,
                       fontFamily: 'monospace',
                       fontSize: '0.875rem',
@@ -1133,7 +1135,7 @@ export default function ElementDetailsModal({
                       {element.routine_definition ? highlightSQL(element.routine_definition) : 'No function code available'}
                     </Box>
                     {element.routine_definition && (
-                      <Tooltip title="Copy code to clipboard">
+                      <Tooltip title={t('details.copyCode')}>
                         <IconButton
                           size="small"
                           onClick={() => copyToClipboard(element.routine_definition)}
@@ -1184,13 +1186,13 @@ export default function ElementDetailsModal({
                 <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>View Code</TableCell>
                 <TableCell>
                   <Box sx={{ position: 'relative' }}>
-                    <Box sx={{ 
-                      maxHeight: 500, 
-                      overflow: 'auto', 
+                    <Box sx={{
+                      maxHeight: 500,
+                      overflow: 'auto',
                       bgcolor: 'background.paper',
                       border: '1px solid',
                       borderColor: 'divider',
-                      p: 2, 
+                      p: 2,
                       borderRadius: 2,
                       fontFamily: 'monospace',
                       fontSize: '0.875rem',
@@ -1216,7 +1218,7 @@ export default function ElementDetailsModal({
                       {element.view_definition ? highlightSQL(element.view_definition) : 'No view code available'}
                     </Box>
                     {element.view_definition && (
-                      <Tooltip title="Copy code to clipboard">
+                      <Tooltip title={t('details.copyCode')}>
                         <IconButton
                           size="small"
                           onClick={() => copyToClipboard(element.view_definition)}
@@ -1267,13 +1269,13 @@ export default function ElementDetailsModal({
                 <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Procedure Code</TableCell>
                 <TableCell>
                   <Box sx={{ position: 'relative' }}>
-                    <Box sx={{ 
-                      maxHeight: 500, 
-                      overflow: 'auto', 
+                    <Box sx={{
+                      maxHeight: 500,
+                      overflow: 'auto',
                       bgcolor: 'background.paper',
                       border: '1px solid',
                       borderColor: 'divider',
-                      p: 2, 
+                      p: 2,
                       borderRadius: 2,
                       fontFamily: 'monospace',
                       fontSize: '0.875rem',
@@ -1299,7 +1301,7 @@ export default function ElementDetailsModal({
                       {element.procedure_definition ? highlightSQL(element.procedure_definition) : 'No procedure code available'}
                     </Box>
                     {element.procedure_definition && (
-                      <Tooltip title="Copy code to clipboard">
+                      <Tooltip title={t('details.copyCode')}>
                         <IconButton
                           size="small"
                           onClick={() => copyToClipboard(element.procedure_definition)}
@@ -1416,9 +1418,9 @@ export default function ElementDetailsModal({
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-      
+
       <Divider />
-      
+
       <DialogContent sx={{ p: 3 }}>
         {renderDetails()}
         {renderUserDescription()}

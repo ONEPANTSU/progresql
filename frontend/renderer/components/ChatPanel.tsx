@@ -145,9 +145,15 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
       {/* Header */}
       <Box sx={{ borderBottom: '1px solid', borderColor: 'rgba(255,255,255,0.08)' }}>
         <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Avatar sx={{ width: 28, height: 28, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-            <BotIcon sx={{ fontSize: '1rem', color: '#fff' }} />
-          </Avatar>
+          <svg width={0} height={0}>
+            <defs>
+              <linearGradient id="botIconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#6366f1" />
+                <stop offset="100%" stopColor="#8b5cf6" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <BotIcon sx={{ fontSize: '1.25rem', fill: 'url(#botIconGradient)' }} />
           <Typography variant="subtitle1" sx={{ flexGrow: 1, fontWeight: 600 }}>{t('chat.title')}</Typography>
           {!agent.safeMode && (
             <Tooltip title={t('settings.unsafeWarning')}>
@@ -289,7 +295,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
           </Box>
         ) : messages.length === 0 ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 3 }}>
-            <BotIcon sx={{ fontSize: 36, color: 'text.secondary', mb: 2 }} />
+            <BotIcon sx={{ fontSize: 36, fill: 'url(#botIconGradient)', mb: 2 }} />
             <Typography variant="body2" color="text.secondary" align="center">{t('chat.emptyState')}</Typography>
           </Box>
         ) : (

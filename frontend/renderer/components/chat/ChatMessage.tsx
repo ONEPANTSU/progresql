@@ -460,7 +460,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           mx: 1,
         }}
       >
-        {isUser ? <UserIcon sx={{ fontSize: '1rem' }} /> : <BotIcon sx={{ fontSize: '1rem', color: '#fff' }} />}
+        {isUser ? <UserIcon sx={{ fontSize: '1rem' }} /> : <BotIcon sx={{ fontSize: '1rem' }} />}
       </Avatar>
       <Box
         sx={{
