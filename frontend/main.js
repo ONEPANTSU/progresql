@@ -695,7 +695,7 @@ ipcMain.handle('get-database-structure', async (event, connectionId) => {
       constraints: constraintsResult.rows.length,
     });
 
-    return { success: true, data: databaseInfo };
+    return { success: true, database_name: currentDb, databases: [databaseInfo] };
   } catch (error) {
     log.error('Error getting database structure:', error.message);
     return { success: false, message: error.message };
