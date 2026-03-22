@@ -84,9 +84,25 @@ function createWindow() {
 
   // Allow opening DevTools in production via Ctrl+Shift+I (for debugging)
   mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.control && input.shift && input.key === 'I') {
+    if (input.control && input.shift && (input.key === 'I' || input.key === 'i')) {
       mainWindow.webContents.toggleDevTools();
     }
+  });
+
+  // TEMPORARY: Auto-open DevTools in production for debugging white screen issue
+  if (!isDev) {
+    mainWindow.webContents.openDevTools();
+  }
+
+  // Log renderer crashes and errors
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    log.error('Renderer process gone:', details.reason, details.exitCode);
+  });
+  mainWindow.webContents.on('unresponsive', () => {
+    log.error('Window became unresponsive');
+  });
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    log.error('Failed to load:', errorCode, errorDescription, validatedURL);
   });
 
   // Send app-ready event to renderer once the page has finished loading
@@ -113,12 +129,19 @@ function createWindow() {
         const appDir = path.join(__dirname, 'app');
         // Extract route name from URL path
         const segments = urlPath.split('/').filter(Boolean);
-        const route = segments[segments.length - 1] || 'index';
+        let route = segments[segments.length - 1] || 'index';
+        // Strip .html if already present to avoid double extension
+        if (route.endsWith('.html')) {
+          route = route.slice(0, -5);
+        }
         const htmlFile = path.join(appDir, `${route}.html`);
         const fs = require('fs');
+        log.debug('will-navigate:', url, '→', htmlFile);
         if (fs.existsSync(htmlFile)) {
           event.preventDefault();
           mainWindow.loadFile(htmlFile);
+        } else {
+          log.error('will-navigate: file not found:', htmlFile);
         }
       }
     });
