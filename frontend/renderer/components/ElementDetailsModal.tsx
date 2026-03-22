@@ -22,6 +22,7 @@ import {
   MenuItem,
   Checkbox,
   FormControlLabel,
+  Alert,
 } from '@mui/material';
 import { createLogger } from '../utils/logger';
 import { getDescription, setDescription as saveDescription } from '../utils/descriptionStorage';
@@ -165,9 +166,11 @@ export default function ElementDetailsModal({
   const [alteringCol, setAlteringCol] = useState<string | null>(null);
   const [alterColType, setAlterColType] = useState('');
   const [alterColNullable, setAlterColNullable] = useState(true);
+  const [alterColDefault, setAlterColDefault] = useState('');
 
   // SQL execution state
   const [executingSQL, setExecutingSQL] = useState(false);
+  const [sqlError, setSqlError] = useState<string | null>(null);
 
   const supportsExplain = ['table', 'function', 'procedure', 'view'].includes(elementType);
 
@@ -190,6 +193,7 @@ export default function ElementDetailsModal({
     setShowAddColumn(false);
     setDropColTarget(null);
     setAlteringCol(null);
+    setSqlError(null);
     if (element) {
       const schema = element.table_schema || element.routine_schema || element.procedure_schema || element.view_schema || 'public';
       const name = element.table_name || element.routine_name || element.procedure_name || element.view_name ||
@@ -252,6 +256,7 @@ export default function ElementDetailsModal({
 
   const handleAddColumn = useCallback(async () => {
     if (!newColName.trim() || !element) return;
+    setSqlError(null);
     const tableName = getFullTableName();
     let sql = `ALTER TABLE ${tableName} ADD COLUMN ${escapeIdent(newColName.trim())} ${newColType}`;
     if (!newColNullable) sql += ' NOT NULL';
@@ -264,22 +269,32 @@ export default function ElementDetailsModal({
         if (result.success) {
           onApplySQL?.(sql);
           onRefreshData?.();
+          setShowAddColumn(false);
+          setNewColName('');
+          setNewColType('text');
+          setNewColNullable(true);
+          setNewColDefault('');
+        } else {
+          setSqlError(result.message || 'ADD COLUMN failed');
         }
+      } catch (err) {
+        setSqlError(err instanceof Error ? err.message : 'ADD COLUMN failed');
       } finally {
         setExecutingSQL(false);
       }
     } else {
       onApplySQL?.(sql);
+      setShowAddColumn(false);
+      setNewColName('');
+      setNewColType('text');
+      setNewColNullable(true);
+      setNewColDefault('');
     }
-    setShowAddColumn(false);
-    setNewColName('');
-    setNewColType('text');
-    setNewColNullable(true);
-    setNewColDefault('');
   }, [element, newColName, newColType, newColNullable, newColDefault, getFullTableName, onApplySQL, onExecuteSQL, onRefreshData]);
 
   const handleDropColumn = useCallback(async (columnName: string) => {
     if (!element) return;
+    setSqlError(null);
     const tableName = getFullTableName();
     const sql = `ALTER TABLE ${tableName} DROP COLUMN ${escapeIdent(columnName)};`;
     if (onExecuteSQL) {
@@ -289,29 +304,46 @@ export default function ElementDetailsModal({
         if (result.success) {
           onApplySQL?.(sql);
           onRefreshData?.();
+          setDropColTarget(null);
+        } else {
+          setSqlError(result.message || 'DROP COLUMN failed');
+          setDropColTarget(null);
         }
+      } catch (err) {
+        setSqlError(err instanceof Error ? err.message : 'DROP COLUMN failed');
+        setDropColTarget(null);
       } finally {
         setExecutingSQL(false);
       }
     } else {
       onApplySQL?.(sql);
+      setDropColTarget(null);
     }
-    setDropColTarget(null);
   }, [element, getFullTableName, onApplySQL, onExecuteSQL, onRefreshData]);
 
-  const handleAlterColumn = useCallback(async (columnName: string, originalType: string, originalNullable: string) => {
+  const handleAlterColumn = useCallback(async (columnName: string, originalType: string, originalNullable: string, originalDefault: string | null) => {
     if (!element) return;
+    setSqlError(null);
     const tableName = getFullTableName();
+    const col = escapeIdent(columnName);
     const statements: string[] = [];
     if (alterColType && alterColType !== originalType) {
-      statements.push(`ALTER TABLE ${tableName} ALTER COLUMN ${escapeIdent(columnName)} TYPE ${alterColType};`);
+      statements.push(`ALTER TABLE ${tableName} ALTER COLUMN ${col} TYPE ${alterColType};`);
     }
     const wasNullable = originalNullable === 'YES';
     if (alterColNullable !== wasNullable) {
       if (alterColNullable) {
-        statements.push(`ALTER TABLE ${tableName} ALTER COLUMN ${escapeIdent(columnName)} DROP NOT NULL;`);
+        statements.push(`ALTER TABLE ${tableName} ALTER COLUMN ${col} DROP NOT NULL;`);
       } else {
-        statements.push(`ALTER TABLE ${tableName} ALTER COLUMN ${escapeIdent(columnName)} SET NOT NULL;`);
+        statements.push(`ALTER TABLE ${tableName} ALTER COLUMN ${col} SET NOT NULL;`);
+      }
+    }
+    const origDef = originalDefault || '';
+    if (alterColDefault !== origDef) {
+      if (alterColDefault.trim()) {
+        statements.push(`ALTER TABLE ${tableName} ALTER COLUMN ${col} SET DEFAULT ${alterColDefault.trim()};`);
+      } else if (origDef) {
+        statements.push(`ALTER TABLE ${tableName} ALTER COLUMN ${col} DROP DEFAULT;`);
       }
     }
     if (statements.length > 0) {
@@ -323,16 +355,23 @@ export default function ElementDetailsModal({
           if (result.success) {
             onApplySQL?.(sql);
             onRefreshData?.();
+            setAlteringCol(null);
+          } else {
+            setSqlError(result.message || 'ALTER TABLE failed');
           }
+        } catch (err) {
+          setSqlError(err instanceof Error ? err.message : 'ALTER TABLE failed');
         } finally {
           setExecutingSQL(false);
         }
       } else {
         onApplySQL?.(sql);
+        setAlteringCol(null);
       }
+    } else {
+      setAlteringCol(null);
     }
-    setAlteringCol(null);
-  }, [element, alterColType, alterColNullable, getFullTableName, onApplySQL, onExecuteSQL, onRefreshData]);
+  }, [element, alterColType, alterColNullable, alterColDefault, getFullTableName, onApplySQL, onExecuteSQL, onRefreshData]);
 
   const getObjectDefinition = useCallback((): string => {
     if (!element) return '';
@@ -497,6 +536,12 @@ export default function ElementDetailsModal({
               )}
             </Box>
 
+            {sqlError && (
+              <Alert severity="error" sx={{ mb: 1 }} onClose={() => setSqlError(null)}>
+                {sqlError}
+              </Alert>
+            )}
+
             {/* Add Column Form */}
             {showAddColumn && onApplySQL && (
               <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
@@ -602,7 +647,20 @@ export default function ElementDetailsModal({
                           />
                         )}
                       </TableCell>
-                      <TableCell>{column.column_default || '-'}</TableCell>
+                      <TableCell>
+                        {alteringCol === column.column_name ? (
+                          <TextField
+                            size="small"
+                            variant="standard"
+                            placeholder="No default"
+                            value={alterColDefault}
+                            onChange={(e) => setAlterColDefault(e.target.value)}
+                            sx={{ minWidth: 100, '& .MuiInput-input': { fontSize: '0.8125rem' } }}
+                          />
+                        ) : (
+                          column.column_default || '-'
+                        )}
+                      </TableCell>
                       <TableCell
                         sx={{ cursor: 'pointer', minWidth: 150, maxWidth: 300 }}
                         onClick={() => {
@@ -649,12 +707,12 @@ export default function ElementDetailsModal({
                           {alteringCol === column.column_name ? (
                             <Box sx={{ display: 'flex', gap: 0.5 }}>
                               <Tooltip title="Apply changes">
-                                <IconButton size="small" color="success" disabled={executingSQL} onClick={() => handleAlterColumn(column.column_name, column.data_type, column.is_nullable)}>
+                                <IconButton size="small" color="success" disabled={executingSQL} onClick={() => handleAlterColumn(column.column_name, column.data_type, column.is_nullable, column.column_default)}>
                                   <CheckIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                               <Tooltip title="Cancel">
-                                <IconButton size="small" onClick={() => setAlteringCol(null)}>
+                                <IconButton size="small" onClick={() => { setAlteringCol(null); setSqlError(null); }}>
                                   <CloseIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
@@ -666,6 +724,8 @@ export default function ElementDetailsModal({
                                   setAlteringCol(column.column_name);
                                   setAlterColType(column.data_type);
                                   setAlterColNullable(column.is_nullable === 'YES');
+                                  setAlterColDefault(column.column_default || '');
+                                  setSqlError(null);
                                 }}>
                                   <EditIcon fontSize="small" />
                                 </IconButton>

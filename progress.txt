@@ -3067,3 +3067,16 @@ TASK-217 completed. ER-диаграмма: PK/FK метки и связи (edges
 - go build ./backend/... passes
 - Python code not modified — ruff/pytest unaffected
 - Next priorities: TASK-218 (Table Info ALTER TABLE, high), TASK-219 (Run/Stop gradients, high), TASK-220 (DB icons, medium)
+
+TASK-218 completed. Table Info: ALTER TABLE now executes correctly with error feedback and default value editing.
+- ROOT CAUSE: The onExecuteSQL callback chain was correctly wired (index.tsx → DatabasePanel → ElementDetailsModal), ALTER TABLE SQL was being executed. The real issues were: (1) no user feedback on failure — edit mode closed silently on error, (2) default value not editable in alter column UI.
+- FIX 1: handleAlterColumn — edit mode (setAlteringCol) now only closes on success; on failure, an Alert shows the error message
+- FIX 2: Added alterColDefault state + TextField UI for editing DEFAULT value in alter column mode
+- FIX 3: Generates ALTER TABLE ... SET DEFAULT / DROP DEFAULT SQL for default value changes
+- FIX 4: handleAddColumn — form only resets on success; on failure, Alert shows error
+- FIX 5: handleDropColumn — same error feedback pattern with Alert
+- FIX 6: Added sqlError state + Alert component above columns table with dismiss button
+- FIX 7: Error state cleared on: element change, cancel button, close alert
+- npx tsc --noEmit — 0 errors
+- Python code not modified — ruff/pytest unaffected
+- Next priorities: TASK-219 (Run/Stop gradients, high), TASK-220 (DB icons, medium), TASK-221 (ER context menu, medium), TASK-222 (AI icon gradient, medium)

@@ -4242,8 +4242,8 @@
         "Шаг 5: Проверить, что ElementDetailsModal получает проп onExecuteSQL и onRefreshData из index.tsx"
       ],
       "dependencies": [],
-      "status": "pending",
-      "notes": "ElementDetailsModal генерирует ALTER TABLE SQL, но может не получать callback onExecuteSQL из родительского компонента. Проверить цепочку: index.tsx → DatabasePanel → ElementDetailsModal. handleMutateQuery должен передаваться как onExecuteSQL. Также проверить, что handleMutateQuery реально вызывает window.electronAPI.executeQuery()."
+      "status": "done",
+      "notes": "Цепочка onExecuteSQL была корректно подключена (index.tsx → DatabasePanel → ElementDetailsModal). Проблема: (1) при ошибке ALTER TABLE UI закрывал режим редактирования без обратной связи, (2) default value не было редактируемым. Исправлено: добавлен alterColDefault state + UI для редактирования default value, Alert для ошибок SQL, edit mode не закрывается при ошибке. Также исправлены handleAddColumn и handleDropColumn."
     },
     {
       "id": "TASK-219",
