@@ -359,28 +359,12 @@ h2 {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.hero-tagline {
-  color: var(--accent);
-  font-size: clamp(1rem, 2vw, 1.2rem);
-  font-weight: 600;
-  margin-bottom: 12px;
-  letter-spacing: -0.01em;
-}
-
 .hero-subtitle {
   color: var(--text-secondary);
-  font-size: clamp(0.95rem, 2vw, 1.1rem);
+  font-size: clamp(1rem, 2vw, 1.15rem);
   max-width: 540px;
   margin: 0 auto 36px;
   line-height: 1.7;
-}
-
-.hero-screenshot-label {
-  text-align: center;
-  color: var(--text-disabled);
-  font-size: 0.8rem;
-  margin-bottom: 12px;
-  font-weight: 500;
 }
 
 .hero-cta-group {
@@ -388,7 +372,7 @@ h2 {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 
 .hero-cta-hint {
@@ -1219,18 +1203,14 @@ h2 {
   <!-- Hero -->
   <section class="hero">
     <div class="container">
-      <h1 id="heroTitle" aria-label="AI that writes SQL using your real database"></h1>
-      <p class="hero-tagline fade-in" data-en="Your AI copilot for PostgreSQL" data-ru="Ваш AI-помощник для PostgreSQL">Your AI copilot for PostgreSQL</p>
-      <p class="hero-subtitle fade-in" data-en="Connect your database. Describe what you need. Get production-ready SQL in seconds." data-ru="Подключите базу данных. Опишите, что нужно. Получите готовый SQL за секунды.">Connect your database. Describe what you need. Get production-ready SQL in seconds.</p>
+      <h1 id="heroTitle" aria-label="Your AI copilot for PostgreSQL"></h1>
+      <p class="hero-subtitle fade-in" data-en="Generate, explain and optimize SQL using your real schema." data-ru="Генерируйте, объясняйте и оптимизируйте SQL по вашей реальной схеме.">Generate, explain and optimize SQL using your real schema.</p>
       <div class="hero-cta-group fade-in">
         <a href="#" class="btn-primary download-link download-link-with-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span class="download-label" data-en="Download free" data-ru="Скачать бесплатно">Download free</span>
+          <span class="download-label">Download Now</span>
         </a>
-        <span class="hero-cta-hint" data-en="Free trial &middot; macOS &amp; Windows" data-ru="Бесплатная версия &middot; macOS и Windows">Free trial &middot; macOS &amp; Windows</span>
-        <span class="hero-micro" data-en="No signup required &middot; Upgrade inside the app" data-ru="Без регистрации &middot; Обновление внутри приложения">No signup required &middot; Upgrade inside the app</span>
       </div>
-      <p class="hero-screenshot-label fade-in" data-en="AI generating SQL from your real schema" data-ru="AI генерирует SQL по вашей реальной схеме">AI generating SQL from your real schema</p>
       <div class="browser-mockup fade-in">
         <div class="browser-topbar">
           <div class="browser-dot"></div>
@@ -1602,8 +1582,8 @@ h2 {
   }
 
   // Language switcher
-  var heroWordsEn = ['AI', 'that', 'writes', 'SQL', 'using', 'your', 'real', 'database'];
-  var heroWordsRu = ['AI,', 'который', 'пишет', 'SQL', 'по', 'вашей', 'реальной', 'базе'];
+  var heroWordsEn = ['Your', 'AI', 'copilot', 'for', 'PostgreSQL'];
+  var heroWordsRu = ['Ваш', 'AI-помощник', 'для', 'PostgreSQL'];
 
   function setLang(lang) {
     localStorage.setItem('progresql-lang', lang);
