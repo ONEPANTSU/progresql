@@ -1,4 +1,4 @@
-name: Build Windows Client
+name: Build Desktop Clients
 
 on:
   push:
@@ -49,4 +49,41 @@ jobs:
           tag_name: ${{ env.RELEASE_TAG }}
           files: |
             frontend/dist/*.exe
+          fail_on_missing: false
+
+  build-linux:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build Linux AppImage
+        working-directory: frontend
+        run: npx nextron build --linux
+
+      - name: List artifacts
+        working-directory: frontend/dist
+        run: ls -lh
+
+      - name: Upload AppImage to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: |
+            frontend/dist/*.AppImage
           fail_on_missing: false
