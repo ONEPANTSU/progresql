@@ -109,6 +109,7 @@ function createWindow() {
         : path.join(app.getAppPath(), 'preload.js')
     },
     title: 'ProgreSQL',
+    backgroundColor: '#0f1219',
     icon: isDev
       ? path.join(__dirname, '../public/assets/icon.png')
       : path.join(app.getAppPath(), 'public', 'assets', 'icon.png'),

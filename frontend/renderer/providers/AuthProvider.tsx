@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Box, CircularProgress } from '@mui/material';
 import { AuthContextValue, AuthUser } from '../types';
 import { authService } from '../services/auth';
 import { migrateToUserStorage } from '../utils/userStorage';
@@ -79,7 +80,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshUser,
   }), [user, login, register, logout, sendVerificationCode, verifyCode, refreshUser]);
 
-  if (!isReady) return null;
+  if (!isReady) {
+    return (
+      <Box sx={{
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: 'background.default',
+      }}>
+        <CircularProgress size={32} />
+      </Box>
+    );
+  }
 
   return (
     <AuthContext.Provider value={value}>

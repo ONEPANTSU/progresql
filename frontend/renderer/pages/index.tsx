@@ -3,6 +3,7 @@ import {
   Box,
   Typography,
   IconButton,
+  CircularProgress,
 } from '@mui/material';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import DatabasePanel from '../components/DatabasePanel';
@@ -75,6 +76,7 @@ export default function Home() {
   const sqlTabs = useSQLTabs(activeConnection?.id ?? null);
 
   // Guard: redirect unauthenticated users to login, unverified to verify-email
+  const shouldRedirect = !isAuthenticated || !isEmailVerified;
   useEffect(() => {
     if (!isAuthenticated) {
       router.replace('/login');
@@ -468,6 +470,9 @@ export default function Home() {
     // Auto-reconnect if this was the active connection and password was changed
     if (activeConnection?.id === connectionId && updatedData.password) {
       handleConnect(connectionId);
+    } else if (activeConnection?.id === connectionId) {
+      // Auto-refresh database structure after editing active connection
+      handleRefreshConnection(connectionId);
     }
   };
 
@@ -765,6 +770,15 @@ export default function Home() {
       });
     }
   };
+
+  // Block rendering while redirecting to prevent white flash on Windows
+  if (shouldRedirect) {
+    return (
+      <Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default' }}>
+        <CircularProgress size={32} />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'background.default' }}>

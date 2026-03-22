@@ -1641,20 +1641,24 @@ export default function DatabasePanel({
           },
         }}
       >
-        <MenuItem onClick={() => handleMenuAction('refresh')}>
-          <ListItemIcon>
-            <RefreshIcon sx={{ fontSize: TREE_ICON_SIZE }} />
-          </ListItemIcon>
-          Refresh
-        </MenuItem>
-        <Divider />
-        <MenuItem onClick={() => handleMenuAction('create_schema')}>
-          <ListItemIcon>
-            <AddIcon sx={{ fontSize: TREE_ICON_SIZE }} />
-          </ListItemIcon>
-          Create Schema
-        </MenuItem>
-        <Divider />
+        {selectedConnection?.isActive && !connectionErrors[selectedConnection?.id || ''] && (
+          <>
+            <MenuItem onClick={() => handleMenuAction('refresh')}>
+              <ListItemIcon>
+                <RefreshIcon sx={{ fontSize: TREE_ICON_SIZE }} />
+              </ListItemIcon>
+              Refresh
+            </MenuItem>
+            <Divider />
+            <MenuItem onClick={() => handleMenuAction('create_schema')}>
+              <ListItemIcon>
+                <AddIcon sx={{ fontSize: TREE_ICON_SIZE }} />
+              </ListItemIcon>
+              Create Schema
+            </MenuItem>
+            <Divider />
+          </>
+        )}
         <MenuItem onClick={() => handleMenuAction('edit')}>
           <ListItemIcon>
             <EditIcon sx={{ fontSize: TREE_ICON_SIZE }} />
