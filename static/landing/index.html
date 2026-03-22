@@ -954,16 +954,57 @@ h2 {
 /* Feature card hero */
 .feature-card-hero {
   grid-column: 1 / -1;
-  padding: 48px 36px;
+  padding: 40px 36px;
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.feature-card-hero:hover {
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 8px 40px rgba(99, 102, 241, 0.12);
 }
 
 .feature-card-hero h3 {
   font-size: 1.3rem;
+  margin-bottom: 20px;
 }
 
-.feature-card-hero p {
+.feature-hero-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.feature-hero-desc p {
   font-size: 1rem;
-  max-width: 640px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  max-width: 480px;
+}
+
+.feature-hero-tagline {
+  margin-top: 12px;
+  color: var(--accent) !important;
+  font-weight: 600;
+  font-size: 0.9rem !important;
+}
+
+.feature-hero-bullets {
+  border-left: 1px solid var(--border);
+  padding-left: 24px;
+}
+
+@media (max-width: 700px) {
+  .feature-hero-layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .feature-hero-bullets {
+    border-left: none;
+    padding-left: 0;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+  }
 }
 
 /* Hero micro-copy */
@@ -1107,31 +1148,39 @@ h2 {
       <h2 class="fade-in" data-en="Everything you need to work faster with PostgreSQL" data-ru="Все, что нужно для быстрой работы с PostgreSQL">Everything you need to work faster with PostgreSQL</h2>
       <p class="section-subtitle fade-in" data-en="Everything in one native desktop app." data-ru="Всё в одном нативном приложении.">Everything in one native desktop app.</p>
       <div class="features-grid">
-        <div class="glass-card feature-card fade-in">
+        <div class="glass-card feature-card feature-card-hero fade-in">
           <span class="feature-icon" aria-hidden="true">&#10022;</span>
           <h3 data-en="AI Copilot" data-ru="AI-помощник">AI Copilot</h3>
-          <ul class="feature-bullets">
-            <li data-en="Generate SQL from natural language" data-ru="Генерация SQL из обычного языка">Generate SQL from natural language</li>
-            <li data-en="Improve &amp; optimize slow queries" data-ru="Улучшение и оптимизация медленных запросов">Improve &amp; optimize slow queries</li>
-            <li data-en="Explain complex SQL in seconds" data-ru="Объяснение сложных запросов за секунды">Explain complex SQL in seconds</li>
-            <li data-en="Schema-aware — no hallucinations" data-ru="Знает схему — без галлюцинаций">Schema-aware — no hallucinations</li>
-          </ul>
+          <div class="feature-hero-layout">
+            <div class="feature-hero-desc">
+              <p data-en="Generate, improve, explain and optimize SQL queries using natural language. Schema-aware — reads your real tables and columns before generating anything." data-ru="Генерируйте, улучшайте, объясняйте и оптимизируйте SQL-запросы на обычном языке. Знает вашу схему — читает реальные таблицы и колонки перед генерацией.">Generate, improve, explain and optimize SQL queries using natural language. Schema-aware — reads your real tables and columns before generating anything.</p>
+              <p class="feature-hero-tagline" data-en="Works with your real schema — not guesses." data-ru="Работает с вашей реальной схемой — без догадок.">Works with your real schema — not guesses.</p>
+            </div>
+            <div class="feature-hero-bullets">
+              <ul class="feature-bullets">
+                <li data-en="Generate SQL from natural language" data-ru="Генерация SQL из обычного языка">Generate SQL from natural language</li>
+                <li data-en="Explain queries, tables and functions" data-ru="Объяснение запросов, таблиц и функций">Explain queries, tables and functions</li>
+                <li data-en="Optimize slow queries automatically" data-ru="Автоматическая оптимизация медленных запросов">Optimize slow queries automatically</li>
+                <li data-en="AI validates and fixes its own SQL" data-ru="AI проверяет и исправляет свой SQL">AI validates and fixes its own SQL</li>
+              </ul>
+            </div>
+          </div>
         </div>
         <div class="glass-card feature-card fade-in">
           <span class="feature-icon" aria-hidden="true">&#128450;</span>
           <h3 data-en="Smart Editor" data-ru="Умный редактор">Smart Editor</h3>
           <ul class="feature-bullets">
-            <li data-en="Autocomplete for tables &amp; columns" data-ru="Автодополнение таблиц и колонок">Autocomplete for tables &amp; columns</li>
+            <li data-en="AI-powered autocomplete" data-ru="AI-автодополнение">AI-powered autocomplete</li>
             <li data-en="Syntax highlighting &amp; formatting" data-ru="Подсветка синтаксиса и форматирование">Syntax highlighting &amp; formatting</li>
             <li data-en="Multiple tabs &amp; query history" data-ru="Вкладки и история запросов">Multiple tabs &amp; query history</li>
-            <li data-en="Run queries &amp; explore results" data-ru="Выполнение запросов и просмотр результатов">Run queries &amp; explore results</li>
+            <li data-en="Error detection &amp; instant feedback" data-ru="Обнаружение ошибок и мгновенная обратная связь">Error detection &amp; instant feedback</li>
           </ul>
         </div>
         <div class="glass-card feature-card fade-in">
           <span class="feature-icon" aria-hidden="true">&#128274;</span>
           <h3 data-en="Schema Tools" data-ru="Инструменты схемы">Schema Tools</h3>
           <ul class="feature-bullets">
-            <li data-en="Visual schema explorer" data-ru="Визуальный обозреватель схемы">Visual schema explorer</li>
+            <li data-en="Reads your real tables, columns &amp; indexes" data-ru="Читает реальные таблицы, колонки и индексы">Reads your real tables, columns &amp; indexes</li>
             <li data-en="Interactive ER diagrams" data-ru="Интерактивные ER-диаграммы">Interactive ER diagrams</li>
             <li data-en="Schema comparison across DBs" data-ru="Сравнение схем между базами">Schema comparison across DBs</li>
             <li data-en="Auto-generated migrations" data-ru="Автоматическая генерация миграций">Auto-generated migrations</li>
@@ -1141,10 +1190,10 @@ h2 {
           <span class="feature-icon" aria-hidden="true">&#128202;</span>
           <h3 data-en="Analytics" data-ru="Аналитика">Analytics</h3>
           <ul class="feature-bullets">
-            <li data-en="AI-generated charts from queries" data-ru="AI-генерируемые графики из запросов">AI-generated charts from queries</li>
+            <li data-en="Ask questions, get insights" data-ru="Задавайте вопросы, получайте инсайты">Ask questions, get insights</li>
+            <li data-en="Generate charts instantly" data-ru="Генерируйте графики мгновенно">Generate charts instantly</li>
             <li data-en="Bar, line, pie &amp; area charts" data-ru="Столбчатые, линейные, круговые диаграммы">Bar, line, pie &amp; area charts</li>
-            <li data-en="Export &amp; share visualizations" data-ru="Экспорт и обмен визуализациями">Export &amp; share visualizations</li>
-            <li data-en="Instant insights from your data" data-ru="Мгновенные инсайты из ваших данных">Instant insights from your data</li>
+            <li data-en="Visual insights from your data" data-ru="Визуальные инсайты из ваших данных">Visual insights from your data</li>
           </ul>
         </div>
       </div>
