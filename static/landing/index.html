@@ -512,7 +512,7 @@ h2 {
 
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 24px;
 }
 
@@ -538,8 +538,31 @@ h2 {
   line-height: 1.6;
 }
 
+.feature-bullets {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.feature-bullets li {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  padding: 4px 0;
+  padding-left: 20px;
+  position: relative;
+}
+
+.feature-bullets li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
 @media (max-width: 900px) {
-  .features-grid { grid-template-columns: repeat(2, 1fr); }
+  .features-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 560px) {
@@ -594,7 +617,7 @@ h2 {
 
 .arch-danger {
   text-align: center;
-  color: var(--danger);
+  color: #22c55e;
   font-weight: 600;
   font-size: 1.3rem;
   letter-spacing: 0.05em;
@@ -1044,8 +1067,8 @@ h2 {
       <div class="pain-grid">
         <div class="glass-card pain-card fade-in">
           <span class="pain-icon" aria-hidden="true">&#128336;</span>
-          <h3 data-en="Spent 20 minutes writing a JOIN?" data-ru="Потратили 20 минут на написание JOIN?">Spent 20 minutes writing a JOIN?</h3>
-          <p data-en="Describe what you need, ProgreSQL writes the SQL." data-ru="Опишите на обычном языке, ProgreSQL напишет SQL.">Describe what you need, ProgreSQL writes the SQL.</p>
+          <h3 data-en="Spending too long on SQL queries?" data-ru="Тратите слишком много времени на SQL-запросы?">Spending too long on SQL queries?</h3>
+          <p data-en="Describe what you need, ProgreSQL writes the SQL." data-ru="Опишите что нужно, ProgreSQL напишет SQL.">Describe what you need, ProgreSQL writes the SQL.</p>
         </div>
         <div class="glass-card pain-card fade-in">
           <span class="pain-icon" aria-hidden="true">&#128269;</span>
@@ -1082,27 +1105,47 @@ h2 {
   <section class="features-section" id="features">
     <div class="container">
       <h2 class="fade-in" data-en="Everything you need to work faster with PostgreSQL" data-ru="Все, что нужно для быстрой работы с PostgreSQL">Everything you need to work faster with PostgreSQL</h2>
-      <p class="section-subtitle fade-in" data-en="Four powerful capabilities in one native desktop app." data-ru="Четыре мощных возможности в одном нативном приложении.">Four powerful capabilities in one native desktop app.</p>
+      <p class="section-subtitle fade-in" data-en="Everything in one native desktop app." data-ru="Всё в одном нативном приложении.">Everything in one native desktop app.</p>
       <div class="features-grid">
-        <div class="glass-card feature-card feature-card-hero fade-in">
+        <div class="glass-card feature-card fade-in">
           <span class="feature-icon" aria-hidden="true">&#10022;</span>
           <h3 data-en="AI Copilot" data-ru="AI-помощник">AI Copilot</h3>
-          <p data-en="Generate, improve, explain and optimize SQL queries using natural language. Schema-aware — reads your real tables and columns before generating anything." data-ru="Генерируйте, улучшайте, объясняйте и оптимизируйте SQL-запросы на обычном языке. Знает вашу схему — читает реальные таблицы и колонки перед генерацией.">Generate, improve, explain and optimize SQL queries using natural language. Schema-aware — reads your real tables and columns before generating anything.</p>
+          <ul class="feature-bullets">
+            <li data-en="Generate SQL from natural language" data-ru="Генерация SQL из обычного языка">Generate SQL from natural language</li>
+            <li data-en="Improve &amp; optimize slow queries" data-ru="Улучшение и оптимизация медленных запросов">Improve &amp; optimize slow queries</li>
+            <li data-en="Explain complex SQL in seconds" data-ru="Объяснение сложных запросов за секунды">Explain complex SQL in seconds</li>
+            <li data-en="Schema-aware — no hallucinations" data-ru="Знает схему — без галлюцинаций">Schema-aware — no hallucinations</li>
+          </ul>
         </div>
         <div class="glass-card feature-card fade-in">
           <span class="feature-icon" aria-hidden="true">&#128450;</span>
           <h3 data-en="Smart Editor" data-ru="Умный редактор">Smart Editor</h3>
-          <p data-en="SQL editor with autocomplete, syntax highlighting, multiple tabs and query history." data-ru="SQL-редактор с автодополнением, подсветкой синтаксиса, вкладками и историей запросов.">SQL editor with autocomplete, syntax highlighting, multiple tabs and query history.</p>
+          <ul class="feature-bullets">
+            <li data-en="Autocomplete for tables &amp; columns" data-ru="Автодополнение таблиц и колонок">Autocomplete for tables &amp; columns</li>
+            <li data-en="Syntax highlighting &amp; formatting" data-ru="Подсветка синтаксиса и форматирование">Syntax highlighting &amp; formatting</li>
+            <li data-en="Multiple tabs &amp; query history" data-ru="Вкладки и история запросов">Multiple tabs &amp; query history</li>
+            <li data-en="Run queries &amp; explore results" data-ru="Выполнение запросов и просмотр результатов">Run queries &amp; explore results</li>
+          </ul>
         </div>
         <div class="glass-card feature-card fade-in">
           <span class="feature-icon" aria-hidden="true">&#128274;</span>
           <h3 data-en="Schema Tools" data-ru="Инструменты схемы">Schema Tools</h3>
-          <p data-en="Visual schema explorer, ER diagrams, schema comparison and migration generation across databases." data-ru="Визуальный обозреватель схемы, ER-диаграммы, сравнение схем и генерация миграций между базами.">Visual schema explorer, ER diagrams, schema comparison and migration generation across databases.</p>
+          <ul class="feature-bullets">
+            <li data-en="Visual schema explorer" data-ru="Визуальный обозреватель схемы">Visual schema explorer</li>
+            <li data-en="Interactive ER diagrams" data-ru="Интерактивные ER-диаграммы">Interactive ER diagrams</li>
+            <li data-en="Schema comparison across DBs" data-ru="Сравнение схем между базами">Schema comparison across DBs</li>
+            <li data-en="Auto-generated migrations" data-ru="Автоматическая генерация миграций">Auto-generated migrations</li>
+          </ul>
         </div>
         <div class="glass-card feature-card fade-in">
           <span class="feature-icon" aria-hidden="true">&#128202;</span>
           <h3 data-en="Analytics" data-ru="Аналитика">Analytics</h3>
-          <p data-en="AI-generated charts and visualizations from your query results — bar, line, pie and area charts." data-ru="AI-генерируемые графики и визуализации из результатов запросов — столбчатые, линейные, круговые диаграммы.">AI-generated charts and visualizations from your query results — bar, line, pie and area charts.</p>
+          <ul class="feature-bullets">
+            <li data-en="AI-generated charts from queries" data-ru="AI-генерируемые графики из запросов">AI-generated charts from queries</li>
+            <li data-en="Bar, line, pie &amp; area charts" data-ru="Столбчатые, линейные, круговые диаграммы">Bar, line, pie &amp; area charts</li>
+            <li data-en="Export &amp; share visualizations" data-ru="Экспорт и обмен визуализациями">Export &amp; share visualizations</li>
+            <li data-en="Instant insights from your data" data-ru="Мгновенные инсайты из ваших данных">Instant insights from your data</li>
+          </ul>
         </div>
       </div>
     </div>
@@ -1169,8 +1212,8 @@ h2 {
             <li data-en="Analytics charts &amp; visualizations" data-ru="Аналитические графики и визуализации">Analytics charts &amp; visualizations</li>
             <li data-en="Priority support via Telegram" data-ru="Приоритетная поддержка в Telegram">Priority support via Telegram</li>
           </ul>
-          <a href="#" class="btn-primary download-link" style="justify-content:center;" data-en="Download free &rarr; Get Pro in app" data-ru="Скачать &rarr; Получить Pro в приложении">Download free &rarr; Get Pro in app</a>
-          <p class="pricing-pro-hint" data-en="Activate inside the app" data-ru="Активация внутри приложения">Activate inside the app</p>
+          <a href="#" class="btn-primary download-link" style="justify-content:center;" data-en="Download free &rarr;" data-ru="Скачать бесплатно &rarr;">Download free &rarr;</a>
+          <p class="pricing-pro-hint" data-en="Get Pro inside the app" data-ru="Получите Pro внутри приложения">Get Pro inside the app</p>
         </div>
       </div>
       <div class="pricing-steps fade-in">
@@ -1178,9 +1221,9 @@ h2 {
         <div class="pricing-step-arrow">&rarr;</div>
         <div class="pricing-step"><span class="pricing-step-num">2</span><span data-en="Open Settings &rarr; Subscription" data-ru="Откройте Настройки &rarr; Подписка">Open Settings &rarr; Subscription</span></div>
         <div class="pricing-step-arrow">&rarr;</div>
-        <div class="pricing-step"><span class="pricing-step-num">3</span><span data-en="Pay with crypto — done" data-ru="Оплатите криптой — готово">Pay with crypto — done</span></div>
+        <div class="pricing-step"><span class="pricing-step-num">3</span><span data-en="Pay — done" data-ru="Оплатите — готово">Pay — done</span></div>
       </div>
-      <p class="pricing-note fade-in" data-en="Upgrade to Pro inside the app. Pay with crypto (USDT, BTC, TON) — license activates instantly." data-ru="Обновление до Pro внутри приложения. Оплата криптовалютой (USDT, BTC, TON) — лицензия активируется мгновенно.">Upgrade to Pro inside the app. Pay with crypto (USDT, BTC, TON) — license activates instantly.</p>
+      <p class="pricing-note fade-in" data-en="Upgrade to Pro inside the app. License activates instantly." data-ru="Обновление до Pro внутри приложения. Лицензия активируется мгновенно.">Upgrade to Pro inside the app. License activates instantly.</p>
     </div>
   </section>
 
