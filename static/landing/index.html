@@ -512,7 +512,7 @@ h2 {
 
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 24px;
 }
 
@@ -573,6 +573,12 @@ h2 {
 .security-section {
   padding: 100px 0;
   background: linear-gradient(180deg, transparent 0%, rgba(34, 197, 94, 0.02) 40%, rgba(34, 197, 94, 0.02) 60%, transparent 100%);
+}
+
+.security-section h2 {
+  font-size: clamp(1.3rem, 2.5vw, 1.8rem);
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .arch-flow {
@@ -726,6 +732,7 @@ h2 {
 /* ========== PRICING ========== */
 .pricing-section {
   padding: 100px 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(99, 102, 241, 0.02) 30%, rgba(99, 102, 241, 0.02) 70%, transparent 100%);
 }
 
 .pricing-grid {
@@ -1065,11 +1072,12 @@ h2 {
 }
 
 .feature-hero-tagline {
-  margin-top: 12px;
-  color: var(--accent) !important;
+  margin-top: 16px;
+  color: #818cf8 !important;
   font-weight: 700;
-  font-size: 1.05rem !important;
-  text-shadow: 0 0 20px rgba(99, 102, 241, 0.25);
+  font-size: 1.15rem !important;
+  text-shadow: 0 0 24px rgba(99, 102, 241, 0.35);
+  letter-spacing: -0.01em;
 }
 
 .feature-hero-badge {
@@ -1210,8 +1218,8 @@ h2 {
       <div class="pain-grid">
         <div class="glass-card pain-card fade-in">
           <span class="pain-icon" aria-hidden="true">&#128336;</span>
-          <h3 data-en="Spending too long on SQL queries?" data-ru="Тратите слишком много времени на SQL-запросы?">Spending too long on SQL queries?</h3>
-          <p data-en="Describe what you need, ProgreSQL writes the SQL." data-ru="Опишите что нужно, ProgreSQL напишет SQL.">Describe what you need, ProgreSQL writes the SQL.</p>
+          <h3 data-en="Writing SQL takes too long?" data-ru="SQL-запросы отнимают слишком много времени?">Writing SQL takes too long?</h3>
+          <p data-en="Describe what you need — ProgreSQL writes it." data-ru="Опишите что нужно — ProgreSQL напишет.">Describe what you need — ProgreSQL writes it.</p>
         </div>
         <div class="glass-card pain-card fade-in">
           <span class="pain-icon" aria-hidden="true">&#128269;</span>
@@ -1220,8 +1228,8 @@ h2 {
         </div>
         <div class="glass-card pain-card fade-in">
           <span class="pain-icon" aria-hidden="true">&#9889;</span>
-          <h3 data-en="Slow query you can't debug?" data-ru="Медленный запрос, который не получается отладить?">Slow query you can't debug?</h3>
-          <p data-en="Paste SQL, get an optimized version with explanation." data-ru="Вставьте SQL, получите оптимизированную версию с объяснением.">Paste SQL, get an optimized version with explanation.</p>
+          <h3 data-en="Slow queries you can't debug?" data-ru="Медленные запросы, которые не получается отладить?">Slow queries you can't debug?</h3>
+          <p data-en="Paste SQL — get an optimized version with explanation." data-ru="Вставьте SQL — получите оптимизированную версию с объяснением.">Paste SQL — get an optimized version with explanation.</p>
         </div>
       </div>
     </div>
@@ -1290,7 +1298,7 @@ h2 {
             <li data-en="Auto-generated migrations" data-ru="Автоматическая генерация миграций">Auto-generated migrations</li>
           </ul>
         </div>
-        <div class="glass-card feature-card feature-card-wide fade-in">
+        <div class="glass-card feature-card fade-in">
           <span class="feature-icon" aria-hidden="true">&#128202;</span>
           <h3 data-en="Analytics" data-ru="Аналитика">Analytics</h3>
           <ul class="feature-bullets">
