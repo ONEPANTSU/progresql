@@ -4197,6 +4197,151 @@
         "TASK-203"
       ],
       "status": "done"
+    },
+    {
+      "id": "TASK-217",
+      "category": "client-ui",
+      "priority": "critical",
+      "description": "ER-диаграмма: PK/FK метки и связи (edges) не отображаются",
+      "acceptance_criteria": [
+        "В ER-диаграмме у столбцов с PRIMARY KEY отображается значок 🔑 или метка PK",
+        "У столбцов с FOREIGN KEY отображается метка FK и ссылка на referenced_table.referenced_column",
+        "Между таблицами с FK-связями рисуются edges (стрелки/линии)",
+        "Консольный лог '[ERDiagram] PK constraints: N' показывает N > 0 для БД с PK",
+        "Консольный лог '[ERDiagram] FK constraints: M' показывает M > 0 для БД с FK"
+      ],
+      "test_steps": [
+        "Шаг 1: Подключиться к БД с таблицами, у которых есть PK и FK",
+        "Шаг 2: Открыть ER-диаграмму",
+        "Шаг 3: Открыть DevTools (Cmd+Shift+I), проверить консольные логи — должны быть PK constraints > 0, FK constraints > 0",
+        "Шаг 4: Если constraints = 0, проблема в IPC handler get-database-structure (main.js или main/background.js)",
+        "Шаг 5: Проверить, что в main/background.js handler get-database-structure полностью удалён/закомментирован (НЕ зарегистрирован через ipcMain.handle), т.к. Nextron загружает background.js через webpack и дубликат handler перехватывает вызовы",
+        "Шаг 6: Проверить SQL query в main.js — должен быть CASE co.contype WHEN 'p' THEN 'PRIMARY KEY' WHEN 'f' THEN 'FOREIGN KEY', а также LEFT JOIN pg_class ref_c ON co.confrelid = ref_c.oid и LEFT JOIN pg_attribute ref_a для referenced_table/referenced_column",
+        "Шаг 7: Визуально подтвердить, что PK/FK метки видны на столбцах и edges рисуются между связанными таблицами"
+      ],
+      "dependencies": [],
+      "status": "pending",
+      "notes": "Корневая причина: Nextron компилирует main/background.js как отдельную webpack entry point. Оба файла (main.js и background.js) регистрируют ipcMain.handle('get-database-structure'). Electron берёт ПЕРВЫЙ зарегистрированный handler — из background.js, где SQL query использует raw contype ('p','f') вместо 'PRIMARY KEY'/'FOREIGN KEY' и не содержит LEFT JOIN для referenced_table/referenced_column. ERDiagram.tsx ожидает constraint_type === 'PRIMARY KEY' / 'FOREIGN KEY' (строки 79, 82, 305). Решение: удалить handler из background.js, оставить только в main.js с правильным CASE mapping."
+    },
+    {
+      "id": "TASK-218",
+      "category": "client-ui",
+      "priority": "high",
+      "description": "Table Info: сохранение изменений столбцов не применяется (ALTER TABLE не выполняется)",
+      "acceptance_criteria": [
+        "При изменении nullable/type/default столбца и нажатии Apply — ALTER TABLE SQL реально выполняется через IPC",
+        "После успешного выполнения структура БД обновляется (refresh)",
+        "При ошибке SQL показывается сообщение об ошибке пользователю",
+        "Изменения видны при повторном открытии Table Info"
+      ],
+      "test_steps": [
+        "Шаг 1: Открыть Table Info для таблицы с NOT NULL столбцом",
+        "Шаг 2: Переключить столбец на nullable, нажать Apply Changes",
+        "Шаг 3: Закрыть модалку, снова открыть Table Info — столбец должен быть nullable",
+        "Шаг 4: Проверить в psql: \\d tablename — nullable должен измениться",
+        "Шаг 5: Проверить, что ElementDetailsModal получает проп onExecuteSQL и onRefreshData из index.tsx"
+      ],
+      "dependencies": [],
+      "status": "pending",
+      "notes": "ElementDetailsModal генерирует ALTER TABLE SQL, но может не получать callback onExecuteSQL из родительского компонента. Проверить цепочку: index.tsx → DatabasePanel → ElementDetailsModal. handleMutateQuery должен передаваться как onExecuteSQL. Также проверить, что handleMutateQuery реально вызывает window.electronAPI.executeQuery()."
+    },
+    {
+      "id": "TASK-219",
+      "category": "client-ui",
+      "priority": "high",
+      "description": "Кнопки Run и Stop без градиента — нужен зелёный/красный градиент",
+      "acceptance_criteria": [
+        "Кнопка Run в SQL-редакторе имеет зелёный градиент: linear-gradient(135deg, #22c55e, #16a34a)",
+        "Кнопка Stop (остановка генерации AI) имеет красный градиент: linear-gradient(135deg, #ef4444, #dc2626)",
+        "Кнопка Stop квадратной формы (borderRadius: 1), иконка — квадрат (StopIcon)",
+        "Hover-состояния с более тёмным градиентом"
+      ],
+      "test_steps": [
+        "Шаг 1: Открыть SQL-редактор, проверить кнопку Run — должен быть зелёный градиент",
+        "Шаг 2: Отправить запрос AI, проверить кнопку Stop — должен быть красный градиент, квадратная форма",
+        "Шаг 3: Проверить hover-состояния обеих кнопок",
+        "Шаг 4: Файлы: SQLEditor.tsx (Run), ChatInput.tsx (Stop)"
+      ],
+      "dependencies": [],
+      "status": "pending",
+      "notes": "Градиенты задаются через sx prop: background: 'linear-gradient(...)'. Важно: НЕ использовать bgcolor (MUI переопределяет gradient). Использовать background напрямую. Проверить, что стили не перезатираются MUI-темой."
+    },
+    {
+      "id": "TASK-220",
+      "category": "client-ui",
+      "priority": "medium",
+      "description": "Explorer: иконка базы данных должна отличаться от иконки connection",
+      "acceptance_criteria": [
+        "Connection (верхний уровень) использует иконку сервера/подключения (Cable или другую)",
+        "Database (вложенный уровень) использует классическую иконку цилиндра (Storage)",
+        "Connection и Database визуально различимы по иконке и/или цвету",
+        "Database иконка фиолетовая (#8b5cf6), Connection иконка другого цвета"
+      ],
+      "test_steps": [
+        "Шаг 1: Раскрыть connection в Explorer — database должна иметь иконку цилиндра",
+        "Шаг 2: Connection и Database визуально отличаются",
+        "Шаг 3: Файл: DatabasePanel.tsx, renderConnectionItem()"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-221",
+      "category": "client-ui",
+      "priority": "medium",
+      "description": "ER-диаграмма: контекстное меню перенести с connection на database уровень",
+      "acceptance_criteria": [
+        "Правый клик на connection НЕ показывает пункт 'ER Diagram'",
+        "Правый клик на database (вложенный уровень) показывает пункт 'ER Diagram'",
+        "ER-диаграмма открывается для конкретной базы данных"
+      ],
+      "test_steps": [
+        "Шаг 1: Правый клик на connection — в меню НЕ должно быть ER Diagram",
+        "Шаг 2: Правый клик на database — в меню ДОЛЖЕН быть ER Diagram",
+        "Шаг 3: Клик на ER Diagram открывает диаграмму для этой БД",
+        "Шаг 4: Файл: DatabasePanel.tsx, контекстное меню connection и database"
+      ],
+      "dependencies": [
+        "TASK-220"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-222",
+      "category": "client-ui",
+      "priority": "medium",
+      "description": "Иконка AI-ассистента над чатом — синяя без градиента, нужен brand gradient",
+      "acceptance_criteria": [
+        "Иконка/аватар AI-ассистента в заголовке чат-панели имеет gradient фон: linear-gradient(135deg, #6366f1, #8b5cf6)",
+        "Не синий плоский цвет, а именно фиолетовый градиент в стиле бренда"
+      ],
+      "test_steps": [
+        "Шаг 1: Открыть чат-панель, проверить иконку ассистента в заголовке",
+        "Шаг 2: Должен быть фиолетовый градиент, не плоский синий",
+        "Шаг 3: Файлы: ChatPanel.tsx или ChatMessage.tsx — искать Avatar или Box с bgcolor для бота"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-223",
+      "category": "client-ui",
+      "priority": "low",
+      "description": "DMG installer: фон установщика с brand gradient",
+      "acceptance_criteria": [
+        "Фоновое изображение DMG-установщика (background.png) оформлено в фирменных цветах",
+        "Фиолетовый градиент (linear-gradient от #6366f1 к #8b5cf6) или аналогичный визуал",
+        "Логотип ProgreSQL на фоне",
+        "Текст 'Drag to Applications' читаемый на новом фоне"
+      ],
+      "test_steps": [
+        "Шаг 1: Сгенерировать новый background.png (660x400) с градиентом",
+        "Шаг 2: Заменить frontend/public/assets/dmg/background.png",
+        "Шаг 3: Собрать DMG через scripts/release.sh",
+        "Шаг 4: Открыть DMG, проверить визуал фона"
+      ],
+      "dependencies": [],
+      "status": "pending"
     }
   ]
 }
