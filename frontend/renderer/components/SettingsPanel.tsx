@@ -461,7 +461,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               title={t('settings.account')}
             />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: 14 }}>
+              <Avatar sx={{ width: 32, height: 32, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', fontSize: 14 }}>
                 {user.name ? user.name.charAt(0).toUpperCase() : <PersonIcon fontSize="small" />}
               </Avatar>
               <Box sx={{ minWidth: 0, flex: 1 }}>

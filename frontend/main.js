@@ -347,8 +347,360 @@ ipcMain.handle('execute-query', async (event, params) => {
   }
 });
 
-// NOTE: get-database-structure handler is in main/background.js (single source of truth)
-// [removed duplicate handler]
+ipcMain.handle('get-database-structure', async (event, connectionId) => {
+  try {
+    let client;
+    if (connectionId && global.dbClients && global.dbClients.has(connectionId)) {
+      client = global.dbClients.get(connectionId);
+    } else if (global.dbClients && global.dbClients.size > 0) {
+      client = global.dbClients.values().next().value;
+    } else if (global.dbClient) {
+      client = global.dbClient;
+    } else {
+      throw new Error('No database connection');
+    }
+
+    // Check if connection is still alive
+    try {
+      await client.query('SELECT 1');
+    } catch (connError) {
+      log.warn(`Connection check failed in get-database-structure [${connectionId}]:`, connError.message);
+      if (connectionId && global.dbClients) global.dbClients.delete(connectionId);
+      throw new Error('Database connection lost. Please reconnect.');
+    }
+
+    log.debug('Getting database structure...');
+
+    // Get current database name
+    const dbNameResult = await client.query('SELECT current_database() as name');
+    const currentDb = dbNameResult.rows[0].name;
+
+    // Get schemas
+    let schemasResult;
+    try {
+      schemasResult = await client.query(`
+        SELECT nspname as schema_name, nspowner::regrole::text as schema_owner
+        FROM pg_namespace
+        WHERE nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+        ORDER BY nspname
+      `);
+    } catch (error) {
+      schemasResult = { rows: [{ schema_name: 'public', schema_owner: 'postgres' }] };
+    }
+
+    // Get tables
+    let tablesResult;
+    try {
+      tablesResult = await client.query(`
+        SELECT
+          tablename as table_name,
+          'BASE TABLE' as table_type,
+          schemaname as table_schema,
+          'postgres' as table_catalog
+        FROM pg_tables
+        WHERE schemaname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+        ORDER BY schemaname, tablename
+      `);
+    } catch (error) {
+      tablesResult = { rows: [] };
+    }
+
+    // Get views
+    let viewsResult;
+    try {
+      viewsResult = await client.query(`
+        SELECT
+          viewname as view_name,
+          definition as view_definition,
+          schemaname as view_schema,
+          'postgres' as view_catalog,
+          false as is_updatable,
+          false as is_insertable_into,
+          false as is_trigger_insertable_into
+        FROM pg_views
+        WHERE schemaname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+        ORDER BY schemaname, viewname
+      `);
+    } catch (error) {
+      viewsResult = { rows: [] };
+    }
+
+    // Get columns
+    let columnsResult;
+    try {
+      columnsResult = await client.query(`
+        SELECT
+          c.relname as table_name,
+          n.nspname as table_schema,
+          a.attname as column_name,
+          pg_catalog.format_type(a.atttypid, a.atttypmod) as data_type,
+          a.attnotnull = false as is_nullable,
+          pg_get_expr(d.adbin, d.adrelid) as column_default,
+          a.attnum as ordinal_position,
+          CASE
+            WHEN a.atttypid = 'pg_catalog.name'::pg_catalog.regtype THEN 1
+            ELSE 0
+          END as character_maximum_length,
+          CASE
+            WHEN a.atttypid = 'pg_catalog.numeric'::pg_catalog.regtype THEN a.atttypmod - 4
+            ELSE NULL
+          END as numeric_precision,
+          CASE
+            WHEN a.atttypid = 'pg_catalog.numeric'::pg_catalog.regtype THEN a.atttypmod & 65535
+            ELSE NULL
+          END as numeric_scale,
+          NULL as datetime_precision,
+          pg_catalog.format_type(a.atttypid, a.atttypmod) as udt_name,
+          a.attidentity != '' as is_identity,
+          a.attidentity as identity_generation
+        FROM pg_catalog.pg_attribute a
+        JOIN pg_catalog.pg_class c ON a.attrelid = c.oid
+        JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+        LEFT JOIN pg_catalog.pg_attrdef d ON (d.adrelid = a.attrelid AND d.adnum = a.attnum)
+        WHERE a.attnum > 0 AND NOT a.attisdropped
+          AND c.relkind IN ('r', 'v')
+          AND n.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+        ORDER BY c.relname, a.attnum
+      `);
+    } catch (error) {
+      columnsResult = { rows: [] };
+    }
+
+    // Get indexes
+    let indexesResult;
+    try {
+      indexesResult = await client.query(`
+        SELECT
+          indexname as index_name,
+          tablename as table_name,
+          schemaname as table_schema,
+          indexdef as index_definition
+        FROM pg_indexes
+        WHERE schemaname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+        ORDER BY tablename, indexname
+      `);
+    } catch (error) {
+      indexesResult = { rows: [] };
+    }
+
+    // Get constraints with proper type mapping and FK references
+    let constraintsResult;
+    try {
+      constraintsResult = await client.query(`
+        SELECT
+          co.conname as constraint_name,
+          c.relname as table_name,
+          n.nspname as table_schema,
+          CASE co.contype
+            WHEN 'p' THEN 'PRIMARY KEY'
+            WHEN 'f' THEN 'FOREIGN KEY'
+            WHEN 'u' THEN 'UNIQUE'
+            WHEN 'c' THEN 'CHECK'
+            WHEN 'x' THEN 'EXCLUDE'
+            ELSE co.contype
+          END as constraint_type,
+          a.attname as column_name,
+          ref_c.relname as referenced_table,
+          ref_a.attname as referenced_column
+        FROM pg_constraint co
+        JOIN pg_class c ON co.conrelid = c.oid
+        JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(co.conkey)
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        LEFT JOIN pg_class ref_c ON co.confrelid = ref_c.oid
+        LEFT JOIN pg_attribute ref_a ON ref_a.attrelid = co.confrelid AND ref_a.attnum = ANY(co.confkey)
+        WHERE n.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+        ORDER BY c.relname, co.conname
+      `);
+    } catch (error) {
+      constraintsResult = { rows: [] };
+    }
+
+    // Get triggers
+    let triggersResult;
+    try {
+      triggersResult = await client.query(`
+        SELECT
+          tgname as trigger_name,
+          c.relname as table_name,
+          n.nspname as table_schema,
+          pg_get_triggerdef(t.oid) as action_statement,
+          CASE
+            WHEN t.tgtype & 66 = 2 THEN 'BEFORE'
+            WHEN t.tgtype & 66 = 64 THEN 'INSTEAD OF'
+            ELSE 'AFTER'
+          END as action_timing
+        FROM pg_trigger t
+        JOIN pg_class c ON t.tgrelid = c.oid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE NOT t.tgisinternal
+          AND n.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+        ORDER BY c.relname, tgname
+      `);
+    } catch (error) {
+      triggersResult = { rows: [] };
+    }
+
+    // Get functions
+    let functionsResult;
+    try {
+      functionsResult = await client.query(`
+        SELECT
+          p.proname as routine_name,
+          'FUNCTION' as routine_type,
+          pg_catalog.format_type(p.prorettype, NULL) as data_type,
+          n.nspname as routine_schema,
+          'postgres' as routine_catalog,
+          pg_get_functiondef(p.oid) as routine_definition
+        FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE n.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+        ORDER BY n.nspname, p.proname
+      `);
+    } catch (error) {
+      functionsResult = { rows: [] };
+    }
+
+    // Get procedures
+    let proceduresResult;
+    try {
+      proceduresResult = await client.query(`
+        SELECT
+          p.proname as routine_name,
+          n.nspname as routine_schema,
+          'postgres' as routine_catalog,
+          pg_get_functiondef(p.oid) as procedure_definition
+        FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE n.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+          AND p.prokind = 'p'
+        ORDER BY n.nspname, p.proname
+      `);
+    } catch (error) {
+      proceduresResult = { rows: [] };
+    }
+
+    // Get sequences
+    let sequencesResult;
+    try {
+      sequencesResult = await client.query(`
+        SELECT
+          c.relname as sequence_name,
+          n.nspname as sequence_schema,
+          'postgres' as sequence_catalog,
+          pg_catalog.format_type(s.seqtypid, NULL) as data_type,
+          s.seqstart as start_value,
+          s.seqmin as minimum_value,
+          s.seqmax as maximum_value,
+          s.seqincrement as increment,
+          s.seqcycle as cycle_option,
+          s.seqcache as cache_size,
+          NULL as last_value
+        FROM pg_sequence s
+        JOIN pg_class c ON s.seqrelid = c.oid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE n.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+        ORDER BY n.nspname, c.relname
+      `);
+    } catch (error) {
+      sequencesResult = { rows: [] };
+    }
+
+    // Get extensions
+    let extensionsResult;
+    try {
+      extensionsResult = await client.query(`
+        SELECT
+          extname as name,
+          extversion as version,
+          extnamespace::regnamespace::text as schema
+        FROM pg_extension
+        ORDER BY extname
+      `);
+    } catch (error) {
+      extensionsResult = { rows: [] };
+    }
+
+    // Get types
+    let typesResult;
+    try {
+      typesResult = await client.query(`
+        SELECT
+          t.typname as name,
+          n.nspname as schema,
+          r.rolname as owner,
+          t.typcategory as type_category,
+          t.typtype as type_type,
+          CASE
+            WHEN t.typtype = 'd' THEN pg_catalog.format_type(t.typbasetype, NULL)
+            ELSE NULL
+          END as base_type,
+          CASE
+            WHEN t.typtype = 'e' THEN (
+              SELECT array_agg(e.enumlabel ORDER BY e.enumsortorder)
+              FROM pg_enum e
+              WHERE e.enumtypid = t.oid
+            )
+            ELSE NULL
+          END as enum_values
+        FROM pg_catalog.pg_type t
+        JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
+        JOIN pg_catalog.pg_roles r ON t.typowner = r.oid
+        WHERE n.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+          AND t.typtype IN ('b', 'c', 'd', 'e', 'p', 'r')
+        ORDER BY n.nspname, t.typname
+      `);
+    } catch (error) {
+      typesResult = { rows: [] };
+    }
+
+    // Group columns, indexes, constraints, and triggers by table
+    const tablesWithDetails = tablesResult.rows.map(table => {
+      const tableColumns = columnsResult.rows.filter(col =>
+        col.table_name === table.table_name && col.table_schema === table.table_schema
+      );
+      const tableIndexes = indexesResult.rows.filter(idx =>
+        idx.table_name === table.table_name && idx.table_schema === table.table_schema
+      );
+      const tableConstraints = constraintsResult.rows.filter(con =>
+        con.table_name === table.table_name && con.table_schema === table.table_schema
+      );
+      const tableTriggers = triggersResult.rows.filter(trig =>
+        trig.table_name === table.table_name && trig.table_schema === table.table_schema
+      );
+
+      return {
+        ...table,
+        columns: tableColumns,
+        indexes: tableIndexes,
+        constraints: tableConstraints,
+        triggers: tableTriggers
+      };
+    });
+
+    const databaseInfo = {
+      name: currentDb,
+      schemas: schemasResult.rows,
+      tables: tablesWithDetails,
+      views: viewsResult.rows,
+      functions: functionsResult.rows,
+      procedures: proceduresResult.rows,
+      sequences: sequencesResult.rows,
+      types: typesResult.rows,
+      extensions: extensionsResult.rows,
+      constraints: constraintsResult.rows
+    };
+
+    log.debug('Database structure retrieved:', {
+      tables: tablesResult.rows.length,
+      constraints: constraintsResult.rows.length,
+    });
+
+    return { success: true, data: databaseInfo };
+  } catch (error) {
+    log.error('Error getting database structure:', error.message);
+    return { success: false, message: error.message };
+  }
+});
 
 
 ipcMain.handle('disconnect-database', async (event) => {

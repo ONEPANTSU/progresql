@@ -798,6 +798,8 @@ export default function Home() {
                             onExplainObject={handleExplainObject}
                             onQueryTable={handleQueryTable}
                             onApplySQL={handleApplySQL}
+                            onExecuteSQL={handleMutateQuery}
+                            onRefreshData={() => activeConnection?.id && handleRefreshConnection(activeConnection.id)}
                             onOpenERDiagram={handleOpenERDiagram}
                             isRestoringConnections={isRestoringConnections}
                             connectingId={connectingId}
@@ -1081,6 +1083,9 @@ export default function Home() {
         element={erDetailsElement}
         elementType="table"
         onApplySQL={handleApplySQL}
+        onExecuteSQL={handleMutateQuery}
+        onRefreshData={() => activeConnection?.id && handleRefreshConnection(activeConnection.id)}
+        onExplainInChat={handleExplainObject}
       />
     </Box>
   );

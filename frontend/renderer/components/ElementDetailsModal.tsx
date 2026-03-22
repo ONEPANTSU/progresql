@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -18,15 +18,13 @@ import {
   Divider,
   IconButton,
   Tooltip,
-  CircularProgress,
   TextField,
   MenuItem,
   Checkbox,
   FormControlLabel,
 } from '@mui/material';
 import { createLogger } from '../utils/logger';
-import { useAgent } from '../contexts/AgentContext';
-import { getDescription, setDescription as saveDescription, getDescriptionsForContext } from '../utils/descriptionStorage';
+import { getDescription, setDescription as saveDescription } from '../utils/descriptionStorage';
 
 /** Highlight SQL keywords, strings, and numbers for display. */
 function highlightSQL(sql: string): React.ReactNode[] {
@@ -114,6 +112,9 @@ interface ElementDetailsModalProps {
   element: any;
   elementType: 'table' | 'column' | 'index' | 'constraint' | 'trigger' | 'function' | 'procedure' | 'view' | 'sequence' | 'extension' | 'type';
   onApplySQL?: (sql: string) => void;
+  onExecuteSQL?: (sql: string) => Promise<{ success: boolean; message?: string }>;
+  onRefreshData?: () => void;
+  onExplainInChat?: (objectName: string, objectType: string, definition?: string) => void;
 }
 
 // Common PostgreSQL data types for the Add/Alter Column forms
@@ -140,11 +141,10 @@ export default function ElementDetailsModal({
   element,
   elementType,
   onApplySQL,
+  onExecuteSQL,
+  onExplainInChat,
+  onRefreshData,
 }: ElementDetailsModalProps) {
-  const agent = useAgent();
-  const [explanation, setExplanation] = useState('');
-  const [isExplaining, setIsExplaining] = useState(false);
-  const explanationRef = useRef('');
   const [userDescription, setUserDescription] = useState('');
   const [descriptionSaved, setDescriptionSaved] = useState(false);
   const [columnDescriptions, setColumnDescriptions] = useState<Record<string, string>>({});
@@ -166,6 +166,9 @@ export default function ElementDetailsModal({
   const [alterColType, setAlterColType] = useState('');
   const [alterColNullable, setAlterColNullable] = useState(true);
 
+  // SQL execution state
+  const [executingSQL, setExecutingSQL] = useState(false);
+
   const supportsExplain = ['table', 'function', 'procedure', 'view'].includes(elementType);
 
   const getObjectSchema = useCallback((): string => {
@@ -182,9 +185,6 @@ export default function ElementDetailsModal({
 
   // Load description when element changes; reset explanation
   useEffect(() => {
-    setExplanation('');
-    setIsExplaining(false);
-    explanationRef.current = '';
     setDescriptionSaved(false);
     setEditingColName(null);
     setShowAddColumn(false);
@@ -250,30 +250,56 @@ export default function ElementDetailsModal({
       : escapeIdent(table);
   }, [element, getObjectSchema]);
 
-  const handleAddColumn = useCallback(() => {
+  const handleAddColumn = useCallback(async () => {
     if (!newColName.trim() || !element) return;
     const tableName = getFullTableName();
     let sql = `ALTER TABLE ${tableName} ADD COLUMN ${escapeIdent(newColName.trim())} ${newColType}`;
     if (!newColNullable) sql += ' NOT NULL';
     if (newColDefault.trim()) sql += ` DEFAULT ${newColDefault.trim()}`;
     sql += ';';
-    onApplySQL?.(sql);
+    if (onExecuteSQL) {
+      setExecutingSQL(true);
+      try {
+        const result = await onExecuteSQL(sql);
+        if (result.success) {
+          onApplySQL?.(sql);
+          onRefreshData?.();
+        }
+      } finally {
+        setExecutingSQL(false);
+      }
+    } else {
+      onApplySQL?.(sql);
+    }
     setShowAddColumn(false);
     setNewColName('');
     setNewColType('text');
     setNewColNullable(true);
     setNewColDefault('');
-  }, [element, newColName, newColType, newColNullable, newColDefault, getFullTableName, onApplySQL]);
+  }, [element, newColName, newColType, newColNullable, newColDefault, getFullTableName, onApplySQL, onExecuteSQL, onRefreshData]);
 
-  const handleDropColumn = useCallback((columnName: string) => {
+  const handleDropColumn = useCallback(async (columnName: string) => {
     if (!element) return;
     const tableName = getFullTableName();
     const sql = `ALTER TABLE ${tableName} DROP COLUMN ${escapeIdent(columnName)};`;
-    onApplySQL?.(sql);
+    if (onExecuteSQL) {
+      setExecutingSQL(true);
+      try {
+        const result = await onExecuteSQL(sql);
+        if (result.success) {
+          onApplySQL?.(sql);
+          onRefreshData?.();
+        }
+      } finally {
+        setExecutingSQL(false);
+      }
+    } else {
+      onApplySQL?.(sql);
+    }
     setDropColTarget(null);
-  }, [element, getFullTableName, onApplySQL]);
+  }, [element, getFullTableName, onApplySQL, onExecuteSQL, onRefreshData]);
 
-  const handleAlterColumn = useCallback((columnName: string, originalType: string, originalNullable: string) => {
+  const handleAlterColumn = useCallback(async (columnName: string, originalType: string, originalNullable: string) => {
     if (!element) return;
     const tableName = getFullTableName();
     const statements: string[] = [];
@@ -289,10 +315,24 @@ export default function ElementDetailsModal({
       }
     }
     if (statements.length > 0) {
-      onApplySQL?.(statements.join('\n'));
+      const sql = statements.join('\n');
+      if (onExecuteSQL) {
+        setExecutingSQL(true);
+        try {
+          const result = await onExecuteSQL(sql);
+          if (result.success) {
+            onApplySQL?.(sql);
+            onRefreshData?.();
+          }
+        } finally {
+          setExecutingSQL(false);
+        }
+      } else {
+        onApplySQL?.(sql);
+      }
     }
     setAlteringCol(null);
-  }, [element, alterColType, alterColNullable, getFullTableName, onApplySQL]);
+  }, [element, alterColType, alterColNullable, getFullTableName, onApplySQL, onExecuteSQL, onRefreshData]);
 
   const getObjectDefinition = useCallback((): string => {
     if (!element) return '';
@@ -321,36 +361,13 @@ export default function ElementDetailsModal({
   }, [element, elementType]);
 
   const handleExplain = useCallback(() => {
-    if (!agent.isConnected || isExplaining) return;
     const definition = getObjectDefinition();
-    if (!definition) return;
-
-    setIsExplaining(true);
-    setExplanation('');
-    explanationRef.current = '';
-
-    const userDescs = getDescriptionsForContext();
-    agent.sendRequest(
-      { action: 'explain_sql', context: { selected_sql: definition, ...(userDescs ? { user_descriptions: userDescs } : {}) } },
-      {
-        onStream: (delta: string) => {
-          explanationRef.current += delta;
-          setExplanation(explanationRef.current);
-        },
-        onResponse: (response) => {
-          setIsExplaining(false);
-          if (response.result.explanation) {
-            setExplanation(response.result.explanation);
-          }
-        },
-        onError: (err) => {
-          setIsExplaining(false);
-          setExplanation(`Error: ${err.message}`);
-          log.error('Explain failed:', err);
-        },
-      },
-    );
-  }, [agent, isExplaining, getObjectDefinition]);
+    const name = getObjectName();
+    if (onExplainInChat) {
+      onExplainInChat(name, elementType, definition || undefined);
+      onClose();
+    }
+  }, [getObjectDefinition, getObjectName, onExplainInChat, elementType, onClose]);
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -521,8 +538,8 @@ export default function ElementDetailsModal({
                   />
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
-                  <Button size="small" variant="contained" disabled={!newColName.trim()} onClick={handleAddColumn}>
-                    Generate SQL
+                  <Button size="small" variant="contained" disabled={!newColName.trim() || executingSQL} onClick={handleAddColumn}>
+                    {executingSQL ? 'Executing...' : onExecuteSQL ? 'Execute' : 'Generate SQL'}
                   </Button>
                   <Button size="small" onClick={() => setShowAddColumn(false)}>Cancel</Button>
                 </Box>
@@ -632,7 +649,7 @@ export default function ElementDetailsModal({
                           {alteringCol === column.column_name ? (
                             <Box sx={{ display: 'flex', gap: 0.5 }}>
                               <Tooltip title="Apply changes">
-                                <IconButton size="small" color="success" onClick={() => handleAlterColumn(column.column_name, column.data_type, column.is_nullable)}>
+                                <IconButton size="small" color="success" disabled={executingSQL} onClick={() => handleAlterColumn(column.column_name, column.data_type, column.is_nullable)}>
                                   <CheckIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
@@ -673,13 +690,13 @@ export default function ElementDetailsModal({
               <DialogTitle>Drop Column</DialogTitle>
               <DialogContent>
                 <Typography>
-                  Are you sure you want to generate SQL to drop column <strong>{dropColTarget}</strong>? This will insert the ALTER TABLE DROP COLUMN statement into the editor.
+                  Are you sure you want to drop column <strong>{dropColTarget}</strong>?{onExecuteSQL ? ' This will execute the ALTER TABLE DROP COLUMN statement against the database.' : ' This will insert the ALTER TABLE DROP COLUMN statement into the editor.'}
                 </Typography>
               </DialogContent>
               <DialogActions>
                 <Button onClick={() => setDropColTarget(null)}>Cancel</Button>
-                <Button color="error" variant="contained" onClick={() => dropColTarget && handleDropColumn(dropColTarget)}>
-                  Generate DROP SQL
+                <Button color="error" variant="contained" disabled={executingSQL} onClick={() => dropColTarget && handleDropColumn(dropColTarget)}>
+                  {executingSQL ? 'Executing...' : onExecuteSQL ? 'Drop Column' : 'Generate DROP SQL'}
                 </Button>
               </DialogActions>
             </Dialog>
@@ -1287,41 +1304,6 @@ export default function ElementDetailsModal({
     );
   };
 
-  const renderExplanation = () => {
-    if (!explanation && !isExplaining) return null;
-
-    return (
-      <Box sx={{ mt: 3 }}>
-        <Divider sx={{ mb: 2 }} />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          <ExplainIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-          <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
-            AI Explanation
-          </Typography>
-          {isExplaining && <CircularProgress size={14} />}
-        </Box>
-        <Box
-          sx={{
-            bgcolor: 'action.hover',
-            borderRadius: 1,
-            p: 2,
-            fontFamily: 'inherit',
-            fontSize: '0.875rem',
-            lineHeight: 1.7,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            maxHeight: 400,
-            overflow: 'auto',
-            '&::-webkit-scrollbar': { width: '6px' },
-            '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
-            '&::-webkit-scrollbar-thumb': { bgcolor: 'grey.400', borderRadius: '3px' },
-          }}
-        >
-          {explanation || 'Analyzing...'}
-        </Box>
-      </Box>
-    );
-  };
 
   const renderDetails = () => {
     switch (elementType) {
@@ -1380,7 +1362,6 @@ export default function ElementDetailsModal({
       <DialogContent sx={{ p: 3 }}>
         {renderDetails()}
         {renderUserDescription()}
-        {renderExplanation()}
       </DialogContent>
 
       <Divider />
@@ -1389,13 +1370,13 @@ export default function ElementDetailsModal({
         {supportsExplain && (
           <Button
             onClick={handleExplain}
-            disabled={!agent.isConnected || isExplaining}
-            startIcon={isExplaining ? <CircularProgress size={16} /> : <ExplainIcon />}
+            disabled={!onExplainInChat}
+            startIcon={<ExplainIcon />}
             variant="outlined"
             color="primary"
             aria-label="Explain object with AI"
           >
-            {isExplaining ? 'Explaining...' : 'Explain'}
+            Explain
           </Button>
         )}
         <Button onClick={onClose} variant="outlined">

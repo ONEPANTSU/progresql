@@ -456,11 +456,11 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         sx={{
           width: 28,
           height: 28,
-          ...(isUser ? { background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' } : { bgcolor: 'grey.200' }),
+          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
           mx: 1,
         }}
       >
-        {isUser ? <UserIcon sx={{ fontSize: '1rem' }} /> : <BotIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />}
+        {isUser ? <UserIcon sx={{ fontSize: '1rem' }} /> : <BotIcon sx={{ fontSize: '1rem', color: '#fff' }} />}
       </Avatar>
       <Box
         sx={{

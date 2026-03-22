@@ -485,7 +485,7 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
                         maxWidth: columnWidths[field.name] || 300,
                         cursor: 'grab',
                         userSelect: 'none',
-                        overflow: 'hidden',
+                        overflow: 'visible',
                         pr: 2,
                       }}
                     >
@@ -524,14 +524,30 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
                         }}
                         sx={{
                           position: 'absolute',
-                          right: 0,
+                          right: -5,
                           top: 0,
                           bottom: 0,
-                          width: 5,
+                          width: 10,
                           cursor: 'col-resize',
-                          borderRight: '1px solid',
-                          borderColor: 'grey.300',
-                          '&:hover': { bgcolor: 'primary.main', opacity: 0.5, borderColor: 'primary.main' },
+                          zIndex: 2,
+                          // Visible thin line in the center via pseudo-element
+                          '&::after': {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            bottom: 0,
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            width: '1px',
+                            bgcolor: 'grey.300',
+                          },
+                          '&:hover': {
+                            '&::after': {
+                              width: '3px',
+                              bgcolor: 'primary.main',
+                              opacity: 0.7,
+                            },
+                          },
                         }}
                       />
                     </TableCell>

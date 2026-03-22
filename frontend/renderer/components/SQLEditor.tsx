@@ -42,14 +42,14 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
   '&': { backgroundColor: '#1a1d23', color: '#e6edf3' },
   '.cm-content': { caretColor: '#58a6ff' },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#58a6ff' },
-  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': { backgroundColor: '#264f78' },
+  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': { backgroundColor: '#3a6fbf' },
   '.cm-panels': { backgroundColor: '#161b22', color: '#e6edf3' },
   '.cm-panels.cm-panels-top': { borderBottom: '2px solid #30363d' },
   '.cm-panels.cm-panels-bottom': { borderTop: '2px solid #30363d' },
   '.cm-searchMatch': { backgroundColor: '#e2c08d80', outline: '1px solid #c8a97199' },
   '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: '#6199ff40' },
   '.cm-activeLine': { backgroundColor: '#161b2280' },
-  '.cm-selectionMatch': { backgroundColor: '#e2c08d40' },
+  '.cm-selectionMatch': { backgroundColor: '#e2c08d66' },
   '&.cm-focused .cm-matchingBracket, &.cm-focused .cm-nonmatchingBracket': { backgroundColor: '#ffffff22' },
   '.cm-gutters': { backgroundColor: '#1a1d23', color: '#484f58', border: 'none' },
   '.cm-activeLineGutter': { backgroundColor: '#161b2280' },
@@ -60,7 +60,7 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
   '.cm-tooltip-autocomplete': {
     '& > ul': { fontFamily: 'monospace', fontSize: '13px' },
     '& > ul > li': { color: '#e6edf3' },
-    '& > ul > li[aria-selected]': { backgroundColor: '#264f78', color: '#e6edf3' },
+    '& > ul > li[aria-selected]': { backgroundColor: '#3a6fbf', color: '#e6edf3' },
   },
   '.cm-completionIcon': { opacity: 0.7 },
   '.cm-completionDetail': { color: '#8b949e', fontStyle: 'italic', marginLeft: '8px' },
@@ -943,12 +943,13 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
                 onKeyDown={handleKeyDown}
                 size="small"
                 sx={{
-                  bgcolor: 'success.main',
-                  '&:hover': { bgcolor: 'success.dark' },
+                  background: "linear-gradient(135deg, #22c55e, #16a34a)",
+                  '&:hover': { background: "linear-gradient(135deg, #16a34a, #15803d)" },
+                  '&.Mui-disabled': { background: "linear-gradient(135deg, #86efac, #4ade80)", color: "rgba(255,255,255,0.7)" },
                   minHeight: 28,
                   py: 0.25,
                   px: 1.5,
-                  fontSize: '0.75rem',
+                  fontSize: "0.75rem",
                 }}
               >
                 {isExecuting ? t('editor.executing') : t('editor.run')}

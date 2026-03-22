@@ -98,6 +98,8 @@ interface DatabasePanelProps {
   onExplainObject?: (objectName: string, objectType: string, definition?: string) => void;
   onQueryTable?: (tableName: string) => void;
   onApplySQL?: (sql: string) => void;
+  onExecuteSQL?: (sql: string) => Promise<{ success: boolean; message?: string }>;
+  onRefreshData?: () => void;
   onOpenERDiagram?: (connectionId: string) => void;
   isRestoringConnections?: boolean;
   connectingId?: string | null;
@@ -162,11 +164,19 @@ const LEAF_ICON_SIZE = 14;
 const DETAIL_ICON_SIZE = 12;
 
 const sectionHeaderTypography = {
-  fontSize: '0.75rem',
-  fontWeight: 600,
-  textTransform: 'uppercase' as const,
-  letterSpacing: '0.05em',
+  fontSize: '0.7rem',
+  fontWeight: 500,
+  letterSpacing: '0.02em',
   color: 'text.secondary',
+};
+
+const counterChipSx = {
+  ml: 0.5,
+  height: 14,
+  fontSize: '0.575rem',
+  fontWeight: 400,
+  opacity: 0.6,
+  '& .MuiChip-label': { px: 0.5 },
 };
 
 const treeTextProps = { sx: { fontSize: '0.8125rem', lineHeight: 1.3 } };
@@ -204,6 +214,8 @@ export default function DatabasePanel({
   onExplainObject,
   onQueryTable,
   onApplySQL,
+  onExecuteSQL,
+  onRefreshData,
   onOpenERDiagram,
   isRestoringConnections = false,
   connectingId = null,
@@ -672,32 +684,40 @@ export default function DatabasePanel({
     handleObjectMenuClose();
   };
 
+  // Systematic icon color palette:
+  // Database: #8b5cf6 (brand purple)    Tables: #3b82f6 (blue)
+  // Views: #a78bfa (violet)             Functions: #22c55e (green)
+  // Procedures: #f97316 (orange)        Triggers: #ef4444 (red)
+  // Indexes: #f59e0b (amber)            Constraints: #ec4899 (pink)
+  // Sequences: #94a3b8 (slate)          Extensions: #6366f1 (indigo)
+  // Types: #06b6d4 (cyan)               Schema: #eab308 (yellow)
+
   const getEntityIcon = (type: string) => {
     switch (type.toLowerCase()) {
       case 'table':
-        return <TableIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'info.main' }} />;
+        return <TableIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#3b82f6' }} />;
       case 'view':
-        return <ViewIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'success.main' }} />;
+        return <ViewIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#a78bfa' }} />;
       case 'function':
-        return <FunctionIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'secondary.main' }} />;
+        return <FunctionIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#22c55e' }} />;
       case 'procedure':
-        return <ProcedureIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'error.light' }} />;
+        return <ProcedureIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#f97316' }} />;
       case 'trigger':
-        return <TriggerIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'warning.main' }} />;
+        return <TriggerIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#ef4444' }} />;
       case 'index':
-        return <IndexIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'grey.500' }} />;
+        return <IndexIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#f59e0b' }} />;
       case 'constraint':
-        return <ConstraintIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'error.main' }} />;
+        return <ConstraintIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#ec4899' }} />;
       case 'sequence':
-        return <SequenceIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'grey.600' }} />;
+        return <SequenceIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#94a3b8' }} />;
       case 'extension':
-        return <ExtensionIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'primary.main' }} />;
+        return <ExtensionIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#6366f1' }} />;
       case 'language':
-        return <LanguageIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'info.light' }} />;
+        return <LanguageIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#06b6d4' }} />;
       case 'type':
-        return <TypeIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'success.light' }} />;
+        return <TypeIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#06b6d4' }} />;
       default:
-        return <TableIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'info.main' }} />;
+        return <TableIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#3b82f6' }} />;
     }
   };
 
@@ -730,7 +750,7 @@ export default function DatabasePanel({
           {isConnecting ? (
             <CircularProgress size={TREE_ICON_SIZE} thickness={4} sx={{ color: 'warning.main' }} />
           ) : (
-            <DatabaseIconNew sx={{ fontSize: TREE_ICON_SIZE, color: connection.isActive ? 'primary.main' : connError ? 'error.main' : 'text.secondary' }} />
+            <DatabaseIconNew sx={{ fontSize: TREE_ICON_SIZE, color: connection.isActive ? '#8b5cf6' : connError ? 'error.main' : 'text.secondary' }} />
           )}
         </ListItemIcon>
         <ListItemText
@@ -740,20 +760,6 @@ export default function DatabasePanel({
           secondaryTypographyProps={{ sx: { fontSize: '0.6875rem', color: 'warning.main', lineHeight: 1 } }}
         />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-          {!connection.isActive && !isConnecting && (
-            <Tooltip title="Connect to this database">
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onConnect(connection.id);
-                }}
-                sx={{ p: 0.25 }}
-              >
-                <ConnectIcon sx={{ fontSize: TREE_ICON_SIZE }} />
-              </IconButton>
-            </Tooltip>
-          )}
           {isConnecting && (
             <CircularProgress size={14} thickness={4} sx={{ color: 'warning.main', mr: 0.25 }} />
           )}
@@ -828,8 +834,8 @@ export default function DatabasePanel({
                         >
                           <ListItemIcon sx={{ minWidth: '18px' }}>
                             {expandedSchemas.has(`${connection.id}-${schema.schema_name}`) ?
-                              <FolderOpenIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'warning.main' }} /> :
-                              <FolderIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'warning.main' }} />
+                              <FolderOpenIcon sx={{ fontSize: LEAF_ICON_SIZE, color: '#eab308' }} /> :
+                              <FolderIcon sx={{ fontSize: LEAF_ICON_SIZE, color: '#eab308' }} />
                             }
                           </ListItemIcon>
                           <ListItemText
@@ -865,14 +871,14 @@ export default function DatabasePanel({
                                   sx={sectionSummarySx}
                                   onContextMenu={(e) => handleObjectContextMenu(e, { schema_name: schema.schema_name }, 'section_tables', schema.schema_name)}
                                 >
-                                  <TablesListIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: 'info.main' }} />
+                                  <TablesListIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: '#3b82f6' }} />
                                   <Typography sx={sectionHeaderTypography}>
                                     {t('db.sections.tables')}
                                   </Typography>
                                   <Chip
                                     label={database.tables.filter(t => t.table_schema === schema.schema_name).length}
                                     size="small"
-                                    sx={{ ml: 0.5, height: 16, fontSize: '0.625rem', '& .MuiChip-label': { px: 0.5 } }}
+                                    sx={counterChipSx}
                                   />
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
@@ -890,7 +896,7 @@ export default function DatabasePanel({
                                                   sx={treeItemSx}
                                                 >
                                                 <ListItemIcon sx={{ minWidth: '18px' }}>
-                                                  <TableIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'info.main' }} />
+                                                  <TableIcon sx={{ fontSize: LEAF_ICON_SIZE, color: '#3b82f6' }} />
                                                 </ListItemIcon>
                                                 <ListItemText
                                                   primary={table.table_name}
@@ -923,14 +929,14 @@ export default function DatabasePanel({
                                                       sx={sectionSummarySx}
                                                       onContextMenu={(e) => handleObjectContextMenu(e, { _tableName: table.table_name }, 'section_columns', schema.schema_name)}
                                                     >
-                                                      <ColumnIcon sx={{ fontSize: DETAIL_ICON_SIZE, mr: 0.5, color: 'info.main' }} />
+                                                      <ColumnIcon sx={{ fontSize: DETAIL_ICON_SIZE, mr: 0.5, color: '#3b82f6' }} />
                                                       <Typography sx={sectionHeaderTypography}>
                                                         Columns
                                                       </Typography>
                                                       <Chip
                                                         label={table.columns.length}
                                                         size="small"
-                                                        sx={{ ml: 0.5, height: 16, fontSize: '0.625rem', '& .MuiChip-label': { px: 0.5 } }}
+                                                        sx={counterChipSx}
                                                       />
                                                     </AccordionSummary>
                                                     <AccordionDetails sx={{ p: 0 }}>
@@ -942,7 +948,7 @@ export default function DatabasePanel({
                                                               sx={leafItemSx}
                                                             >
                                                               <ListItemIcon sx={{ minWidth: '16px' }}>
-                                                                <ColumnIcon sx={{ fontSize: DETAIL_ICON_SIZE, color: 'info.main' }} />
+                                                                <ColumnIcon sx={{ fontSize: DETAIL_ICON_SIZE, color: '#3b82f6' }} />
                                                               </ListItemIcon>
                                                               <ListItemText
                                                                 primary={column.column_name}
@@ -968,14 +974,14 @@ export default function DatabasePanel({
                                                       sx={sectionSummarySx}
                                                       onContextMenu={(e) => handleObjectContextMenu(e, { _tableName: table.table_name }, 'section_indexes', schema.schema_name)}
                                                     >
-                                                      <IndexIcon sx={{ fontSize: DETAIL_ICON_SIZE, mr: 0.5, color: 'warning.main' }} />
+                                                      <IndexIcon sx={{ fontSize: DETAIL_ICON_SIZE, mr: 0.5, color: '#f59e0b' }} />
                                                       <Typography sx={sectionHeaderTypography}>
                                                         Indexes
                                                       </Typography>
                                                       <Chip
                                                         label={table.indexes.length}
                                                         size="small"
-                                                        sx={{ ml: 0.5, height: 16, fontSize: '0.625rem', '& .MuiChip-label': { px: 0.5 } }}
+                                                        sx={counterChipSx}
                                                       />
                                                     </AccordionSummary>
                                                     <AccordionDetails sx={{ p: 0 }}>
@@ -987,7 +993,7 @@ export default function DatabasePanel({
                                                               sx={leafItemSx}
                                                             >
                                                               <ListItemIcon sx={{ minWidth: '16px' }}>
-                                                                <IndexIcon sx={{ fontSize: DETAIL_ICON_SIZE, color: 'warning.main' }} />
+                                                                <IndexIcon sx={{ fontSize: DETAIL_ICON_SIZE, color: '#f59e0b' }} />
                                                               </ListItemIcon>
                                                               <ListItemText
                                                                 primary={index.index_name}
@@ -1013,14 +1019,14 @@ export default function DatabasePanel({
                                                       sx={sectionSummarySx}
                                                       onContextMenu={(e) => handleObjectContextMenu(e, { _tableName: table.table_name }, 'section_constraints', schema.schema_name)}
                                                     >
-                                                      <ConstraintIcon sx={{ fontSize: DETAIL_ICON_SIZE, mr: 0.5, color: 'error.main' }} />
+                                                      <ConstraintIcon sx={{ fontSize: DETAIL_ICON_SIZE, mr: 0.5, color: '#ec4899' }} />
                                                       <Typography sx={sectionHeaderTypography}>
                                                         Constraints
                                                       </Typography>
                                                       <Chip
                                                         label={table.constraints.length}
                                                         size="small"
-                                                        sx={{ ml: 0.5, height: 16, fontSize: '0.625rem', '& .MuiChip-label': { px: 0.5 } }}
+                                                        sx={counterChipSx}
                                                       />
                                                     </AccordionSummary>
                                                     <AccordionDetails sx={{ p: 0 }}>
@@ -1032,7 +1038,7 @@ export default function DatabasePanel({
                                                               sx={leafItemSx}
                                                             >
                                                               <ListItemIcon sx={{ minWidth: '16px' }}>
-                                                                <ConstraintIcon sx={{ fontSize: DETAIL_ICON_SIZE, color: 'error.main' }} />
+                                                                <ConstraintIcon sx={{ fontSize: DETAIL_ICON_SIZE, color: '#ec4899' }} />
                                                               </ListItemIcon>
                                                               <ListItemText
                                                                 primary={constraint.constraint_name}
@@ -1058,14 +1064,14 @@ export default function DatabasePanel({
                                                       sx={sectionSummarySx}
                                                       onContextMenu={(e) => handleObjectContextMenu(e, { _tableName: table.table_name }, 'section_triggers', schema.schema_name)}
                                                     >
-                                                      <TriggerIcon sx={{ fontSize: DETAIL_ICON_SIZE, mr: 0.5, color: 'secondary.main' }} />
+                                                      <TriggerIcon sx={{ fontSize: DETAIL_ICON_SIZE, mr: 0.5, color: '#ef4444' }} />
                                                       <Typography sx={sectionHeaderTypography}>
                                                         Triggers
                                                       </Typography>
                                                       <Chip
                                                         label={table.triggers.length}
                                                         size="small"
-                                                        sx={{ ml: 0.5, height: 16, fontSize: '0.625rem', '& .MuiChip-label': { px: 0.5 } }}
+                                                        sx={counterChipSx}
                                                       />
                                                     </AccordionSummary>
                                                     <AccordionDetails sx={{ p: 0 }}>
@@ -1077,7 +1083,7 @@ export default function DatabasePanel({
                                                               sx={leafItemSx}
                                                             >
                                                               <ListItemIcon sx={{ minWidth: '16px' }}>
-                                                                <TriggerIcon sx={{ fontSize: DETAIL_ICON_SIZE, color: 'secondary.main' }} />
+                                                                <TriggerIcon sx={{ fontSize: DETAIL_ICON_SIZE, color: '#ef4444' }} />
                                                               </ListItemIcon>
                                                               <ListItemText
                                                                 primary={trigger.trigger_name}
@@ -1112,14 +1118,14 @@ export default function DatabasePanel({
                                   sx={sectionSummarySx}
                                   onContextMenu={(e) => handleObjectContextMenu(e, { schema_name: schema.schema_name }, 'section_views', schema.schema_name)}
                                 >
-                                  <ViewIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: 'success.main' }} />
+                                  <ViewIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: '#a78bfa' }} />
                                   <Typography sx={sectionHeaderTypography}>
                                     {t('db.sections.views')}
                                   </Typography>
                                   <Chip
                                     label={database.views.filter(v => v.view_schema === schema.schema_name).length}
                                     size="small"
-                                    sx={{ ml: 0.5, height: 16, fontSize: '0.625rem', '& .MuiChip-label': { px: 0.5 } }}
+                                    sx={counterChipSx}
                                   />
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
@@ -1133,7 +1139,7 @@ export default function DatabasePanel({
                                             sx={treeItemSx}
                                           >
                                             <ListItemIcon sx={{ minWidth: '18px' }}>
-                                              <ViewIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'success.main' }} />
+                                              <ViewIcon sx={{ fontSize: LEAF_ICON_SIZE, color: '#a78bfa' }} />
                                             </ListItemIcon>
                                             <ListItemText
                                               primary={view.view_name}
@@ -1159,14 +1165,14 @@ export default function DatabasePanel({
                                   sx={sectionSummarySx}
                                   onContextMenu={(e) => handleObjectContextMenu(e, { schema_name: schema.schema_name }, 'section_functions', schema.schema_name)}
                                 >
-                                  <FunctionIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: 'secondary.main' }} />
+                                  <FunctionIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: '#22c55e' }} />
                                   <Typography sx={sectionHeaderTypography}>
                                     {t('db.sections.functions')}
                                   </Typography>
                                   <Chip
                                     label={database.functions.filter(f => f.routine_schema === schema.schema_name).length}
                                     size="small"
-                                    sx={{ ml: 0.5, height: 16, fontSize: '0.625rem', '& .MuiChip-label': { px: 0.5 } }}
+                                    sx={counterChipSx}
                                   />
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
@@ -1180,7 +1186,7 @@ export default function DatabasePanel({
                                             sx={treeItemSx}
                                           >
                                             <ListItemIcon sx={{ minWidth: '18px' }}>
-                                              <FunctionIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'secondary.main' }} />
+                                              <FunctionIcon sx={{ fontSize: LEAF_ICON_SIZE, color: '#22c55e' }} />
                                             </ListItemIcon>
                                             <ListItemText
                                               primary={func.routine_name}
@@ -1205,14 +1211,14 @@ export default function DatabasePanel({
                                   expandIcon={<ExpandMoreIcon sx={{ fontSize: LEAF_ICON_SIZE }} />}
                                   sx={sectionSummarySx}
                                 >
-                                  <ProcedureIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: 'error.light' }} />
+                                  <ProcedureIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: '#f97316' }} />
                                   <Typography sx={sectionHeaderTypography}>
                                     Procedures
                                   </Typography>
                                   <Chip
                                     label={database.procedures.filter(p => p.procedure_schema === schema.schema_name).length}
                                     size="small"
-                                    sx={{ ml: 0.5, height: 16, fontSize: '0.625rem', '& .MuiChip-label': { px: 0.5 } }}
+                                    sx={counterChipSx}
                                   />
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
@@ -1226,7 +1232,7 @@ export default function DatabasePanel({
                                             sx={treeItemSx}
                                           >
                                             <ListItemIcon sx={{ minWidth: '18px' }}>
-                                              <ProcedureIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'error.light' }} />
+                                              <ProcedureIcon sx={{ fontSize: LEAF_ICON_SIZE, color: '#f97316' }} />
                                             </ListItemIcon>
                                             <ListItemText
                                               primary={proc.procedure_name}
@@ -1255,14 +1261,14 @@ export default function DatabasePanel({
                                   sx={sectionSummarySx}
                                   onContextMenu={(e) => handleObjectContextMenu(e, { schema_name: schema.schema_name }, 'section_sequences', schema.schema_name)}
                                 >
-                                  <SequenceIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: 'grey.600' }} />
+                                  <SequenceIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: '#94a3b8' }} />
                                   <Typography sx={sectionHeaderTypography}>
                                     {t('db.sections.sequences')}
                                   </Typography>
                                   <Chip
                                     label={database.sequences.filter(s => s.sequence_schema === schema.schema_name).length}
                                     size="small"
-                                    sx={{ ml: 0.5, height: 16, fontSize: '0.625rem', '& .MuiChip-label': { px: 0.5 } }}
+                                    sx={counterChipSx}
                                   />
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
@@ -1273,7 +1279,7 @@ export default function DatabasePanel({
                                         <ListItem key={`${seq.sequence_name}-${index}`} disablePadding>
                                           <ListItemButton sx={treeItemSx} onContextMenu={(e) => handleObjectContextMenu(e, seq, 'sequence', schema.schema_name)}>
                                             <ListItemIcon sx={{ minWidth: '18px' }}>
-                                              <SequenceIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'grey.600' }} />
+                                              <SequenceIcon sx={{ fontSize: LEAF_ICON_SIZE, color: '#94a3b8' }} />
                                             </ListItemIcon>
                                             <ListItemText
                                               primary={seq.sequence_name}
@@ -1299,14 +1305,14 @@ export default function DatabasePanel({
                                   sx={sectionSummarySx}
                                   onContextMenu={(e) => handleObjectContextMenu(e, {}, 'section_extensions', schema.schema_name)}
                                 >
-                                  <ExtensionIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: 'primary.main' }} />
+                                  <ExtensionIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: '#6366f1' }} />
                                   <Typography sx={sectionHeaderTypography}>
                                     {t('db.sections.extensions')}
                                   </Typography>
                                   <Chip
                                     label={database.extensions.length}
                                     size="small"
-                                    sx={{ ml: 0.5, height: 16, fontSize: '0.625rem', '& .MuiChip-label': { px: 0.5 } }}
+                                    sx={counterChipSx}
                                   />
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
@@ -1315,7 +1321,7 @@ export default function DatabasePanel({
                                       <ListItem key={`${ext.name}-${index}`} disablePadding>
                                         <ListItemButton sx={treeItemSx} onContextMenu={(e) => handleObjectContextMenu(e, ext, 'extension')}>
                                             <ListItemIcon sx={{ minWidth: '18px' }}>
-                                              <ExtensionIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'primary.main' }} />
+                                              <ExtensionIcon sx={{ fontSize: LEAF_ICON_SIZE, color: '#6366f1' }} />
                                             </ListItemIcon>
                                           <ListItemText
                                             primary={ext.name}
@@ -1344,14 +1350,14 @@ export default function DatabasePanel({
                                   sx={sectionSummarySx}
                                   onContextMenu={(e) => handleObjectContextMenu(e, { schema_name: schema.schema_name }, 'section_types', schema.schema_name)}
                                 >
-                                  <TypeIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: 'success.light' }} />
+                                  <TypeIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: '#06b6d4' }} />
                                   <Typography sx={sectionHeaderTypography}>
                                     {t('db.sections.types')}
                                   </Typography>
                                   <Chip
                                     label={database.types.filter(t => t.schema === schema.schema_name).length}
                                     size="small"
-                                    sx={{ ml: 0.5, height: 16, fontSize: '0.625rem', '& .MuiChip-label': { px: 0.5 } }}
+                                    sx={counterChipSx}
                                   />
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
@@ -1362,7 +1368,7 @@ export default function DatabasePanel({
                                         <ListItem key={`${type.name}-${index}`} disablePadding>
                                           <ListItemButton sx={treeItemSx} onContextMenu={(e) => handleObjectContextMenu(e, type, 'type', schema.schema_name)}>
                                             <ListItemIcon sx={{ minWidth: '18px' }}>
-                                              <TypeIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'success.light' }} />
+                                              <TypeIcon sx={{ fontSize: LEAF_ICON_SIZE, color: '#06b6d4' }} />
                                             </ListItemIcon>
                                             <ListItemText
                                               primary={type.name}
@@ -1565,21 +1571,6 @@ export default function DatabasePanel({
           },
         }}
       >
-        {selectedConnection?.isActive ? (
-          <MenuItem onClick={() => handleMenuAction('disconnect')}>
-            <ListItemIcon>
-              <DisconnectIcon sx={{ fontSize: TREE_ICON_SIZE }} />
-            </ListItemIcon>
-            Disconnect
-          </MenuItem>
-        ) : (
-          <MenuItem onClick={() => handleMenuAction('connect')}>
-            <ListItemIcon>
-              <ConnectIcon sx={{ fontSize: TREE_ICON_SIZE }} />
-            </ListItemIcon>
-            Connect
-          </MenuItem>
-        )}
         <MenuItem onClick={() => handleMenuAction('refresh')}>
           <ListItemIcon>
             <RefreshIcon sx={{ fontSize: TREE_ICON_SIZE }} />
@@ -2019,6 +2010,9 @@ export default function DatabasePanel({
         element={selectedElement}
         elementType={selectedElementType as any}
         onApplySQL={onApplySQL}
+        onExecuteSQL={onExecuteSQL}
+        onRefreshData={onRefreshData}
+        onExplainInChat={onExplainObject}
       />
 
       {/* Schema Sync Modal */}

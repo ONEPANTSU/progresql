@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
 import { Box, Typography, IconButton, Tooltip } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -72,46 +72,196 @@ function getDataKeys(data: Record<string, unknown>[]): { xKey: string; yKeys: st
   return { xKey, yKeys: yKeys.length > 0 ? yKeys : keys.slice(1) };
 }
 
-/** Custom tooltip that only shows the single hovered series. */
+/** Format a tooltip value for display. */
+function formatTooltipValue(value: unknown): string {
+  if (typeof value === 'number') return value.toLocaleString();
+  return String(value ?? '');
+}
+
+/** Tooltip style container shared across custom tooltips. */
+const tooltipBoxSx = {
+  backgroundColor: '#1f2937',
+  border: '1px solid #374151',
+  borderRadius: '8px',
+  color: '#e5e7eb',
+  px: 1.5,
+  py: 1,
+  fontSize: '0.8125rem',
+} as const;
+
+/** Render a single tooltip entry row (colored dot + name + value). */
+const TooltipEntry: React.FC<{ color: string; name: string; value: unknown }> = ({ color, name, value }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.25 }}>
+    <Box sx={{
+      width: 8,
+      height: 8,
+      borderRadius: '50%',
+      backgroundColor: color,
+      flexShrink: 0,
+    }} />
+    <Typography variant="caption" sx={{ color: '#e5e7eb' }}>
+      {name}: {formatTooltipValue(value)}
+    </Typography>
+  </Box>
+);
+
+/** Custom tooltip that only shows the single hovered series (for bar / pie charts). */
 const SingleSeriesTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload || payload.length === 0) return null;
 
-  // Find the single entry closest to the cursor.
-  // Recharts sends all series but only the hovered bar/line is truly "active".
-  // We pick the first entry whose value is non-null; for bar charts with
-  // `cursor={false}`, only the hovered bar triggers the tooltip.
   const entry = payload.length === 1
     ? payload[0]
     : payload.find((e: any) => e.value != null) ?? payload[0];
 
   return (
-    <Box sx={{
-      backgroundColor: '#1f2937',
-      border: '1px solid #374151',
-      borderRadius: '8px',
-      color: '#e5e7eb',
-      px: 1.5,
-      py: 1,
-      fontSize: '0.8125rem',
-    }}>
+    <Box sx={tooltipBoxSx}>
       <Typography variant="caption" sx={{ color: '#9ca3af', display: 'block', mb: 0.5 }}>
         {label}
       </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.25 }}>
-        <Box sx={{
-          width: 8,
-          height: 8,
-          borderRadius: '50%',
-          backgroundColor: entry.color,
-          flexShrink: 0,
-        }} />
-        <Typography variant="caption" sx={{ color: '#e5e7eb' }}>
-          {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}
-        </Typography>
-      </Box>
+      <TooltipEntry color={entry.color} name={entry.name} value={entry.value} />
     </Box>
   );
 };
+
+/** Mutable ref container used by the nearest-series tooltip system. */
+interface NearestSeriesRefs {
+  mouseY: number | null;
+  yAxisDomain: [number, number] | null;
+  chartHeight: number;
+  chartTop: number;
+}
+
+/**
+ * Custom tooltip for Line / Area charts that picks the single series whose
+ * plotted Y value is closest to the mouse pointer's Y position.
+ *
+ * Recharts always fires the tooltip for ALL series at the same x-index.
+ * We work around this by tracking the mouse's chartY coordinate (via the
+ * parent chart's onMouseMove) and comparing it against each series' pixel
+ * position derived from the YAxis domain.
+ */
+const NearestSeriesTooltip: React.FC<{
+  active?: boolean;
+  payload?: any[];
+  label?: string;
+  refsBox: React.RefObject<NearestSeriesRefs>;
+}> = ({ active, payload, label, refsBox }) => {
+  if (!active || !payload || payload.length === 0) return null;
+
+  // If only one series, just show it.
+  if (payload.length === 1) {
+    const e = payload[0];
+    return (
+      <Box sx={tooltipBoxSx}>
+        <Typography variant="caption" sx={{ color: '#9ca3af', display: 'block', mb: 0.5 }}>
+          {label}
+        </Typography>
+        <TooltipEntry color={e.color} name={e.name} value={e.value} />
+      </Box>
+    );
+  }
+
+  const refs = refsBox.current;
+  const mouseY = refs ? refs.mouseY : null;
+  const domain = refs ? refs.yAxisDomain : null;
+  const plotH = refs ? refs.chartHeight : 0;
+  const plotTop = refs ? refs.chartTop : 0;
+
+  // Find closest series by comparing mouse pixel Y to each series' data-to-pixel Y.
+  let closest = payload[0];
+
+  if (mouseY != null && domain && plotH > 0) {
+    const [domainMin, domainMax] = domain;
+    const domainSpan = domainMax - domainMin;
+
+    if (domainSpan > 0) {
+      let minDist = Infinity;
+      for (const entry of payload) {
+        const val = typeof entry.value === 'number' ? entry.value : NaN;
+        if (isNaN(val)) continue;
+        // Convert data value to pixel Y (YAxis goes bottom-to-top).
+        const ratio = (val - domainMin) / domainSpan;
+        const pixelY = plotTop + plotH * (1 - ratio);
+        const dist = Math.abs(mouseY - pixelY);
+        if (dist < minDist) {
+          minDist = dist;
+          closest = entry;
+        }
+      }
+    }
+  }
+
+  return (
+    <Box sx={tooltipBoxSx}>
+      <Typography variant="caption" sx={{ color: '#9ca3af', display: 'block', mb: 0.5 }}>
+        {label}
+      </Typography>
+      <TooltipEntry color={closest.color} name={closest.name} value={closest.value} />
+    </Box>
+  );
+};
+
+/**
+ * Hook that provides a refs container and an onMouseMove handler so that the
+ * NearestSeriesTooltip can determine which series is closest to the cursor.
+ */
+function useNearestSeriesTooltip(coercedData: Record<string, unknown>[], yKeys: string[]) {
+  const refsBox = useRef<NearestSeriesRefs>({
+    mouseY: null,
+    yAxisDomain: null,
+    chartHeight: 270, // default: 280 - margin.top(5) - margin.bottom(5)
+    chartTop: 5,
+  });
+
+  // Pre-compute the Y-axis domain from the data (min/max across all yKeys)
+  // so we don't need access to internal Recharts state.
+  useMemo(() => {
+    let min = Infinity;
+    let max = -Infinity;
+    for (const row of coercedData) {
+      for (const k of yKeys) {
+        const v = row[k];
+        if (typeof v === 'number' && isFinite(v)) {
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+      }
+    }
+    if (isFinite(min) && isFinite(max)) {
+      // Recharts adds a small padding to the domain; approximate it.
+      const span = max - min || 1;
+      const pad = span * 0.05;
+      refsBox.current.yAxisDomain = [min - pad, max + pad];
+    } else {
+      refsBox.current.yAxisDomain = null;
+    }
+  }, [coercedData, yKeys]);
+
+  const handleMouseMove = useCallback((state: any) => {
+    if (state && state.chartY != null) {
+      refsBox.current.mouseY = state.chartY;
+    }
+    // Recharts provides offset in the state for some versions -- use it
+    // for more precise layout measurement.
+    if (state && state.offset) {
+      const top = state.offset.top ?? 5;
+      const bottom = state.offset.bottom ?? 5;
+      const height = state.offset.height ?? 280;
+      refsBox.current.chartTop = top;
+      refsBox.current.chartHeight = height - top - bottom;
+    }
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    refsBox.current.mouseY = null;
+  }, []);
+
+  return {
+    refsBox,
+    handleMouseMove,
+    handleMouseLeave,
+  };
+}
 
 /** Shared legend style with better spacing */
 const legendWrapperStyle: React.CSSProperties = {
@@ -161,17 +311,30 @@ const LineChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
     const keys = getDataKeys(data);
     return { ...keys, coercedData: coerceNumericData(data, keys.yKeys) };
   }, [data]);
+
+  const { refsBox, handleMouseMove, handleMouseLeave } = useNearestSeriesTooltip(coercedData, yKeys);
+
+  // Memoize the tooltip element to avoid re-creating on every render.
+  // The refs inside are read at render-time of the tooltip itself, so this is safe.
+  const tooltipContent = useMemo(() => (
+    <NearestSeriesTooltip refsBox={refsBox} />
+  ), [refsBox]);
+
   return (
     <div style={chartContainerStyle}>
       <ResponsiveContainer width="100%" height={280}>
-        <LineChart data={coercedData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+        <LineChart
+          data={coercedData}
+          margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        >
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
           <XAxis dataKey={xKey} tick={{ fill: '#9ca3af', fontSize: 12 }} label={xLabel ? { value: xLabel, position: 'insideBottom', offset: -5, fill: '#9ca3af' } : undefined} />
           <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
           <RechartsTooltip
             cursor={false}
-            shared={false}
-            content={<SingleSeriesTooltip />}
+            content={tooltipContent}
           />
           <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
           {yKeys.map((key, i) => (
@@ -188,17 +351,28 @@ const AreaChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
     const keys = getDataKeys(data);
     return { ...keys, coercedData: coerceNumericData(data, keys.yKeys) };
   }, [data]);
+
+  const { refsBox, handleMouseMove, handleMouseLeave } = useNearestSeriesTooltip(coercedData, yKeys);
+
+  const tooltipContent = useMemo(() => (
+    <NearestSeriesTooltip refsBox={refsBox} />
+  ), [refsBox]);
+
   return (
     <div style={chartContainerStyle}>
       <ResponsiveContainer width="100%" height={280}>
-        <AreaChart data={coercedData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+        <AreaChart
+          data={coercedData}
+          margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        >
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
           <XAxis dataKey={xKey} tick={{ fill: '#9ca3af', fontSize: 12 }} label={xLabel ? { value: xLabel, position: 'insideBottom', offset: -5, fill: '#9ca3af' } : undefined} />
           <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
           <RechartsTooltip
             cursor={false}
-            shared={false}
-            content={<SingleSeriesTooltip />}
+            content={tooltipContent}
           />
           <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
           {yKeys.map((key, i) => (

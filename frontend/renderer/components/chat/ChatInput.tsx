@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import {
   Send as SendIcon,
-  Stop as StopIcon,
+  Pause as PauseIcon,
   Close as CloseIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
@@ -459,22 +459,21 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
         {isTyping ? (
           <Tooltip title={t('chat.input.stop')}>
             <IconButton
-              color="error"
               onClick={onStopGeneration}
               aria-label={t('chat.input.stop')}
               sx={{
-                bgcolor: 'error.main',
-                color: 'error.contrastText',
+                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                color: '#fff',
                 minWidth: 36,
                 minHeight: 36,
-                borderRadius: 1,
+                borderRadius: '50%',
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
-                  bgcolor: 'error.dark',
+                  background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
                 },
               }}
             >
-              <StopIcon />
+              <PauseIcon />
             </IconButton>
           </Tooltip>
         ) : (
