@@ -89,11 +89,6 @@ function createWindow() {
     }
   });
 
-  // TEMPORARY: Auto-open DevTools in production for debugging white screen issue
-  if (!isDev) {
-    mainWindow.webContents.openDevTools();
-  }
-
   // Log renderer crashes and errors
   mainWindow.webContents.on('render-process-gone', (event, details) => {
     log.error('Renderer process gone:', details.reason, details.exitCode);
