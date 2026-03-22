@@ -407,17 +407,9 @@ ipcMain.handle('execute-query', async (event, params) => {
   }
 });
 
-// NOTE: get-database-structure handler moved to main.js (single source of truth).
-// Nextron loads both main.js and main/background.js, so the handler must only
-// be registered once. The version in main.js has proper constraint_type mapping.
-//
-// ~380 lines of handler code removed (was lines 410-790).
-
-/*
- * get-database-structure handler REMOVED — now lives in main.js only.
- * Previous code (410-790) deleted to avoid duplicate ipcMain.handle registration.
- *
- * REMOVED BLOCK START
+ipcMain.handle('get-database-structure', async (event, connectionId) => {
+  try {
+    let client;
     if (connectionId && global.dbClients.has(connectionId)) {
       client = global.dbClients.get(connectionId);
     } else if (global.dbClients.size > 0) {
@@ -446,9 +438,8 @@ ipcMain.handle('execute-query', async (event, params) => {
     // Get current database name
     const dbNameResult = await client.query('SELECT current_database() as name');
     const currentDb = dbNameResult.rows[0].name;
-    log.debug('Current database:', currentDb);
 
-    // Get schemas - use pg_namespace instead of information_schema
+    // Get schemas
     let schemasResult;
     try {
       schemasResult = await client.query(`
@@ -458,12 +449,10 @@ ipcMain.handle('execute-query', async (event, params) => {
         ORDER BY nspname
       `);
     } catch (error) {
-      log.debug('Failed to get schemas, using default:', error.message);
       schemasResult = { rows: [{ schema_name: 'public', schema_owner: 'postgres' }] };
     }
-    log.debug('Schemas found:', schemasResult.rows.length);
 
-    // Get tables - use pg_tables instead of information_schema
+    // Get tables
     let tablesResult;
     try {
       tablesResult = await client.query(`
@@ -477,12 +466,10 @@ ipcMain.handle('execute-query', async (event, params) => {
         ORDER BY schemaname, tablename
       `);
     } catch (error) {
-      log.debug('Failed to get tables, using empty result:', error.message);
       tablesResult = { rows: [] };
     }
-    log.debug('Tables found:', tablesResult.rows.length);
 
-    // Get views - use pg_views instead of information_schema
+    // Get views
     let viewsResult;
     try {
       viewsResult = await client.query(`
@@ -499,11 +486,10 @@ ipcMain.handle('execute-query', async (event, params) => {
         ORDER BY schemaname, viewname
       `);
     } catch (error) {
-      log.debug('Failed to get views, using empty result:', error.message);
       viewsResult = { rows: [] };
     }
 
-    // Get columns - use pg_attribute instead of information_schema
+    // Get columns
     let columnsResult;
     try {
       columnsResult = await client.query(`
@@ -541,11 +527,10 @@ ipcMain.handle('execute-query', async (event, params) => {
         ORDER BY c.relname, a.attnum
       `);
     } catch (error) {
-      log.debug('Failed to get columns, using empty result:', error.message);
       columnsResult = { rows: [] };
     }
 
-    // Get indexes - use pg_indexes
+    // Get indexes
     let indexesResult;
     try {
       indexesResult = await client.query(`
@@ -559,33 +544,42 @@ ipcMain.handle('execute-query', async (event, params) => {
         ORDER BY tablename, indexname
       `);
     } catch (error) {
-      log.debug('Failed to get indexes, using empty result:', error.message);
       indexesResult = { rows: [] };
     }
 
-    // Get constraints - use pg_constraint instead of information_schema
+    // Get constraints with proper type mapping and FK references
     let constraintsResult;
     try {
       constraintsResult = await client.query(`
         SELECT
-          conname as constraint_name,
+          co.conname as constraint_name,
           c.relname as table_name,
           n.nspname as table_schema,
-          contype as constraint_type,
-          a.attname as column_name
+          CASE co.contype
+            WHEN 'p' THEN 'PRIMARY KEY'
+            WHEN 'f' THEN 'FOREIGN KEY'
+            WHEN 'u' THEN 'UNIQUE'
+            WHEN 'c' THEN 'CHECK'
+            WHEN 'x' THEN 'EXCLUDE'
+            ELSE co.contype
+          END as constraint_type,
+          a.attname as column_name,
+          ref_c.relname as referenced_table,
+          ref_a.attname as referenced_column
         FROM pg_constraint co
         JOIN pg_class c ON co.conrelid = c.oid
         JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(co.conkey)
         JOIN pg_namespace n ON c.relnamespace = n.oid
+        LEFT JOIN pg_class ref_c ON co.confrelid = ref_c.oid
+        LEFT JOIN pg_attribute ref_a ON ref_a.attrelid = co.confrelid AND ref_a.attnum = ANY(co.confkey)
         WHERE n.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
-        ORDER BY c.relname, conname
+        ORDER BY c.relname, co.conname
       `);
     } catch (error) {
-      log.debug('Failed to get constraints, using empty result:', error.message);
       constraintsResult = { rows: [] };
     }
 
-    // Get triggers - use pg_trigger instead of information_schema
+    // Get triggers
     let triggersResult;
     try {
       triggersResult = await client.query(`
@@ -607,11 +601,10 @@ ipcMain.handle('execute-query', async (event, params) => {
         ORDER BY c.relname, tgname
       `);
     } catch (error) {
-      log.debug('Failed to get triggers, using empty result:', error.message);
       triggersResult = { rows: [] };
     }
 
-    // Get functions - use pg_proc instead of information_schema
+    // Get functions
     let functionsResult;
     try {
       functionsResult = await client.query(`
@@ -628,11 +621,10 @@ ipcMain.handle('execute-query', async (event, params) => {
         ORDER BY n.nspname, p.proname
       `);
     } catch (error) {
-      log.debug('Failed to get functions, using empty result:', error.message);
       functionsResult = { rows: [] };
     }
 
-    // Get procedures - use pg_proc instead of information_schema
+    // Get procedures
     let proceduresResult;
     try {
       proceduresResult = await client.query(`
@@ -648,11 +640,10 @@ ipcMain.handle('execute-query', async (event, params) => {
         ORDER BY n.nspname, p.proname
       `);
     } catch (error) {
-      log.debug('Failed to get procedures, using empty result:', error.message);
       proceduresResult = { rows: [] };
     }
 
-    // Get sequences - use pg_sequence instead of information_schema
+    // Get sequences
     let sequencesResult;
     try {
       sequencesResult = await client.query(`
@@ -675,7 +666,6 @@ ipcMain.handle('execute-query', async (event, params) => {
         ORDER BY n.nspname, c.relname
       `);
     } catch (error) {
-      log.debug('Failed to get sequences, using empty result:', error.message);
       sequencesResult = { rows: [] };
     }
 
@@ -691,11 +681,10 @@ ipcMain.handle('execute-query', async (event, params) => {
         ORDER BY extname
       `);
     } catch (error) {
-      log.debug('Failed to get extensions, using empty result:', error.message);
       extensionsResult = { rows: [] };
     }
 
-    // Get types - use pg_type instead of information_schema
+    // Get types
     let typesResult;
     try {
       typesResult = await client.query(`
@@ -725,7 +714,6 @@ ipcMain.handle('execute-query', async (event, params) => {
         ORDER BY n.nspname, t.typname
       `);
     } catch (error) {
-      log.debug('Failed to get types, using empty result:', error.message);
       typesResult = { rows: [] };
     }
 
@@ -734,15 +722,12 @@ ipcMain.handle('execute-query', async (event, params) => {
       const tableColumns = columnsResult.rows.filter(col =>
         col.table_name === table.table_name && col.table_schema === table.table_schema
       );
-
       const tableIndexes = indexesResult.rows.filter(idx =>
         idx.table_name === table.table_name && idx.table_schema === table.table_schema
       );
-
       const tableConstraints = constraintsResult.rows.filter(con =>
         con.table_name === table.table_name && con.table_schema === table.table_schema
       );
-
       const tableTriggers = triggersResult.rows.filter(trig =>
         trig.table_name === table.table_name && trig.table_schema === table.table_schema
       );
@@ -756,7 +741,6 @@ ipcMain.handle('execute-query', async (event, params) => {
       };
     });
 
-    // Create database info structure
     const databaseInfo = {
       name: currentDb,
       schemas: schemasResult.rows,
@@ -770,29 +754,21 @@ ipcMain.handle('execute-query', async (event, params) => {
       constraints: constraintsResult.rows
     };
 
-    log.debug('Database structure created:', {
-      database_name: currentDb,
-      databases_count: 1,
-      schemas_count: schemasResult.rows.length,
-      tables_count: tablesResult.rows.length,
-      views_count: viewsResult.rows.length,
-      functions_count: functionsResult.rows.length,
-      procedures_count: proceduresResult.rows.length
+    log.debug('Database structure retrieved:', {
+      tables: tablesResult.rows.length,
+      constraints: constraintsResult.rows.length,
     });
+    if (constraintsResult.rows.length > 0) {
+      log.debug('PK count:', constraintsResult.rows.filter(c => c.constraint_type === 'PRIMARY KEY').length);
+      log.debug('FK count:', constraintsResult.rows.filter(c => c.constraint_type === 'FOREIGN KEY').length);
+    }
 
-    log.debug('Sequences found:', sequencesResult.rows.length);
-    log.debug('Types found:', typesResult.rows.length);
-
-    return {
-      success: true,
-      database_name: currentDb,
-      databases: [databaseInfo]
-    };
+    return { success: true, database_name: currentDb, databases: [databaseInfo] };
   } catch (error) {
+    log.error('Error getting database structure:', error.message);
     return { success: false, message: error.message };
   }
- * REMOVED BLOCK END
- */
+});
 
 ipcMain.handle('disconnect-database', async (event, connectionId) => {
   try {

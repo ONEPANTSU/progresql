@@ -4220,8 +4220,8 @@
         "Шаг 7: Визуально подтвердить, что PK/FK метки видны на столбцах и edges рисуются между связанными таблицами"
       ],
       "dependencies": [],
-      "status": "pending",
-      "notes": "Корневая причина: Nextron компилирует main/background.js как отдельную webpack entry point. Оба файла (main.js и background.js) регистрируют ipcMain.handle('get-database-structure'). Electron берёт ПЕРВЫЙ зарегистрированный handler — из background.js, где SQL query использует raw contype ('p','f') вместо 'PRIMARY KEY'/'FOREIGN KEY' и не содержит LEFT JOIN для referenced_table/referenced_column. ERDiagram.tsx ожидает constraint_type === 'PRIMARY KEY' / 'FOREIGN KEY' (строки 79, 82, 305). Решение: удалить handler из background.js, оставить только в main.js с правильным CASE mapping."
+      "status": "done",
+      "notes": "Корневая причина: в dev mode (Nextron) используется ТОЛЬКО main/background.js, а handler get-database-structure был оттуда удалён (закомментирован). В production используется main.js с правильным handler. Исправление: восстановлен handler в background.js с правильным CASE co.contype mapping ('p' → 'PRIMARY KEY', 'f' → 'FOREIGN KEY' и т.д.) и LEFT JOIN для referenced_table/referenced_column. Оба файла теперь содержат идентичный handler — конфликта нет, т.к. Nextron загружает только один из них в зависимости от режима."
     },
     {
       "id": "TASK-218",

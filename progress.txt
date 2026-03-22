@@ -3056,3 +3056,14 @@ TASK-210 completed. ER-диаграмма: контекстное меню на 
 - go build ./backend/... passes
 - Python code not modified — ruff/pytest unaffected
 - ALL TASKS COMPLETE — no remaining pending tasks
+
+TASK-217 completed. ER-диаграмма: PK/FK метки и связи (edges) не отображаются — FIXED.
+- ROOT CAUSE: В dev mode (Nextron) используется ТОЛЬКО main/background.js. Handler get-database-structure был из него удалён (закомментирован), а в main.js (production-only) оставлен рабочий. В результате в dev mode constraints приходили пустым массивом — PK/FK метки и FK edges не отображались.
+- FIX: Восстановлен handler ipcMain.handle('get-database-structure') в main/background.js
+- Constraints SQL query теперь содержит CASE co.contype WHEN 'p' THEN 'PRIMARY KEY' WHEN 'f' THEN 'FOREIGN KEY' (вместо raw 'p'/'f')
+- Добавлены LEFT JOIN pg_class ref_c и LEFT JOIN pg_attribute ref_a для referenced_table/referenced_column (FK references)
+- Handler идентичен версии в main.js — конфликта нет, т.к. Nextron загружает ТОЛЬКО один файл в зависимости от режима (dev → background.js, prod → main.js)
+- ERDiagram.tsx не требовал изменений — компонент уже корректно обрабатывает constraints с 'PRIMARY KEY'/'FOREIGN KEY' строками
+- go build ./backend/... passes
+- Python code not modified — ruff/pytest unaffected
+- Next priorities: TASK-218 (Table Info ALTER TABLE, high), TASK-219 (Run/Stop gradients, high), TASK-220 (DB icons, medium)
