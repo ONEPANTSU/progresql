@@ -307,6 +307,11 @@ export default function DatabasePanel({
       newExpanded.delete(connectionId);
     } else {
       newExpanded.add(connectionId);
+      // Auto-connect when expanding an inactive connection
+      const conn = connections.find(c => c.id === connectionId);
+      if (conn && !conn.isActive) {
+        onConnect(connectionId);
+      }
     }
     setExpandedConnections(newExpanded);
   };
