@@ -6,14 +6,12 @@ import { authService } from '../services/auth';
 import Logo from '../components/Logo';
 import { useTranslation } from '../contexts/LanguageContext';
 
-/** Navigate via IPC in Electron to avoid file:// routing issues on Windows */
+/** Navigate via absolute file:// URL in packaged Electron only */
 function navigateTo(route: string, router: ReturnType<typeof useRouter>) {
-  const api = typeof window !== 'undefined' ? (window as any).electronAPI : null;
-  if (api) {
-    try { api.navigate(route); } catch (_) {}
-    if (api.getPageUrl) {
-      setTimeout(() => { window.location.href = api.getPageUrl(route); }, 100);
-    }
+  const isFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:';
+  const api = isFileProtocol ? (window as any).electronAPI : null;
+  if (api?.getPageUrl) {
+    window.location.href = api.getPageUrl(route);
   } else {
     router.replace(route);
   }

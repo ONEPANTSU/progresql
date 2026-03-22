@@ -200,16 +200,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () => {
     return ipcRenderer.invoke('get-app-version');
   },
-  // Navigate to a route — returns absolute file:// URL for the target page
-  // This avoids Windows relative path bug (file:///C:/page.html)
-  getPageUrl: (route) => {
-    const page = route === '/' ? 'index' : route.replace(/^\//, '');
-    const absPath = path.join(APP_DIR, `${page}.html`);
-    return 'file://' + absPath.replace(/\\/g, '/');
-  },
-  // Navigate via IPC (main process loads the file)
+  // Navigate to a route — uses main process loadFile via IPC
   navigate: (route) => {
     ipcRenderer.send('navigate-to', route);
+  },
+  // Get absolute file:// URL for a route (fallback navigation)
+  getPageUrl: (route) => {
+    const { pathToFileURL } = require('url');
+    const page = route === '/' ? 'index' : route.replace(/^\//, '');
+    const absPath = path.join(APP_DIR, `${page}.html`);
+    return pathToFileURL(absPath).href;
   },
   // Get absolute path to asset file
   getAssetPath: (filename) => {

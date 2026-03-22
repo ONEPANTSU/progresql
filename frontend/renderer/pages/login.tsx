@@ -12,14 +12,12 @@ import { useTranslation } from '../contexts/LanguageContext';
  * (JS chunks fail to load → white screen). Full reload is reliable.
  */
 function navigateTo(route: string, router: ReturnType<typeof useRouter>) {
-  const api = typeof window !== 'undefined' ? (window as any).electronAPI : null;
-  if (api) {
-    // Electron: try IPC first, fallback to absolute file:// URL
-    try { api.navigate(route); } catch (_) {}
-    // Also set location as backup — use absolute path from preload
-    if (api.getPageUrl) {
-      setTimeout(() => { window.location.href = api.getPageUrl(route); }, 100);
-    }
+  // Only use file:// navigation in packaged Electron (production)
+  // In dev mode (localhost), use Next.js router
+  const isFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:';
+  const api = isFileProtocol ? (window as any).electronAPI : null;
+  if (api?.getPageUrl) {
+    window.location.href = api.getPageUrl(route);
   } else {
     router.replace(route);
   }

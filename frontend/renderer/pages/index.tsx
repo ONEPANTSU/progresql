@@ -78,22 +78,17 @@ export default function Home() {
   // Guard: redirect unauthenticated users to login, unverified to verify-email
   const shouldRedirect = !isAuthenticated || !isEmailVerified;
   useEffect(() => {
-    const api = (window as any).electronAPI;
+    const isFileProtocol = window.location.protocol === 'file:';
+    const api = isFileProtocol ? (window as any).electronAPI : null;
     if (!isAuthenticated) {
-      if (api) {
-        try { api.navigate('/login'); } catch (_) {}
-        if (api.getPageUrl) {
-          setTimeout(() => { window.location.href = api.getPageUrl('/login'); }, 100);
-        }
+      if (api?.getPageUrl) {
+        window.location.href = api.getPageUrl('/login');
       } else {
         router.replace('/login');
       }
     } else if (!isEmailVerified) {
-      if (api) {
-        try { api.navigate('/verify-email'); } catch (_) {}
-        if (api.getPageUrl) {
-          setTimeout(() => { window.location.href = api.getPageUrl('/verify-email'); }, 100);
-        }
+      if (api?.getPageUrl) {
+        window.location.href = api.getPageUrl('/verify-email');
       } else {
         router.replace('/verify-email');
       }
