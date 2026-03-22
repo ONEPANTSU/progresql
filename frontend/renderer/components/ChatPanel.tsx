@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import {
+  Avatar,
   Box,
   Paper,
   Typography,
@@ -144,7 +145,9 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
       {/* Header */}
       <Box sx={{ borderBottom: '1px solid', borderColor: 'rgba(255,255,255,0.08)' }}>
         <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <BotIcon color="primary" />
+          <Avatar sx={{ width: 28, height: 28, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+            <BotIcon sx={{ fontSize: '1rem', color: '#fff' }} />
+          </Avatar>
           <Typography variant="subtitle1" sx={{ flexGrow: 1, fontWeight: 600 }}>{t('chat.title')}</Typography>
           {!agent.safeMode && (
             <Tooltip title={t('settings.unsafeWarning')}>

@@ -3112,3 +3112,13 @@ TASK-221 completed. ER Diagram context menu moved from connection to database le
 - npx tsc -p renderer/tsconfig.json --noEmit — 0 errors
 - Python code not modified — ruff/pytest unaffected
 - Next priorities: TASK-222 (AI icon gradient, medium), TASK-223 (DMG installer, low)
+
+TASK-222 completed. AI assistant icon in chat panel header — brand gradient applied.
+- ChatPanel.tsx header: replaced flat <BotIcon color="primary" /> with Avatar + gradient
+- Avatar: width 28, height 28, background: linear-gradient(135deg, #6366f1, #8b5cf6)
+- BotIcon inside Avatar: fontSize 1rem, color #fff — matches ChatMessage avatar style
+- Added Avatar import from @mui/material
+- ChatMessage.tsx avatar already had correct gradient — no changes needed
+- Empty state BotIcon (line 289) left as text.secondary — it's a placeholder hint, not brand element
+- Python code not modified — ruff/pytest unaffected
+- Next priorities: TASK-223 (DMG installer background, low) — LAST remaining task
