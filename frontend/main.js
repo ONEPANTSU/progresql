@@ -82,6 +82,13 @@ function createWindow() {
     mainWindow.show();
   });
 
+  // Allow opening DevTools in production via Ctrl+Shift+I (for debugging)
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.control && input.shift && input.key === 'I') {
+      mainWindow.webContents.toggleDevTools();
+    }
+  });
+
   // Send app-ready event to renderer once the page has finished loading
   // This signals that all IPC handlers are registered and electronAPI is available
   mainWindow.webContents.on('did-finish-load', () => {
