@@ -686,29 +686,44 @@ h2 {
 }
 
 .arch-description {
-  text-align: center;
-  max-width: 440px;
+  display: inline-block;
+  text-align: left;
   margin: 0 auto;
 }
 
-.arch-description p {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.9;
-  padding: 2px 0;
+.arch-description-wrap {
+  display: flex;
+  justify-content: center;
 }
 
-.arch-description p:first-child {
+.arch-description .arch-desc-title {
   color: var(--text-primary);
   font-weight: 600;
   font-size: 0.95rem;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 
-.arch-description p:last-child {
-  margin-top: 8px;
+.arch-description .arch-desc-item {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.8;
+  padding-left: 22px;
+  position: relative;
+}
+
+.arch-description .arch-desc-item::before {
+  content: '✔';
+  position: absolute;
+  left: 0;
+  color: #22c55e;
+  font-size: 0.8rem;
+}
+
+.arch-description .arch-desc-footer {
+  margin-top: 12px;
   color: var(--accent);
   font-weight: 500;
+  font-size: 0.9rem;
 }
 
 .arch-trust-line {
@@ -1345,12 +1360,14 @@ h2 {
         <span class="arch-badge" data-en="&#10004; Safe by default" data-ru="&#10004; Безопасно по умолчанию">&#10004; Safe by default</span>
         <span class="arch-badge" data-en="&#10004; No sensitive data sent" data-ru="&#10004; Конфиденциальные данные не передаются">&#10004; No sensitive data sent</span>
       </div>
-      <div class="arch-description fade-in">
-        <p data-en="Safe Mode by default" data-ru="Безопасный режим по умолчанию">Safe Mode by default</p>
-        <p data-en="— AI reads only your schema" data-ru="— AI читает только вашу схему">— AI reads only your schema</p>
-        <p data-en="— No access to your actual data" data-ru="— Нет доступа к вашим реальным данным">— No access to your actual data</p>
-        <p data-en="— No queries executed automatically" data-ru="— Запросы не выполняются автоматически">— No queries executed automatically</p>
-        <p data-en="Enable Extended Mode anytime if needed" data-ru="Включите расширенный режим, когда потребуется">Enable Extended Mode anytime if needed</p>
+      <div class="arch-description-wrap fade-in">
+        <div class="arch-description">
+          <p class="arch-desc-title" data-en="Safe Mode by default" data-ru="Безопасный режим по умолчанию">Safe Mode by default</p>
+          <p class="arch-desc-item" data-en="AI reads only your schema" data-ru="AI читает только вашу схему">AI reads only your schema</p>
+          <p class="arch-desc-item" data-en="No access to your actual data" data-ru="Нет доступа к вашим реальным данным">No access to your actual data</p>
+          <p class="arch-desc-item" data-en="No queries executed automatically" data-ru="Запросы не выполняются автоматически">No queries executed automatically</p>
+          <p class="arch-desc-footer" data-en="Enable Data Mode anytime if needed" data-ru="Включите режим данных, когда потребуется">Enable Data Mode anytime if needed</p>
+        </div>
       </div>
       <p class="arch-trust-line fade-in" data-en="Works locally. Your data stays on your machine." data-ru="Работает локально. Ваши данные остаются на вашем компьютере.">Works locally. Your data stays on your machine.</p>
     </div>
