@@ -200,6 +200,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () => {
     return ipcRenderer.invoke('get-app-version');
   },
+  // Navigate to a route (loads the correct HTML file in production)
+  navigate: (route) => {
+    ipcRenderer.send('navigate-to', route);
+  },
   // Get absolute path to asset file
   getAssetPath: (filename) => {
     return 'file://' + path.join(ASSETS_DIR, filename);

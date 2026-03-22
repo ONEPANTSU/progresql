@@ -6,11 +6,10 @@ import { authService } from '../services/auth';
 import Logo from '../components/Logo';
 import { useTranslation } from '../contexts/LanguageContext';
 
-/** Full page reload in Electron production to avoid file:// routing issues on Windows */
+/** Navigate via IPC in Electron to avoid file:// routing issues on Windows */
 function navigateTo(route: string, router: ReturnType<typeof useRouter>) {
-  if (typeof window !== 'undefined' && (window as any).electronAPI) {
-    const page = route === '/' ? 'index' : route.replace(/^\//, '');
-    window.location.href = `./${page}.html`;
+  if (typeof window !== 'undefined' && (window as any).electronAPI?.navigate) {
+    (window as any).electronAPI.navigate(route);
   } else {
     router.replace(route);
   }

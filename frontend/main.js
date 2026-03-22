@@ -152,6 +152,16 @@ function createWindow() {
   });
 }
 
+// IPC: Navigate to a route by loading the correct HTML file
+// This avoids relative path issues on Windows (file:///C:/page.html bug)
+ipcMain.on('navigate-to', (event, route) => {
+  if (!mainWindow) return;
+  const page = route === '/' ? 'index' : route.replace(/^\//, '');
+  const htmlFile = path.join(__dirname, 'app', `${page}.html`);
+  log.debug('navigate-to:', route, '→', htmlFile);
+  mainWindow.loadFile(htmlFile);
+});
+
 app.whenReady().then(() => {
   // Set Content-Security-Policy to suppress Electron security warning
   const { session } = require('electron');
