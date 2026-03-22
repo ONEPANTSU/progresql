@@ -4263,8 +4263,8 @@
         "Шаг 4: Файлы: SQLEditor.tsx (Run), ChatInput.tsx (Stop)"
       ],
       "dependencies": [],
-      "status": "pending",
-      "notes": "Градиенты задаются через sx prop: background: 'linear-gradient(...)'. Важно: НЕ использовать bgcolor (MUI переопределяет gradient). Использовать background напрямую. Проверить, что стили не перезатираются MUI-темой."
+      "status": "done",
+      "notes": "Градиенты задаются через sx prop: background: 'linear-gradient(...)'. Важно: НЕ использовать bgcolor (MUI переопределяет gradient). Использовать background напрямую. Проверить, что стили не перезатираются MUI-темой. Already implemented — Run button in SQLEditor.tsx has green gradient, Stop button in ChatInput.tsx has red gradient with borderRadius:1 and StopIcon."
     },
     {
       "id": "TASK-220",
@@ -4283,7 +4283,7 @@
         "Шаг 3: Файл: DatabasePanel.tsx, renderConnectionItem()"
       ],
       "dependencies": [],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-221",

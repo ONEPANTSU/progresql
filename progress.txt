@@ -3080,3 +3080,21 @@ TASK-218 completed. Table Info: ALTER TABLE now executes correctly with error fe
 - npx tsc --noEmit — 0 errors
 - Python code not modified — ruff/pytest unaffected
 - Next priorities: TASK-219 (Run/Stop gradients, high), TASK-220 (DB icons, medium), TASK-221 (ER context menu, medium), TASK-222 (AI icon gradient, medium)
+
+TASK-219 marked as done. Run/Stop button gradients were already implemented.
+- Run button (SQLEditor.tsx): green gradient linear-gradient(135deg, #22c55e, #16a34a) ✅
+- Stop button (ChatInput.tsx): red gradient linear-gradient(135deg, #ef4444, #dc2626), borderRadius: 1, StopIcon ✅
+- Hover states with darker gradients ✅
+- All acceptance criteria already met — no code changes needed.
+
+TASK-220 completed. Explorer: Connection and Database icons now visually distinct.
+- Connection (top level): changed from DatabaseIconNew (Storage) to ConnectionIcon (Dns) — server-like icon
+- Connection color: success.main (green) when active, error.main on error, text.secondary when inactive
+- Database (nested level): kept DatabaseIconNew (Storage) — classic cylinder icon
+- Database color: #8b5cf6 (purple) — unchanged
+- Connection and Database are now visually distinguishable by both icon shape AND color
+- File: DatabasePanel.tsx — imported Dns as ConnectionIcon, replaced icon on line 765
+- npx tsc --noEmit — 0 errors
+- Python code not modified — ruff/pytest unaffected
+- Pre-existing Go test failures in api/rest unchanged (not related to UI changes)
+- Next priorities: TASK-221 (ER context menu, medium, TASK-220 dep now met), TASK-222 (AI icon gradient, medium), TASK-223 (DMG installer, low)

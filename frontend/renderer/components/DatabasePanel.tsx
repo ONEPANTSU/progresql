@@ -77,6 +77,7 @@ import {
   ContentCopy as CopyIcon,
   CompareArrows as CompareArrowsIcon,
   AccountTree as AccountTreeIcon,
+  Dns as ConnectionIcon,
 } from '@mui/icons-material';
 import { DatabaseServer, AuthUser } from '../types';
 import ConnectionForm from './ConnectionForm';
@@ -761,7 +762,7 @@ export default function DatabasePanel({
           {isConnecting ? (
             <CircularProgress size={TREE_ICON_SIZE} thickness={4} sx={{ color: 'warning.main' }} />
           ) : (
-            <DatabaseIconNew sx={{ fontSize: TREE_ICON_SIZE, color: connection.isActive ? '#8b5cf6' : connError ? 'error.main' : 'text.secondary' }} />
+            <ConnectionIcon sx={{ fontSize: TREE_ICON_SIZE, color: connection.isActive ? 'success.main' : connError ? 'error.main' : 'text.secondary' }} />
           )}
         </ListItemIcon>
         <ListItemText
