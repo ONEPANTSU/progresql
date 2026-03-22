@@ -694,6 +694,11 @@ ipcMain.handle('get-database-structure', async (event, connectionId) => {
       tables: tablesResult.rows.length,
       constraints: constraintsResult.rows.length,
     });
+    if (constraintsResult.rows.length > 0) {
+      log.debug('Sample constraints:', JSON.stringify(constraintsResult.rows.slice(0, 3)));
+      log.debug('PK count:', constraintsResult.rows.filter(c => c.constraint_type === 'PRIMARY KEY').length);
+      log.debug('FK count:', constraintsResult.rows.filter(c => c.constraint_type === 'FOREIGN KEY').length);
+    }
 
     return { success: true, database_name: currentDb, databases: [databaseInfo] };
   } catch (error) {

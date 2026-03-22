@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import {
   Send as SendIcon,
-  Pause as PauseIcon,
+  Stop as StopIcon,
   Close as CloseIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
@@ -65,8 +65,6 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
   const inputRef = useRef<HTMLInputElement>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [dbMenuAnchor, setDbMenuAnchor] = useState<HTMLElement | null>(null);
-  const [showSwitchWarning, setShowSwitchWarning] = useState(false);
-  const [pendingSwitchId, setPendingSwitchId] = useState<string | null>(null);
 
   useImperativeHandle(ref, () => ({
     focus() {
@@ -92,28 +90,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
   const handleConnectionSelect = (connectionId: string) => {
     setDbMenuAnchor(null);
     if (connectionId === activeConnection?.id) return;
-
-    // If chat already has messages, show warning
-    if (hasSentFirstMessage && chatConnectionId && chatConnectionId !== connectionId) {
-      setPendingSwitchId(connectionId);
-      setShowSwitchWarning(true);
-      return;
-    }
-
     onSwitchConnection?.(connectionId);
-  };
-
-  const confirmSwitch = () => {
-    if (pendingSwitchId) {
-      onSwitchConnection?.(pendingSwitchId);
-    }
-    setShowSwitchWarning(false);
-    setPendingSwitchId(null);
-  };
-
-  const cancelSwitch = () => {
-    setShowSwitchWarning(false);
-    setPendingSwitchId(null);
   };
 
   // Determine which connection to display
@@ -145,61 +122,6 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
       borderColor: 'divider',
       bgcolor: 'background.paper'
     }}>
-      {/* Switch warning banner */}
-      {showSwitchWarning && (
-        <Box sx={{
-          mb: 1,
-          p: 1,
-          borderRadius: 1,
-          bgcolor: 'warning.main',
-          color: 'warning.contrastText',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          fontSize: '0.75rem',
-        }}>
-          <Typography variant="caption" sx={{ flexGrow: 1, color: 'inherit', fontWeight: 500 }}>
-            {t('chat.dbPill.switchWarning')}
-          </Typography>
-          <Box
-            component="button"
-            onClick={confirmSwitch}
-            sx={{
-              border: '1px solid',
-              borderColor: 'inherit',
-              borderRadius: 0.5,
-              px: 1,
-              py: 0.25,
-              bgcolor: 'transparent',
-              color: 'inherit',
-              cursor: 'pointer',
-              fontSize: '0.7rem',
-              fontWeight: 600,
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' },
-            }}
-          >
-            {t('chat.dbPill.switchConfirm')}
-          </Box>
-          <Box
-            component="button"
-            onClick={cancelSwitch}
-            sx={{
-              border: '1px solid',
-              borderColor: 'inherit',
-              borderRadius: 0.5,
-              px: 1,
-              py: 0.25,
-              bgcolor: 'transparent',
-              color: 'inherit',
-              cursor: 'pointer',
-              fontSize: '0.7rem',
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' },
-            }}
-          >
-            {t('chat.dbPill.switchCancel')}
-          </Box>
-        </Box>
-      )}
       {/* Attached SQL card */}
       {attachedSQL && (
         <Box sx={{
@@ -321,7 +243,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
           sx={{
             width: 6,
             height: 6,
-            borderRadius: '50%',
+            borderRadius: 1,
             bgcolor: displayConnection
               ? (hasError ? 'error.main' : 'success.main')
               : 'text.disabled',
@@ -409,7 +331,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
                 sx={{
                   width: 8,
                   height: 8,
-                  borderRadius: '50%',
+                  borderRadius: 1,
                   bgcolor: conn.isActive
                     ? (connectionErrors[conn.id] ? 'error.main' : 'success.main')
                     : 'text.disabled',
@@ -466,14 +388,14 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
                 color: '#fff',
                 minWidth: 36,
                 minHeight: 36,
-                borderRadius: '50%',
+                borderRadius: 1,
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
                   background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
                 },
               }}
             >
-              <PauseIcon />
+              <StopIcon />
             </IconButton>
           </Tooltip>
         ) : (

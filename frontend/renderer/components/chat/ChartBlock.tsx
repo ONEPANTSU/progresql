@@ -74,7 +74,17 @@ function getDataKeys(data: Record<string, unknown>[]): { xKey: string; yKeys: st
 
 /** Format a tooltip value for display. */
 function formatTooltipValue(value: unknown): string {
-  if (typeof value === 'number') return value.toLocaleString();
+  if (typeof value === 'number') {
+    // Avoid floating-point noise like 399.99000000000000
+    return Number.isInteger(value) ? value.toLocaleString() : parseFloat(value.toPrecision(10)).toLocaleString();
+  }
+  if (typeof value === 'string') {
+    // Truncate very long numeric strings from DB
+    const num = Number(value);
+    if (!isNaN(num) && value.length > 10) {
+      return Number.isInteger(num) ? num.toLocaleString() : parseFloat(num.toPrecision(10)).toLocaleString();
+    }
+  }
   return String(value ?? '');
 }
 
@@ -105,25 +115,24 @@ const TooltipEntry: React.FC<{ color: string; name: string; value: unknown }> = 
   </Box>
 );
 
-/** Custom tooltip that only shows the single hovered series (for bar / pie charts). */
-const SingleSeriesTooltip = ({ active, payload, label }: any) => {
+/** Custom tooltip that shows all series values at the hovered x-index. */
+const AllSeriesTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload || payload.length === 0) return null;
-
-  const entry = payload.length === 1
-    ? payload[0]
-    : payload.find((e: any) => e.value != null) ?? payload[0];
 
   return (
     <Box sx={tooltipBoxSx}>
       <Typography variant="caption" sx={{ color: '#9ca3af', display: 'block', mb: 0.5 }}>
-        {label}
+        {formatTooltipValue(label)}
       </Typography>
-      <TooltipEntry color={entry.color} name={entry.name} value={entry.value} />
+      {payload.map((entry: any, i: number) => (
+        <TooltipEntry key={i} color={entry.color} name={entry.name} value={entry.value} />
+      ))}
     </Box>
   );
 };
 
-/** Mutable ref container used by the nearest-series tooltip system. */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/** @deprecated Kept for reference; no longer used — AllSeriesTooltip replaced this. */
 interface NearestSeriesRefs {
   mouseY: number | null;
   yAxisDomain: [number, number] | null;
@@ -294,7 +303,7 @@ const BarChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string;
           <RechartsTooltip
             cursor={false}
             shared={false}
-            content={<SingleSeriesTooltip />}
+            content={<AllSeriesTooltip />}
           />
           <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
           {yKeys.map((key, i) => (
@@ -312,29 +321,18 @@ const LineChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
     return { ...keys, coercedData: coerceNumericData(data, keys.yKeys) };
   }, [data]);
 
-  const { refsBox, handleMouseMove, handleMouseLeave } = useNearestSeriesTooltip(coercedData, yKeys);
-
-  // Memoize the tooltip element to avoid re-creating on every render.
-  // The refs inside are read at render-time of the tooltip itself, so this is safe.
-  const tooltipContent = useMemo(() => (
-    <NearestSeriesTooltip refsBox={refsBox} />
-  ), [refsBox]);
-
   return (
     <div style={chartContainerStyle}>
       <ResponsiveContainer width="100%" height={280}>
         <LineChart
           data={coercedData}
           margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
           <XAxis dataKey={xKey} tick={{ fill: '#9ca3af', fontSize: 12 }} label={xLabel ? { value: xLabel, position: 'insideBottom', offset: -5, fill: '#9ca3af' } : undefined} />
           <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
           <RechartsTooltip
-            cursor={false}
-            content={tooltipContent}
+            content={<AllSeriesTooltip />}
           />
           <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
           {yKeys.map((key, i) => (
@@ -352,27 +350,18 @@ const AreaChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
     return { ...keys, coercedData: coerceNumericData(data, keys.yKeys) };
   }, [data]);
 
-  const { refsBox, handleMouseMove, handleMouseLeave } = useNearestSeriesTooltip(coercedData, yKeys);
-
-  const tooltipContent = useMemo(() => (
-    <NearestSeriesTooltip refsBox={refsBox} />
-  ), [refsBox]);
-
   return (
     <div style={chartContainerStyle}>
       <ResponsiveContainer width="100%" height={280}>
         <AreaChart
           data={coercedData}
           margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
           <XAxis dataKey={xKey} tick={{ fill: '#9ca3af', fontSize: 12 }} label={xLabel ? { value: xLabel, position: 'insideBottom', offset: -5, fill: '#9ca3af' } : undefined} />
           <YAxis tick={{ fill: '#9ca3af', fontSize: 12 }} label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', fill: '#9ca3af' } : undefined} />
           <RechartsTooltip
-            cursor={false}
-            content={tooltipContent}
+            content={<AllSeriesTooltip />}
           />
           <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
           {yKeys.map((key, i) => (
@@ -418,7 +407,7 @@ const PieChartView: React.FC<{ data: Record<string, unknown>[] }> = ({ data }) =
               <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
             ))}
           </Pie>
-          <RechartsTooltip content={<SingleSeriesTooltip />} />
+          <RechartsTooltip content={<AllSeriesTooltip />} />
           <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
         </PieChart>
       </ResponsiveContainer>

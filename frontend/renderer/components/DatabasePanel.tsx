@@ -312,6 +312,12 @@ export default function DatabasePanel({
       if (conn && !conn.isActive) {
         onConnect(connectionId);
       }
+      // Auto-expand databases when opening connection
+      if (conn?.databases) {
+        const newDbExpanded = new Set(expandedDatabases);
+        conn.databases.forEach(db => newDbExpanded.add(`${connectionId}-${db.name}`));
+        setExpandedDatabases(newDbExpanded);
+      }
     }
     setExpandedConnections(newExpanded);
   };
@@ -716,7 +722,7 @@ export default function DatabasePanel({
       case 'sequence':
         return <SequenceIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#94a3b8' }} />;
       case 'extension':
-        return <ExtensionIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#6366f1' }} />;
+        return <ExtensionIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#f472b6' }} />;
       case 'language':
         return <LanguageIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#06b6d4' }} />;
       case 'type':
@@ -815,10 +821,43 @@ export default function DatabasePanel({
         sx={collapseSx}
       >
         <Box sx={{ pl: 0.5 }}>
-          {/* Schemas (flattened — no database level) */}
           {connection.databases && connection.databases.length > 0 ? (
             connection.databases.map((database) => (
               <Box key={database.name}>
+                {/* Database level */}
+                <ListItemButton
+                  onClick={() => toggleDatabaseExpansion(connection.id, database.name)}
+                  sx={{
+                    py: 0.125,
+                    px: 1,
+                    minHeight: '26px',
+                    height: '26px',
+                    borderRadius: 1,
+                    mx: 0.5,
+                    mb: 0.25,
+                    transition: 'background-color 0.15s ease',
+                    '&:hover': { bgcolor: 'action.hover' }
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: '20px' }}>
+                    <DatabaseIconNew sx={{ fontSize: LEAF_ICON_SIZE, color: '#8b5cf6' }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={database.name}
+                    primaryTypographyProps={treeTextProps}
+                  />
+                  {expandedDatabases.has(`${connection.id}-${database.name}`) ?
+                    <ExpandLessIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} /> :
+                    <ExpandMoreIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} />
+                  }
+                </ListItemButton>
+                <Collapse
+                  in={expandedDatabases.has(`${connection.id}-${database.name}`)}
+                  timeout={250}
+                  unmountOnExit
+                  sx={collapseSx}
+                >
+                <Box sx={{ pl: 1 }}>
                     {database.schemas.map((schema) => (
                       <Box key={schema.schema_name}>
                         <ListItemButton
@@ -848,8 +887,8 @@ export default function DatabasePanel({
                             primaryTypographyProps={treeTextProps}
                           />
                           {expandedSchemas.has(`${connection.id}-${schema.schema_name}`) ?
-                            <ExpandLessIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} className="expand-icon expanded" /> :
-                            <ExpandMoreIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} className="expand-icon" />
+                            <ExpandLessIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} /> :
+                            <ExpandMoreIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} />
                           }
                         </ListItemButton>
 
@@ -1310,7 +1349,7 @@ export default function DatabasePanel({
                                   sx={sectionSummarySx}
                                   onContextMenu={(e) => handleObjectContextMenu(e, {}, 'section_extensions', schema.schema_name)}
                                 >
-                                  <ExtensionIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: '#6366f1' }} />
+                                  <ExtensionIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: '#f472b6' }} />
                                   <Typography sx={sectionHeaderTypography}>
                                     {t('db.sections.extensions')}
                                   </Typography>
@@ -1326,7 +1365,7 @@ export default function DatabasePanel({
                                       <ListItem key={`${ext.name}-${index}`} disablePadding>
                                         <ListItemButton sx={treeItemSx} onContextMenu={(e) => handleObjectContextMenu(e, ext, 'extension')}>
                                             <ListItemIcon sx={{ minWidth: '18px' }}>
-                                              <ExtensionIcon sx={{ fontSize: LEAF_ICON_SIZE, color: '#6366f1' }} />
+                                              <ExtensionIcon sx={{ fontSize: LEAF_ICON_SIZE, color: '#f472b6' }} />
                                             </ListItemIcon>
                                           <ListItemText
                                             primary={ext.name}
@@ -1390,6 +1429,8 @@ export default function DatabasePanel({
                         </Collapse>
                       </Box>
                     ))}
+                </Box>
+                </Collapse>
               </Box>
             ))
           ) : (

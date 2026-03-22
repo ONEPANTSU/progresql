@@ -183,9 +183,6 @@ const ru: Record<TranslationKey, string> = {
 
   'chat.dbPill.noConnection': 'Нет БД',
   'chat.dbPill.switchDb': 'Переключить базу данных',
-  'chat.dbPill.switchWarning': 'Переключение БД изменит контекст AI в этом чате. Продолжить?',
-  'chat.dbPill.switchConfirm': 'Переключить',
-  'chat.dbPill.switchCancel': 'Отмена',
 
   // ── Chat Message ──
   'chat.copySql': '\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c SQL',

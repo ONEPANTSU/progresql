@@ -407,9 +407,17 @@ ipcMain.handle('execute-query', async (event, params) => {
   }
 });
 
-ipcMain.handle('get-database-structure', async (event, connectionId) => {
-  try {
-    let client;
+// NOTE: get-database-structure handler moved to main.js (single source of truth).
+// Nextron loads both main.js and main/background.js, so the handler must only
+// be registered once. The version in main.js has proper constraint_type mapping.
+//
+// ~380 lines of handler code removed (was lines 410-790).
+
+/*
+ * get-database-structure handler REMOVED — now lives in main.js only.
+ * Previous code (410-790) deleted to avoid duplicate ipcMain.handle registration.
+ *
+ * REMOVED BLOCK START
     if (connectionId && global.dbClients.has(connectionId)) {
       client = global.dbClients.get(connectionId);
     } else if (global.dbClients.size > 0) {
@@ -783,7 +791,8 @@ ipcMain.handle('get-database-structure', async (event, connectionId) => {
   } catch (error) {
     return { success: false, message: error.message };
   }
-});
+ * REMOVED BLOCK END
+ */
 
 ipcMain.handle('disconnect-database', async (event, connectionId) => {
   try {
