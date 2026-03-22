@@ -2,9 +2,12 @@
 set -euo pipefail
 
 # ============================================================
-# ProgreSQL — Local macOS Release Script
-# Билдит macOS DMG на маке и загружает в GitHub Release.
-# Windows EXE билдится на сервере через Woodpecker CI.
+# ProgreSQL — Client Release Script
+#
+# 1. Билдит macOS DMG локально (с кастомным фоном)
+# 2. Создаёт GitHub Release и загружает DMG
+# 3. Тригерит GitHub Actions для сборки Windows EXE + Linux AppImage
+# 4. Ждёт завершения всех билдов
 # ============================================================
 
 cd "$(dirname "$0")/.."
@@ -68,7 +71,7 @@ fi
 
 cd ..
 
-# --- GitHub Release first (without tag) ---
+# --- GitHub Release ---
 echo ""
 echo "==> Creating GitHub Release with DMG..."
 UPLOAD_FILES=""
@@ -85,13 +88,43 @@ gh release create "${TAG}" \
     gh release upload "${TAG}" $UPLOAD_FILES --clobber
   }
 
-echo "==> ✅ DMG uploaded! Waiting for GitHub to process..."
-sleep 5
+echo "==> ✅ DMG uploaded!"
 
-# --- Push tag AFTER release+DMG are ready ---
-# gh release create already created the tag, just fetch it locally
+# --- Fetch tag locally ---
 git fetch origin "refs/tags/${TAG}:refs/tags/${TAG}" 2>/dev/null || true
 
+# --- Trigger GitHub Actions for Windows + Linux ---
 echo ""
-echo "==> ✅ Release ready! CI will deploy DMG to server."
+echo "==> Triggering GitHub Actions for Windows + Linux builds..."
+gh workflow run build-desktop.yml --field tag="${TAG}"
+sleep 3
+
+# Find the run that was just triggered
+RUN_ID=$(gh run list --workflow=build-desktop.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+echo "==> Actions run: https://github.com/ONEPANTSU/progresql/actions/runs/${RUN_ID}"
+
+# --- Wait for builds ---
+echo "==> Waiting for Windows + Linux builds..."
+while true; do
+  STATUS=$(gh run view "$RUN_ID" --json status --jq '.status')
+  if [ "$STATUS" = "completed" ]; then
+    CONCLUSION=$(gh run view "$RUN_ID" --json conclusion --jq '.conclusion')
+    if [ "$CONCLUSION" = "success" ]; then
+      echo "==> ✅ All builds completed successfully!"
+    else
+      echo "==> ❌ Build failed: ${CONCLUSION}"
+      echo "    Check: https://github.com/ONEPANTSU/progresql/actions/runs/${RUN_ID}"
+      exit 1
+    fi
+    break
+  fi
+  printf "."
+  sleep 15
+done
+
+# --- Final summary ---
+echo ""
+echo "==> Release v${VERSION} complete!"
+gh release view "${TAG}" --json assets --jq '.assets[] | "  \(.name) (\(.size / 1048576 | floor)MB)"'
+echo ""
 echo "    https://github.com/ONEPANTSU/progresql/releases/tag/${TAG}"
