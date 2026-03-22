@@ -584,11 +584,11 @@ h2 {
 }
 
 .arch-block {
-  padding: 28px 32px;
+  padding: 32px 36px;
   text-align: center;
   font-weight: 600;
-  font-size: 0.95rem;
-  min-width: 180px;
+  font-size: 1.05rem;
+  min-width: 200px;
   flex-shrink: 0;
 }
 
@@ -599,13 +599,13 @@ h2 {
 }
 
 .arch-arrow svg {
-  width: 60px;
-  height: 24px;
+  width: 70px;
+  height: 28px;
 }
 
 .arch-arrow svg line, .arch-arrow svg polyline {
   stroke: var(--accent);
-  stroke-width: 2;
+  stroke-width: 3;
   fill: none;
   stroke-dasharray: 6 4;
   animation: dashMove 1.5s linear infinite;
@@ -618,19 +618,42 @@ h2 {
 .arch-danger {
   text-align: center;
   color: #22c55e;
-  font-weight: 600;
-  font-size: 1.3rem;
-  letter-spacing: 0.05em;
-  margin-bottom: 24px;
+  font-weight: 700;
+  font-size: 1.6rem;
+  letter-spacing: 0.06em;
+  margin-top: 40px;
+  margin-bottom: 32px;
+  text-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+}
+
+.arch-badges {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+
+.arch-badge {
+  color: #22c55e;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 100px;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
 .arch-description {
   text-align: center;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-  max-width: 600px;
+  max-width: 400px;
   margin: 0 auto;
-  line-height: 1.7;
+}
+
+.arch-description p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 2;
 }
 
 @media (max-width: 700px) {
@@ -1203,7 +1226,7 @@ h2 {
   <!-- Security / Architecture -->
   <section class="security-section" id="security">
     <div class="container">
-      <h2 class="fade-in" data-en="Your data stays yours" data-ru="Ваши данные остаются вашими">Your data stays yours</h2>
+      <h2 class="fade-in" data-en="Your data never leaves your machine" data-ru="Ваши данные никогда не покидают ваш компьютер">Your data never leaves your machine</h2>
       <p class="section-subtitle fade-in" data-en="See exactly what leaves your machine — and what doesn't." data-ru="Посмотрите, что именно покидает ваш компьютер, а что нет.">See exactly what leaves your machine — and what doesn't.</p>
       <div class="arch-flow fade-in">
         <div class="glass-card arch-block" data-en="Your PostgreSQL" data-ru="Ваш PostgreSQL">Your PostgreSQL</div>
@@ -1222,8 +1245,19 @@ h2 {
         </div>
         <div class="glass-card arch-block">AI Backend<br><small style="color:var(--text-secondary);font-weight:400;font-size:0.8rem;" data-en="(schema only)" data-ru="(только схема)">(schema only)</small></div>
       </div>
-      <p class="arch-danger fade-in" data-en="No rows &middot; No passwords &middot; No data" data-ru="Без строк &middot; Без паролей &middot; Без данных">No rows &middot; No passwords &middot; No data</p>
-      <p class="arch-description fade-in" data-en="By default, ProgreSQL runs in Safe Mode — AI can only read your schema and generate SELECT queries. You can enable Write Mode in Settings to allow INSERT, UPDATE, and DELETE. The AI backend only receives table names, column types and indexes — never your actual data." data-ru="По умолчанию ProgreSQL работает в безопасном режиме (Safe Mode) — AI может только читать вашу схему и генерировать SELECT-запросы. Вы можете включить режим записи (Write Mode) в настройках, чтобы разрешить INSERT, UPDATE и DELETE. AI-бэкенд получает только имена таблиц, типы колонок и индексы — никогда ваши реальные данные.">By default, ProgreSQL runs in Safe Mode — AI can only read your schema and generate SELECT queries. You can enable Write Mode in Settings to allow INSERT, UPDATE, and DELETE. The AI backend only receives table names, column types and indexes — never your actual data.</p>
+      <p class="arch-danger fade-in" data-en="No rows. No passwords. No data." data-ru="Без строк. Без паролей. Без данных.">No rows. No passwords. No data.</p>
+      <div class="arch-badges fade-in">
+        <span class="arch-badge" data-en="&#10004; Schema only" data-ru="&#10004; Только схема">&#10004; Schema only</span>
+        <span class="arch-badge" data-en="&#10004; Safe by default" data-ru="&#10004; Безопасно по умолчанию">&#10004; Safe by default</span>
+        <span class="arch-badge" data-en="&#10004; No sensitive data sent" data-ru="&#10004; Конфиденциальные данные не передаются">&#10004; No sensitive data sent</span>
+      </div>
+      <div class="arch-description fade-in">
+        <p data-en="Runs in Safe Mode by default" data-ru="Работает в безопасном режиме по умолчанию">Runs in Safe Mode by default</p>
+        <p data-en="AI reads only your schema" data-ru="AI читает только вашу схему">AI reads only your schema</p>
+        <p data-en="No access to your actual data" data-ru="Нет доступа к вашим реальным данным">No access to your actual data</p>
+        <p data-en="No queries are executed automatically" data-ru="Запросы не выполняются автоматически">No queries are executed automatically</p>
+        <p data-en="You can enable Extended Mode anytime" data-ru="Вы можете включить расширенный режим в любое время">You can enable Extended Mode anytime</p>
+      </div>
     </div>
   </section>
 
