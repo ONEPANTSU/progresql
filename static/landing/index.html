@@ -572,6 +572,7 @@ h2 {
 /* ========== SECURITY / ARCHITECTURE ========== */
 .security-section {
   padding: 100px 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(34, 197, 94, 0.02) 40%, rgba(34, 197, 94, 0.02) 60%, transparent 100%);
 }
 
 .arch-flow {
@@ -579,8 +580,12 @@ h2 {
   align-items: center;
   justify-content: center;
   gap: 0;
-  margin-bottom: 32px;
+  margin-bottom: 0;
   flex-wrap: wrap;
+  padding: 32px 24px;
+  border-radius: 16px;
+  background: rgba(99, 102, 241, 0.03);
+  border: 1px solid rgba(99, 102, 241, 0.08);
 }
 
 .arch-block {
@@ -594,6 +599,7 @@ h2 {
 
 .arch-arrow {
   display: flex;
+  flex-direction: column;
   align-items: center;
   padding: 0 8px;
 }
@@ -605,25 +611,49 @@ h2 {
 
 .arch-arrow svg line, .arch-arrow svg polyline {
   stroke: var(--accent);
-  stroke-width: 3;
+  stroke-width: 3.5;
   fill: none;
   stroke-dasharray: 6 4;
   animation: dashMove 1.5s linear infinite;
+  filter: drop-shadow(0 0 4px rgba(99, 102, 241, 0.3));
 }
 
 @keyframes dashMove {
   to { stroke-dashoffset: -20; }
 }
 
+.arch-label {
+  display: block;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+
+.arch-danger-wrap {
+  text-align: center;
+  margin-top: 48px;
+  margin-bottom: 36px;
+}
+
+.arch-danger-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #22c55e;
+  margin-bottom: 8px;
+}
+
 .arch-danger {
   text-align: center;
   color: #22c55e;
   font-weight: 700;
-  font-size: 1.6rem;
+  font-size: 2.1rem;
   letter-spacing: 0.06em;
-  margin-top: 40px;
-  margin-bottom: 32px;
-  text-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+  text-shadow: 0 0 30px rgba(34, 197, 94, 0.3), 0 0 60px rgba(34, 197, 94, 0.1);
 }
 
 .arch-badges {
@@ -644,16 +674,43 @@ h2 {
   border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
+.arch-block-ai {
+  border-color: rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.08);
+}
+
 .arch-description {
   text-align: center;
-  max-width: 400px;
+  max-width: 440px;
   margin: 0 auto;
 }
 
 .arch-description p {
   color: var(--text-secondary);
   font-size: 0.9rem;
-  line-height: 2;
+  line-height: 1.9;
+  padding: 2px 0;
+}
+
+.arch-description p:first-child {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+
+.arch-description p:last-child {
+  margin-top: 8px;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.arch-trust-line {
+  text-align: center;
+  margin-top: 28px;
+  color: var(--text-disabled);
+  font-size: 0.8rem;
+  font-style: italic;
 }
 
 @media (max-width: 700px) {
@@ -661,7 +718,9 @@ h2 {
     flex-direction: column;
     gap: 0;
   }
-  .arch-arrow { transform: rotate(90deg); padding: 8px 0; }
+  .arch-arrow { padding: 8px 0; }
+  .arch-arrow svg { transform: rotate(90deg); }
+  .arch-label { font-size: 0.65rem; }
 }
 
 /* ========== PRICING ========== */
@@ -1008,13 +1067,32 @@ h2 {
 .feature-hero-tagline {
   margin-top: 12px;
   color: var(--accent) !important;
+  font-weight: 700;
+  font-size: 1.05rem !important;
+  text-shadow: 0 0 20px rgba(99, 102, 241, 0.25);
+}
+
+.feature-hero-badge {
+  display: inline-block;
+  font-size: 0.7rem;
   font-weight: 600;
-  font-size: 0.9rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 100px;
+  padding: 4px 12px;
+  margin-bottom: 12px;
 }
 
 .feature-hero-bullets {
-  border-left: 1px solid var(--border);
+  border-left: 2px solid rgba(99, 102, 241, 0.35);
   padding-left: 24px;
+}
+
+.feature-card-wide {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 700px) {
@@ -1088,6 +1166,7 @@ h2 {
           <a href="#features" data-en="Features" data-ru="Функции">Features</a>
           <a href="#pricing" data-en="Pricing" data-ru="Цены">Pricing</a>
           <a href="#faq" data-en="FAQ" data-ru="FAQ">FAQ</a>
+          <a href="https://t.me/progresql_official" target="_blank" rel="noopener noreferrer" data-en="Blog" data-ru="Блог">Blog</a>
         </span>
         <div class="lang-switcher">
           <button id="langEn" class="active" onclick="setLang('en')">EN</button>
@@ -1172,11 +1251,11 @@ h2 {
       <p class="section-subtitle fade-in" data-en="Everything in one native desktop app." data-ru="Всё в одном нативном приложении.">Everything in one native desktop app.</p>
       <div class="features-grid">
         <div class="glass-card feature-card feature-card-hero fade-in">
-          <span class="feature-icon" aria-hidden="true">&#10022;</span>
+          <span class="feature-hero-badge">Schema-aware AI</span>
           <h3 data-en="AI Copilot" data-ru="AI-помощник">AI Copilot</h3>
           <div class="feature-hero-layout">
             <div class="feature-hero-desc">
-              <p data-en="Generate, improve, explain and optimize SQL queries using natural language. Schema-aware — reads your real tables and columns before generating anything." data-ru="Генерируйте, улучшайте, объясняйте и оптимизируйте SQL-запросы на обычном языке. Знает вашу схему — читает реальные таблицы и колонки перед генерацией.">Generate, improve, explain and optimize SQL queries using natural language. Schema-aware — reads your real tables and columns before generating anything.</p>
+              <p data-en="Generate, explain and optimize SQL using natural language. Understands your real PostgreSQL schema before writing anything." data-ru="Генерируйте, объясняйте и оптимизируйте SQL на обычном языке. Понимает вашу реальную схему PostgreSQL перед генерацией.">Generate, explain and optimize SQL using natural language. Understands your real PostgreSQL schema before writing anything.</p>
               <p class="feature-hero-tagline" data-en="Works with your real schema — not guesses." data-ru="Работает с вашей реальной схемой — без догадок.">Works with your real schema — not guesses.</p>
             </div>
             <div class="feature-hero-bullets">
@@ -1197,6 +1276,7 @@ h2 {
             <li data-en="Syntax highlighting &amp; formatting" data-ru="Подсветка синтаксиса и форматирование">Syntax highlighting &amp; formatting</li>
             <li data-en="Multiple tabs &amp; query history" data-ru="Вкладки и история запросов">Multiple tabs &amp; query history</li>
             <li data-en="Error detection &amp; instant feedback" data-ru="Обнаружение ошибок и мгновенная обратная связь">Error detection &amp; instant feedback</li>
+            <li data-en="Explain errors and query results instantly" data-ru="Мгновенное объяснение ошибок и результатов">Explain errors and query results instantly</li>
           </ul>
         </div>
         <div class="glass-card feature-card fade-in">
@@ -1205,18 +1285,19 @@ h2 {
           <ul class="feature-bullets">
             <li data-en="Reads your real tables, columns &amp; indexes" data-ru="Читает реальные таблицы, колонки и индексы">Reads your real tables, columns &amp; indexes</li>
             <li data-en="Interactive ER diagrams" data-ru="Интерактивные ER-диаграммы">Interactive ER diagrams</li>
+            <li data-en="Understands relationships between tables" data-ru="Понимает связи между таблицами">Understands relationships between tables</li>
             <li data-en="Schema comparison across DBs" data-ru="Сравнение схем между базами">Schema comparison across DBs</li>
             <li data-en="Auto-generated migrations" data-ru="Автоматическая генерация миграций">Auto-generated migrations</li>
           </ul>
         </div>
-        <div class="glass-card feature-card fade-in">
+        <div class="glass-card feature-card feature-card-wide fade-in">
           <span class="feature-icon" aria-hidden="true">&#128202;</span>
           <h3 data-en="Analytics" data-ru="Аналитика">Analytics</h3>
           <ul class="feature-bullets">
-            <li data-en="Ask questions, get insights" data-ru="Задавайте вопросы, получайте инсайты">Ask questions, get insights</li>
-            <li data-en="Generate charts instantly" data-ru="Генерируйте графики мгновенно">Generate charts instantly</li>
-            <li data-en="Bar, line, pie &amp; area charts" data-ru="Столбчатые, линейные, круговые диаграммы">Bar, line, pie &amp; area charts</li>
-            <li data-en="Visual insights from your data" data-ru="Визуальные инсайты из ваших данных">Visual insights from your data</li>
+            <li data-en="Ask your database questions in plain text" data-ru="Задавайте вопросы базе данных обычным текстом">Ask your database questions in plain text</li>
+            <li data-en="Get instant insights from your data" data-ru="Мгновенные инсайты из ваших данных">Get instant insights from your data</li>
+            <li data-en="Generate bar, line, pie &amp; area charts in seconds" data-ru="Генерируйте графики за секунды">Generate bar, line, pie &amp; area charts in seconds</li>
+            <li data-en="Explore trends and patterns with AI" data-ru="Исследуйте тренды и паттерны с помощью AI">Explore trends and patterns with AI</li>
           </ul>
         </div>
       </div>
@@ -1235,6 +1316,7 @@ h2 {
             <line x1="0" y1="12" x2="48" y2="12"/>
             <polyline points="44,6 52,12 44,18"/>
           </svg>
+          <span class="arch-label" data-en="local connection" data-ru="локальное подключение">local connection</span>
         </div>
         <div class="glass-card arch-block" data-en="ProgreSQL Desktop App" data-ru="ProgreSQL Desktop App">ProgreSQL Desktop App</div>
         <div class="arch-arrow" aria-hidden="true">
@@ -1242,22 +1324,27 @@ h2 {
             <line x1="0" y1="12" x2="48" y2="12"/>
             <polyline points="44,6 52,12 44,18"/>
           </svg>
+          <span class="arch-label" data-en="schema metadata only" data-ru="только метаданные схемы">schema metadata only</span>
         </div>
-        <div class="glass-card arch-block">AI Backend<br><small style="color:var(--text-secondary);font-weight:400;font-size:0.8rem;" data-en="(schema only)" data-ru="(только схема)">(schema only)</small></div>
+        <div class="glass-card arch-block arch-block-ai">AI Backend<br><small style="color:rgba(165,165,255,0.8);font-weight:400;font-size:0.8rem;" data-en="(schema only)" data-ru="(только схема)">(schema only)</small></div>
       </div>
-      <p class="arch-danger fade-in" data-en="No rows. No passwords. No data." data-ru="Без строк. Без паролей. Без данных.">No rows. No passwords. No data.</p>
+      <div class="arch-danger-wrap fade-in">
+        <p class="arch-danger-title" data-en="NO DATA LEAVES YOUR MACHINE" data-ru="ДАННЫЕ НЕ ПОКИДАЮТ ВАШ КОМПЬЮТЕР">NO DATA LEAVES YOUR MACHINE</p>
+        <p class="arch-danger" data-en="No rows. No passwords. No data." data-ru="Без строк. Без паролей. Без данных.">No rows. No passwords. No data.</p>
+      </div>
       <div class="arch-badges fade-in">
-        <span class="arch-badge" data-en="&#10004; Schema only" data-ru="&#10004; Только схема">&#10004; Schema only</span>
+        <span class="arch-badge" data-en="&#10004; Schema only (no rows)" data-ru="&#10004; Только схема (без строк)">&#10004; Schema only (no rows)</span>
         <span class="arch-badge" data-en="&#10004; Safe by default" data-ru="&#10004; Безопасно по умолчанию">&#10004; Safe by default</span>
         <span class="arch-badge" data-en="&#10004; No sensitive data sent" data-ru="&#10004; Конфиденциальные данные не передаются">&#10004; No sensitive data sent</span>
       </div>
       <div class="arch-description fade-in">
-        <p data-en="Runs in Safe Mode by default" data-ru="Работает в безопасном режиме по умолчанию">Runs in Safe Mode by default</p>
-        <p data-en="AI reads only your schema" data-ru="AI читает только вашу схему">AI reads only your schema</p>
-        <p data-en="No access to your actual data" data-ru="Нет доступа к вашим реальным данным">No access to your actual data</p>
-        <p data-en="No queries are executed automatically" data-ru="Запросы не выполняются автоматически">No queries are executed automatically</p>
-        <p data-en="You can enable Extended Mode anytime" data-ru="Вы можете включить расширенный режим в любое время">You can enable Extended Mode anytime</p>
+        <p data-en="Safe Mode by default" data-ru="Безопасный режим по умолчанию">Safe Mode by default</p>
+        <p data-en="— AI reads only your schema" data-ru="— AI читает только вашу схему">— AI reads only your schema</p>
+        <p data-en="— No access to your actual data" data-ru="— Нет доступа к вашим реальным данным">— No access to your actual data</p>
+        <p data-en="— No queries executed automatically" data-ru="— Запросы не выполняются автоматически">— No queries executed automatically</p>
+        <p data-en="Enable Extended Mode anytime if needed" data-ru="Включите расширенный режим, когда потребуется">Enable Extended Mode anytime if needed</p>
       </div>
+      <p class="arch-trust-line fade-in" data-en="Works locally. Your data stays on your machine." data-ru="Работает локально. Ваши данные остаются на вашем компьютере.">Works locally. Your data stays on your machine.</p>
     </div>
   </section>
 
@@ -1418,6 +1505,7 @@ h2 {
         <a href="/legal/crypto-payments.html" data-en="Crypto Payments" data-ru="Криптоплатежи">Crypto Payments</a>
         <a href="/legal/refunds.html" data-en="Refunds" data-ru="Возвраты">Refunds</a>
         <a href="/legal/contacts.html" data-en="Contacts" data-ru="Контакты">Contacts</a>
+        <a href="https://t.me/progresql_official" target="_blank" rel="noopener noreferrer" data-en="Blog" data-ru="Блог">Blog</a>
       </nav>
       <div class="footer-legal">
         <p data-en="ProgreSQL is an independent project and is not affiliated with PostgreSQL." data-ru="ProgreSQL — независимый проект, не связанный с PostgreSQL.">ProgreSQL is an independent project and is not affiliated with PostgreSQL.</p>
