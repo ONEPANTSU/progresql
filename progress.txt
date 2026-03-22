@@ -3098,3 +3098,17 @@ TASK-220 completed. Explorer: Connection and Database icons now visually distinc
 - Python code not modified — ruff/pytest unaffected
 - Pre-existing Go test failures in api/rest unchanged (not related to UI changes)
 - Next priorities: TASK-221 (ER context menu, medium, TASK-220 dep now met), TASK-222 (AI icon gradient, medium), TASK-223 (DMG installer, low)
+
+TASK-221 completed. ER Diagram context menu moved from connection to database level.
+- Removed 'ER Diagram' MenuItem from connection context menu (was in first Menu component)
+- Removed 'er_diagram' case from handleMenuAction (connection-level handler)
+- Added onContextMenu handler to database ListItemButton with type 'database'
+- Database element passes _connectionId for ER diagram opening
+- Added 'database' type to getObjectName() switch
+- Added 'er_diagram' case to handleObjectMenuAction — calls onOpenERDiagram(connectionId)
+- Added database context menu section in object Menu with ER Diagram + Refresh items
+- ER Diagram only shows if onOpenERDiagram prop is provided
+- File: DatabasePanel.tsx — context menus restructured
+- npx tsc -p renderer/tsconfig.json --noEmit — 0 errors
+- Python code not modified — ruff/pytest unaffected
+- Next priorities: TASK-222 (AI icon gradient, medium), TASK-223 (DMG installer, low)

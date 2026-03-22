@@ -293,11 +293,6 @@ export default function DatabasePanel({
           onQueryTable(`CREATE SCHEMA new_schema;\n`);
         }
         break;
-      case 'er_diagram':
-        if (onOpenERDiagram) {
-          onOpenERDiagram(selectedConnection.id);
-        }
-        break;
     }
     handleMenuClose();
   };
@@ -461,6 +456,7 @@ export default function DatabasePanel({
       case 'sequence': return obj.sequence_name;
       case 'extension': return obj.name;
       case 'type': return obj.name;
+      case 'database': return obj.name;
       case 'column': return obj.column_name;
       case 'index': return obj.index_name;
       case 'constraint': return obj.constraint_name;
@@ -684,6 +680,13 @@ export default function DatabasePanel({
         }
         break;
       }
+      case 'er_diagram': {
+        const connId = element._connectionId || activeConnection?.id;
+        if (onOpenERDiagram && connId) {
+          onOpenERDiagram(connId);
+        }
+        break;
+      }
       case 'drop_trigger': {
         const trigDropTable = element._tableName || '';
         const sc8 = schemaName || 'public';
@@ -828,6 +831,7 @@ export default function DatabasePanel({
                 {/* Database level */}
                 <ListItemButton
                   onClick={() => toggleDatabaseExpansion(connection.id, database.name)}
+                  onContextMenu={(e) => handleObjectContextMenu(e, { ...database, _connectionId: connection.id }, 'database')}
                   sx={{
                     py: 0.125,
                     px: 1,
@@ -1624,14 +1628,6 @@ export default function DatabasePanel({
           </ListItemIcon>
           Refresh
         </MenuItem>
-        {selectedConnection?.isActive && onOpenERDiagram && (
-          <MenuItem onClick={() => handleMenuAction('er_diagram')}>
-            <ListItemIcon>
-              <AccountTreeIcon sx={{ fontSize: TREE_ICON_SIZE }} />
-            </ListItemIcon>
-            ER Diagram
-          </MenuItem>
-        )}
         <Divider />
         <MenuItem onClick={() => handleMenuAction('create_schema')}>
           <ListItemIcon>
@@ -1681,6 +1677,19 @@ export default function DatabasePanel({
           },
         }}
       >
+        {/* Database context menu */}
+        {contextMenuObject?.type === 'database' && [
+          onOpenERDiagram && (
+            <MenuItem key="er_diagram" onClick={() => handleObjectMenuAction('er_diagram')}>
+              <ListItemIcon><AccountTreeIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
+              ER Diagram
+            </MenuItem>
+          ),
+          <MenuItem key="refresh" onClick={() => handleObjectMenuAction('refresh')}>
+            <ListItemIcon><RefreshIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
+            Refresh
+          </MenuItem>,
+        ]}
         {/* Table context menu */}
         {contextMenuObject?.type === 'table' && [
           <MenuItem key="view_info" onClick={() => handleObjectMenuAction('view_info')}>
