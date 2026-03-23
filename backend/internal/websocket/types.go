@@ -78,6 +78,7 @@ type AgentResult struct {
 	QueryResult     json.RawMessage `json:"query_result,omitempty"`
 	Visualization   *Visualization  `json:"visualization,omitempty"`
 	ValidationError string          `json:"validation_error,omitempty"`
+	SecurityBlocked bool            `json:"security_blocked,omitempty"`
 }
 
 // Chart type constants for visualization responses.

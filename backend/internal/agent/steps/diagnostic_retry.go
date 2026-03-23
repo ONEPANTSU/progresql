@@ -43,24 +43,29 @@ func (s *DiagnosticRetryStep) Execute(ctx context.Context, pctx *agent.PipelineC
 		return fmt.Errorf("no SQL candidates to validate")
 	}
 
+	// Check if any candidate contains DDL/DML (CREATE, ALTER, DROP, INSERT, etc.).
+	isDDL := security.CheckSQLWithSecurityMode(candidates[0], "safe") != nil
+
+	// In safe/data modes, block DDL/DML entirely — don't show it, don't execute it.
+	// Instead, set a user-friendly message explaining the restriction.
+	if isDDL && pctx.SecurityMode != agent.SecurityModeExecute {
+		pctx.Logger.Info("diagnostic_retry blocked: DDL/DML not allowed in current mode",
+			zap.String("security_mode", pctx.SecurityMode),
+			zap.String("sql_prefix", candidates[0][:min(len(candidates[0]), 40)]),
+		)
+		pctx.Set(ContextKeySQLCandidates, candidates)
+		pctx.Set(ContextKeySQLCandidate, candidates[0])
+		pctx.Result.SQL = candidates[0]
+		pctx.Result.Candidates = candidates
+		pctx.Result.SecurityBlocked = true
+		return nil
+	}
+
 	// In execute mode, skip EXPLAIN validation entirely — DDL statements
 	// (CREATE TABLE, CREATE SCHEMA, etc.) cannot be EXPLAINed and would
 	// incorrectly fail validation. Execute mode trusts the generated SQL.
 	if pctx.SecurityMode == agent.SecurityModeExecute {
 		pctx.Logger.Info("diagnostic_retry skipped: execute mode enabled")
-		pctx.Set(ContextKeySQLCandidates, candidates)
-		pctx.Set(ContextKeySQLCandidate, candidates[0])
-		pctx.Result.SQL = candidates[0]
-		pctx.Result.Candidates = candidates
-		return nil
-	}
-
-	// Skip EXPLAIN for DDL/DML statements — they cannot be EXPLAINed.
-	// The SQL is still shown to the user but won't be auto-executed in safe/data modes.
-	if security.CheckSQLWithSecurityMode(candidates[0], "safe") != nil {
-		pctx.Logger.Info("diagnostic_retry skipped: DDL/DML SQL cannot be EXPLAINed",
-			zap.String("sql_prefix", candidates[0][:min(len(candidates[0]), 40)]),
-		)
 		pctx.Set(ContextKeySQLCandidates, candidates)
 		pctx.Set(ContextKeySQLCandidate, candidates[0])
 		pctx.Result.SQL = candidates[0]

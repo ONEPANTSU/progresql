@@ -274,6 +274,7 @@ const en = {
   'agentError.queryExecution': 'Query execution error. Check SQL syntax.',
   'agentError.sendFailed': 'Failed to send message. Check backend connection.',
   'agentError.validationFailed': 'SQL validation failed',
+  'agentError.securityBlocked': 'This operation is not allowed in the current security mode. Switch to Execute Mode to run DDL/DML queries.',
   'agentError.backendUnavailable': 'Backend unavailable. Connect to Go backend in settings.',
 
   // ── Notifications (index.tsx) ──

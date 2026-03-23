@@ -27,6 +27,12 @@ func (s *AutoExecuteStep) Execute(ctx context.Context, pctx *agent.PipelineConte
 		return nil
 	}
 
+	// Skip auto-execute for SQL blocked by security mode.
+	if pctx.Result.SecurityBlocked {
+		pctx.Logger.Info("auto_execute skipped: SQL blocked by security mode")
+		return nil
+	}
+
 	// Skip auto-execute for SQL that failed EXPLAIN validation.
 	if pctx.Result.ValidationError != "" {
 		pctx.Logger.Info("auto_execute skipped: SQL has validation error",

@@ -100,8 +100,11 @@ function formatAgentResponse(response: AgentResponsePayload, t: TFunction): stri
     }
   }
 
-  // Show validation error only for EXPLAIN failures (not for DDL which can't be EXPLAINed).
-  if (response.result.validation_error) {
+  // Show security mode restriction message.
+  if (response.result.security_blocked) {
+    parts.push('\n> 🔒 ' + t('agentError.securityBlocked'));
+  } else if (response.result.validation_error) {
+    // Show validation error only for EXPLAIN failures.
     parts.push('\n> ⚠️ ' + t('agentError.validationFailed') + ': ' + response.result.validation_error);
   }
 
