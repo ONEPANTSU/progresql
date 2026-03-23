@@ -467,14 +467,14 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
               onClick={onStopGeneration}
               aria-label={t('chat.input.stop')}
               sx={{
-                background: 'linear-gradient(135deg, #fca5a5, #f87171, #ef4444)',
+                background: 'linear-gradient(135deg, #b91c1c, #991b1b, #7f1d1d)',
                 color: '#fff',
                 minWidth: 36,
                 minHeight: 36,
                 borderRadius: 1,
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #ef4444, #b91c1c, #7f1d1d)',
+                  background: 'linear-gradient(135deg, #991b1b, #7f1d1d, #581c1c)',
                 },
               }}
             >
