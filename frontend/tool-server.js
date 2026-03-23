@@ -399,10 +399,23 @@ async function runExecuteQuery(args) {
   }
 
   try {
-    // Wrap query with LIMIT to prevent unbounded results (matches Go client)
     const trimmedSql = sql.replace(/[\s;]+$/, '');
-    const query = `SELECT * FROM (${trimmedSql}) AS _q LIMIT ${limit}`;
-    const result = await global.dbClient.query(query);
+
+    // Detect if the query is a SELECT/WITH (returns rows) or DDL/DML (no rows).
+    // DDL (CREATE, ALTER, DROP) and DML (INSERT, UPDATE, DELETE) cannot be
+    // wrapped in SELECT * FROM (...) — execute them directly.
+    const upperSql = trimmedSql.trimStart().toUpperCase();
+    const isSelect = upperSql.startsWith('SELECT') || upperSql.startsWith('WITH');
+
+    let result;
+    if (isSelect) {
+      // Wrap SELECT with LIMIT to prevent unbounded results
+      const query = `SELECT * FROM (${trimmedSql}) AS _q LIMIT ${limit}`;
+      result = await global.dbClient.query(query);
+    } else {
+      // DDL/DML: execute directly
+      result = await global.dbClient.query(trimmedSql);
+    }
 
     const columns = result.fields
       ? result.fields.map(f => f.name)
@@ -410,7 +423,7 @@ async function runExecuteQuery(args) {
 
     const rows = result.rows || [];
 
-    return { rows, columns };
+    return { rows, columns, rowCount: result.rowCount };
   } catch (err) {
     return { error: err.message };
   }
