@@ -57,6 +57,7 @@ export interface AgentResult {
   query_result?: any;
   visualization?: Visualization;
   validation_error?: string;
+  security_blocked?: boolean;
 }
 
 export interface ToolCallLogEntry {
