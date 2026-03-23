@@ -598,6 +598,11 @@ export default function DatabasePanel({
           onQueryTable(`"${schemaName || 'public'}"."${name}"`);
         }
         break;
+      case 'drop_schema':
+        if (onQueryTable) {
+          onQueryTable(`DROP SCHEMA IF EXISTS "${name}" CASCADE;\n`);
+        }
+        break;
       case 'drop_table':
         if (onQueryTable) {
           onQueryTable(`DROP TABLE IF EXISTS "${schemaName || 'public'}"."${name}" CASCADE;\n`);
@@ -1855,6 +1860,12 @@ export default function DatabasePanel({
             <ListItemIcon><RefreshIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
             Refresh
           </MenuItem>,
+          contextMenuObject.element?.schema_name !== 'public' && (
+            <MenuItem key="drop_schema" onClick={() => handleObjectMenuAction('drop_schema')} sx={{ color: 'error.main' }}>
+              <ListItemIcon><DeleteIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'error.main' }} /></ListItemIcon>
+              Drop Schema
+            </MenuItem>
+          ),
         ]}
 
         {/* Section header context menus */}

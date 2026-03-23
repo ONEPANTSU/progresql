@@ -37,7 +37,7 @@ func (s *ResultAggregationStep) Execute(ctx context.Context, pctx *agent.Pipelin
 		pctx.Logger.Info("single candidate, skipping LLM selection")
 		pctx.Result.SQL = candidates[0]
 		pctx.Result.Candidates = candidates
-		if pctx.Result.ValidationError == "" {
+		if pctx.Result.ValidationError == "" && !pctx.Result.SecurityBlocked {
 			pctx.Result.Explanation = "Only one candidate was generated."
 		}
 		return nil
