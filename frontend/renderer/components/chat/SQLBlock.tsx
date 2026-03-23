@@ -36,6 +36,7 @@ interface SQLBlockProps {
   isDatabaseConnected?: boolean;
   safeMode?: boolean;
   securityMode?: 'safe' | 'data' | 'execute';
+  connectionId?: string;
   onExplain?: (sql: string) => void;
   onApply?: (sql: string) => void;
   onExecute?: (sql: string) => void;
@@ -62,6 +63,7 @@ const SQLBlock: React.FC<SQLBlockProps> = ({
   isDatabaseConnected = false,
   safeMode = true,
   securityMode = 'safe',
+  connectionId,
   onExplain,
   onApply,
   onExecute,
@@ -92,7 +94,7 @@ const SQLBlock: React.FC<SQLBlockProps> = ({
       setVerificationStatus('verifying');
       setVerificationError(null);
       try {
-        const result = await window.electronAPI.executeQuery('', `EXPLAIN ${sql}`);
+        const result = await window.electronAPI.executeQuery(connectionId || '', `EXPLAIN ${sql}`);
         if (cancelled) return;
         if (result.success) {
           setVerificationStatus('verified');
@@ -111,7 +113,7 @@ const SQLBlock: React.FC<SQLBlockProps> = ({
     };
     verify();
     return () => { cancelled = true; };
-  }, [sql, isDatabaseConnected, safeMode, securityMode, isTyping, t]);
+  }, [sql, isDatabaseConnected, safeMode, securityMode, isTyping, connectionId, t]);
 
   const handleCopy = async () => {
     try {

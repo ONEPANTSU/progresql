@@ -81,6 +81,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
   const chatInputRef = useRef<ChatInputHandle>(null);
 
   const chat = useChat(isOpen);
+  const chatConnectionId = chat.activeChat?.connectionId ?? activeConnection?.id ?? undefined;
   const agentMessages = useAgentMessages({
     activeChatId: chat.activeChatId,
     setChats: chat.setChats,
@@ -91,7 +92,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
     handleCreateChat: chat.handleCreateChat,
     attachedSQL,
     setAttachedSQL,
-    connectionId: chat.activeChat?.connectionId ?? activeConnection?.id ?? null,
+    connectionId: chatConnectionId ?? null,
   });
 
   // Stamp active chat with connectionId when it doesn't have one yet
@@ -307,7 +308,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
         ) : (
           <List sx={{ p: 0 }}>
             {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} isTyping={isTyping} isAgentConnected={agent.isConnected} isDatabaseConnected={isDatabaseConnected} safeMode={agent.securityMode === 'safe'} securityMode={agent.securityMode} onExplainSQL={agentMessages.handleSendExplainSQL} onApplySQL={onApplySQL} onExecuteQuery={onExecuteQuery} />
+              <ChatMessage key={message.id} message={message} isTyping={isTyping} isAgentConnected={agent.isConnected} isDatabaseConnected={isDatabaseConnected} safeMode={agent.securityMode === 'safe'} securityMode={agent.securityMode} connectionId={chatConnectionId} onExplainSQL={agentMessages.handleSendExplainSQL} onApplySQL={onApplySQL} onExecuteQuery={onExecuteQuery} />
             ))}
           </List>
         )}

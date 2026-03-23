@@ -998,9 +998,9 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
                 onKeyDown={handleKeyDown}
                 size="small"
                 sx={{
-                  background: "linear-gradient(135deg, #86efac, #4ade80, #22c55e)",
-                  '&:hover': { background: "linear-gradient(135deg, #4ade80, #22c55e, #16a34a)" },
-                  '&.Mui-disabled': { background: "linear-gradient(135deg, #a7f3d0, #6ee7b7, #34d399)", color: "rgba(255,255,255,0.7)" },
+                  background: "linear-gradient(135deg, #4ade80, #22c55e, #16a34a)",
+                  '&:hover': { background: "linear-gradient(135deg, #22c55e, #16a34a, #15803d)" },
+                  '&.Mui-disabled': { background: "linear-gradient(135deg, #6ee7b7, #4ade80, #34d399)", color: "rgba(255,255,255,0.7)" },
                   minHeight: 28,
                   py: 0.25,
                   px: 1.5,

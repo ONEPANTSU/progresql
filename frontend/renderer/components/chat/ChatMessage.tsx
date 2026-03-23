@@ -28,6 +28,7 @@ interface ChatMessageProps {
   isDatabaseConnected?: boolean;
   safeMode?: boolean;
   securityMode?: 'safe' | 'data' | 'execute';
+  connectionId?: string;
   onExplainSQL?: (sql: string) => void;
   onApplySQL?: (sql: string) => void;
   onExecuteQuery?: (query: string) => void;
@@ -38,7 +39,7 @@ function isSQLCode(text: string): boolean {
   const trimmedText = text.trim();
   if (!trimmedText) return false;
   if (trimmedText.includes('```')) return false;
-  if (trimmedText.includes('**') || trimmedText.includes('•') || trimmedText.includes('\u{1F4A1}') ||
+  if (trimmedText.includes('**') || trimmedText.includes('\u2022') || trimmedText.includes('\u{1F4A1}') ||
       trimmedText.includes('\u0412\u043E\u0442') || trimmedText.includes('\u0412\u044B \u043C\u043E\u0436\u0435\u0442\u0435') ||
       trimmedText.includes('SQL-\u0437\u0430\u043F\u0440\u043E\u0441') || trimmedText.includes('\u0437\u0430\u043F\u0440\u043E\u0441 \u0434\u043B\u044F')) {
     return false;
@@ -90,7 +91,7 @@ async function copyToClipboard(text: string) {
   }
 }
 
-/* ── Markdown table helpers ─────────────────────────────────────────── */
+/* -- Markdown table helpers ------------------------------------------------ */
 
 /** Returns true when a line looks like a markdown table row: `| ... | ... |` */
 function isTableRow(line: string): boolean {
@@ -206,7 +207,7 @@ const MarkdownTable: React.FC<MarkdownTableProps> = ({ headers, rows }) => (
   </Box>
 );
 
-/* ── End markdown table helpers ─────────────────────────────────────── */
+/* -- End markdown table helpers -------------------------------------------- */
 
 interface RenderMarkdownProps {
   text: string;
@@ -215,6 +216,7 @@ interface RenderMarkdownProps {
   isDatabaseConnected?: boolean;
   safeMode?: boolean;
   securityMode?: 'safe' | 'data' | 'execute';
+  connectionId?: string;
   onExplainSQL?: (sql: string) => void;
   onApplySQL?: (sql: string) => void;
   onExecuteQuery?: (query: string) => void;
@@ -227,6 +229,7 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
   isDatabaseConnected,
   safeMode,
   securityMode,
+  connectionId,
   onExplainSQL,
   onApplySQL,
   onExecuteQuery,
@@ -237,7 +240,7 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // ── Markdown table ──────────────────────────────────────────────
+    // -- Markdown table ------------------------------------------------------
     // Detect a table: header row, separator row, then data rows.
     if (
       isTableRow(line) &&
@@ -320,6 +323,7 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
             isDatabaseConnected={isDatabaseConnected}
             safeMode={safeMode}
             securityMode={securityMode}
+            connectionId={connectionId}
             onExplain={onExplainSQL}
             onApply={onApplySQL}
             onExecute={onExecuteQuery}
@@ -439,6 +443,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   isDatabaseConnected,
   safeMode,
   securityMode,
+  connectionId,
   onExplainSQL,
   onApplySQL,
   onExecuteQuery,
@@ -518,6 +523,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
               isDatabaseConnected={isDatabaseConnected}
               safeMode={safeMode}
               securityMode={securityMode}
+              connectionId={connectionId}
               onExplainSQL={onExplainSQL}
               onApplySQL={onApplySQL}
               onExecuteQuery={onExecuteQuery}
