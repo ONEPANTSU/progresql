@@ -73,7 +73,23 @@ jobs:
 
       - name: Build Linux AppImage
         working-directory: frontend
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
         run: npx nextron build --linux
+
+      - name: Remove chrome-sandbox from AppImage (fixes SUID crash)
+        working-directory: frontend/dist
+        run: |
+          # Extract AppImage, remove chrome-sandbox, repack
+          APPIMAGE=$(ls *.AppImage | head -1)
+          chmod +x "$APPIMAGE"
+          ./"$APPIMAGE" --appimage-extract
+          rm -f squashfs-root/chrome-sandbox
+          # Repack using appimagetool
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool squashfs-root "$APPIMAGE"
+          rm -rf squashfs-root appimagetool
 
       - name: List artifacts
         working-directory: frontend/dist
