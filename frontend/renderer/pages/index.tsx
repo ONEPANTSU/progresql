@@ -723,12 +723,16 @@ export default function Home() {
     sqlEditorRef.current?.replaceSelection(query);
   };
 
-  const handleApplySQL = (sql: string, targetConnectionId?: string) => {
+  const handleApplySQL = async (sql: string, targetConnectionId?: string, targetDatabase?: string) => {
     if (targetConnectionId) {
       // Switch to the target connection if different from current
       const targetConn = connections.find(c => c.id === targetConnectionId);
       if (targetConn && targetConn.id !== activeConnection?.id) {
         setActiveConnection(targetConn);
+      }
+      // Switch to the target database if specified and different
+      if (targetDatabase && targetConn && targetConn.activeDatabase !== targetDatabase) {
+        await handleSwitchDatabase(targetConnectionId, targetDatabase);
       }
       // Create a new tab on the target connection with the SQL
       const newTab = sqlTabs.createTab(targetConnectionId);

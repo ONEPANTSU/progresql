@@ -87,7 +87,7 @@ interface SchemaSyncModalProps {
   open: boolean;
   onClose: () => void;
   connections: DatabaseServer[];
-  onApplySQL?: (sql: string, targetConnectionId?: string) => void;
+  onApplySQL?: (sql: string, targetConnectionId?: string, targetDatabase?: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -671,10 +671,10 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
 
   const handleInsertToEditor = useCallback(() => {
     if (onApplySQL && finalSQL) {
-      onApplySQL(finalSQL, targetId || undefined);
+      onApplySQL(finalSQL, targetId || undefined, targetDatabase || undefined);
       onClose();
     }
-  }, [onApplySQL, finalSQL, targetId, onClose]);
+  }, [onApplySQL, finalSQL, targetId, targetDatabase, onClose]);
 
   const getConnectionLabel = (conn: DatabaseServer) => {
     return `${conn.connectionName || conn.host} (${conn.host}:${conn.port})`;
