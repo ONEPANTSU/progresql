@@ -13,6 +13,12 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('no-sandbox');
 }
 
+// Disable Keychain popup on macOS — use basic encryption instead
+// (safeStorage still works, just uses a simpler backend without Keychain prompt)
+if (process.platform === 'darwin') {
+  app.commandLine.appendSwitch('use-mock-keychain');
+}
+
 // Set app name for macOS Dock, Cmd+Tab, and window title
 app.name = 'ProgreSQL';
 
