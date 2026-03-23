@@ -58,6 +58,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return { success: false, message: error.message };
     }
   },
+  setActiveClient: async (connectionId) => {
+    try {
+      return await ipcRenderer.invoke('set-active-client', { connectionId });
+    } catch (error) {
+      log.error('setActiveClient error:', error);
+      return { success: false, message: error.message };
+    }
+  },
   disconnectDatabase: async (connectionId) => {
     try {
       log.debug('disconnectDatabase called', { connectionId });

@@ -341,6 +341,8 @@ export default function Home() {
     // If already connected (green), just switch active without reconnecting
     if (connection.isActive && connection.id !== activeConnection?.id) {
       setActiveConnection(connection);
+      // Switch global.dbClient to this connection's client
+      window.electronAPI?.setActiveClient?.(connectionId);
       // Refresh structure for this connection
       try {
         const structureResult = await window.electronAPI?.getDatabaseStructure(connectionId);

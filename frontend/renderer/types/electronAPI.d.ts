@@ -62,6 +62,7 @@ declare global {
       disconnectDatabase: (connectionId: string) => Promise<DisconnectDatabaseResult>;
       listDatabases: (connectionId: string) => Promise<{ success: boolean; databases?: Array<{ name: string; owner?: string; encoding?: string; size?: string }>; message?: string }>;
       switchDatabase: (connectionId: string, database: string) => Promise<ConnectDatabaseResult>;
+      setActiveClient: (connectionId: string) => Promise<{ success: boolean }>;
       // MCP operations
       mcpIsAvailable: () => Promise<{ available: boolean; hasApi: boolean }>;
       mcpListTools: () => Promise<ElectronAPIResponse<McpToolDescriptor[]>>;

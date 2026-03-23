@@ -671,8 +671,13 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
 
   const handleInsertToEditor = useCallback(() => {
     if (onApplySQL && finalSQL) {
-      onApplySQL(finalSQL, targetId || undefined, targetDatabase || undefined);
+      // Save values before closing modal (onClose may unmount and clear state)
+      const connId = targetId || undefined;
+      const db = targetDatabase || undefined;
+      const sql = finalSQL;
       onClose();
+      // Apply after modal is closed so editor state is ready
+      setTimeout(() => onApplySQL(sql, connId, db), 100);
     }
   }, [onApplySQL, finalSQL, targetId, targetDatabase, onClose]);
 

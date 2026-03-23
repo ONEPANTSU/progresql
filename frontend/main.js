@@ -853,6 +853,17 @@ ipcMain.handle('list-databases', async (event, connectionId) => {
   }
 });
 
+// Set the active global.dbClient to a specific connection's client
+ipcMain.handle('set-active-client', async (event, { connectionId }) => {
+  if (global.dbClients && global.dbClients.has(connectionId)) {
+    global.dbClient = global.dbClients.get(connectionId);
+    log.debug('set-active-client: switched to', connectionId);
+    return { success: true };
+  }
+  log.warn('set-active-client: no client for', connectionId);
+  return { success: false };
+});
+
 // Switch to a different database on the same server (reconnect with new database name)
 ipcMain.handle('switch-database', async (event, { connectionId, database }) => {
   try {
