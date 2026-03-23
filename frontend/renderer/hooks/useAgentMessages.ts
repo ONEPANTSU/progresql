@@ -92,9 +92,8 @@ function formatAgentResponse(response: AgentResponsePayload, t: TFunction): stri
     parts.push(response.result.explanation);
   }
 
-  // Only show SQL if there are no query results (i.e. the query wasn't auto-executed).
-  // When results exist, the LLM summary already covers the explanation.
-  if (response.result.sql && !response.result.query_result) {
+  // Always show generated SQL in a code block.
+  if (response.result.sql) {
     if (!response.result.explanation || !response.result.explanation.includes('```sql')) {
       parts.push('\n```sql\n' + response.result.sql + '\n```');
     }
