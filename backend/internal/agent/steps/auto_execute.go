@@ -39,11 +39,14 @@ func (s *AutoExecuteStep) Execute(ctx context.Context, pctx *agent.PipelineConte
 		return nil
 	}
 
-	// Only auto-execute SELECT queries (safety).
+	// In data mode, only auto-execute SELECT/WITH queries (read-only safety).
+	// In execute mode, allow all queries including DDL (CREATE, ALTER, DROP, etc.).
 	upper := strings.ToUpper(sql)
-	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
-		pctx.Logger.Info("auto_execute skipped: not a SELECT query")
-		return nil
+	if pctx.SecurityMode != agent.SecurityModeExecute {
+		if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
+			pctx.Logger.Info("auto_execute skipped: not a SELECT query (data mode)")
+			return nil
+		}
 	}
 
 	pctx.Logger.Info("auto-executing generated SQL", zap.String("sql", sql))

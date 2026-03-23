@@ -42,6 +42,18 @@ func (s *DiagnosticRetryStep) Execute(ctx context.Context, pctx *agent.PipelineC
 		return fmt.Errorf("no SQL candidates to validate")
 	}
 
+	// In execute mode, skip EXPLAIN validation entirely — DDL statements
+	// (CREATE TABLE, CREATE SCHEMA, etc.) cannot be EXPLAINed and would
+	// incorrectly fail validation. Execute mode trusts the generated SQL.
+	if pctx.SecurityMode == agent.SecurityModeExecute {
+		pctx.Logger.Info("diagnostic_retry skipped: execute mode enabled")
+		pctx.Set(ContextKeySQLCandidates, candidates)
+		pctx.Set(ContextKeySQLCandidate, candidates[0])
+		pctx.Result.SQL = candidates[0]
+		pctx.Result.Candidates = candidates
+		return nil
+	}
+
 	maxRetries := s.MaxRetries
 	if maxRetries <= 0 {
 		maxRetries = DefaultMaxRetries

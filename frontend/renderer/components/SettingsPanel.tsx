@@ -372,7 +372,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
           </FormControl>
           {/* Mode info tooltip */}
           <Box sx={{ mt: 1, p: 1.5, borderRadius: 1, bgcolor: securityMode === 'safe' ? 'rgba(34,197,94,0.08)' : securityMode === 'data' ? 'rgba(59,130,246,0.08)' : 'rgba(245,158,11,0.08)', border: '1px solid', borderColor: securityMode === 'safe' ? 'rgba(34,197,94,0.2)' : securityMode === 'data' ? 'rgba(59,130,246,0.2)' : 'rgba(245,158,11,0.2)' }}>
-            <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.5 }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
               {securityMode === 'safe' && t('settings.securityModeSafeInfo')}
               {securityMode === 'data' && t('settings.securityModeDataInfo')}
               {securityMode === 'execute' && t('settings.securityModeExecuteInfo')}
