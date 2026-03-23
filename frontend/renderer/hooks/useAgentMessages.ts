@@ -121,7 +121,7 @@ export interface UseAgentMessagesReturn {
   sendExplainViaAgent: (sqlText: string, chatId: string, botMessageId: string) => void;
   sendAnalyzeViaAgent: (chatId: string, botMessageId: string) => void;
   handleSendImproveSQL: (sql: string) => void;
-  handleSendExplainSQL: (sql: string) => void;
+  handleSendExplainSQL: (sql: string, objectLabel?: string) => void;
   handleSendAnalyzeSchema: () => void;
   handleSendMessage: () => void;
   stopGeneration: () => void;
@@ -349,12 +349,16 @@ export function useAgentMessages({
   );
 
   const handleSendExplainSQL = useCallback(
-    (sql: string) => {
+    (sql: string, objectLabel?: string) => {
       if (!agent.isConnected || !sql.trim()) return;
-      const chatId = ensureChatExists('Explain SQL');
+      const title = objectLabel ? `Explain ${objectLabel}` : 'Explain SQL';
+      const displayText = objectLabel
+        ? `Explain ${objectLabel}:\n\`\`\`sql\n${sql}\n\`\`\``
+        : `Explain SQL:\n\`\`\`sql\n${sql}\n\`\`\``;
+      const chatId = ensureChatExists(title);
       addUserMessageAndSend(
         chatId,
-        `Explain SQL:\n\`\`\`sql\n${sql}\n\`\`\``,
+        displayText,
         (cId, bId) => sendExplainViaAgent(sql, cId, bId),
       );
     },

@@ -702,11 +702,10 @@ export default function Home() {
       setIsChatOpen(true);
     }
     if (definition) {
-      // Has SQL definition (view, function, etc.) — explain with full context
-      const contextPrefix = `Explain the ${objectType} "${objectName}":\n\n`;
-      setTimeout(() => chatPanelRef.current?.sendExplainSQL(contextPrefix + definition), 50);
+      // Has SQL definition (view, function, etc.) — explain SQL with name context passed separately
+      setTimeout(() => chatPanelRef.current?.sendExplainSQL(definition, `${objectType} "${objectName}"`), 50);
     } else {
-      // No definition (table, sequence, etc.) — send directly
+      // No definition (table, sequence, etc.) — send as text question
       const prompt = `Explain the ${objectType} "${objectName}" — what is it for, what columns/structure does it have?`;
       setTimeout(() => chatPanelRef.current?.sendExplainSQL(prompt), 50);
     }

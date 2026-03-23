@@ -31,7 +31,7 @@ import ChatInput, { ChatInputHandle } from './chat/ChatInput';
 
 export interface ChatPanelHandle {
   sendImproveSQL: (sql: string) => void;
-  sendExplainSQL: (sql: string) => void;
+  sendExplainSQL: (sql: string, objectLabel?: string) => void;
   sendAnalyzeSchema: () => void;
   focusInput: () => void;
   setInputText: (text: string) => void;
