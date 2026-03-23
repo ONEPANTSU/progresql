@@ -46,8 +46,8 @@ if command -v create-dmg &>/dev/null; then
     --window-pos 200 120 \
     --window-size 660 400 \
     --icon-size 100 \
-    --icon "ProgreSQL.app" 170 180 \
-    --app-drop-link 490 180 \
+    --icon "ProgreSQL.app" 170 190 \
+    --app-drop-link 490 190 \
     --no-internet-enable \
     "dist/ProgreSQL-${VERSION}-arm64.dmg" \
     "dist/mac-arm64/ProgreSQL.app" || true
