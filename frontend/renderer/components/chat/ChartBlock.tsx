@@ -337,7 +337,7 @@ const LineChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
           />
           <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
           {yKeys.map((key, i) => (
-            <Line key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+            <Line key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} isAnimationActive={true} animationDuration={800} animationEasing="ease-out" />
           ))}
         </LineChart>
       </ResponsiveContainer>
@@ -367,7 +367,7 @@ const AreaChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
           />
           <Legend wrapperStyle={legendWrapperStyle} iconSize={10} />
           {yKeys.map((key, i) => (
-            <Area key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} fill={CHART_COLORS[i % CHART_COLORS.length]} fillOpacity={0.3} />
+            <Area key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} fill={CHART_COLORS[i % CHART_COLORS.length]} fillOpacity={0.3} isAnimationActive={true} animationDuration={800} animationEasing="ease-out" />
           ))}
         </AreaChart>
       </ResponsiveContainer>
