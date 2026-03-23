@@ -13,8 +13,17 @@ export interface DatabaseConnectionWithId extends DatabaseConnection {
   lastConnected?: string;
 }
 
+export interface AvailableDatabase {
+  name: string;
+  owner?: string;
+  encoding?: string;
+  size?: string;
+}
+
 export interface DatabaseServer extends DatabaseConnectionWithId {
   databases: DatabaseInfo[];
+  availableDatabases?: AvailableDatabase[];
+  activeDatabase?: string;
 }
 
 export interface DatabaseInfo {

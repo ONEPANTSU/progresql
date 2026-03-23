@@ -220,6 +220,8 @@ app.on('activate', () => {
 
 // Multi-connection support
 if (!global.dbClients) global.dbClients = new Map();
+// Store connection configs for switch-database (keyed by connectionId)
+if (!global.dbConfigs) global.dbConfigs = new Map();
 
 // IPC handlers for database operations
 ipcMain.handle('connect-database', async (event, connectionConfig) => {
@@ -304,6 +306,8 @@ ipcMain.handle('connect-database', async (event, connectionConfig) => {
     global.dbClient = client;
     if (connId) {
       global.dbClients.set(connId, client);
+      // Save connection config for switch-database
+      global.dbConfigs.set(connId, connectionConfig);
     }
 
     // Stop existing MCP server if running (for connection switching)
@@ -817,6 +821,109 @@ ipcMain.handle('disconnect-database', async (event, connectionId) => {
     }
     return { success: true, message: 'Disconnected successfully' };
   } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+// List all databases on a PostgreSQL server
+ipcMain.handle('list-databases', async (event, connectionId) => {
+  try {
+    let client;
+    if (connectionId && global.dbClients && global.dbClients.has(connectionId)) {
+      client = global.dbClients.get(connectionId);
+    } else if (global.dbClient) {
+      client = global.dbClient;
+    }
+    if (!client) {
+      return { success: false, message: 'No database connection' };
+    }
+
+    const result = await client.query(`
+      SELECT datname AS name,
+             pg_catalog.pg_get_userbyid(datdba) AS owner,
+             pg_catalog.pg_encoding_to_char(encoding) AS encoding,
+             pg_catalog.pg_size_pretty(pg_catalog.pg_database_size(datname)) AS size
+      FROM pg_database
+      WHERE datistemplate = false
+      ORDER BY datname
+    `);
+    return { success: true, databases: result.rows };
+  } catch (error) {
+    log.error('list-databases error:', error.message);
+    return { success: false, message: error.message };
+  }
+});
+
+// Switch to a different database on the same server (reconnect with new database name)
+ipcMain.handle('switch-database', async (event, { connectionId, database }) => {
+  try {
+    const config = global.dbConfigs ? global.dbConfigs.get(connectionId) : null;
+    if (!config) {
+      return { success: false, message: 'Connection config not found. Please reconnect.' };
+    }
+
+    // Create new config with different database
+    const newConfig = { ...config, database, connectionId };
+    log.debug('switch-database: switching to', database);
+
+    // Close previous client
+    if (global.dbClients.has(connectionId)) {
+      try {
+        const prev = global.dbClients.get(connectionId);
+        prev.removeAllListeners();
+        await prev.end();
+      } catch (e) {
+        log.warn('Error closing previous connection during switch:', e.message);
+      }
+      global.dbClients.delete(connectionId);
+    }
+    global.dbClient = null;
+
+    const { Client } = require('pg');
+    const client = new Client({
+      host: config.host,
+      port: config.port,
+      user: config.username,
+      password: config.password,
+      database: database,
+      connectionTimeoutMillis: 10000,
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000,
+    });
+
+    const connId = connectionId;
+    client.on('error', (err) => {
+      log.error('switch-database client error:', err);
+      if (global.dbClient === client) global.dbClient = null;
+      if (connId && global.dbClients.get(connId) === client) global.dbClients.delete(connId);
+    });
+    client.on('end', () => {
+      if (global.dbClient === client) global.dbClient = null;
+      if (connId && global.dbClients.get(connId) === client) global.dbClients.delete(connId);
+    });
+
+    await client.connect();
+
+    global.dbClient = client;
+    global.dbClients.set(connId, client);
+    // Update stored config with new database
+    global.dbConfigs.set(connId, newConfig);
+
+    // Reinitialize tool server with new connection
+    try {
+      await toolServer.stopToolServer();
+      const tsResult = await toolServer.startToolServer();
+      if (tsResult.success) log.debug(`Tool server restarted on port ${tsResult.port}`);
+    } catch (e) {
+      log.warn('Tool server restart error during switch:', e.message);
+    }
+
+    // Update health check
+    dbHealth.onConnected(newConfig, mainWindow);
+
+    return { success: true, message: `Switched to database: ${database}` };
+  } catch (error) {
+    log.error('switch-database error:', error);
     return { success: false, message: error.message };
   }
 });

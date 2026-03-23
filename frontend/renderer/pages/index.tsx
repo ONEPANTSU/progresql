@@ -420,12 +420,25 @@ export default function Home() {
           if (structureResult.success) {
             setDatabaseStructure(structureResult);
 
+            // Fetch list of all available databases on this server
+            let availableDatabases: Array<{ name: string; owner?: string; encoding?: string; size?: string }> | undefined;
+            try {
+              const dbListResult = await window.electronAPI.listDatabases(connectionId);
+              if (dbListResult.success && dbListResult.databases) {
+                availableDatabases = dbListResult.databases;
+              }
+            } catch (e) {
+              log.warn('Failed to list databases:', e);
+            }
+
             // Mark this connection as active (keep others' isActive unchanged)
             setConnections(prev => prev.map(c =>
               c.id === connectionId ? {
                 ...c,
                 databases: structureResult.databases || [],
-                isActive: true
+                isActive: true,
+                activeDatabase: connection.database || 'postgres',
+                ...(availableDatabases ? { availableDatabases } : {}),
               } : c
             ));
 
@@ -485,6 +498,45 @@ export default function Home() {
       }
     } catch (error) {
       log.error('Disconnection error:', error);
+    }
+  };
+
+  const handleSwitchDatabase = async (connectionId: string, database: string) => {
+    const connection = connections.find(c => c.id === connectionId);
+    if (!connection) return;
+
+    // Already on this database
+    if (connection.activeDatabase === database) return;
+
+    setConnectingId(connectionId);
+    try {
+      const result = await window.electronAPI.switchDatabase(connectionId, database);
+      if (result.success) {
+        // Fetch structure for new database
+        const structureResult = await window.electronAPI.getDatabaseStructure(connectionId);
+        if (structureResult.success) {
+          setDatabaseStructure(structureResult);
+          setConnections(prev => prev.map(c =>
+            c.id === connectionId ? {
+              ...c,
+              databases: structureResult.databases || [],
+              activeDatabase: database,
+            } : c
+          ));
+          // Update activeConnection ref
+          setActiveConnection(prev =>
+            prev?.id === connectionId ? { ...prev, databases: structureResult.databases || [], activeDatabase: database } : prev
+          );
+        }
+        showSuccess(t('notify.connected') + ` (${database})`);
+      } else {
+        showError(result.message || 'Failed to switch database');
+      }
+    } catch (error) {
+      log.error('Switch database error:', error);
+      showError(error instanceof Error ? error.message : 'Switch database error');
+    } finally {
+      setConnectingId(null);
     }
   };
 
@@ -864,6 +916,7 @@ export default function Home() {
                             onExecuteSQL={handleMutateQuery}
                             onRefreshData={() => activeConnection?.id && handleRefreshConnection(activeConnection.id)}
                             onOpenERDiagram={handleOpenERDiagram}
+                            onSwitchDatabase={handleSwitchDatabase}
                             isRestoringConnections={isRestoringConnections}
                             connectingId={connectingId}
                             connectionErrors={connectionErrors}

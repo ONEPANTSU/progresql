@@ -60,6 +60,8 @@ declare global {
       executeQuery: (connectionId: string, query: string) => Promise<ExecuteQueryResult>;
       getDatabaseStructure: (connectionId?: string) => Promise<DatabaseStructureResponse>;
       disconnectDatabase: (connectionId: string) => Promise<DisconnectDatabaseResult>;
+      listDatabases: (connectionId: string) => Promise<{ success: boolean; databases?: Array<{ name: string; owner?: string; encoding?: string; size?: string }>; message?: string }>;
+      switchDatabase: (connectionId: string, database: string) => Promise<ConnectDatabaseResult>;
       // MCP operations
       mcpIsAvailable: () => Promise<{ available: boolean; hasApi: boolean }>;
       mcpListTools: () => Promise<ElectronAPIResponse<McpToolDescriptor[]>>;

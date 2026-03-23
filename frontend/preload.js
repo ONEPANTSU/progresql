@@ -42,6 +42,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
       throw error;
     }
   },
+  listDatabases: async (connectionId) => {
+    try {
+      return await ipcRenderer.invoke('list-databases', connectionId);
+    } catch (error) {
+      log.error('listDatabases error:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  switchDatabase: async (connectionId, database) => {
+    try {
+      return await ipcRenderer.invoke('switch-database', { connectionId, database });
+    } catch (error) {
+      log.error('switchDatabase error:', error);
+      return { success: false, message: error.message };
+    }
+  },
   disconnectDatabase: async (connectionId) => {
     try {
       log.debug('disconnectDatabase called', { connectionId });

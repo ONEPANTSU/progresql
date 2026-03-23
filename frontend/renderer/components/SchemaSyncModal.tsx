@@ -513,6 +513,8 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
   const { t } = useTranslation();
   const [sourceId, setSourceId] = useState<string>('');
   const [targetId, setTargetId] = useState<string>('');
+  const [sourceDatabase, setSourceDatabase] = useState<string>('');
+  const [targetDatabase, setTargetDatabase] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [diff, setDiff] = useState<SchemaDiff | null>(null);
@@ -534,7 +536,7 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
 
   const handleCompare = useCallback(async () => {
     if (!sourceId || !targetId) return;
-    if (sourceId === targetId) {
+    if (sourceId === targetId && sourceDatabase === targetDatabase) {
       setError(t('schemaSync.sameConnection'));
       return;
     }
@@ -715,15 +717,41 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
             <Select
               value={sourceId}
               label={t('schemaSync.source')}
-              onChange={(e) => { setSourceId(e.target.value); setDiff(null); }}
+              onChange={(e) => {
+                const id = e.target.value;
+                setSourceId(id);
+                const conn = activeConnections.find(c => c.id === id);
+                setSourceDatabase(conn?.activeDatabase || conn?.database || '');
+                setDiff(null);
+              }}
             >
               {activeConnections.map((c) => (
-                <MenuItem key={c.id} value={c.id} disabled={c.id === targetId}>
+                <MenuItem key={c.id} value={c.id} disabled={c.id === targetId && sourceDatabase === targetDatabase}>
                   {getConnectionLabel(c)}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
+
+          {/* Source database selector */}
+          {sourceId && (() => {
+            const conn = activeConnections.find(c => c.id === sourceId);
+            const dbs = conn?.availableDatabases;
+            return dbs && dbs.length > 1 ? (
+              <FormControl fullWidth size="small" sx={{ mt: 0.5 }}>
+                <InputLabel>{t('schemaSync.source')} DB</InputLabel>
+                <Select
+                  value={sourceDatabase}
+                  label={`${t('schemaSync.source')} DB`}
+                  onChange={(e) => { setSourceDatabase(e.target.value); setDiff(null); }}
+                >
+                  {dbs.map((db) => (
+                    <MenuItem key={db.name} value={db.name}>{db.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            ) : null;
+          })()}
 
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
             <Tooltip title={t('schemaSync.swap')}>
@@ -749,15 +777,41 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
             <Select
               value={targetId}
               label={t('schemaSync.target')}
-              onChange={(e) => { setTargetId(e.target.value); setDiff(null); }}
+              onChange={(e) => {
+                const id = e.target.value;
+                setTargetId(id);
+                const conn = activeConnections.find(c => c.id === id);
+                setTargetDatabase(conn?.activeDatabase || conn?.database || '');
+                setDiff(null);
+              }}
             >
               {activeConnections.map((c) => (
-                <MenuItem key={c.id} value={c.id} disabled={c.id === sourceId}>
+                <MenuItem key={c.id} value={c.id} disabled={c.id === sourceId && sourceDatabase === targetDatabase}>
                   {getConnectionLabel(c)}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
+
+          {/* Target database selector */}
+          {targetId && (() => {
+            const conn = activeConnections.find(c => c.id === targetId);
+            const dbs = conn?.availableDatabases;
+            return dbs && dbs.length > 1 ? (
+              <FormControl fullWidth size="small" sx={{ mt: 0.5 }}>
+                <InputLabel>{t('schemaSync.target')} DB</InputLabel>
+                <Select
+                  value={targetDatabase}
+                  label={`${t('schemaSync.target')} DB`}
+                  onChange={(e) => { setTargetDatabase(e.target.value); setDiff(null); }}
+                >
+                  {dbs.map((db) => (
+                    <MenuItem key={db.name} value={db.name}>{db.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            ) : null;
+          })()}
         </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1.5 }}>

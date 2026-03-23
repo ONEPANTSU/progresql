@@ -102,6 +102,7 @@ interface DatabasePanelProps {
   onExecuteSQL?: (sql: string) => Promise<{ success: boolean; message?: string }>;
   onRefreshData?: () => void;
   onOpenERDiagram?: (connectionId: string) => void;
+  onSwitchDatabase?: (connectionId: string, database: string) => void;
   isRestoringConnections?: boolean;
   connectingId?: string | null;
   connectionErrors?: Record<string, string>;
@@ -218,6 +219,7 @@ export default function DatabasePanel({
   onExecuteSQL,
   onRefreshData,
   onOpenERDiagram,
+  onSwitchDatabase,
   isRestoringConnections = false,
   connectingId = null,
   connectionErrors = {},
@@ -849,13 +851,22 @@ export default function DatabasePanel({
         sx={collapseSx}
       >
         <Box sx={{ pl: 0.5 }}>
-          {connection.databases && connection.databases.length > 0 ? (
-            connection.databases.map((database) => (
-              <Box key={database.name}>
-                {/* Database level */}
+          {/* Available databases list (all DBs on this server) */}
+          {connection.availableDatabases && connection.availableDatabases.length > 0 ? (
+            connection.availableDatabases.map((availDb) => {
+              const isActiveDb = connection.activeDatabase === availDb.name;
+              const schemaDatabase = isActiveDb && connection.databases?.length > 0 ? connection.databases[0] : null;
+              return (
+              <Box key={availDb.name}>
                 <ListItemButton
-                  onClick={() => toggleDatabaseExpansion(connection.id, database.name)}
-                  onContextMenu={(e) => handleObjectContextMenu(e, { ...database, _connectionId: connection.id }, 'database')}
+                  onClick={() => {
+                    if (isActiveDb) {
+                      toggleDatabaseExpansion(connection.id, availDb.name);
+                    } else if (onSwitchDatabase) {
+                      onSwitchDatabase(connection.id, availDb.name);
+                    }
+                  }}
+                  onContextMenu={isActiveDb && schemaDatabase ? (e) => handleObjectContextMenu(e, { ...schemaDatabase, _connectionId: connection.id }, 'database') : undefined}
                   sx={{
                     py: 0.125,
                     px: 1,
@@ -865,29 +876,34 @@ export default function DatabasePanel({
                     mx: 0.5,
                     mb: 0.25,
                     transition: 'background-color 0.15s ease',
-                    '&:hover': { bgcolor: 'action.hover' }
+                    bgcolor: isActiveDb ? 'rgba(139, 92, 246, 0.08)' : 'transparent',
+                    '&:hover': { bgcolor: isActiveDb ? 'rgba(139, 92, 246, 0.15)' : 'action.hover' }
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: '20px' }}>
-                    <DatabaseIconNew sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} />
+                    <DatabaseIconNew sx={{ fontSize: LEAF_ICON_SIZE, color: isActiveDb ? '#8b5cf6' : 'text.disabled' }} />
                   </ListItemIcon>
                   <ListItemText
-                    primary={database.name}
-                    primaryTypographyProps={treeTextProps}
+                    primary={availDb.name}
+                    secondary={!isActiveDb && availDb.size ? availDb.size : undefined}
+                    primaryTypographyProps={{ sx: { fontSize: '0.75rem', fontWeight: isActiveDb ? 600 : 400, lineHeight: 1.3, color: isActiveDb ? '#8b5cf6' : 'text.secondary' } }}
+                    secondaryTypographyProps={{ sx: { fontSize: '0.625rem', lineHeight: 1, color: 'text.disabled' } }}
                   />
-                  {expandedDatabases.has(`${connection.id}-${database.name}`) ?
-                    <ExpandLessIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} /> :
-                    <ExpandMoreIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} />
-                  }
+                  {isActiveDb && (
+                    expandedDatabases.has(`${connection.id}-${availDb.name}`) ?
+                      <ExpandLessIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} /> :
+                      <ExpandMoreIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} />
+                  )}
                 </ListItemButton>
+                {isActiveDb && schemaDatabase && (
                 <Collapse
-                  in={expandedDatabases.has(`${connection.id}-${database.name}`)}
+                  in={expandedDatabases.has(`${connection.id}-${availDb.name}`)}
                   timeout={250}
                   unmountOnExit
                   sx={collapseSx}
                 >
                 <Box sx={{ pl: 1 }}>
-                    {database.schemas.map((schema) => (
+                    {schemaDatabase.schemas.map((schema) => (
                       <Box key={schema.schema_name}>
                         <ListItemButton
                           onClick={() => toggleSchemaExpansion(connection.id, schema.schema_name)}
@@ -1456,6 +1472,39 @@ export default function DatabasePanel({
                             )}
                           </Box>
                         </Collapse>
+                      </Box>
+                    ))}
+                </Box>
+                </Collapse>
+                )}
+              </Box>
+              );
+            })
+          ) : connection.databases && connection.databases.length > 0 ? (
+            connection.databases.map((database) => (
+              <Box key={database.name}>
+                <ListItemButton
+                  onClick={() => toggleDatabaseExpansion(connection.id, database.name)}
+                  onContextMenu={(e) => handleObjectContextMenu(e, { ...database, _connectionId: connection.id }, 'database')}
+                  sx={{ py: 0.125, px: 1, minHeight: '26px', height: '26px', borderRadius: 1, mx: 0.5, mb: 0.25, '&:hover': { bgcolor: 'action.hover' } }}
+                >
+                  <ListItemIcon sx={{ minWidth: '20px' }}>
+                    <DatabaseIconNew sx={{ fontSize: LEAF_ICON_SIZE, color: '#8b5cf6' }} />
+                  </ListItemIcon>
+                  <ListItemText primary={database.name} primaryTypographyProps={{ sx: { fontSize: '0.75rem', fontWeight: 600, lineHeight: 1.3, color: '#8b5cf6' } }} />
+                  {expandedDatabases.has(`${connection.id}-${database.name}`) ?
+                    <ExpandLessIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} /> :
+                    <ExpandMoreIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} />
+                  }
+                </ListItemButton>
+                <Collapse in={expandedDatabases.has(`${connection.id}-${database.name}`)} timeout={250} unmountOnExit sx={collapseSx}>
+                <Box sx={{ pl: 1 }}>
+                    {database.schemas.map((schema) => (
+                      <Box key={schema.schema_name}>
+                        <ListItemButton onClick={() => toggleSchemaExpansion(connection.id, schema.schema_name)} sx={treeItemSx}>
+                          <ListItemIcon sx={{ minWidth: '20px' }}><SchemaIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} /></ListItemIcon>
+                          <ListItemText primary={schema.schema_name} primaryTypographyProps={treeTextProps} />
+                        </ListItemButton>
                       </Box>
                     ))}
                 </Box>
