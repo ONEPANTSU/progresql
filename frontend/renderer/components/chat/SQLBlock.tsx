@@ -31,6 +31,7 @@ interface SQLBlockProps {
   isAgentConnected?: boolean;
   isDatabaseConnected?: boolean;
   safeMode?: boolean;
+  securityMode?: 'safe' | 'data' | 'execute';
   onExplain?: (sql: string) => void;
   onApply?: (sql: string) => void;
   onExecute?: (sql: string) => void;
@@ -56,6 +57,7 @@ const SQLBlock: React.FC<SQLBlockProps> = ({
   isAgentConnected = false,
   isDatabaseConnected = false,
   safeMode = true,
+  securityMode = 'safe',
   onExplain,
   onApply,
   onExecute,
@@ -73,7 +75,7 @@ const SQLBlock: React.FC<SQLBlockProps> = ({
       setVerificationStatus('skipped');
       return;
     }
-    if (isDMLStatement(sql)) {
+    if (isDMLStatement(sql) || securityMode === 'execute') {
       setVerificationStatus('skipped');
       return;
     }
@@ -105,7 +107,7 @@ const SQLBlock: React.FC<SQLBlockProps> = ({
     };
     verify();
     return () => { cancelled = true; };
-  }, [sql, isDatabaseConnected, safeMode, isTyping, t]);
+  }, [sql, isDatabaseConnected, safeMode, securityMode, isTyping, t]);
 
   const handleCopy = async () => {
     try {
