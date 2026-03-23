@@ -1,3 +1,9 @@
+// Fix Linux AppImage SUID sandbox issue — must be set BEFORE require('electron')
+// chrome-sandbox requires root ownership + mode 4755 which AppImage can't provide
+if (process.platform === 'linux') {
+  process.env.ELECTRON_DISABLE_SANDBOX = '1';
+}
+
 const { app, BrowserWindow, ipcMain, Menu, safeStorage, shell } = require('electron');
 const path = require('path');
 const isDev = !app.isPackaged;
@@ -7,10 +13,10 @@ const dbHealth = require('./db-health');
 const { createLogger } = require('./logger');
 const log = createLogger('Main');
 
-// Fix Linux AppImage SUID sandbox issue
-// chrome-sandbox requires root ownership + mode 4755 which AppImage can't provide
+// Additional sandbox flags for Linux
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('disable-setuid-sandbox');
 }
 
 // Disable Keychain popup on macOS — use basic encryption instead
