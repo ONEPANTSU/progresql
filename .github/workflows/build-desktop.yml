@@ -77,15 +77,16 @@ jobs:
           ELECTRON_DISABLE_SANDBOX: '1'
         run: npx nextron build --linux
 
-      - name: Remove chrome-sandbox from AppImage (fixes SUID crash)
+      - name: Patch AppImage to disable sandbox (fixes SUID + namespace crashes)
         working-directory: frontend/dist
         run: |
           sudo apt-get install -y libfuse2
           APPIMAGE=$(ls *.AppImage | head -1)
           chmod +x "$APPIMAGE"
-          # Extract without FUSE
           ./"$APPIMAGE" --appimage-extract
           rm -f squashfs-root/chrome-sandbox
+          # Patch AppRun to pass --no-sandbox to Electron
+          sed -i 's|exec "$BIN"|exec "$BIN" --no-sandbox|g' squashfs-root/AppRun
           # Repack
           wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
           chmod +x appimagetool
