@@ -548,8 +548,8 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
 
     try {
       const [sourceResult, targetResult] = await Promise.all([
-        window.electronAPI.getDatabaseStructure(sourceId),
-        window.electronAPI.getDatabaseStructure(targetId),
+        window.electronAPI.getDatabaseStructure(sourceId, sourceDatabase || undefined),
+        window.electronAPI.getDatabaseStructure(targetId, targetDatabase || undefined),
       ]);
 
       if (!sourceResult.success || !sourceResult.databases?.length) {
@@ -577,7 +577,7 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
     } finally {
       setLoading(false);
     }
-  }, [sourceId, targetId, t]);
+  }, [sourceId, targetId, sourceDatabase, targetDatabase, t]);
 
   const toggleTable = useCallback((tableName: string) => {
     setSelected((prev) => {

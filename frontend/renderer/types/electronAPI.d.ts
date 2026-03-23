@@ -58,7 +58,7 @@ declare global {
       // Database operations — return flat objects with success/message pattern
       connectDatabase: (config: DatabaseConnectionConfig & { connectionId: string }) => Promise<ConnectDatabaseResult>;
       executeQuery: (connectionId: string, query: string) => Promise<ExecuteQueryResult>;
-      getDatabaseStructure: (connectionId?: string) => Promise<DatabaseStructureResponse>;
+      getDatabaseStructure: (connectionId?: string, database?: string) => Promise<DatabaseStructureResponse>;
       disconnectDatabase: (connectionId: string) => Promise<DisconnectDatabaseResult>;
       listDatabases: (connectionId: string) => Promise<{ success: boolean; databases?: Array<{ name: string; owner?: string; encoding?: string; size?: string }>; message?: string }>;
       switchDatabase: (connectionId: string, database: string) => Promise<ConnectDatabaseResult>;

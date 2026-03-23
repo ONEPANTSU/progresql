@@ -19,8 +19,12 @@ const log = createLogger('SQLBlock');
 type VerificationStatus = 'idle' | 'verifying' | 'verified' | 'invalid' | 'skipped';
 
 /** Returns true for DML/DDL statements that should not be verified in safe mode. */
+function stripSQLComments(sql: string): string {
+  return sql.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '').trim();
+}
+
 function isDMLStatement(sql: string): boolean {
-  const trimmed = sql.trim().toUpperCase();
+  const trimmed = stripSQLComments(sql).toUpperCase();
   const dmlKeywords = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE', 'CREATE'];
   return dmlKeywords.some((kw) => trimmed.startsWith(kw));
 }

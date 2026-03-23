@@ -293,10 +293,15 @@ async function tryImmediateReconnect(connectionId) {
   }
 }
 
+function getConnectionState(connectionId) {
+  return connectionStates.get(connectionId) || null;
+}
+
 module.exports = {
   configure,
   onConnected,
   onDisconnected,
   shutdown,
   tryImmediateReconnect,
+  getConnectionState,
 };

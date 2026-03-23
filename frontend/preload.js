@@ -31,10 +31,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       throw error;
     }
   },
-  getDatabaseStructure: async (connectionId) => {
+  getDatabaseStructure: async (connectionId, database) => {
     try {
-      log.debug('getDatabaseStructure called', { connectionId });
-      const result = await ipcRenderer.invoke('get-database-structure', connectionId);
+      log.debug('getDatabaseStructure called', { connectionId, database });
+      const result = await ipcRenderer.invoke('get-database-structure', connectionId, database);
       log.debug('getDatabaseStructure result:', result);
       return result;
     } catch (error) {

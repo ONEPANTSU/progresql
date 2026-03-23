@@ -408,7 +408,8 @@ ipcMain.handle('execute-query', async (event, params) => {
   }
 });
 
-ipcMain.handle('get-database-structure', async (event, connectionId) => {
+ipcMain.handle('get-database-structure', async (event, connectionId, database) => {
+  let tempClient = null;
   try {
     let client;
     if (connectionId && global.dbClients.has(connectionId)) {
@@ -432,6 +433,29 @@ ipcMain.handle('get-database-structure', async (event, connectionId) => {
       client = connectionId ? global.dbClients.get(connectionId) : global.dbClients.values().next().value;
       if (!client) throw new Error('Reconnect failed — no client available');
       log.debug('Reconnected successfully, proceeding with getDatabaseStructure');
+    }
+
+    // If a specific database is requested, create a temporary client to that database
+    if (database) {
+      const currentDbResult = await client.query('SELECT current_database() as name');
+      const currentDb = currentDbResult.rows[0].name;
+      if (currentDb !== database) {
+        const { Client } = require('pg');
+        const dbHealthModule = require('./db-health');
+        const state = dbHealthModule.getConnectionState ? dbHealthModule.getConnectionState(connectionId) : null;
+        const cfg = state && state.config ? state.config : {};
+        tempClient = new Client({
+          host: cfg.host || 'localhost',
+          port: cfg.port || 5432,
+          user: cfg.username || cfg.user || 'postgres',
+          password: cfg.password || '',
+          database: database,
+          connectionTimeoutMillis: 10000,
+        });
+        await tempClient.connect();
+        client = tempClient;
+        log.debug(`Connected to temp database: ${database}`);
+      }
     }
 
     log.debug('Getting database structure...');
@@ -768,6 +792,10 @@ ipcMain.handle('get-database-structure', async (event, connectionId) => {
   } catch (error) {
     log.error('Error getting database structure:', error.message);
     return { success: false, message: error.message };
+  } finally {
+    if (tempClient) {
+      try { await tempClient.end(); } catch (_) { /* ignore */ }
+    }
   }
 });
 
