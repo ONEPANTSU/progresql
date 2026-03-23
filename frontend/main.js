@@ -56,7 +56,6 @@ function createWindow() {
     },
     title: 'ProgreSQL',
     icon: path.join(__dirname, 'public/assets/icon.png'),
-    backgroundColor: '#0a0a0a', // Dark background to prevent white flash between page loads
     show: false
   });
 
