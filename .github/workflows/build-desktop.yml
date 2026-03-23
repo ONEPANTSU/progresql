@@ -1,9 +1,6 @@
 name: Build Desktop Clients
 
 on:
-  push:
-    tags:
-      - 'client-v*'
   workflow_dispatch:
     inputs:
       tag:
