@@ -122,6 +122,7 @@ export interface UseAgentMessagesReturn {
   sendAnalyzeViaAgent: (chatId: string, botMessageId: string) => void;
   handleSendImproveSQL: (sql: string) => void;
   handleSendExplainSQL: (sql: string, objectLabel?: string) => void;
+  handleSendTextMessage: (text: string, chatTitle?: string) => void;
   handleSendAnalyzeSchema: () => void;
   handleSendMessage: () => void;
   stopGeneration: () => void;
@@ -365,6 +366,19 @@ export function useAgentMessages({
     [agent.isConnected, ensureChatExists, addUserMessageAndSend, sendExplainViaAgent],
   );
 
+  const handleSendTextMessage = useCallback(
+    (text: string, chatTitle?: string) => {
+      if (!agent.isConnected || !text.trim()) return;
+      const chatId = ensureChatExists(chatTitle || text.slice(0, 40));
+      addUserMessageAndSend(
+        chatId,
+        text,
+        (cId, bId) => sendViaAgent(text, cId, bId),
+      );
+    },
+    [agent.isConnected, ensureChatExists, addUserMessageAndSend, sendViaAgent],
+  );
+
   const handleSendAnalyzeSchema = useCallback(
     () => {
       if (!agent.isConnected) return;
@@ -485,6 +499,7 @@ export function useAgentMessages({
     sendAnalyzeViaAgent,
     handleSendImproveSQL,
     handleSendExplainSQL,
+    handleSendTextMessage,
     handleSendAnalyzeSchema,
     handleSendMessage,
     stopGeneration,

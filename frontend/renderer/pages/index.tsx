@@ -705,9 +705,9 @@ export default function Home() {
       // Has SQL definition (view, function, etc.) — explain SQL with name context passed separately
       setTimeout(() => chatPanelRef.current?.sendExplainSQL(definition, `${objectType} "${objectName}"`), 50);
     } else {
-      // No definition (table, sequence, etc.) — send as text question
+      // No definition (table, sequence, etc.) — send as text message (not SQL)
       const prompt = `Explain the ${objectType} "${objectName}" — what is it for, what columns/structure does it have?`;
-      setTimeout(() => chatPanelRef.current?.sendExplainSQL(prompt), 50);
+      setTimeout(() => chatPanelRef.current?.sendTextMessage(prompt, `Explain ${objectType} "${objectName}"`), 50);
     }
   };
 
@@ -729,9 +729,13 @@ export default function Home() {
       if (targetDatabase && targetConn && targetConn.activeDatabase !== targetDatabase) {
         await handleSwitchDatabase(targetConnectionId, targetDatabase);
       }
-      // Create a new tab on the target connection with the SQL
+      // Small delay to let state settle after DB switch
+      await new Promise(r => setTimeout(r, 100));
+      // Create a new tab on the target connection with the migration SQL
       const newTab = sqlTabs.createTab(targetConnectionId);
       sqlTabs.updateTabContent(newTab.id, sql);
+      // Switch to editor view
+      setIsChatOpen(false);
     } else {
       sqlEditorRef.current?.replaceSelection(sql);
     }

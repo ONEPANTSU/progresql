@@ -32,6 +32,7 @@ import ChatInput, { ChatInputHandle } from './chat/ChatInput';
 export interface ChatPanelHandle {
   sendImproveSQL: (sql: string) => void;
   sendExplainSQL: (sql: string, objectLabel?: string) => void;
+  sendTextMessage: (text: string, chatTitle?: string) => void;
   sendAnalyzeSchema: () => void;
   focusInput: () => void;
   setInputText: (text: string) => void;
@@ -129,6 +130,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
   useImperativeHandle(ref, () => ({
     sendImproveSQL: agentMessages.handleSendImproveSQL,
     sendExplainSQL: agentMessages.handleSendExplainSQL,
+    sendTextMessage: agentMessages.handleSendTextMessage,
     sendAnalyzeSchema: agentMessages.handleSendAnalyzeSchema,
     focusInput() {
       chatInputRef.current?.focus();
