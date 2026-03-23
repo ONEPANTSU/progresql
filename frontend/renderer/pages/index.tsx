@@ -730,12 +730,14 @@ export default function Home() {
         await handleSwitchDatabase(targetConnectionId, targetDatabase);
       }
       // Small delay to let state settle after DB switch
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 200));
       // Create a new tab on the target connection with the migration SQL
       const newTab = sqlTabs.createTab(targetConnectionId);
       sqlTabs.updateTabContent(newTab.id, sql);
-      // Switch to editor view
-      setIsChatOpen(false);
+    } else if (activeConnection) {
+      // Fallback: create tab on current connection
+      const newTab = sqlTabs.createTab(activeConnection.id);
+      sqlTabs.updateTabContent(newTab.id, sql);
     } else {
       sqlEditorRef.current?.replaceSelection(sql);
     }
