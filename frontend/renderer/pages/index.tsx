@@ -461,7 +461,7 @@ export default function Home() {
           } else {
             log.error('Failed to get database structure:', structureResult.message);
             setConnections(prev => prev.map(c =>
-              c.id === connectionId ? { ...c, isActive: true } : c
+              c.id === connectionId ? { ...c, isActive: true, activeDatabase: connection.database || 'postgres' } : c
             ));
             setConnectionError(`Failed to get database structure: ${structureResult.message}`);
             showError(t('notify.dbStructureErrorDetail', { error: structureResult.message || '' }));
@@ -469,7 +469,7 @@ export default function Home() {
         } catch (structureError) {
           log.error('Error getting database structure:', structureError);
           setConnections(prev => prev.map(c =>
-            c.id === connectionId ? { ...c, isActive: true } : c
+            c.id === connectionId ? { ...c, isActive: true, activeDatabase: connection.database || 'postgres' } : c
           ));
           showError(t('notify.dbStructureError'));
         }
