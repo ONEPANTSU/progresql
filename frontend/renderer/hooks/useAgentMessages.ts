@@ -241,7 +241,7 @@ export function useAgentMessages({
       });
       activeRequestIdRef.current = requestId;
     },
-    [agent, setChats, setIsTyping, showError, streaming, t],
+    [agent, setChats, setIsTyping, showError, streaming, t, connectionId],
   );
 
   const sendViaAgent = useCallback(
