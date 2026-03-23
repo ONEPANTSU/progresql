@@ -72,9 +72,12 @@ func (s *ImproveSQLStep) Execute(ctx context.Context, pctx *agent.PipelineContex
 			"- Query performance (index usage, join order, avoiding sequential scans)\n"+
 			"- Readability and best practices\n"+
 			"- Correct use of PostgreSQL-specific features\n\n"+
-			"CRITICAL: You must return the SAME type of SQL statement. If the original is a SELECT query, return an improved SELECT query. "+
-			"NEVER replace a SELECT with CREATE INDEX, DDL, or any other statement type. "+
-			"Only suggest index creation in comments, not as the main query.\n\n"+
+			"CRITICAL RULES:\n"+
+			"- You MUST return the SAME type of SQL statement as the original. A SELECT must remain a SELECT.\n"+
+			"- NEVER replace the query with CREATE INDEX, DDL, or any other statement type.\n"+
+			"- NEVER return CREATE INDEX as the improved query. Only mention index suggestions in comments or text.\n"+
+			"- If you want to suggest an index, write it as a comment like: -- Consider: CREATE INDEX ...\n"+
+			"- The improved SQL in the ```sql block must be the same statement type as the original.\n\n"+
 			"If the query is already optimal, explain why and return it unchanged.",
 		userDescSection, sql, queryPlan,
 	)

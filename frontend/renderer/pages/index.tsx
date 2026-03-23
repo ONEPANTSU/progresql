@@ -676,7 +676,7 @@ export default function Home() {
     }
     setIsImproving(true);
     agent.sendRequest(
-      { action: 'improve_sql', context: { selected_sql: sql, user_descriptions: getDescriptionsForContext() || undefined } },
+      { action: 'improve_sql', context: { selected_sql: sql, user_descriptions: getDescriptionsForContext() || undefined, security_mode: 'safe' } },
       {
         onResponse: (response) => {
           setIsImproving(false);
