@@ -492,13 +492,9 @@ export default function Home() {
 
     showSuccess(t('notify.connectionUpdated', { name: updatedData.connectionName }));
 
-    // Auto-reconnect if this was the active connection and password was changed
-    if (activeConnection?.id === connectionId && updatedData.password) {
-      handleConnect(connectionId);
-    } else if (activeConnection?.id === connectionId) {
-      // Auto-refresh database structure after editing active connection
-      handleRefreshConnection(connectionId);
-    }
+    // Auto-reconnect after editing — always try to connect with updated params.
+    // This handles both active connections (reconnect) and disconnected ones (retry).
+    handleConnect(connectionId);
   };
 
   const handleCloseEditDialog = () => {
