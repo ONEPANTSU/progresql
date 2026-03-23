@@ -73,7 +73,12 @@ export default function Home() {
   const sqlEditorRef = useRef<SQLEditorHandle>(null);
   const chatPanelRef = useRef<ChatPanelHandle>(null);
   const agent = useAgent();
-  const sqlTabs = useSQLTabs(activeConnection?.id ?? null);
+  // Editor has its own independent connection — not synced with chat
+  const [editorConnectionId, setEditorConnectionId] = useState<string | null>(null);
+  const editorConnection = editorConnectionId
+    ? connections.find(c => c.id === editorConnectionId) ?? activeConnection
+    : activeConnection;
+  const sqlTabs = useSQLTabs(editorConnection?.id ?? null);
 
   // Guard: redirect unauthenticated users to login, unverified to verify-email
   const shouldRedirect = !isAuthenticated || !isEmailVerified;
@@ -411,6 +416,8 @@ export default function Home() {
         showSuccess(t('notify.connected'));
 
         setActiveConnection(connection);
+        // Initialize editor connection if not set yet
+        setEditorConnectionId(prev => prev ?? connection.id);
 
         // Get database structure
         log.debug('Getting database structure...');
@@ -1062,16 +1069,23 @@ export default function Home() {
                                 activeTab={sqlTabs.activeTab}
                                 activeTabId={sqlTabs.activeTabId}
                                 onTabChange={sqlTabs.setActiveTab}
-                                onCreateTab={() => activeConnection && sqlTabs.createTab(activeConnection.id)}
+                                onCreateTab={() => editorConnection && sqlTabs.createTab(editorConnection.id)}
                                 onCloseTab={sqlTabs.closeTab}
                                 onRenameTab={(tabId, title) => sqlTabs.renameTab(tabId, title)}
                                 onContentChange={sqlTabs.updateTabContent}
-                                databaseInfo={activeConnection?.databases?.[0] ?? null}
+                                databaseInfo={editorConnection?.databases?.[0] ?? null}
                                 errorLine={errorLine}
-                                activeConnection={activeConnection}
+                                activeConnection={editorConnection}
                                 connections={connections}
                                 connectionErrors={connectionErrors}
-                                onSwitchConnection={handleConnect}
+                                onSwitchConnection={(connId) => {
+                                  setEditorConnectionId(connId);
+                                  // Ensure this connection is actually connected
+                                  const conn = connections.find(c => c.id === connId);
+                                  if (conn && !conn.isActive) {
+                                    handleConnect(connId);
+                                  }
+                                }}
                               />
                             </ErrorBoundary>
                           </Box>

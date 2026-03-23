@@ -877,16 +877,16 @@ export default function DatabasePanel({
                     mb: 0.25,
                     transition: 'background-color 0.15s ease',
                     bgcolor: isActiveDb ? 'rgba(139, 92, 246, 0.08)' : 'transparent',
-                    '&:hover': { bgcolor: isActiveDb ? 'rgba(139, 92, 246, 0.15)' : 'action.hover' }
+                    '&:hover': { bgcolor: isActiveDb ? 'rgba(76, 175, 80, 0.15)' : 'action.hover' }
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: '20px' }}>
-                    <DatabaseIconNew sx={{ fontSize: LEAF_ICON_SIZE, color: isActiveDb ? '#8b5cf6' : 'text.disabled' }} />
+                    <DatabaseIconNew sx={{ fontSize: LEAF_ICON_SIZE, color: isActiveDb ? '#4caf50' : 'text.disabled' }} />
                   </ListItemIcon>
                   <ListItemText
                     primary={availDb.name}
                     secondary={!isActiveDb && availDb.size ? availDb.size : undefined}
-                    primaryTypographyProps={{ sx: { fontSize: '0.75rem', fontWeight: isActiveDb ? 600 : 400, lineHeight: 1.3, color: isActiveDb ? '#8b5cf6' : 'text.secondary' } }}
+                    primaryTypographyProps={{ sx: { fontSize: '0.75rem', fontWeight: isActiveDb ? 600 : 400, lineHeight: 1.3, color: isActiveDb ? '#4caf50' : 'text.secondary' } }}
                     secondaryTypographyProps={{ sx: { fontSize: '0.625rem', lineHeight: 1, color: 'text.disabled' } }}
                   />
                   {isActiveDb && (
@@ -1489,9 +1489,9 @@ export default function DatabasePanel({
                   sx={{ py: 0.125, px: 1, minHeight: '26px', height: '26px', borderRadius: 1, mx: 0.5, mb: 0.25, '&:hover': { bgcolor: 'action.hover' } }}
                 >
                   <ListItemIcon sx={{ minWidth: '20px' }}>
-                    <DatabaseIconNew sx={{ fontSize: LEAF_ICON_SIZE, color: '#8b5cf6' }} />
+                    <DatabaseIconNew sx={{ fontSize: LEAF_ICON_SIZE, color: '#4caf50' }} />
                   </ListItemIcon>
-                  <ListItemText primary={database.name} primaryTypographyProps={{ sx: { fontSize: '0.75rem', fontWeight: 600, lineHeight: 1.3, color: '#8b5cf6' } }} />
+                  <ListItemText primary={database.name} primaryTypographyProps={{ sx: { fontSize: '0.75rem', fontWeight: 600, lineHeight: 1.3, color: '#4caf50' } }} />
                   {expandedDatabases.has(`${connection.id}-${database.name}`) ?
                     <ExpandLessIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} /> :
                     <ExpandMoreIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} />

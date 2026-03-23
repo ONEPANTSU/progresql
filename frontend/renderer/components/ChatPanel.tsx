@@ -105,9 +105,9 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
     }
   }, [chat.activeChatId, activeConnection?.id]);
 
-  // Handle switching connection from ChatInput pill
+  // Handle switching connection from ChatInput pill — independent from editor
   const handleChatSwitchConnection = useCallback((connectionId: string) => {
-    // Update the chat's connectionId
+    // Update the chat's connectionId only — don't affect editor
     if (chat.activeChatId) {
       chat.setChats(prev => prev.map(c =>
         c.id === chat.activeChatId
@@ -115,9 +115,12 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
           : c
       ));
     }
-    // Switch the actual database connection (for tool-server)
-    onSwitchConnection?.(connectionId);
-  }, [chat.activeChatId, chat.setChats, onSwitchConnection]);
+    // Ensure the connection is active (connect if needed), but don't change editor's selection
+    const conn = connections?.find(c => c.id === connectionId);
+    if (conn && !conn.isActive) {
+      onSwitchConnection?.(connectionId);
+    }
+  }, [chat.activeChatId, chat.setChats, connections, onSwitchConnection]);
 
   useImperativeHandle(ref, () => ({
     sendImproveSQL: agentMessages.handleSendImproveSQL,
