@@ -947,7 +947,7 @@ export default function DatabasePanel({
                           <Box sx={{ pl: 1.5 }}>
                             {/* Tables */}
                             {(() => {
-                              const tablesInSchema = database.tables.filter(t => t.table_schema === schema.schema_name);
+                              const tablesInSchema = schemaDatabase.tables.filter(t => t.table_schema === schema.schema_name);
                               return tablesInSchema.length > 0;
                             })() && (
                               <Accordion
@@ -965,14 +965,14 @@ export default function DatabasePanel({
                                     {t('db.sections.tables')}
                                   </Typography>
                                   <Chip
-                                    label={database.tables.filter(t => t.table_schema === schema.schema_name).length}
+                                    label={schemaDatabase.tables.filter(t => t.table_schema === schema.schema_name).length}
                                     size="small"
                                     sx={counterChipSx}
                                   />
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
                                   <List dense disablePadding>
-                                    {database.tables
+                                    {schemaDatabase.tables
                                       .filter(t => t.table_schema === schema.schema_name)
                                       .map((table, index) => {
                                         const tableKey = `${schema.schema_name}.${table.table_name}`;
@@ -1196,7 +1196,7 @@ export default function DatabasePanel({
                             )}
 
                             {/* Views */}
-                            {database.views.filter(v => v.view_schema === schema.schema_name).length > 0 && (
+                            {schemaDatabase.views.filter(v => v.view_schema === schema.schema_name).length > 0 && (
                               <Accordion
                                 expanded={expandedSections.has(`${connection.id}-views-${schema.schema_name}`)}
                                 onChange={() => toggleSectionExpansion(connection.id, `views-${schema.schema_name}`)}
@@ -1212,14 +1212,14 @@ export default function DatabasePanel({
                                     {t('db.sections.views')}
                                   </Typography>
                                   <Chip
-                                    label={database.views.filter(v => v.view_schema === schema.schema_name).length}
+                                    label={schemaDatabase.views.filter(v => v.view_schema === schema.schema_name).length}
                                     size="small"
                                     sx={counterChipSx}
                                   />
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
                                   <List dense disablePadding>
-                                    {database.views
+                                    {schemaDatabase.views
                                       .filter(v => v.view_schema === schema.schema_name)
                                       .map((view, index) => (
                                         <ListItem key={`${view.view_name}-${index}`} disablePadding>
@@ -1243,7 +1243,7 @@ export default function DatabasePanel({
                             )}
 
                             {/* Functions */}
-                            {database.functions.filter(f => f.routine_schema === schema.schema_name).length > 0 && (
+                            {schemaDatabase.functions.filter(f => f.routine_schema === schema.schema_name).length > 0 && (
                               <Accordion
                                 expanded={expandedSections.has(`${connection.id}-functions-${schema.schema_name}`)}
                                 onChange={() => toggleSectionExpansion(connection.id, `functions-${schema.schema_name}`)}
@@ -1259,14 +1259,14 @@ export default function DatabasePanel({
                                     {t('db.sections.functions')}
                                   </Typography>
                                   <Chip
-                                    label={database.functions.filter(f => f.routine_schema === schema.schema_name).length}
+                                    label={schemaDatabase.functions.filter(f => f.routine_schema === schema.schema_name).length}
                                     size="small"
                                     sx={counterChipSx}
                                   />
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
                                   <List dense disablePadding>
-                                    {database.functions
+                                    {schemaDatabase.functions
                                       .filter(f => f.routine_schema === schema.schema_name)
                                       .map((func, index) => (
                                         <ListItem key={`${func.routine_name}-${index}`} disablePadding>
@@ -1290,7 +1290,7 @@ export default function DatabasePanel({
                             )}
 
                             {/* Procedures */}
-                            {database.procedures.filter(p => p.procedure_schema === schema.schema_name).length > 0 && (
+                            {schemaDatabase.procedures.filter(p => p.procedure_schema === schema.schema_name).length > 0 && (
                               <Accordion
                                 expanded={expandedSections.has(`${connection.id}-procedures-${schema.schema_name}`)}
                                 onChange={() => toggleSectionExpansion(connection.id, `procedures-${schema.schema_name}`)}
@@ -1305,14 +1305,14 @@ export default function DatabasePanel({
                                     Procedures
                                   </Typography>
                                   <Chip
-                                    label={database.procedures.filter(p => p.procedure_schema === schema.schema_name).length}
+                                    label={schemaDatabase.procedures.filter(p => p.procedure_schema === schema.schema_name).length}
                                     size="small"
                                     sx={counterChipSx}
                                   />
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
                                   <List dense disablePadding>
-                                    {database.procedures
+                                    {schemaDatabase.procedures
                                       .filter(p => p.procedure_schema === schema.schema_name)
                                       .map((proc, index) => (
                                         <ListItem key={`${proc.procedure_name}-${index}`} disablePadding>
@@ -1337,7 +1337,7 @@ export default function DatabasePanel({
 
                             {/* Sequences */}
                             {(() => {
-                              const sequencesInSchema = database.sequences?.filter(s => s.sequence_schema === schema.schema_name) || [];
+                              const sequencesInSchema = schemaDatabase.sequences?.filter(s => s.sequence_schema === schema.schema_name) || [];
                               return sequencesInSchema.length > 0;
                             })() && (
                               <Accordion
@@ -1355,14 +1355,14 @@ export default function DatabasePanel({
                                     {t('db.sections.sequences')}
                                   </Typography>
                                   <Chip
-                                    label={database.sequences.filter(s => s.sequence_schema === schema.schema_name).length}
+                                    label={schemaDatabase.sequences.filter(s => s.sequence_schema === schema.schema_name).length}
                                     size="small"
                                     sx={counterChipSx}
                                   />
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
                                   <List dense disablePadding>
-                                    {database.sequences
+                                    {schemaDatabase.sequences
                                       .filter(s => s.sequence_schema === schema.schema_name)
                                       .map((seq, index) => (
                                         <ListItem key={`${seq.sequence_name}-${index}`} disablePadding>
@@ -1383,7 +1383,7 @@ export default function DatabasePanel({
                             )}
 
                             {/* Extensions */}
-                            {database.extensions && database.extensions.length > 0 && (
+                            {schemaDatabase.extensions && schemaDatabase.extensions.length > 0 && (
                               <Accordion
                                 expanded={expandedSections.has(`${connection.id}-extensions-${schema.schema_name}`)}
                                 onChange={() => toggleSectionExpansion(connection.id, `extensions-${schema.schema_name}`)}
@@ -1399,14 +1399,14 @@ export default function DatabasePanel({
                                     {t('db.sections.extensions')}
                                   </Typography>
                                   <Chip
-                                    label={database.extensions.length}
+                                    label={schemaDatabase.extensions.length}
                                     size="small"
                                     sx={counterChipSx}
                                   />
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
                                   <List dense disablePadding>
-                                    {database.extensions.map((ext, index) => (
+                                    {schemaDatabase.extensions.map((ext, index) => (
                                       <ListItem key={`${ext.name}-${index}`} disablePadding>
                                         <ListItemButton sx={treeItemSx} onContextMenu={(e) => handleObjectContextMenu(e, ext, 'extension')}>
                                             <ListItemIcon sx={{ minWidth: '18px' }}>
@@ -1426,7 +1426,7 @@ export default function DatabasePanel({
 
                             {/* Types */}
                             {(() => {
-                              const typesInSchema = database.types?.filter(t => t.schema === schema.schema_name) || [];
+                              const typesInSchema = schemaDatabase.types?.filter(t => t.schema === schema.schema_name) || [];
                               return typesInSchema.length > 0;
                             })() && (
                               <Accordion
@@ -1444,14 +1444,14 @@ export default function DatabasePanel({
                                     {t('db.sections.types')}
                                   </Typography>
                                   <Chip
-                                    label={database.types.filter(t => t.schema === schema.schema_name).length}
+                                    label={schemaDatabase.types.filter(t => t.schema === schema.schema_name).length}
                                     size="small"
                                     sx={counterChipSx}
                                   />
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
                                   <List dense disablePadding>
-                                    {database.types
+                                    {schemaDatabase.types
                                       .filter(t => t.schema === schema.schema_name)
                                       .map((type, index) => (
                                         <ListItem key={`${type.name}-${index}`} disablePadding>
