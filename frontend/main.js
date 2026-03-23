@@ -992,10 +992,16 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
     } else if (toolName === 'execute_query') {
       if (global.dbClient) {
         const sql = args.sql || args.query;
-        const limit = args.limit || 100;
-        const limitedSql = sql.toLowerCase().includes('limit') ? sql : `${sql} LIMIT ${limit}`;
-        const r = await global.dbClient.query(limitedSql);
-        result = { rows: r.rows, columns: r.fields ? r.fields.map(f => f.name) : [] };
+        const trimmedUpper = sql.trim().toUpperCase();
+        // DDL/DML statements should not have LIMIT appended
+        const isDDL = ['CREATE', 'ALTER', 'DROP', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'GRANT', 'REVOKE'].some(kw => trimmedUpper.startsWith(kw));
+        let finalSql = sql;
+        if (!isDDL) {
+          const limit = args.limit || 100;
+          finalSql = sql.toLowerCase().includes('limit') ? sql : `${sql} LIMIT ${limit}`;
+        }
+        const r = await global.dbClient.query(finalSql);
+        result = { rows: r.rows || [], columns: r.fields ? r.fields.map(f => f.name) : [], rowCount: r.rowCount };
       } else {
         throw new Error('No database connection');
       }
