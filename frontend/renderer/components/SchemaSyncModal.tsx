@@ -677,7 +677,7 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
   }, [onApplySQL, finalSQL, targetId, onClose]);
 
   const getConnectionLabel = (conn: DatabaseServer) => {
-    return `${conn.connectionName || conn.database} (${conn.host}:${conn.port}/${conn.database})`;
+    return `${conn.connectionName || conn.database} (${conn.host}:${conn.port})`;
   };
 
   const diffSummary = useMemo(() => {

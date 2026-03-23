@@ -87,10 +87,22 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
     }
   };
 
-  const handleConnectionSelect = (connectionId: string) => {
+  const [dbSubmenuAnchor, setDbSubmenuAnchor] = useState<{ el: HTMLElement; conn: DatabaseServer } | null>(null);
+
+  const handleConnectionSelect = (connectionId: string, database?: string) => {
     setDbMenuAnchor(null);
-    if (connectionId === activeConnection?.id) return;
+    setDbSubmenuAnchor(null);
+    // Always allow switching — compare with displayConnection, not activeConnection
+    if (connectionId === displayConnection?.id && !database) return;
     onSwitchConnection?.(connectionId);
+  };
+
+  const handleConnectionHover = (event: React.MouseEvent<HTMLElement>, conn: DatabaseServer) => {
+    if (conn.isActive && conn.availableDatabases && conn.availableDatabases.length > 1) {
+      setDbSubmenuAnchor({ el: event.currentTarget, conn });
+    } else {
+      setDbSubmenuAnchor(null);
+    }
   };
 
   // Determine which connection to display
@@ -311,6 +323,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
             key={conn.id}
             selected={displayConnection?.id === conn.id}
             onClick={() => handleConnectionSelect(conn.id)}
+            onMouseEnter={(e) => handleConnectionHover(e, conn)}
             sx={{
               borderRadius: '8px',
               mx: 0.5,
@@ -340,12 +353,71 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
             </ListItemIcon>
             <ListItemText
               primary={conn.connectionName || conn.database}
-              secondary={`${conn.host}:${conn.port}/${conn.database}`}
+              secondary={`${conn.host}:${conn.port}`}
               primaryTypographyProps={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.9)' }}
               secondaryTypographyProps={{ fontSize: '0.65rem', color: 'rgba(255, 255, 255, 0.45)' }}
             />
+            {conn.isActive && conn.availableDatabases && conn.availableDatabases.length > 1 && (
+              <Typography sx={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.35)', ml: 0.5 }}>
+                {conn.activeDatabase || conn.database} ▸
+              </Typography>
+            )}
           </MenuItem>
         ))}
+      </Menu>
+      {/* Database submenu */}
+      <Menu
+        anchorEl={dbSubmenuAnchor?.el}
+        open={Boolean(dbSubmenuAnchor)}
+        onClose={() => setDbSubmenuAnchor(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{
+          paper: {
+            sx: {
+              bgcolor: 'rgba(20, 20, 35, 0.9)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              borderRadius: '10px',
+              minWidth: 160,
+              maxHeight: 200,
+              overflowY: 'auto',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+              '&::-webkit-scrollbar': { width: 4 },
+              '&::-webkit-scrollbar-thumb': { background: 'rgba(99,102,241,0.3)', borderRadius: 2 },
+            },
+          },
+        }}
+        MenuListProps={{ onMouseLeave: () => setDbSubmenuAnchor(null) }}
+      >
+        {dbSubmenuAnchor?.conn.availableDatabases?.map((db: any) => {
+          const isActive = db.name === (dbSubmenuAnchor.conn.activeDatabase || dbSubmenuAnchor.conn.database);
+          return (
+            <MenuItem
+              key={db.name}
+              selected={isActive}
+              onClick={() => {
+                setDbMenuAnchor(null);
+                setDbSubmenuAnchor(null);
+                // Switch to this specific database
+                onSwitchConnection?.(dbSubmenuAnchor.conn.id);
+              }}
+              sx={{
+                borderRadius: '6px', mx: 0.5, my: 0.25, py: 0.5,
+                '&.Mui-selected': { bgcolor: 'rgba(76,175,80,0.15)' },
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.06)' },
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: '22px !important' }}>
+                <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: isActive ? '#4caf50' : 'text.disabled' }} />
+              </ListItemIcon>
+              <ListItemText
+                primary={db.name}
+                primaryTypographyProps={{ fontSize: '0.75rem', color: isActive ? '#4caf50' : 'rgba(255,255,255,0.8)' }}
+              />
+            </MenuItem>
+          );
+        })}
       </Menu>
 
       {/* Input row */}

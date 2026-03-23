@@ -828,7 +828,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
               key={conn.id}
               selected={activeConnection?.id === conn.id}
               onClick={() => {
-                if (onSwitchConnection && conn.id !== activeConnection?.id) {
+                if (onSwitchConnection) {
                   onSwitchConnection(conn.id);
                 }
                 setConnectionMenuAnchor(null);
@@ -848,10 +848,15 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
               </ListItemIcon>
               <ListItemText
                 primary={conn.connectionName || conn.database}
-                secondary={`${conn.host}:${conn.port}/${conn.database}`}
+                secondary={`${conn.host}:${conn.port}`}
                 primaryTypographyProps={{ fontSize: '0.8rem' }}
                 secondaryTypographyProps={{ fontSize: '0.65rem' }}
               />
+              {conn.isActive && conn.availableDatabases && conn.availableDatabases.length > 1 && (
+                <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', ml: 0.5 }}>
+                  {conn.activeDatabase || conn.database}
+                </Typography>
+              )}
             </MenuItem>
           ))}
         </Menu>

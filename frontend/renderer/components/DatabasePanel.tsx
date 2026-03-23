@@ -885,9 +885,7 @@ export default function DatabasePanel({
                   </ListItemIcon>
                   <ListItemText
                     primary={availDb.name}
-                    secondary={!isActiveDb && availDb.size ? availDb.size : undefined}
                     primaryTypographyProps={{ sx: { fontSize: '0.75rem', fontWeight: isActiveDb ? 600 : 400, lineHeight: 1.3, color: isActiveDb ? '#4caf50' : 'text.secondary' } }}
-                    secondaryTypographyProps={{ sx: { fontSize: '0.625rem', lineHeight: 1, color: 'text.disabled' } }}
                   />
                   {isActiveDb && (
                     expandedDatabases.has(`${connection.id}-${availDb.name}`) ?
