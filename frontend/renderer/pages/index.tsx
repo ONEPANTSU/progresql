@@ -323,11 +323,18 @@ export default function Home() {
     showSuccess(t('notify.connectionAdded', { name: connectionConfig.connectionName }));
   };
 
-  const handleConnect = async (connectionId: string) => {
+  const handleConnect = async (connectionId: string, database?: string) => {
     const connection = connections.find(c => c.id === connectionId);
     if (!connection) {
       log.error('Connection not found:', connectionId);
       showError('Connection not found');
+      return;
+    }
+
+    // If switching to a different database on same connection, reconnect with new DB
+    if (database && database !== (connection.activeDatabase || connection.database)) {
+      const connWithNewDb = { ...connection, database };
+      await performConnection(connWithNewDb, database);
       return;
     }
 
@@ -349,7 +356,7 @@ export default function Home() {
     await performConnection(connection);
   };
 
-  const performConnection = async (connection: DatabaseServer) => {
+  const performConnection = async (connection: DatabaseServer, databaseOverride?: string) => {
     const connectionId = connection.id;
 
     // Set connecting state and clear previous error for this connection
@@ -392,7 +399,7 @@ export default function Home() {
         port: connection.port,
         username: connection.username,
         password: connection.password,
-        database: connection.database || 'postgres',
+        database: databaseOverride || connection.database || 'postgres',
         connectionName: connection.connectionName
       };
 
@@ -439,12 +446,13 @@ export default function Home() {
             }
 
             // Mark this connection as active (keep others' isActive unchanged)
+            const activeDb = databaseOverride || connection.database || 'postgres';
             setConnections(prev => prev.map(c =>
               c.id === connectionId ? {
                 ...c,
                 databases: structureResult.databases || [],
                 isActive: true,
-                activeDatabase: connection.database || 'postgres',
+                activeDatabase: activeDb,
                 ...(availableDatabases ? { availableDatabases } : {}),
               } : c
             ));
@@ -1078,12 +1086,14 @@ export default function Home() {
                                 activeConnection={editorConnection}
                                 connections={connections}
                                 connectionErrors={connectionErrors}
-                                onSwitchConnection={(connId) => {
+                                onSwitchConnection={(connId, database?: string) => {
                                   setEditorConnectionId(connId);
                                   // Ensure this connection is actually connected
                                   const conn = connections.find(c => c.id === connId);
                                   if (conn && !conn.isActive) {
-                                    handleConnect(connId);
+                                    handleConnect(connId, database);
+                                  } else if (database && conn) {
+                                    handleConnect(connId, database);
                                   }
                                 }}
                               />

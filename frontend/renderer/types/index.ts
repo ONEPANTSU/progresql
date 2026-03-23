@@ -404,6 +404,7 @@ export interface Chat {
   messages: Message[];
   hasSentFirstMessage: boolean;
   connectionId?: string;
+  database?: string;
 }
 
 export interface MessageVisualization {

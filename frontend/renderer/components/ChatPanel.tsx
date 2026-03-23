@@ -48,7 +48,7 @@ interface ChatPanelProps {
   activeConnection?: import('../types').DatabaseServer | null;
   connections?: import('../types').DatabaseServer[];
   connectionErrors?: Record<string, string>;
-  onSwitchConnection?: (connectionId: string) => void;
+  onSwitchConnection?: (connectionId: string, database?: string) => void;
 }
 
 // Typing indicator removed — streaming messages already show content appearing in real-time
@@ -106,19 +106,22 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
   }, [chat.activeChatId, activeConnection?.id]);
 
   // Handle switching connection from ChatInput pill — independent from editor
-  const handleChatSwitchConnection = useCallback((connectionId: string) => {
-    // Update the chat's connectionId only — don't affect editor
+  const handleChatSwitchConnection = useCallback((connectionId: string, database?: string) => {
+    // Update the chat's connectionId and database — don't affect editor
     if (chat.activeChatId) {
       chat.setChats(prev => prev.map(c =>
         c.id === chat.activeChatId
-          ? { ...c, connectionId }
+          ? { ...c, connectionId, ...(database ? { database } : {}) }
           : c
       ));
     }
     // Ensure the connection is active (connect if needed), but don't change editor's selection
     const conn = connections?.find(c => c.id === connectionId);
     if (conn && !conn.isActive) {
-      onSwitchConnection?.(connectionId);
+      onSwitchConnection?.(connectionId, database);
+    } else if (database) {
+      // Already connected but switching database
+      onSwitchConnection?.(connectionId, database);
     }
   }, [chat.activeChatId, chat.setChats, connections, onSwitchConnection]);
 
@@ -314,7 +317,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
 
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
       {(!isSubscriptionExpired || trialBannerDismissed) && (
-        <ChatInput ref={chatInputRef} inputValue={inputValue} setInputValue={setInputValue} isTyping={isTyping} isConnected={agent.isConnected} onSendMessage={agentMessages.handleSendMessage} onStopGeneration={agentMessages.stopGeneration} attachedSQL={attachedSQL} onRemoveAttachment={() => setAttachedSQL(null)} activeConnection={activeConnection} connections={connections} connectionErrors={connectionErrors} onSwitchConnection={handleChatSwitchConnection} chatConnectionId={chat.activeChat?.connectionId ?? null} hasSentFirstMessage={chat.activeChat?.hasSentFirstMessage ?? false} />
+        <ChatInput ref={chatInputRef} inputValue={inputValue} setInputValue={setInputValue} isTyping={isTyping} isConnected={agent.isConnected} onSendMessage={agentMessages.handleSendMessage} onStopGeneration={agentMessages.stopGeneration} attachedSQL={attachedSQL} onRemoveAttachment={() => setAttachedSQL(null)} activeConnection={activeConnection} connections={connections} connectionErrors={connectionErrors} onSwitchConnection={handleChatSwitchConnection} chatConnectionId={chat.activeChat?.connectionId ?? null} chatDatabase={chat.activeChat?.database ?? null} hasSentFirstMessage={chat.activeChat?.hasSentFirstMessage ?? false} />
       )}
     </Paper>
   );

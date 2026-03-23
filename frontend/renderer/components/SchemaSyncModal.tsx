@@ -677,7 +677,7 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
   }, [onApplySQL, finalSQL, targetId, onClose]);
 
   const getConnectionLabel = (conn: DatabaseServer) => {
-    return `${conn.connectionName || conn.database} (${conn.host}:${conn.port})`;
+    return `${conn.connectionName || conn.host} (${conn.host}:${conn.port})`;
   };
 
   const diffSummary = useMemo(() => {
@@ -738,11 +738,11 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
             const conn = activeConnections.find(c => c.id === sourceId);
             const dbs = conn?.availableDatabases;
             return dbs && dbs.length > 1 ? (
-              <FormControl fullWidth size="small" sx={{ mt: 0.5 }}>
-                <InputLabel>{t('schemaSync.source')} DB</InputLabel>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>DB</InputLabel>
                 <Select
                   value={sourceDatabase}
-                  label={`${t('schemaSync.source')} DB`}
+                  label="DB"
                   onChange={(e) => { setSourceDatabase(e.target.value); setDiff(null); }}
                 >
                   {dbs.map((db) => (
@@ -798,11 +798,11 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
             const conn = activeConnections.find(c => c.id === targetId);
             const dbs = conn?.availableDatabases;
             return dbs && dbs.length > 1 ? (
-              <FormControl fullWidth size="small" sx={{ mt: 0.5 }}>
-                <InputLabel>{t('schemaSync.target')} DB</InputLabel>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>DB</InputLabel>
                 <Select
                   value={targetDatabase}
-                  label={`${t('schemaSync.target')} DB`}
+                  label="DB"
                   onChange={(e) => { setTargetDatabase(e.target.value); setDiff(null); }}
                 >
                   {dbs.map((db) => (

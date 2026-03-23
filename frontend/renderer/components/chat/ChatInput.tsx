@@ -20,6 +20,7 @@ import {
   Code as CodeIcon,
   Storage as StorageIcon,
   KeyboardArrowDown as ChevronDownIcon,
+  KeyboardArrowRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import { useTranslation } from '../../contexts/LanguageContext';
 import type { DatabaseServer } from '../../types';
@@ -40,8 +41,9 @@ interface ChatInputProps {
   activeConnection?: DatabaseServer | null;
   connections?: DatabaseServer[];
   connectionErrors?: Record<string, string>;
-  onSwitchConnection?: (connectionId: string) => void;
+  onSwitchConnection?: (connectionId: string, database?: string) => void;
   chatConnectionId?: string | null;
+  chatDatabase?: string | null;
   hasSentFirstMessage?: boolean;
 }
 
@@ -59,12 +61,14 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
   connectionErrors = {},
   onSwitchConnection,
   chatConnectionId,
+  chatDatabase,
   hasSentFirstMessage = false,
 }, ref) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [dbMenuAnchor, setDbMenuAnchor] = useState<HTMLElement | null>(null);
+  const [expandedConnId, setExpandedConnId] = useState<string | null>(null);
 
   useImperativeHandle(ref, () => ({
     focus() {
@@ -84,31 +88,36 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
   const handleDbBarClick = (event: React.MouseEvent<HTMLElement>) => {
     if (connections.length > 0) {
       setDbMenuAnchor(event.currentTarget);
+      setExpandedConnId(null);
     }
   };
 
-  const [dbSubmenuAnchor, setDbSubmenuAnchor] = useState<{ el: HTMLElement; conn: DatabaseServer } | null>(null);
-
-  const handleConnectionSelect = (connectionId: string, database?: string) => {
-    setDbMenuAnchor(null);
-    setDbSubmenuAnchor(null);
-    // Always allow switching — compare with displayConnection, not activeConnection
-    if (connectionId === displayConnection?.id && !database) return;
-    onSwitchConnection?.(connectionId);
-  };
-
-  const handleConnectionHover = (event: React.MouseEvent<HTMLElement>, conn: DatabaseServer) => {
+  const handleConnectionClick = (conn: DatabaseServer) => {
+    // If connection has multiple databases, toggle expansion
     if (conn.isActive && conn.availableDatabases && conn.availableDatabases.length > 1) {
-      setDbSubmenuAnchor({ el: event.currentTarget, conn });
+      setExpandedConnId(prev => prev === conn.id ? null : conn.id);
     } else {
-      setDbSubmenuAnchor(null);
+      // Single database or not connected — select directly
+      setDbMenuAnchor(null);
+      setExpandedConnId(null);
+      onSwitchConnection?.(conn.id);
     }
+  };
+
+  const handleDatabaseSelect = (connId: string, dbName: string) => {
+    setDbMenuAnchor(null);
+    setExpandedConnId(null);
+    onSwitchConnection?.(connId, dbName);
   };
 
   // Determine which connection to display
   const displayConnection = chatConnectionId
     ? connections.find(c => c.id === chatConnectionId) ?? activeConnection
     : activeConnection;
+
+  const displayDatabase = chatDatabase
+    || displayConnection?.activeDatabase
+    || displayConnection?.database;
 
   const placeholder = !isConnected
     ? t('chat.input.backendUnavailable')
@@ -125,6 +134,12 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
     : '';
 
   const hasError = displayConnection ? !!connectionErrors[displayConnection.id] : false;
+
+  // Build pill label: "connectionName · database"
+  const pillLabel = displayConnection
+    ? `${displayConnection.connectionName || displayConnection.host}` +
+      (displayDatabase ? ` · ${displayDatabase}` : '')
+    : t('chat.dbPill.noConnection');
 
   return (
     <Box sx={{
@@ -257,7 +272,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
             height: 6,
             borderRadius: 1,
             bgcolor: displayConnection
-              ? (hasError ? 'error.main' : 'success.main')
+              ? (hasError ? 'error.main' : displayConnection.isActive ? 'success.main' : 'text.disabled')
               : 'text.disabled',
             flexShrink: 0,
           }}
@@ -270,12 +285,10 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-            maxWidth: 150,
+            maxWidth: 200,
           }}
         >
-          {displayConnection
-            ? (displayConnection.connectionName || displayConnection.database)
-            : t('chat.dbPill.noConnection')}
+          {pillLabel}
         </Typography>
         {connections.length > 0 && (
           <ChevronDownIcon sx={{
@@ -287,10 +300,12 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
           }} />
         )}
       </Box>
+
+      {/* Single unified menu with inline accordion for databases */}
       <Menu
         anchorEl={dbMenuAnchor}
         open={Boolean(dbMenuAnchor)}
-        onClose={() => setDbMenuAnchor(null)}
+        onClose={() => { setDbMenuAnchor(null); setExpandedConnId(null); }}
         anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
         transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         slotProps={{
@@ -302,8 +317,8 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
               border: '1px solid',
               borderColor: 'rgba(99, 102, 241, 0.4)',
               borderRadius: '12px',
-              minWidth: 220,
-              maxHeight: 200,
+              minWidth: 240,
+              maxHeight: 300,
               overflowY: 'auto',
               boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.4), 0 -1px 6px rgba(99, 102, 241, 0.15)',
               '&::-webkit-scrollbar': { width: 4 },
@@ -318,104 +333,100 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput
           },
         }}
       >
-        {connections.map((conn) => (
-          <MenuItem
-            key={conn.id}
-            selected={displayConnection?.id === conn.id}
-            onClick={() => handleConnectionSelect(conn.id)}
-            onMouseEnter={(e) => handleConnectionHover(e, conn)}
-            sx={{
-              borderRadius: '8px',
-              mx: 0.5,
-              my: 0.25,
-              '&.Mui-selected': {
-                bgcolor: 'rgba(99, 102, 241, 0.15)',
-                '&:hover': {
-                  bgcolor: 'rgba(99, 102, 241, 0.25)',
-                },
-              },
-              '&:hover': {
-                bgcolor: 'rgba(255, 255, 255, 0.06)',
-              },
-            }}
-          >
-            <ListItemIcon sx={{ minWidth: '28px !important' }}>
-              <Box
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 1,
-                  bgcolor: conn.isActive
-                    ? (connectionErrors[conn.id] ? 'error.main' : 'success.main')
-                    : 'text.disabled',
-                }}
-              />
-            </ListItemIcon>
-            <ListItemText
-              primary={conn.connectionName || conn.database}
-              secondary={`${conn.host}:${conn.port}`}
-              primaryTypographyProps={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.9)' }}
-              secondaryTypographyProps={{ fontSize: '0.65rem', color: 'rgba(255, 255, 255, 0.45)' }}
-            />
-            {conn.isActive && conn.availableDatabases && conn.availableDatabases.length > 1 && (
-              <Typography sx={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.35)', ml: 0.5 }}>
-                {conn.activeDatabase || conn.database} ▸
-              </Typography>
-            )}
-          </MenuItem>
-        ))}
-      </Menu>
-      {/* Database submenu */}
-      <Menu
-        anchorEl={dbSubmenuAnchor?.el}
-        open={Boolean(dbSubmenuAnchor)}
-        onClose={() => setDbSubmenuAnchor(null)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        slotProps={{
-          paper: {
-            sx: {
-              bgcolor: 'rgba(20, 20, 35, 0.9)',
-              backdropFilter: 'blur(16px)',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
-              borderRadius: '10px',
-              minWidth: 160,
-              maxHeight: 200,
-              overflowY: 'auto',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-              '&::-webkit-scrollbar': { width: 4 },
-              '&::-webkit-scrollbar-thumb': { background: 'rgba(99,102,241,0.3)', borderRadius: 2 },
-            },
-          },
-        }}
-        MenuListProps={{ onMouseLeave: () => setDbSubmenuAnchor(null) }}
-      >
-        {dbSubmenuAnchor?.conn.availableDatabases?.map((db: any) => {
-          const isActive = db.name === (dbSubmenuAnchor.conn.activeDatabase || dbSubmenuAnchor.conn.database);
+        {connections.map((conn) => {
+          const hasMultiDb = conn.isActive && conn.availableDatabases && conn.availableDatabases.length > 1;
+          const isExpanded = expandedConnId === conn.id;
+          const isSelected = displayConnection?.id === conn.id;
+          const connActiveDb = conn.activeDatabase || conn.database;
+
           return (
-            <MenuItem
-              key={db.name}
-              selected={isActive}
-              onClick={() => {
-                setDbMenuAnchor(null);
-                setDbSubmenuAnchor(null);
-                // Switch to this specific database
-                onSwitchConnection?.(dbSubmenuAnchor.conn.id);
-              }}
-              sx={{
-                borderRadius: '6px', mx: 0.5, my: 0.25, py: 0.5,
-                '&.Mui-selected': { bgcolor: 'rgba(76,175,80,0.15)' },
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.06)' },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: '22px !important' }}>
-                <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: isActive ? '#4caf50' : 'text.disabled' }} />
-              </ListItemIcon>
-              <ListItemText
-                primary={db.name}
-                primaryTypographyProps={{ fontSize: '0.75rem', color: isActive ? '#4caf50' : 'rgba(255,255,255,0.8)' }}
-              />
-            </MenuItem>
+            <Box key={conn.id}>
+              <MenuItem
+                selected={isSelected && !hasMultiDb}
+                onClick={() => handleConnectionClick(conn)}
+                sx={{
+                  borderRadius: '8px',
+                  mx: 0.5,
+                  my: 0.25,
+                  '&.Mui-selected': {
+                    bgcolor: 'rgba(99, 102, 241, 0.15)',
+                    '&:hover': { bgcolor: 'rgba(99, 102, 241, 0.25)' },
+                  },
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.06)' },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: '28px !important' }}>
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 1,
+                      bgcolor: conn.isActive
+                        ? (connectionErrors[conn.id] ? 'error.main' : 'success.main')
+                        : 'text.disabled',
+                    }}
+                  />
+                </ListItemIcon>
+                <ListItemText
+                  primary={conn.connectionName || conn.host}
+                  secondary={`${conn.host}:${conn.port}`}
+                  primaryTypographyProps={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.9)' }}
+                  secondaryTypographyProps={{ fontSize: '0.65rem', color: 'rgba(255, 255, 255, 0.45)' }}
+                />
+                {hasMultiDb && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', ml: 0.5 }}>
+                    <Typography sx={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)', mr: 0.25 }}>
+                      {connActiveDb}
+                    </Typography>
+                    {isExpanded
+                      ? <ExpandLessIcon sx={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.4)' }} />
+                      : <ChevronRightIcon sx={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.4)' }} />
+                    }
+                  </Box>
+                )}
+              </MenuItem>
+
+              {/* Inline database list (accordion) */}
+              {hasMultiDb && isExpanded && (
+                <Box sx={{ pl: 3, pr: 0.5, pb: 0.5 }}>
+                  {conn.availableDatabases!.map((db: any) => {
+                    const isActiveDb = db.name === connActiveDb && isSelected;
+                    return (
+                      <MenuItem
+                        key={db.name}
+                        selected={isActiveDb}
+                        onClick={() => handleDatabaseSelect(conn.id, db.name)}
+                        sx={{
+                          borderRadius: '6px',
+                          mx: 0,
+                          my: 0.25,
+                          py: 0.5,
+                          minHeight: 28,
+                          '&.Mui-selected': { bgcolor: 'rgba(76,175,80,0.15)' },
+                          '&:hover': { bgcolor: 'rgba(255,255,255,0.06)' },
+                        }}
+                      >
+                        <ListItemIcon sx={{ minWidth: '20px !important' }}>
+                          <Box sx={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            bgcolor: isActiveDb ? '#4caf50' : 'rgba(255,255,255,0.25)',
+                          }} />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={db.name}
+                          primaryTypographyProps={{
+                            fontSize: '0.75rem',
+                            color: isActiveDb ? '#4caf50' : 'rgba(255,255,255,0.8)',
+                          }}
+                        />
+                      </MenuItem>
+                    );
+                  })}
+                </Box>
+              )}
+            </Box>
           );
         })}
       </Menu>

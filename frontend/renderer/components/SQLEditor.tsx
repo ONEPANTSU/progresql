@@ -192,7 +192,7 @@ interface SQLEditorProps {
   activeConnection?: DatabaseServer | null;
   connections?: DatabaseServer[];
   connectionErrors?: Record<string, string>;
-  onSwitchConnection?: (connectionId: string) => void;
+  onSwitchConnection?: (connectionId: string, database?: string) => void;
 }
 
 const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor({
@@ -210,6 +210,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
   const [query, setQuery] = useState(activeTab?.content ?? '');
   const [isExecuting, setIsExecuting] = useState(false);
   const [connectionMenuAnchor, setConnectionMenuAnchor] = useState<HTMLElement | null>(null);
+  const [expandedEditorConnId, setExpandedEditorConnId] = useState<string | null>(null);
   const [templateMenuAnchor, setTemplateMenuAnchor] = useState<HTMLElement | null>(null);
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
@@ -761,7 +762,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
         {/* Connection pill/badge */}
         <Tooltip title={activeConnection ? t('editor.switchConnection') : t('editor.noConnection')}>
           <Box
-            onClick={(e) => connections.length > 0 ? setConnectionMenuAnchor(e.currentTarget) : undefined}
+            onClick={(e) => { if (connections.length > 0) { setConnectionMenuAnchor(e.currentTarget); setExpandedEditorConnId(null); } }}
             sx={{
               display: 'flex',
               alignItems: 'center',
@@ -779,7 +780,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
                 borderColor: 'rgba(255,255,255,0.15)',
               } : {},
               flexShrink: 0,
-              maxWidth: 180,
+              maxWidth: 220,
             }}
           >
             <Box
@@ -788,7 +789,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
                 height: 8,
                 borderRadius: '50%',
                 bgcolor: activeConnection
-                  ? (connectionErrors[activeConnection.id] ? 'error.main' : 'success.main')
+                  ? (connectionErrors[activeConnection.id] ? 'error.main' : activeConnection.isActive ? 'success.main' : 'text.disabled')
                   : 'text.disabled',
                 flexShrink: 0,
               }}
@@ -804,7 +805,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
               }}
             >
               {activeConnection
-                ? (activeConnection.connectionName || activeConnection.database)
+                ? `${activeConnection.connectionName || activeConnection.host} · ${activeConnection.activeDatabase || activeConnection.database}`
                 : t('editor.noConnection')}
             </Typography>
           </Box>
@@ -812,53 +813,102 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
         <Menu
           anchorEl={connectionMenuAnchor}
           open={Boolean(connectionMenuAnchor)}
-          onClose={() => setConnectionMenuAnchor(null)}
+          onClose={() => { setConnectionMenuAnchor(null); setExpandedEditorConnId(null); }}
           slotProps={{
             paper: {
               sx: {
-                bgcolor: 'background.paper',
-                border: '1px solid rgba(255,255,255,0.1)',
-                minWidth: 200,
+                bgcolor: 'rgba(20, 20, 35, 0.85)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                border: '1px solid rgba(99, 102, 241, 0.4)',
+                borderRadius: '12px',
+                minWidth: 240,
+                maxHeight: 300,
+                overflowY: 'auto',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+                '&::-webkit-scrollbar': { width: 4 },
+                '&::-webkit-scrollbar-thumb': { background: 'rgba(99,102,241,0.3)', borderRadius: 2 },
               },
             },
           }}
         >
-          {connections.map((conn) => (
-            <MenuItem
-              key={conn.id}
-              selected={activeConnection?.id === conn.id}
-              onClick={() => {
-                if (onSwitchConnection) {
-                  onSwitchConnection(conn.id);
-                }
-                setConnectionMenuAnchor(null);
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: '28px !important' }}>
-                <Box
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    bgcolor: conn.isActive
-                      ? (connectionErrors[conn.id] ? 'error.main' : 'success.main')
-                      : 'text.disabled',
+          {connections.map((conn) => {
+            const hasMultiDb = conn.isActive && conn.availableDatabases && conn.availableDatabases.length > 1;
+            const isExpanded = expandedEditorConnId === conn.id;
+            const isSelected = activeConnection?.id === conn.id;
+            const connActiveDb = conn.activeDatabase || conn.database;
+
+            return (
+              <Box key={conn.id}>
+                <MenuItem
+                  selected={isSelected && !hasMultiDb}
+                  onClick={() => {
+                    if (hasMultiDb) {
+                      setExpandedEditorConnId(prev => prev === conn.id ? null : conn.id);
+                    } else {
+                      if (onSwitchConnection) onSwitchConnection(conn.id);
+                      setConnectionMenuAnchor(null);
+                      setExpandedEditorConnId(null);
+                    }
                   }}
-                />
-              </ListItemIcon>
-              <ListItemText
-                primary={conn.connectionName || conn.database}
-                secondary={`${conn.host}:${conn.port}`}
-                primaryTypographyProps={{ fontSize: '0.8rem' }}
-                secondaryTypographyProps={{ fontSize: '0.65rem' }}
-              />
-              {conn.isActive && conn.availableDatabases && conn.availableDatabases.length > 1 && (
-                <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', ml: 0.5 }}>
-                  {conn.activeDatabase || conn.database}
-                </Typography>
-              )}
-            </MenuItem>
-          ))}
+                  sx={{
+                    borderRadius: '8px', mx: 0.5, my: 0.25,
+                    '&.Mui-selected': { bgcolor: 'rgba(99,102,241,0.15)', '&:hover': { bgcolor: 'rgba(99,102,241,0.25)' } },
+                    '&:hover': { bgcolor: 'rgba(255,255,255,0.06)' },
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: '28px !important' }}>
+                    <Box sx={{
+                      width: 8, height: 8, borderRadius: 1,
+                      bgcolor: conn.isActive ? (connectionErrors[conn.id] ? 'error.main' : 'success.main') : 'text.disabled',
+                    }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={conn.connectionName || conn.host}
+                    secondary={`${conn.host}:${conn.port}`}
+                    primaryTypographyProps={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.9)' }}
+                    secondaryTypographyProps={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.45)' }}
+                  />
+                  {hasMultiDb && (
+                    <Typography sx={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)', ml: 0.5 }}>
+                      {connActiveDb} {isExpanded ? '▾' : '▸'}
+                    </Typography>
+                  )}
+                </MenuItem>
+                {hasMultiDb && isExpanded && (
+                  <Box sx={{ pl: 3, pr: 0.5, pb: 0.5 }}>
+                    {conn.availableDatabases!.map((db: any) => {
+                      const isActiveDb = db.name === connActiveDb && isSelected;
+                      return (
+                        <MenuItem
+                          key={db.name}
+                          selected={isActiveDb}
+                          onClick={() => {
+                            if (onSwitchConnection) onSwitchConnection(conn.id, db.name);
+                            setConnectionMenuAnchor(null);
+                            setExpandedEditorConnId(null);
+                          }}
+                          sx={{
+                            borderRadius: '6px', mx: 0, my: 0.25, py: 0.5, minHeight: 28,
+                            '&.Mui-selected': { bgcolor: 'rgba(76,175,80,0.15)' },
+                            '&:hover': { bgcolor: 'rgba(255,255,255,0.06)' },
+                          }}
+                        >
+                          <ListItemIcon sx={{ minWidth: '20px !important' }}>
+                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: isActiveDb ? '#4caf50' : 'rgba(255,255,255,0.25)' }} />
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={db.name}
+                            primaryTypographyProps={{ fontSize: '0.75rem', color: isActiveDb ? '#4caf50' : 'rgba(255,255,255,0.8)' }}
+                          />
+                        </MenuItem>
+                      );
+                    })}
+                  </Box>
+                )}
+              </Box>
+            );
+          })}
         </Menu>
 
         {/* Toolbar actions integrated into tab bar */}
