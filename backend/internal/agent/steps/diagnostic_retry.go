@@ -10,6 +10,7 @@ import (
 
 	"github.com/onepantsu/progressql/backend/internal/agent"
 	"github.com/onepantsu/progressql/backend/internal/llm"
+	"github.com/onepantsu/progressql/backend/internal/security"
 	"github.com/onepantsu/progressql/backend/internal/tools"
 )
 
@@ -47,6 +48,19 @@ func (s *DiagnosticRetryStep) Execute(ctx context.Context, pctx *agent.PipelineC
 	// incorrectly fail validation. Execute mode trusts the generated SQL.
 	if pctx.SecurityMode == agent.SecurityModeExecute {
 		pctx.Logger.Info("diagnostic_retry skipped: execute mode enabled")
+		pctx.Set(ContextKeySQLCandidates, candidates)
+		pctx.Set(ContextKeySQLCandidate, candidates[0])
+		pctx.Result.SQL = candidates[0]
+		pctx.Result.Candidates = candidates
+		return nil
+	}
+
+	// Skip EXPLAIN for DDL/DML statements — they cannot be EXPLAINed.
+	// The SQL is still shown to the user but won't be auto-executed in safe/data modes.
+	if security.CheckSQLWithSecurityMode(candidates[0], "safe") != nil {
+		pctx.Logger.Info("diagnostic_retry skipped: DDL/DML SQL cannot be EXPLAINed",
+			zap.String("sql_prefix", candidates[0][:min(len(candidates[0]), 40)]),
+		)
 		pctx.Set(ContextKeySQLCandidates, candidates)
 		pctx.Set(ContextKeySQLCandidate, candidates[0])
 		pctx.Result.SQL = candidates[0]

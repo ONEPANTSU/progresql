@@ -100,7 +100,7 @@ function formatAgentResponse(response: AgentResponsePayload, t: TFunction): stri
     }
   }
 
-  // Show validation error annotation when SQL failed EXPLAIN validation after retries.
+  // Show validation error only for EXPLAIN failures (not for DDL which can't be EXPLAINed).
   if (response.result.validation_error) {
     parts.push('\n> ⚠️ ' + t('agentError.validationFailed') + ': ' + response.result.validation_error);
   }
