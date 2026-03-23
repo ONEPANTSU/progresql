@@ -429,21 +429,19 @@ export default function Home() {
         // Get database structure
         log.debug('Getting database structure...');
         try {
-          const structureResult = await window.electronAPI.getDatabaseStructure(connectionId);
+          // Fetch structure and available databases in parallel
+          const [structureResult, dbListResult] = await Promise.all([
+            window.electronAPI.getDatabaseStructure(connectionId),
+            window.electronAPI.listDatabases(connectionId).catch((e: unknown) => {
+              log.warn('Failed to list databases:', e);
+              return { success: false } as { success: boolean; databases?: Array<{ name: string; owner?: string; encoding?: string; size?: string }> };
+            }),
+          ]);
 
           if (structureResult.success) {
             setDatabaseStructure(structureResult);
 
-            // Fetch list of all available databases on this server
-            let availableDatabases: Array<{ name: string; owner?: string; encoding?: string; size?: string }> | undefined;
-            try {
-              const dbListResult = await window.electronAPI.listDatabases(connectionId);
-              if (dbListResult.success && dbListResult.databases) {
-                availableDatabases = dbListResult.databases;
-              }
-            } catch (e) {
-              log.warn('Failed to list databases:', e);
-            }
+            const availableDatabases = dbListResult.success && dbListResult.databases ? dbListResult.databases : undefined;
 
             // Mark this connection as active (keep others' isActive unchanged)
             const activeDb = databaseOverride || connection.database || 'postgres';
@@ -704,15 +702,13 @@ export default function Home() {
       setIsChatOpen(true);
     }
     if (definition) {
-      // Has SQL definition (view, function, etc.) — explain as SQL
-      setTimeout(() => chatPanelRef.current?.sendExplainSQL(definition), 50);
+      // Has SQL definition (view, function, etc.) — explain with full context
+      const contextPrefix = `Explain the ${objectType} "${objectName}":\n\n`;
+      setTimeout(() => chatPanelRef.current?.sendExplainSQL(contextPrefix + definition), 50);
     } else {
-      // No definition (table, sequence, etc.) — send as plain text question
+      // No definition (table, sequence, etc.) — send directly
       const prompt = `Explain the ${objectType} "${objectName}" — what is it for, what columns/structure does it have?`;
-      setTimeout(() => {
-        chatPanelRef.current?.setInputText(prompt);
-        chatPanelRef.current?.focusInput();
-      }, 50);
+      setTimeout(() => chatPanelRef.current?.sendExplainSQL(prompt), 50);
     }
   };
 
