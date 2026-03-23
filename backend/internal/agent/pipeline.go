@@ -47,7 +47,7 @@ type PipelineContext struct {
 	ActiveTable      string
 	UserDescriptions string
 	Model            string
-	SafeMode         bool   // When true, LLM cannot access data and DML is blocked.
+	SecurityMode     string // "safe", "data", or "execute". Default: "safe".
 	Language         string // User's UI language: "ru" or "en".
 
 	// ConversationHistory holds previous user/assistant messages for multi-turn context.
@@ -126,7 +126,7 @@ func (pc *PipelineContext) AddTokensDetailed(usage llm.Usage) {
 	pc.TokensUsed += usage.TotalTokens
 }
 
-// MessagesWithHistory returns a message slice with a SafeMode system prompt and
+// MessagesWithHistory returns a message slice with a SecurityMode system prompt and
 // ConversationHistory prepended before the given messages.
 // This enables multi-turn context and consistent security policy for all LLM calls.
 func (pc *PipelineContext) MessagesWithHistory(msgs ...llm.Message) []llm.Message {
@@ -134,7 +134,11 @@ func (pc *PipelineContext) MessagesWithHistory(msgs ...llm.Message) []llm.Messag
 	if lang == "" {
 		lang = "en"
 	}
-	systemPrompt := SafeModeSystemPrompt(pc.SafeMode, lang)
+	mode := pc.SecurityMode
+	if mode == "" {
+		mode = SecurityModeSafe
+	}
+	systemPrompt := SafeModeSystemPrompt(mode, lang)
 	extra := 1 + len(pc.ConversationHistory) // system prompt + history
 	result := make([]llm.Message, 0, extra+len(msgs))
 	result = append(result, llm.Message{Role: "system", Content: systemPrompt})
@@ -216,6 +220,35 @@ func (p *Pipeline) RegisterAction(action string, steps ...Step) {
 	p.mu.Lock()
 	p.actions[action] = steps
 	p.mu.Unlock()
+}
+
+// resolveSecurityMode extracts the security mode from the request context.
+// Priority: SecurityMode field > SafeMode bool (backward compat) > default "safe".
+func resolveSecurityMode(reqCtx *websocket.AgentRequestContext) string {
+	if reqCtx == nil {
+		return SecurityModeSafe
+	}
+
+	// New field takes priority.
+	if reqCtx.SecurityMode != nil {
+		mode := *reqCtx.SecurityMode
+		switch mode {
+		case SecurityModeSafe, SecurityModeData, SecurityModeExecute:
+			return mode
+		default:
+			return SecurityModeSafe
+		}
+	}
+
+	// Backward compatibility: map old bool SafeMode to new SecurityMode.
+	if reqCtx.SafeMode != nil {
+		if *reqCtx.SafeMode {
+			return SecurityModeSafe
+		}
+		return SecurityModeExecute
+	}
+
+	return SecurityModeSafe
 }
 
 // HandleMessage processes an incoming agent.request envelope.
@@ -305,14 +338,8 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		pctx.ActiveTable = payload.Context.ActiveTable
 		pctx.UserDescriptions = payload.Context.UserDescriptions
 		pctx.Language = payload.Context.Language
-		if payload.Context.SafeMode != nil {
-			pctx.SafeMode = *payload.Context.SafeMode
-		} else {
-			pctx.SafeMode = true // Safe mode is the default.
-		}
-	} else {
-		pctx.SafeMode = true // Safe mode is the default.
 	}
+	pctx.SecurityMode = resolveSecurityMode(payload.Context)
 	if pctx.Language == "" {
 		pctx.Language = "en"
 	}

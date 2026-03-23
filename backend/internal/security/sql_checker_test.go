@@ -264,3 +264,57 @@ func searchString(s, substr string) bool {
 	}
 	return false
 }
+
+func TestCheckSQLWithSecurityMode_SafeMode(t *testing.T) {
+	if err := CheckSQLWithSecurityMode("SELECT 1", "safe"); err != nil {
+		t.Errorf("safe mode SELECT: got error %v, want nil", err)
+	}
+	if err := CheckSQLWithSecurityMode("DROP TABLE users", "safe"); err == nil {
+		t.Error("safe mode DROP: got nil, want error")
+	}
+	if err := CheckSQLWithSecurityMode("INSERT INTO t VALUES (1)", "safe"); err == nil {
+		t.Error("safe mode INSERT: got nil, want error")
+	}
+	if err := CheckSQLWithSecurityMode("", "safe"); err == nil {
+		t.Error("safe mode empty SQL: got nil, want error")
+	}
+}
+
+func TestCheckSQLWithSecurityMode_DataMode(t *testing.T) {
+	// Data mode: same restrictions as safe mode (read-only).
+	if err := CheckSQLWithSecurityMode("SELECT 1", "data"); err != nil {
+		t.Errorf("data mode SELECT: got error %v, want nil", err)
+	}
+	if err := CheckSQLWithSecurityMode("EXPLAIN SELECT 1", "data"); err != nil {
+		t.Errorf("data mode EXPLAIN: got error %v, want nil", err)
+	}
+	if err := CheckSQLWithSecurityMode("DROP TABLE users", "data"); err == nil {
+		t.Error("data mode DROP: got nil, want error")
+	}
+	if err := CheckSQLWithSecurityMode("INSERT INTO t VALUES (1)", "data"); err == nil {
+		t.Error("data mode INSERT: got nil, want error")
+	}
+}
+
+func TestCheckSQLWithSecurityMode_ExecuteMode(t *testing.T) {
+	// Execute mode: all SQL commands allowed.
+	tests := []string{
+		"SELECT 1",
+		"INSERT INTO users (name) VALUES ('test')",
+		"UPDATE users SET name = 'new'",
+		"DELETE FROM users WHERE id = 1",
+		"DROP TABLE users",
+		"CREATE TABLE foo (id int)",
+		"ALTER TABLE users ADD COLUMN age int",
+		"TRUNCATE TABLE users",
+	}
+	for _, sql := range tests {
+		if err := CheckSQLWithSecurityMode(sql, "execute"); err != nil {
+			t.Errorf("execute mode %q: got error %v, want nil", sql, err)
+		}
+	}
+	// Empty SQL still fails even in execute mode.
+	if err := CheckSQLWithSecurityMode("", "execute"); err == nil {
+		t.Error("execute mode empty SQL: got nil, want error")
+	}
+}

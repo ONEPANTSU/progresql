@@ -33,11 +33,12 @@ type AgentRequestPayload struct {
 
 // AgentRequestContext provides optional context for an agent request.
 type AgentRequestContext struct {
-	SelectedSQL      string `json:"selected_sql,omitempty"`
-	ActiveTable      string `json:"active_table,omitempty"`
-	UserDescriptions string `json:"user_descriptions,omitempty"`
-	SafeMode         *bool  `json:"safe_mode,omitempty"`
-	Language         string `json:"language,omitempty"` // "ru" or "en"
+	SelectedSQL      string  `json:"selected_sql,omitempty"`
+	ActiveTable      string  `json:"active_table,omitempty"`
+	UserDescriptions string  `json:"user_descriptions,omitempty"`
+	SafeMode         *bool   `json:"safe_mode,omitempty"`          // deprecated, kept for backward compat
+	SecurityMode     *string `json:"security_mode,omitempty"`      // "safe", "data", "execute"
+	Language         string  `json:"language,omitempty"`            // "ru" or "en"
 }
 
 // ToolResultPayload is the client's response to a tool.call.

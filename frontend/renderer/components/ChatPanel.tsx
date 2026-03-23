@@ -155,9 +155,9 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
           </svg>
           <BotIcon sx={{ fontSize: '1.25rem', fill: 'url(#botIconGradient)' }} />
           <Typography variant="subtitle1" sx={{ flexGrow: 1, fontWeight: 600 }}>{t('chat.title')}</Typography>
-          {!agent.safeMode && (
-            <Tooltip title={t('settings.unsafeWarning')}>
-              <WarningIcon sx={{ fontSize: 20, color: 'warning.main', cursor: 'default' }} aria-label="Unsafe mode active" />
+          {agent.securityMode !== 'safe' && (
+            <Tooltip title={agent.securityMode === 'execute' ? t('settings.unsafeWarning') : t('settings.dataModeWarning')}>
+              <WarningIcon sx={{ fontSize: 20, color: agent.securityMode === 'execute' ? 'warning.main' : 'info.main', cursor: 'default' }} aria-label={`${agent.securityMode} mode active`} />
             </Tooltip>
           )}
           {onOpenSettings && (<Tooltip title={t('chat.settings')}><IconButton size="small" onClick={onOpenSettings} aria-label="Open settings"><SettingsIcon /></IconButton></Tooltip>)}
@@ -301,7 +301,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
         ) : (
           <List sx={{ p: 0 }}>
             {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} isTyping={isTyping} isAgentConnected={agent.isConnected} isDatabaseConnected={isDatabaseConnected} safeMode={agent.safeMode} onExplainSQL={agentMessages.handleSendExplainSQL} onApplySQL={onApplySQL} onExecuteQuery={onExecuteQuery} />
+              <ChatMessage key={message.id} message={message} isTyping={isTyping} isAgentConnected={agent.isConnected} isDatabaseConnected={isDatabaseConnected} safeMode={agent.securityMode === 'safe'} onExplainSQL={agentMessages.handleSendExplainSQL} onApplySQL={onApplySQL} onExecuteQuery={onExecuteQuery} />
             ))}
           </List>
         )}

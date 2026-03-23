@@ -31,6 +31,7 @@ export interface AgentRequestPayload {
     active_table?: string;
     user_descriptions?: string;
     safe_mode?: boolean;
+    security_mode?: 'safe' | 'data' | 'execute';
     language?: string;
     connection_id?: string;
   };

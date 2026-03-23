@@ -83,7 +83,7 @@ function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }
 }
 
 export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
-  const { model, setModel, safeMode, setSafeMode } = useAgent();
+  const { model, setModel, securityMode, setSecurityMode } = useAgent();
   const [showUnsafeWarning, setShowUnsafeWarning] = React.useState(false);
   const { themeMode, setThemeMode } = useTheme();
   const { t, language, setLanguage } = useTranslation();
@@ -320,35 +320,63 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
           </FormControl>
         </Box>
 
-        {/* Security */}
+        {/* Security Mode */}
         <Box sx={sectionCardSx}>
           <SectionHeader
-            icon={<ShieldIcon sx={{ fontSize: 16, color: safeMode ? 'success.main' : 'warning.main' }} />}
+            icon={<ShieldIcon sx={{ fontSize: 16, color: securityMode === 'safe' ? 'success.main' : securityMode === 'data' ? 'info.main' : 'warning.main' }} />}
             title={t('settings.security')}
           />
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box>
-              <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
-                {t('settings.safeMode')}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.2 }}>
-                {safeMode ? t('settings.safeModeOn') : t('settings.safeModeOff')}
-              </Typography>
-            </Box>
-            <Switch
-              checked={safeMode}
-              onChange={(_, checked) => {
-                setSafeMode(checked);
-                if (!checked) {
+          <FormControl fullWidth size="small">
+            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.3, mb: 0.5 }}>
+              {t('settings.securityMode')}
+            </Typography>
+            <Select
+              value={securityMode}
+              onChange={(e) => {
+                const mode = e.target.value as 'safe' | 'data' | 'execute';
+                setSecurityMode(mode);
+                if (mode === 'execute') {
                   setShowUnsafeWarning(true);
                   setTimeout(() => setShowUnsafeWarning(false), 3000);
                 } else {
                   setShowUnsafeWarning(false);
                 }
               }}
-              size="small"
-              color="success"
-            />
+              sx={{ fontSize: '0.85rem' }}
+            >
+              <MenuItem value="safe">
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>🛡️ Safe Mode</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    {t('settings.securityModeSafeDesc')}
+                  </Typography>
+                </Box>
+              </MenuItem>
+              <MenuItem value="data">
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>📊 Data Mode</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    {t('settings.securityModeDataDesc')}
+                  </Typography>
+                </Box>
+              </MenuItem>
+              <MenuItem value="execute">
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>⚡ Execute Mode</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    {t('settings.securityModeExecuteDesc')}
+                  </Typography>
+                </Box>
+              </MenuItem>
+            </Select>
+          </FormControl>
+          {/* Mode info tooltip */}
+          <Box sx={{ mt: 1, p: 1.5, borderRadius: 1, bgcolor: securityMode === 'safe' ? 'rgba(34,197,94,0.08)' : securityMode === 'data' ? 'rgba(59,130,246,0.08)' : 'rgba(245,158,11,0.08)', border: '1px solid', borderColor: securityMode === 'safe' ? 'rgba(34,197,94,0.2)' : securityMode === 'data' ? 'rgba(59,130,246,0.2)' : 'rgba(245,158,11,0.2)' }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.5 }}>
+              {securityMode === 'safe' && t('settings.securityModeSafeInfo')}
+              {securityMode === 'data' && t('settings.securityModeDataInfo')}
+              {securityMode === 'execute' && t('settings.securityModeExecuteInfo')}
+            </Typography>
           </Box>
         </Box>
 

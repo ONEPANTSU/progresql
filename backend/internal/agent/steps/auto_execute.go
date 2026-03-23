@@ -22,7 +22,7 @@ func (s *AutoExecuteStep) Name() string { return "auto_execute" }
 
 func (s *AutoExecuteStep) Execute(ctx context.Context, pctx *agent.PipelineContext) error {
 	// In safe mode, never auto-execute queries — the user must run them manually.
-	if pctx.SafeMode {
+	if pctx.SecurityMode == agent.SecurityModeSafe {
 		pctx.Logger.Info("auto_execute skipped: safe mode enabled")
 		return nil
 	}

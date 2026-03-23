@@ -7,6 +7,12 @@ const dbHealth = require('./db-health');
 const { createLogger } = require('./logger');
 const log = createLogger('Main');
 
+// Fix Linux AppImage SUID sandbox issue
+// chrome-sandbox requires root ownership + mode 4755 which AppImage can't provide
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('no-sandbox');
+}
+
 // Set app name for macOS Dock, Cmd+Tab, and window title
 app.name = 'ProgreSQL';
 

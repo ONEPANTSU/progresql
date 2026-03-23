@@ -200,6 +200,7 @@ export function useAgentMessages({
           ...payload.context,
           ...(userDescs ? { user_descriptions: userDescs } : {}),
           safe_mode: agent.safeMode,
+          security_mode: agent.securityMode,
           language: language,
           ...(connectionId ? { connection_id: connectionId } : {}),
         },

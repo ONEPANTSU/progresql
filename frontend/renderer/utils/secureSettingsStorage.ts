@@ -3,11 +3,19 @@ import { userKey } from './userStorage';
 // Backend URL stays GLOBAL — needed before login for auth API requests.
 const STORAGE_KEY_BACKEND_URL = 'progresql-agent-backend-url';
 
-// Model and safe mode are per-user preferences.
+// Security mode values
+export type SecurityMode = 'safe' | 'data' | 'execute';
+
+// Model and security mode are per-user preferences.
 function modelKey(): string {
   return userKey('agent-model');
 }
 
+function securityModeKey(): string {
+  return userKey('agent-security-mode');
+}
+
+// Legacy key for migration
 function safeModeKey(): string {
   return userKey('agent-safe-mode');
 }
@@ -51,12 +59,28 @@ export function saveModel(model: string): void {
   setItem(modelKey(), model);
 }
 
+export function loadSecurityMode(): SecurityMode {
+  const val = getItem(securityModeKey());
+  if (val === 'safe' || val === 'data' || val === 'execute') {
+    return val;
+  }
+  // Migrate from old boolean safe_mode
+  const oldVal = getItem(safeModeKey());
+  if (oldVal === 'false') {
+    return 'execute';
+  }
+  return 'safe'; // Default
+}
+
+export function saveSecurityMode(mode: SecurityMode): void {
+  setItem(securityModeKey(), mode);
+}
+
+// Backward compatibility — kept for old code that may still reference these
 export function loadSafeMode(): boolean {
-  const val = getItem(safeModeKey());
-  // Default to true (safe mode ON) when not explicitly set.
-  return val !== 'false';
+  return loadSecurityMode() === 'safe';
 }
 
 export function saveSafeMode(enabled: boolean): void {
-  setItem(safeModeKey(), enabled ? 'true' : 'false');
+  saveSecurityMode(enabled ? 'safe' : 'execute');
 }

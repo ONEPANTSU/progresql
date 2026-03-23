@@ -2,20 +2,59 @@ package agent
 
 import "fmt"
 
-// SafeModeSystemPrompt returns an LLM system instruction based on the safety mode and language.
-// In safe mode: instructs the LLM to only work with schema metadata and generate read-only SQL.
-// In unsafe mode: allows full access including data inspection and DML operations.
-func SafeModeSystemPrompt(safeMode bool, language string) string {
+// SecurityMode constants.
+const (
+	SecurityModeSafe    = "safe"
+	SecurityModeData    = "data"
+	SecurityModeExecute = "execute"
+)
+
+// SafeModeSystemPrompt returns an LLM system instruction based on the security mode and language.
+// securityMode must be one of: "safe", "data", "execute". Defaults to "safe" if unknown.
+func SafeModeSystemPrompt(securityMode string, language string) string {
 	langInstruction := languageInstruction(language)
 
-	if safeMode {
+	switch securityMode {
+	case SecurityModeData:
 		return fmt.Sprintf(`%s
 
-SECURITY POLICY (Safe Mode):
-- You have access ONLY to database schema metadata (tables, columns, types, indexes, functions, sequences, triggers, views).
-- You MUST NOT access, read, display, or reference any actual user data from the database.
-- You MUST generate ONLY read-only SQL: SELECT, EXPLAIN, WITH (CTE).
+SECURITY POLICY (Data Mode — Read Only):
+- You have read-only access to the database including both schema and data.
+- All queries MUST be executed inside a READ ONLY transaction.
+- You CAN use SELECT, EXPLAIN, EXPLAIN ANALYZE, WITH (CTE).
+- You CAN read and analyze actual data from user tables.
+- You CAN generate analytics, reports, and charts from data.
 - You MUST NOT generate INSERT, UPDATE, DELETE, DROP, TRUNCATE, ALTER, CREATE, GRANT, REVOKE, or COPY statements.
+- If a function has side effects, PostgreSQL will block it automatically in READ ONLY mode.
+
+If the user asks to modify data or schema, explain that they need to switch to Execute Mode.
+
+SQL COMMENTS: Write SQL comments in the same language as your responses.`, langInstruction)
+
+	case SecurityModeExecute:
+		return fmt.Sprintf(`%s
+
+SECURITY POLICY (Execute Mode — Full Access):
+- You have full access to the database including data and schema.
+- You may generate any SQL including INSERT, UPDATE, DELETE, and DDL statements.
+- Use caution with destructive operations and always warn the user before executing DROP, TRUNCATE, DELETE without WHERE, or schema changes.
+- Always confirm with the user before executing potentially dangerous operations.
+
+SQL COMMENTS: Write SQL comments in the same language as your responses.`, langInstruction)
+
+	default:
+		// "safe" mode or any unknown value defaults to safe.
+		return fmt.Sprintf(`%s
+
+SECURITY POLICY (Safe Mode — Schema Only):
+- You have access ONLY to database schema metadata (tables, columns, types, indexes, functions, sequences, triggers, views).
+- You CAN read source code of functions, views, triggers, and procedures via system catalogs.
+- You CAN use EXPLAIN (without ANALYZE) to show query execution plans.
+- You MUST NOT access, read, display, or reference any actual user data from the database.
+- You MUST NOT execute any queries against user tables.
+- You MUST generate ONLY schema-inspection SQL: queries against pg_catalog, information_schema, pg_proc, etc.
+- You MUST NOT generate INSERT, UPDATE, DELETE, DROP, TRUNCATE, ALTER, CREATE, GRANT, REVOKE, or COPY statements.
+- You MUST NOT use EXPLAIN ANALYZE (it executes the query).
 
 ALLOWED SYSTEM QUERIES in Safe Mode:
 You CAN use SELECT on system catalogs and information_schema to inspect database structure:
@@ -34,19 +73,10 @@ These queries are safe because they expose only metadata, not user data.
 
 IMPORTANT: When the user asks about functions, triggers, views, or any database objects — you MUST query system catalogs to get full details (e.g. function body via pg_proc.prosrc). Do NOT just list names — provide complete information.
 
-If the user asks for data analytics or reports, provide the SQL query they can run themselves, but do NOT execute it. Explain that they need to disable safe mode to run data queries.
+If the user asks for data analytics, reports, or to run queries against their tables, explain that they need to switch to Data Mode or Execute Mode. Suggest what query you WOULD write, but do NOT execute it.
 
 SQL COMMENTS: Write SQL comments in the same language as your responses.`, langInstruction)
 	}
-
-	return fmt.Sprintf(`%s
-
-SECURITY POLICY (Full Access Mode):
-- You have full access to the database including data and schema.
-- You may generate any SQL including INSERT, UPDATE, DELETE, and DDL statements.
-- Use caution with destructive operations and always warn the user.
-
-SQL COMMENTS: Write SQL comments in the same language as your responses.`, langInstruction)
 }
 
 // languageInstruction returns a system prompt fragment that instructs the LLM

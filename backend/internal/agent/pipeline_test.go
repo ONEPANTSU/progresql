@@ -1182,7 +1182,7 @@ func TestPipeline_MessagesWithHistory(t *testing.T) {
 	}
 }
 
-func TestPipeline_SafeMode_DefaultsToTrue(t *testing.T) {
+func TestPipeline_SecurityMode_DefaultsToSafe(t *testing.T) {
 	hub := websocket.NewHub()
 	session, client := wsDialer(t, hub, nil)
 
@@ -1190,17 +1190,17 @@ func TestPipeline_SafeMode_DefaultsToTrue(t *testing.T) {
 	llmClient := llm.NewClient("test-key")
 	p := NewPipeline(llmClient, registry, zap.NewNop(), "test-model")
 
-	var capturedSafeMode bool
+	var capturedMode string
 	step := &mockStep{
-		name: "check_safe_mode",
+		name: "check_security_mode",
 		fn: func(ctx context.Context, pctx *PipelineContext) error {
-			capturedSafeMode = pctx.SafeMode
+			capturedMode = pctx.SecurityMode
 			return nil
 		},
 	}
 	p.RegisterAction("test", step)
 
-	// Send request WITHOUT safe_mode in context — should default to true.
+	// Send request WITHOUT security_mode or safe_mode in context — should default to "safe".
 	reqPayload := websocket.AgentRequestPayload{
 		Action:      "test",
 		UserMessage: "hello",
@@ -1209,12 +1209,12 @@ func TestPipeline_SafeMode_DefaultsToTrue(t *testing.T) {
 	go p.HandleMessage(session, env)
 
 	readEnvelope(t, client)
-	if !capturedSafeMode {
-		t.Error("SafeMode should default to true when not specified")
+	if capturedMode != "safe" {
+		t.Errorf("SecurityMode should default to 'safe' when not specified, got %q", capturedMode)
 	}
 }
 
-func TestPipeline_SafeMode_ExplicitFalse(t *testing.T) {
+func TestPipeline_SecurityMode_FromSecurityModeField(t *testing.T) {
 	hub := websocket.NewHub()
 	session, client := wsDialer(t, hub, nil)
 
@@ -1222,35 +1222,34 @@ func TestPipeline_SafeMode_ExplicitFalse(t *testing.T) {
 	llmClient := llm.NewClient("test-key")
 	p := NewPipeline(llmClient, registry, zap.NewNop(), "test-model")
 
-	var capturedSafeMode bool
+	var capturedMode string
 	step := &mockStep{
-		name: "check_safe_mode",
+		name: "check_security_mode",
 		fn: func(ctx context.Context, pctx *PipelineContext) error {
-			capturedSafeMode = pctx.SafeMode
+			capturedMode = pctx.SecurityMode
 			return nil
 		},
 	}
 	p.RegisterAction("test", step)
 
-	// Send request WITH safe_mode=false in context.
-	safeModeFalse := false
+	dataMode := "data"
 	reqPayload := websocket.AgentRequestPayload{
 		Action:      "test",
 		UserMessage: "hello",
 		Context: &websocket.AgentRequestContext{
-			SafeMode: &safeModeFalse,
+			SecurityMode: &dataMode,
 		},
 	}
 	env, _ := websocket.NewEnvelopeWithID(websocket.TypeAgentRequest, "req-1", "", reqPayload)
 	go p.HandleMessage(session, env)
 
 	readEnvelope(t, client)
-	if capturedSafeMode {
-		t.Error("SafeMode should be false when explicitly set to false")
+	if capturedMode != "data" {
+		t.Errorf("SecurityMode should be 'data' when explicitly set, got %q", capturedMode)
 	}
 }
 
-func TestPipeline_SafeMode_ExplicitTrue(t *testing.T) {
+func TestPipeline_SecurityMode_ExecuteMode(t *testing.T) {
 	hub := websocket.NewHub()
 	session, client := wsDialer(t, hub, nil)
 
@@ -1258,16 +1257,52 @@ func TestPipeline_SafeMode_ExplicitTrue(t *testing.T) {
 	llmClient := llm.NewClient("test-key")
 	p := NewPipeline(llmClient, registry, zap.NewNop(), "test-model")
 
-	var capturedSafeMode bool
+	var capturedMode string
 	step := &mockStep{
-		name: "check_safe_mode",
+		name: "check_security_mode",
 		fn: func(ctx context.Context, pctx *PipelineContext) error {
-			capturedSafeMode = pctx.SafeMode
+			capturedMode = pctx.SecurityMode
 			return nil
 		},
 	}
 	p.RegisterAction("test", step)
 
+	executeMode := "execute"
+	reqPayload := websocket.AgentRequestPayload{
+		Action:      "test",
+		UserMessage: "hello",
+		Context: &websocket.AgentRequestContext{
+			SecurityMode: &executeMode,
+		},
+	}
+	env, _ := websocket.NewEnvelopeWithID(websocket.TypeAgentRequest, "req-1", "", reqPayload)
+	go p.HandleMessage(session, env)
+
+	readEnvelope(t, client)
+	if capturedMode != "execute" {
+		t.Errorf("SecurityMode should be 'execute' when explicitly set, got %q", capturedMode)
+	}
+}
+
+func TestPipeline_SecurityMode_BackwardCompat_SafeModeTrue(t *testing.T) {
+	hub := websocket.NewHub()
+	session, client := wsDialer(t, hub, nil)
+
+	registry := tools.NewRegistry()
+	llmClient := llm.NewClient("test-key")
+	p := NewPipeline(llmClient, registry, zap.NewNop(), "test-model")
+
+	var capturedMode string
+	step := &mockStep{
+		name: "check_security_mode",
+		fn: func(ctx context.Context, pctx *PipelineContext) error {
+			capturedMode = pctx.SecurityMode
+			return nil
+		},
+	}
+	p.RegisterAction("test", step)
+
+	// Old client sends safe_mode=true, should map to SecurityMode="safe".
 	safeModeTrue := true
 	reqPayload := websocket.AgentRequestPayload{
 		Action:      "test",
@@ -1280,7 +1315,81 @@ func TestPipeline_SafeMode_ExplicitTrue(t *testing.T) {
 	go p.HandleMessage(session, env)
 
 	readEnvelope(t, client)
-	if !capturedSafeMode {
-		t.Error("SafeMode should be true when explicitly set to true")
+	if capturedMode != "safe" {
+		t.Errorf("SecurityMode should be 'safe' when old safe_mode=true, got %q", capturedMode)
+	}
+}
+
+func TestPipeline_SecurityMode_BackwardCompat_SafeModeFalse(t *testing.T) {
+	hub := websocket.NewHub()
+	session, client := wsDialer(t, hub, nil)
+
+	registry := tools.NewRegistry()
+	llmClient := llm.NewClient("test-key")
+	p := NewPipeline(llmClient, registry, zap.NewNop(), "test-model")
+
+	var capturedMode string
+	step := &mockStep{
+		name: "check_security_mode",
+		fn: func(ctx context.Context, pctx *PipelineContext) error {
+			capturedMode = pctx.SecurityMode
+			return nil
+		},
+	}
+	p.RegisterAction("test", step)
+
+	// Old client sends safe_mode=false, should map to SecurityMode="execute".
+	safeModeFalse := false
+	reqPayload := websocket.AgentRequestPayload{
+		Action:      "test",
+		UserMessage: "hello",
+		Context: &websocket.AgentRequestContext{
+			SafeMode: &safeModeFalse,
+		},
+	}
+	env, _ := websocket.NewEnvelopeWithID(websocket.TypeAgentRequest, "req-1", "", reqPayload)
+	go p.HandleMessage(session, env)
+
+	readEnvelope(t, client)
+	if capturedMode != "execute" {
+		t.Errorf("SecurityMode should be 'execute' when old safe_mode=false, got %q", capturedMode)
+	}
+}
+
+func TestPipeline_SecurityMode_NewFieldTakesPriority(t *testing.T) {
+	hub := websocket.NewHub()
+	session, client := wsDialer(t, hub, nil)
+
+	registry := tools.NewRegistry()
+	llmClient := llm.NewClient("test-key")
+	p := NewPipeline(llmClient, registry, zap.NewNop(), "test-model")
+
+	var capturedMode string
+	step := &mockStep{
+		name: "check_security_mode",
+		fn: func(ctx context.Context, pctx *PipelineContext) error {
+			capturedMode = pctx.SecurityMode
+			return nil
+		},
+	}
+	p.RegisterAction("test", step)
+
+	// Both fields set — SecurityMode should take priority.
+	safeModeTrue := true
+	dataMode := "data"
+	reqPayload := websocket.AgentRequestPayload{
+		Action:      "test",
+		UserMessage: "hello",
+		Context: &websocket.AgentRequestContext{
+			SafeMode:     &safeModeTrue,
+			SecurityMode: &dataMode,
+		},
+	}
+	env, _ := websocket.NewEnvelopeWithID(websocket.TypeAgentRequest, "req-1", "", reqPayload)
+	go p.HandleMessage(session, env)
+
+	readEnvelope(t, client)
+	if capturedMode != "data" {
+		t.Errorf("SecurityMode should be 'data' (new field priority), got %q", capturedMode)
 	}
 }

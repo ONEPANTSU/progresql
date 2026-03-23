@@ -24,7 +24,7 @@ func IsSQLBlocked(err error) bool {
 	return errors.As(err, &sbe)
 }
 
-// blockedCommands is the set of SQL commands that are not allowed.
+// blockedCommands is the set of SQL commands that are not allowed in safe/data modes.
 var blockedCommands = map[string]bool{
 	"INSERT":   true,
 	"UPDATE":   true,
@@ -38,7 +38,7 @@ var blockedCommands = map[string]bool{
 	"COPY":     true,
 }
 
-// allowedCommands is the set of SQL commands that are permitted.
+// allowedCommands is the set of SQL commands that are permitted in safe/data modes.
 var allowedCommands = map[string]bool{
 	"SELECT":  true,
 	"EXPLAIN": true,
@@ -48,6 +48,7 @@ var allowedCommands = map[string]bool{
 // CheckSQLWithMode validates SQL based on the security mode.
 // In safe mode (safeMode=true): only SELECT, EXPLAIN, and WITH are permitted.
 // In unsafe mode (safeMode=false): all SQL commands are allowed (no restrictions).
+// Deprecated: Use CheckSQLWithSecurityMode instead.
 func CheckSQLWithMode(sql string, safeMode bool) error {
 	if !safeMode {
 		// Unsafe mode: all commands allowed; only check for empty SQL.
@@ -56,6 +57,22 @@ func CheckSQLWithMode(sql string, safeMode bool) error {
 		}
 		return nil
 	}
+	return CheckSQL(sql)
+}
+
+// CheckSQLWithSecurityMode validates SQL based on the three-tier security mode.
+// "safe" mode: only SELECT, EXPLAIN, and WITH are permitted (schema inspection only).
+// "data" mode: only SELECT, EXPLAIN, and WITH are permitted (read-only data access).
+// "execute" mode: all SQL commands are allowed (no restrictions).
+func CheckSQLWithSecurityMode(sql string, securityMode string) error {
+	if securityMode == "execute" {
+		// Execute mode: all commands allowed; only check for empty SQL.
+		if strings.TrimSpace(sql) == "" {
+			return &SQLBlockedError{SQL: sql, Command: "", Message: "empty SQL statement"}
+		}
+		return nil
+	}
+	// Both "safe" and "data" modes restrict to read-only commands.
 	return CheckSQL(sql)
 }
 

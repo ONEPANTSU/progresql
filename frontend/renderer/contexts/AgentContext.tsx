@@ -16,8 +16,9 @@ import {
   saveBackendUrl,
   loadModel,
   saveModel,
-  loadSafeMode,
-  saveSafeMode,
+  loadSecurityMode,
+  saveSecurityMode,
+  SecurityMode,
 } from '../utils/secureSettingsStorage';
 import { isSubscriptionActive } from '../services/auth';
 import { useAuth } from '../providers/AuthProvider';
@@ -55,9 +56,13 @@ export interface AgentContextValue {
   model: string;
   /** Update LLM model (persisted) */
   setModel: (model: string) => void;
-  /** Whether safe mode is enabled (default: true) */
+  /** Current security mode: "safe" | "data" | "execute" */
+  securityMode: SecurityMode;
+  /** Update security mode (persisted) */
+  setSecurityMode: (mode: SecurityMode) => void;
+  /** Whether safe mode is enabled (backward compat helper) */
   safeMode: boolean;
-  /** Toggle safe mode (persisted) */
+  /** Toggle safe mode (backward compat — maps to securityMode) */
   setSafeMode: (enabled: boolean) => void;
 }
 
@@ -70,7 +75,7 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loadBackendUrl(DEFAULT_BACKEND_URL),
   );
   const [model, setModelState] = useState<string>(() => loadModel());
-  const [safeMode, setSafeModeState] = useState<boolean>(() => loadSafeMode());
+  const [securityMode, setSecurityModeState] = useState<SecurityMode>(() => loadSecurityMode());
 
   // Connection state
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
@@ -162,10 +167,15 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     saveModel(m);
   }, []);
 
-  const setSafeMode = useCallback((enabled: boolean) => {
-    setSafeModeState(enabled);
-    saveSafeMode(enabled);
+  const setSecurityMode = useCallback((mode: SecurityMode) => {
+    setSecurityModeState(mode);
+    saveSecurityMode(mode);
   }, []);
+
+  // Backward compat
+  const setSafeMode = useCallback((enabled: boolean) => {
+    setSecurityMode(enabled ? 'safe' : 'execute');
+  }, [setSecurityMode]);
 
   // Connect
   const connect = useCallback(async () => {
@@ -227,9 +237,11 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setBackendUrl,
     model,
     setModel,
-    safeMode,
+    securityMode,
+    setSecurityMode,
+    safeMode: securityMode === 'safe',
     setSafeMode,
-  }), [connectionState, connectionPhase, isAuthError, connect, disconnect, sendRequest, cancelRequest, sessionId, error, backendUrl, setBackendUrl, model, setModel, safeMode, setSafeMode]);
+  }), [connectionState, connectionPhase, isAuthError, connect, disconnect, sendRequest, cancelRequest, sessionId, error, backendUrl, setBackendUrl, model, setModel, securityMode, setSecurityMode, setSafeMode]);
 
   return (
     <AgentContext.Provider value={value}>
