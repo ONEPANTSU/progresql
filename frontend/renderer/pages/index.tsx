@@ -326,6 +326,21 @@ export default function Home() {
       return;
     }
 
+    // If already connected (green), just switch active without reconnecting
+    if (connection.isActive && connection.id !== activeConnection?.id) {
+      setActiveConnection(connection);
+      // Refresh structure for this connection
+      try {
+        const structureResult = await window.electronAPI?.getDatabaseStructure(connectionId);
+        if (structureResult?.success) {
+          setDatabaseStructure(structureResult);
+        }
+      } catch (e) {
+        log.error('Failed to get structure for active connection:', e);
+      }
+      return;
+    }
+
     await performConnection(connection);
   };
 
@@ -635,7 +650,9 @@ export default function Home() {
   };
 
   const handleQueryTable = (tableName: string) => {
-    const query = `SELECT * FROM ${tableName} LIMIT 100;`;
+    // If it's already a full SQL statement (DDL/DML), use as-is
+    const isDDL = /^\s*(CREATE|DROP|ALTER|INSERT|UPDATE|DELETE|TRUNCATE|GRANT|REVOKE)\s/i.test(tableName);
+    const query = isDDL ? tableName : `SELECT * FROM ${tableName}\n  LIMIT 100;`;
     sqlEditorRef.current?.replaceSelection(query);
   };
 
