@@ -226,6 +226,8 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
 
   // AI Autocomplete
   const agent = useAgent();
+  const agentRef = useRef(agent);
+  agentRef.current = agent;
   const autocompleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAutocompletePos = useRef<number>(-1);
 
@@ -307,8 +309,8 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
             }
             // Debounced AI autocomplete
             if (autocompleteTimer.current) clearTimeout(autocompleteTimer.current);
-            agent.cancelAutocomplete();
-            if (agent.isConnected && newQuery.trim().length > 5) {
+            agentRef.current.cancelAutocomplete();
+            if (agentRef.current.isConnected && newQuery.trim().length > 5) {
               const cursorPos = update.state.selection.main.head;
               autocompleteTimer.current = setTimeout(() => {
                 if (!viewRef.current) return;
@@ -321,7 +323,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
                     ).join('\n')
                   : '';
                 const doc = viewRef.current.state.doc.toString();
-                agent.sendAutocomplete(doc, currentPos, schemaCtx, (completion) => {
+                agentRef.current.sendAutocomplete(doc, currentPos, schemaCtx, (completion) => {
                   if (!viewRef.current) return;
                   const nowPos = viewRef.current.state.selection.main.head;
                   if (nowPos === currentPos && completion) {
