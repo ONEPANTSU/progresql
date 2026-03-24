@@ -228,6 +228,8 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
   const agent = useAgent();
   const agentRef = useRef(agent);
   agentRef.current = agent;
+  const databaseInfoRef = useRef(databaseInfo);
+  databaseInfoRef.current = databaseInfo;
   const autocompleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAutocompletePos = useRef<number>(-1);
 
@@ -317,8 +319,9 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
                 const currentPos = viewRef.current.state.selection.main.head;
                 if (currentPos === lastAutocompletePos.current) return;
                 lastAutocompletePos.current = currentPos;
-                const schemaCtx = databaseInfo
-                  ? Object.entries(databaseInfo.schemas || {}).map(([schema, info]: [string, any]) =>
+                const dbInfo = databaseInfoRef.current;
+                const schemaCtx = dbInfo
+                  ? Object.entries(dbInfo.schemas || {}).map(([schema, info]: [string, any]) =>
                       `${schema}: ${(info.tables || []).map((t: any) => `${t.name}(${(t.columns || []).map((c: any) => c.name).join(', ')})`).join(', ')}`
                     ).join('\n')
                   : '';
@@ -337,6 +340,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
 
         const sqlSchema = buildSQLSchema(databaseInfo);
         const extensions = [
+          ghostTextExtension(), // Must be before indentWithTab so Tab accepts ghost text first
           basicSetup,
           keymap.of([indentWithTab]),
           indentUnit.of('  '),
@@ -346,7 +350,6 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
             upperCaseKeywords: true,
           })),
           updateListener,
-          ghostTextExtension(),
           errorLineField,
           errorGutter,
           EditorView.theme({

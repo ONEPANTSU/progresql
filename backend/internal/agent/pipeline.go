@@ -490,11 +490,14 @@ func (p *Pipeline) handleAutocomplete(session *websocket.Session, env *websocket
 			"- No markdown, no code blocks, no explanation, no backticks.\n"+
 			"- Keep completions short: 1-3 lines maximum.\n"+
 			"- Stop at a natural SQL boundary: semicolon, closing parenthesis, or end of clause.\n"+
-			"- If the cursor is after a dot (e.g. 'shop.'), suggest a table or column name.\n"+
-			"- If the cursor is after FROM/JOIN, suggest a table with schema prefix.\n"+
-			"- If the cursor is after WHERE/AND/OR, suggest a condition.\n"+
-			"- If the cursor is after SELECT, suggest columns.\n"+
-			"- Match the style of the existing query (aliases, casing, etc.).\n\n"+
+			"- ALWAYS use the provided schema context to suggest REAL table and column names.\n"+
+			"- Use schema-qualified names (e.g. shop.orders, analytics.events) when tables are not in public schema.\n"+
+			"- If the cursor is after a dot (e.g. 'shop.'), suggest a real table or column name from that schema.\n"+
+			"- If the cursor is after FROM/JOIN, suggest a real table with schema prefix from the schema context.\n"+
+			"- If the cursor is after WHERE/AND/OR, suggest a condition using real column names.\n"+
+			"- If the cursor is after SELECT, suggest real columns from the tables already in the query.\n"+
+			"- Match the style of the existing query (aliases, casing, etc.).\n"+
+			"- NEVER suggest placeholder names like 'your_table' or 'column_name'. Use real names from the schema.\n\n"+
 			"%s"+
 			"SQL before cursor: %s[CURSOR]%s",
 		schemaSection, sqlBefore, sqlAfter,
