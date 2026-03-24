@@ -156,6 +156,10 @@ export class AgentService {
   // Pending request tracking: request_id -> callbacks
   private pendingRequests = new Map<string, AgentRequestCallbacks>();
 
+  // Autocomplete
+  private autocompleteCallback: ((completion: string) => void) | null = null;
+  private autocompleteRequestId: string | null = null;
+
   // Tool call handler — set by the consumer (e.g. AgentContext)
   private toolCallHandler: ToolCallHandler | null = null;
 
@@ -265,6 +269,40 @@ export class AgentService {
     }
 
     this.pendingRequests.delete(requestId);
+  }
+
+  /**
+   * Send an autocomplete request for SQL ghost text.
+   */
+  sendAutocomplete(sql: string, cursorPos: number, schemaContext: string, callback: (completion: string) => void): void {
+    if (!this.ws || this.connectionState !== 'connected') return;
+
+    // Cancel previous autocomplete if pending
+    this.cancelAutocomplete();
+
+    const requestId = generateRequestId();
+    this.autocompleteRequestId = requestId;
+    this.autocompleteCallback = callback;
+    this.pendingRequests.set(requestId, {});
+
+    const envelope: Envelope = {
+      type: 'autocomplete.request',
+      request_id: requestId,
+      payload: { sql, cursor_position: cursorPos, schema_context: schemaContext },
+    };
+
+    this.ws.send(JSON.stringify(envelope));
+  }
+
+  /**
+   * Cancel a pending autocomplete request.
+   */
+  cancelAutocomplete(): void {
+    if (this.autocompleteRequestId) {
+      this.pendingRequests.delete(this.autocompleteRequestId);
+      this.autocompleteRequestId = null;
+    }
+    this.autocompleteCallback = null;
   }
 
   /**
@@ -421,6 +459,12 @@ export class AgentService {
       case 'agent.error': {
         const payload = envelope.payload as AgentErrorPayload;
         callbacks.onError?.(payload);
+        this.pendingRequests.delete(requestId);
+        break;
+      }
+      case 'autocomplete.response': {
+        const payload = envelope.payload as { completion: string };
+        this.autocompleteCallback?.(payload.completion);
         this.pendingRequests.delete(requestId);
         break;
       }

@@ -11,6 +11,9 @@ const (
 	TypeAgentStream   = "agent.stream"
 	TypeAgentResponse = "agent.response"
 	TypeAgentError    = "agent.error"
+
+	TypeAutocompleteRequest  = "autocomplete.request"
+	TypeAutocompleteResponse = "autocomplete.response"
 )
 
 // Envelope is the common wrapper for all WebSocket messages.
@@ -46,6 +49,18 @@ type ToolResultPayload struct {
 	Success bool            `json:"success"`
 	Data    json.RawMessage `json:"data,omitempty"`
 	Error   string          `json:"error,omitempty"`
+}
+
+// AutocompleteRequestPayload is sent by the client to request SQL autocomplete suggestions.
+type AutocompleteRequestPayload struct {
+	SQL           string `json:"sql"`
+	CursorPos     int    `json:"cursor_position"`
+	SchemaContext string `json:"schema_context"`
+}
+
+// AutocompleteResponsePayload carries the autocomplete suggestion back to the client.
+type AutocompleteResponsePayload struct {
+	Completion string `json:"completion"`
 }
 
 // --- Backend → Client ---

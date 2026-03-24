@@ -251,9 +251,15 @@ func resolveSecurityMode(reqCtx *websocket.AgentRequestContext) string {
 	return SecurityModeSafe
 }
 
-// HandleMessage processes an incoming agent.request envelope.
+// HandleMessage processes an incoming agent.request or autocomplete.request envelope.
 // It runs the registered step chain and sends agent.response or agent.error.
 func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Envelope) {
+	// Intercept autocomplete requests before the standard agent pipeline.
+	if env.Type == websocket.TypeAutocompleteRequest {
+		go p.handleAutocomplete(session, env)
+		return
+	}
+
 	if env.Type != websocket.TypeAgentRequest {
 		return
 	}
@@ -444,6 +450,106 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 	p.emitAuditLog(session, requestID, payload.Action, startTime, len(pctx.ToolCallsLog), pctx.ModelUsed, pctx.TokensUsed, pctx.ToolCallsLog, nil)
 	p.recordMetricsEnd(startTime, pctx.TokensUsed, false)
 	p.recordTokenUsage(pctx)
+}
+
+// handleAutocomplete processes an autocomplete.request envelope.
+// It sends the SQL context to the LLM for a short completion suggestion and responds
+// with an autocomplete.response envelope. Errors are silently logged; no error envelope
+// is sent to the client for autocomplete failures.
+func (p *Pipeline) handleAutocomplete(session *websocket.Session, env *websocket.Envelope) {
+	var payload websocket.AutocompleteRequestPayload
+	if err := env.DecodePayload(&payload); err != nil {
+		return // silently ignore malformed requests
+	}
+
+	if payload.SQL == "" {
+		return
+	}
+
+	// Split SQL at cursor position.
+	cursorPos := payload.CursorPos
+	if cursorPos > len(payload.SQL) {
+		cursorPos = len(payload.SQL)
+	}
+	sqlBefore := payload.SQL[:cursorPos]
+	sqlAfter := ""
+	if cursorPos < len(payload.SQL) {
+		sqlAfter = payload.SQL[cursorPos:]
+	}
+
+	// Build prompt.
+	schemaSection := ""
+	if payload.SchemaContext != "" {
+		schemaSection = fmt.Sprintf("Available database schema:\n%s\n\n", payload.SchemaContext)
+	}
+
+	prompt := fmt.Sprintf(
+		"You are a PostgreSQL SQL autocomplete engine. Complete the SQL query at the cursor position marked [CURSOR].\n\n"+
+			"RULES:\n"+
+			"- Return ONLY the completion text that goes after the cursor. Nothing else.\n"+
+			"- No markdown, no code blocks, no explanation, no backticks.\n"+
+			"- Keep completions short: 1-3 lines maximum.\n"+
+			"- Stop at a natural SQL boundary: semicolon, closing parenthesis, or end of clause.\n"+
+			"- If the cursor is after a dot (e.g. 'shop.'), suggest a table or column name.\n"+
+			"- If the cursor is after FROM/JOIN, suggest a table with schema prefix.\n"+
+			"- If the cursor is after WHERE/AND/OR, suggest a condition.\n"+
+			"- If the cursor is after SELECT, suggest columns.\n"+
+			"- Match the style of the existing query (aliases, casing, etc.).\n\n"+
+			"%s"+
+			"SQL before cursor: %s[CURSOR]%s",
+		schemaSection, sqlBefore, sqlAfter,
+	)
+
+	model := session.Model()
+	if model == "" {
+		model = p.defaultModel
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	maxTokens := 150
+	req := llm.ChatRequest{
+		Model: model,
+		Messages: []llm.Message{
+			{Role: "user", Content: prompt},
+		},
+		MaxTokens: &maxTokens,
+	}
+
+	resp, err := p.llm.ChatCompletion(ctx, req)
+	if err != nil {
+		p.logger.Debug("autocomplete LLM failed", zap.Error(err))
+		return
+	}
+
+	if len(resp.Choices) == 0 {
+		return
+	}
+
+	completion := strings.TrimSpace(resp.Choices[0].Message.Content)
+	// Remove any markdown code blocks the LLM might add despite instructions.
+	completion = strings.TrimPrefix(completion, "```sql")
+	completion = strings.TrimPrefix(completion, "```")
+	completion = strings.TrimSuffix(completion, "```")
+	completion = strings.TrimSpace(completion)
+
+	if completion == "" {
+		return
+	}
+
+	// Send response.
+	respEnv, err := websocket.NewEnvelopeWithID(websocket.TypeAutocompleteResponse, env.RequestID, "", websocket.AutocompleteResponsePayload{
+		Completion: completion,
+	})
+	if err != nil {
+		p.logger.Error("failed to marshal autocomplete.response", zap.Error(err))
+		return
+	}
+
+	if err := session.SendEnvelope(respEnv); err != nil {
+		p.logger.Error("failed to send autocomplete.response", zap.Error(err))
+	}
 }
 
 // handleDBNotConnected streams a friendly LLM response telling the user to connect a database.

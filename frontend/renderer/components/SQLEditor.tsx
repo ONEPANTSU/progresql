@@ -36,6 +36,8 @@ import { useTranslation } from '../contexts/LanguageContext';
 import { createLogger } from '../utils/logger';
 import { SQLTab, DatabaseInfo, DatabaseServer } from '../types';
 import { buildSQLSchema } from '../utils/sqlAutocomplete';
+import { ghostTextExtension, showGhostText, hideGhostText } from '../utils/ghostTextExtension';
+import { useAgent } from '../contexts/AgentContext';
 
 const log = createLogger('SQLEditor');
 
@@ -222,6 +224,11 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
   const placeholdersRef = useRef<{ from: number; to: number }[]>([]);
   const placeholderIdxRef = useRef<number>(-1);
 
+  // AI Autocomplete
+  const agent = useAgent();
+  const autocompleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAutocompletePos = useRef<number>(-1);
+
   // Auto-scroll tabs container when new tab is added
   useEffect(() => {
     if (tabs.length > prevTabCountRef.current && tabsScrollRef.current) {
@@ -298,6 +305,31 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
             if (!suppressContentChangeRef.current && currentTabIdRef.current) {
               onContentChange(currentTabIdRef.current, newQuery);
             }
+            // Debounced AI autocomplete
+            if (autocompleteTimer.current) clearTimeout(autocompleteTimer.current);
+            agent.cancelAutocomplete();
+            if (agent.isConnected && newQuery.trim().length > 5) {
+              const cursorPos = update.state.selection.main.head;
+              autocompleteTimer.current = setTimeout(() => {
+                if (!viewRef.current) return;
+                const currentPos = viewRef.current.state.selection.main.head;
+                if (currentPos === lastAutocompletePos.current) return;
+                lastAutocompletePos.current = currentPos;
+                const schemaCtx = databaseInfo
+                  ? Object.entries(databaseInfo.schemas || {}).map(([schema, info]: [string, any]) =>
+                      `${schema}: ${(info.tables || []).map((t: any) => `${t.name}(${(t.columns || []).map((c: any) => c.name).join(', ')})`).join(', ')}`
+                    ).join('\n')
+                  : '';
+                const doc = viewRef.current.state.doc.toString();
+                agent.sendAutocomplete(doc, currentPos, schemaCtx, (completion) => {
+                  if (!viewRef.current) return;
+                  const nowPos = viewRef.current.state.selection.main.head;
+                  if (nowPos === currentPos && completion) {
+                    showGhostText(viewRef.current, completion, currentPos);
+                  }
+                });
+              }, 800);
+            }
           }
         });
 
@@ -312,6 +344,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
             upperCaseKeywords: true,
           })),
           updateListener,
+          ghostTextExtension(),
           errorLineField,
           errorGutter,
           EditorView.theme({

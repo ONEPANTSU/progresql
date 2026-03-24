@@ -64,6 +64,10 @@ export interface AgentContextValue {
   safeMode: boolean;
   /** Toggle safe mode (backward compat — maps to securityMode) */
   setSafeMode: (enabled: boolean) => void;
+  /** Send autocomplete request */
+  sendAutocomplete: (sql: string, cursorPos: number, schemaContext: string, callback: (completion: string) => void) => void;
+  /** Cancel pending autocomplete */
+  cancelAutocomplete: () => void;
 }
 
 const AgentContext = createContext<AgentContextValue | undefined>(undefined);
@@ -222,6 +226,15 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     serviceRef.current?.cancelRequest(requestId);
   }, []);
 
+  // Autocomplete
+  const sendAutocomplete = useCallback((sql: string, cursorPos: number, schemaContext: string, callback: (completion: string) => void) => {
+    serviceRef.current?.sendAutocomplete(sql, cursorPos, schemaContext, callback);
+  }, []);
+
+  const cancelAutocomplete = useCallback(() => {
+    serviceRef.current?.cancelAutocomplete();
+  }, []);
+
   const value = useMemo<AgentContextValue>(() => ({
     connectionState,
     connectionPhase,
@@ -241,7 +254,9 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSecurityMode,
     safeMode: securityMode === 'safe',
     setSafeMode,
-  }), [connectionState, connectionPhase, isAuthError, connect, disconnect, sendRequest, cancelRequest, sessionId, error, backendUrl, setBackendUrl, model, setModel, securityMode, setSecurityMode, setSafeMode]);
+    sendAutocomplete,
+    cancelAutocomplete,
+  }), [connectionState, connectionPhase, isAuthError, connect, disconnect, sendRequest, cancelRequest, sessionId, error, backendUrl, setBackendUrl, model, setModel, securityMode, setSecurityMode, setSafeMode, sendAutocomplete, cancelAutocomplete]);
 
   return (
     <AgentContext.Provider value={value}>
