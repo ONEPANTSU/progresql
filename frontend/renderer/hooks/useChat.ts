@@ -62,15 +62,13 @@ export function useChat(isOpen: boolean): UseChatReturn {
     }
   }, [isOpen, chats.length, activeChatId]);
 
-  // Scroll to bottom on messages change
+  // Scroll to bottom on messages change — debounced to avoid jitter from rapid streaming updates
+  const scrollRAF = useRef<number>(0);
   useEffect(() => {
-    const el = messagesEndRef.current;
-    if (!el) return;
-    // Use instant scroll during streaming to avoid jitter from overlapping smooth animations
-    const container = el.parentElement;
-    if (container) {
-      container.scrollTop = container.scrollHeight;
-    }
+    cancelAnimationFrame(scrollRAF.current);
+    scrollRAF.current = requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    });
   }, [chats, activeChatId]);
 
   // Check scroll position for tabs
