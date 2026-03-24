@@ -1552,3 +1552,64 @@ ipcMain.handle('open-external', async (_event, url) => {
 ipcMain.handle('get-app-version', () => {
   return app.getVersion();
 });
+
+// Check for updates via GitHub Releases API
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const https = require('https');
+    const currentVersion = app.getVersion();
+
+    const data = await new Promise((resolve, reject) => {
+      const req = https.get(
+        'https://api.github.com/repos/ONEPANTSU/progresql/releases',
+        {
+          headers: {
+            'User-Agent': `ProgreSQL/${currentVersion}`,
+            'Accept': 'application/vnd.github.v3+json',
+          },
+        },
+        (res) => {
+          let body = '';
+          res.on('data', (chunk) => (body += chunk));
+          res.on('end', () => {
+            try { resolve(JSON.parse(body)); }
+            catch (e) { reject(new Error('Failed to parse GitHub API response')); }
+          });
+        },
+      );
+      req.on('error', reject);
+      req.setTimeout(10000, () => { req.destroy(); reject(new Error('Timeout')); });
+    });
+
+    const releases = Array.isArray(data) ? data : [];
+    const clientRelease = releases.find(
+      (r) => r.tag_name && r.tag_name.startsWith('client-v') && !r.draft,
+    );
+
+    if (!clientRelease) {
+      return { hasUpdate: false, latestVersion: currentVersion, downloadUrl: '' };
+    }
+
+    const latestVersion = clientRelease.tag_name.replace('client-v', '');
+    const current = currentVersion.split('.').map(Number);
+    const latest = latestVersion.split('.').map(Number);
+    let hasUpdate = false;
+    for (let i = 0; i < Math.max(current.length, latest.length); i++) {
+      const c = current[i] || 0;
+      const l = latest[i] || 0;
+      if (l > c) { hasUpdate = true; break; }
+      if (l < c) { break; }
+    }
+
+    let downloadUrl = 'https://progresql.com/downloads/';
+    if (process.platform === 'darwin') downloadUrl = 'https://progresql.com/downloads/ProgreSQL-latest.dmg';
+    else if (process.platform === 'win32') downloadUrl = 'https://progresql.com/downloads/ProgreSQL-latest.exe';
+    else downloadUrl = 'https://progresql.com/downloads/ProgreSQL-latest.AppImage';
+
+    log.info(`Update check: current=${currentVersion}, latest=${latestVersion}, hasUpdate=${hasUpdate}`);
+    return { hasUpdate, latestVersion, downloadUrl };
+  } catch (error) {
+    log.error('Check for updates failed:', error);
+    return { hasUpdate: false, latestVersion: app.getVersion(), downloadUrl: '' };
+  }
+});
