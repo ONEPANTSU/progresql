@@ -64,7 +64,13 @@ export function useChat(isOpen: boolean): UseChatReturn {
 
   // Scroll to bottom on messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = messagesEndRef.current;
+    if (!el) return;
+    // Use instant scroll during streaming to avoid jitter from overlapping smooth animations
+    const container = el.parentElement;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   }, [chats, activeChatId]);
 
   // Check scroll position for tabs
