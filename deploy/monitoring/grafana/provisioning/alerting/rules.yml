@@ -15,6 +15,9 @@ groups:
         data:
           - refId: A
             datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
             model:
               expr: up{job="backend"}
               intervalMs: 1000
@@ -57,6 +60,9 @@ groups:
         data:
           - refId: A
             datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
             model:
               expr: >
                 sum(rate(http_requests_total{job="backend",status=~"5.."}[5m]))
@@ -102,6 +108,9 @@ groups:
         data:
           - refId: A
             datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
             model:
               expr: >
                 histogram_quantile(0.95,
@@ -147,6 +156,9 @@ groups:
         data:
           - refId: A
             datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
             model:
               expr: >
                 100 - (
@@ -194,6 +206,9 @@ groups:
         data:
           - refId: A
             datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
             model:
               expr: >
                 (
@@ -243,6 +258,9 @@ groups:
         data:
           - refId: A
             datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
             model:
               expr: >
                 sum(rate(agent_requests_total{job="backend",status="error"}[5m]))
@@ -288,6 +306,9 @@ groups:
         data:
           - refId: A
             datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
             model:
               expr: >
                 db_pool_active_connections{job="backend"}
@@ -336,6 +357,9 @@ groups:
         data:
           - refId: A
             datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
             model:
               expr: >
                 (
