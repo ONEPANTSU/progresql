@@ -69,9 +69,14 @@ func (s *ImproveSQLStep) Execute(ctx context.Context, pctx *agent.PipelineContex
 			"1. First, list the specific improvements you made (as a numbered list)\n"+
 			"2. Then provide the improved SQL query inside a ```sql code block\n\n"+
 			"Focus on:\n"+
+			"- Add meaningful column aliases (AS) for calculated/joined columns to improve readability\n"+
+			"- Add LIMIT if the query could return too many rows and doesn't already have one\n"+
+			"- Improve formatting: proper indentation, uppercase keywords, aligned clauses\n"+
+			"- Add short inline comments (--) explaining complex logic, JOINs, or non-obvious WHERE conditions\n"+
+			"- Optimize JOINs: prefer explicit JOIN syntax over implicit, use appropriate join types\n"+
+			"- Use specific column names instead of SELECT * where possible\n"+
 			"- Query performance (index usage, join order, avoiding sequential scans)\n"+
-			"- Readability and best practices\n"+
-			"- Correct use of PostgreSQL-specific features\n\n"+
+			"- Correct use of PostgreSQL-specific features (COALESCE, NULLIF, window functions where beneficial)\n\n"+
 			"CRITICAL RULES:\n"+
 			"- You MUST return the SAME type of SQL statement as the original. A SELECT must remain a SELECT.\n"+
 			"- For SELECT/UPDATE/DELETE/INSERT queries: NEVER replace with CREATE INDEX or DDL. Suggest indexes only in comments.\n"+
