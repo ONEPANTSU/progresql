@@ -1,0 +1,46 @@
+name: Deploy Backend
+
+on:
+  push:
+    tags:
+      - 'backend-v*'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/Dockerfile.backend
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/progresql-backend:latest
+            ghcr.io/${{ github.repository_owner }}/progresql-backend:${{ github.ref_name }}
+
+      - name: Deploy to production
+        uses: appleboy/ssh-action@v1
+        with:
+          host: progresql.com
+          username: root
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker pull ghcr.io/${{ github.repository_owner }}/progresql-backend:latest
+            docker tag ghcr.io/${{ github.repository_owner }}/progresql-backend:latest progresql-backend:latest
+            cd /opt/progresql && docker compose up -d backend
+            docker system prune -f

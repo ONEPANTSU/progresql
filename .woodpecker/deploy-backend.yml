@@ -1,7 +1,8 @@
-# Backend deploy — triggered by tag: backend-v*
+# Backend deploy — DISABLED: migrated to GitHub Actions (deploy-backend.yml)
+# Build: ghcr.io/onepantsu/progresql-backend, triggered by tag backend-v*
 when:
   - event: tag
-    ref: refs/tags/backend-v*
+    ref: refs/tags/DISABLED-backend-v*
 
 steps:
   - name: build
