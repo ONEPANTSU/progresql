@@ -15,6 +15,7 @@ import (
 	"github.com/onepantsu/progressql/backend/internal/ratelimit"
 	"github.com/onepantsu/progressql/backend/internal/tools"
 	"github.com/onepantsu/progressql/backend/internal/websocket"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -59,6 +60,10 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	mux.HandleFunc("GET /api/v1/health", healthHandler(cfg.Version))
 	mux.HandleFunc("GET /api/v1/models", modelsHandler(cfg.AvailableModels, cfg.HTTPModel))
 	mux.HandleFunc("GET /api/v1/metrics", metricsCollector.Handler())
+
+	// Prometheus metrics endpoint (no auth required).
+	mux.Handle("GET /metrics", promhttp.Handler())
+
 	// Email verification service.
 	emailSvc := auth.NewEmailService(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPassword, cfg.SMTPFrom)
 
@@ -100,5 +105,5 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 
 	mux.HandleFunc("/ws/", websocket.HandleWebSocket(hub, jwtSvc, log, nil, sessionFactory))
 
-	return CORSMiddleware(mux)
+	return MetricsMiddleware(CORSMiddleware(mux))
 }

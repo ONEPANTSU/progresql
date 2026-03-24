@@ -153,10 +153,18 @@ func (pc *PipelineContext) DispatchTool(toolName string, arguments json.RawMessa
 	if err != nil {
 		if te, ok := err.(*websocket.ToolTimeoutError); ok {
 			pc.AddToolCallLog(te.CallID, toolName, false)
+			metrics.AgentToolCallsTotal.WithLabelValues(toolName, "timeout").Inc()
+		} else {
+			metrics.AgentToolCallsTotal.WithLabelValues(toolName, "error").Inc()
 		}
 		return nil, err
 	}
 	pc.AddToolCallLog(result.CallID, toolName, result.Success)
+	if result.Success {
+		metrics.AgentToolCallsTotal.WithLabelValues(toolName, "success").Inc()
+	} else {
+		metrics.AgentToolCallsTotal.WithLabelValues(toolName, "error").Inc()
+	}
 	return result, nil
 }
 
@@ -275,6 +283,8 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		p.sendError(session, env.RequestID, websocket.ErrCodeInvalidRequest, "invalid request payload")
 		p.emitAuditLog(session, env.RequestID, "", startTime, 0, "", 0, nil, fmt.Errorf("invalid request payload"))
 		p.recordMetricsEnd(startTime, 0, true)
+		metrics.AgentRequestsTotal.WithLabelValues("unknown", "error").Inc()
+		metrics.AgentRequestDuration.WithLabelValues("unknown").Observe(time.Since(startTime).Seconds())
 		return
 	}
 
@@ -289,6 +299,8 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 			p.sendError(session, requestID, websocket.ErrCodeRateLimited, err.Error())
 			p.emitAuditLog(session, requestID, payload.Action, startTime, 0, "", 0, nil, err)
 			p.recordMetricsEnd(startTime, 0, true)
+			metrics.AgentRequestsTotal.WithLabelValues(payload.Action, "error").Inc()
+			metrics.AgentRequestDuration.WithLabelValues(payload.Action).Observe(time.Since(startTime).Seconds())
 			return
 		}
 	}
@@ -307,6 +319,8 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		p.sendError(session, requestID, websocket.ErrCodeInvalidRequest, errMsg)
 		p.emitAuditLog(session, requestID, payload.Action, startTime, 0, "", 0, nil, fmt.Errorf("%s", errMsg))
 		p.recordMetricsEnd(startTime, 0, true)
+		metrics.AgentRequestsTotal.WithLabelValues(payload.Action, "error").Inc()
+		metrics.AgentRequestDuration.WithLabelValues(payload.Action).Observe(time.Since(startTime).Seconds())
 		return
 	}
 
@@ -398,6 +412,10 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 			p.sendError(session, requestID, code, err.Error())
 			p.emitAuditLog(session, requestID, payload.Action, startTime, len(pctx.ToolCallsLog), pctx.ModelUsed, pctx.TokensUsed, pctx.ToolCallsLog, err)
 			p.recordMetricsEnd(startTime, pctx.TokensUsed, true)
+			duration := time.Since(startTime)
+			metrics.AgentRequestsTotal.WithLabelValues(payload.Action, "error").Inc()
+			metrics.AgentRequestDuration.WithLabelValues(payload.Action).Observe(duration.Seconds())
+			p.recordPrometheusTokens(pctx)
 			return
 		}
 
@@ -415,6 +433,10 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		p.sendError(session, requestID, websocket.ErrCodeCancelled, "cancelled")
 		p.emitAuditLog(session, requestID, payload.Action, startTime, len(pctx.ToolCallsLog), pctx.ModelUsed, pctx.TokensUsed, pctx.ToolCallsLog, fmt.Errorf("cancelled by client"))
 		p.recordMetricsEnd(startTime, pctx.TokensUsed, false)
+		duration := time.Since(startTime)
+		metrics.AgentRequestsTotal.WithLabelValues(payload.Action, "cancelled").Inc()
+		metrics.AgentRequestDuration.WithLabelValues(payload.Action).Observe(duration.Seconds())
+		p.recordPrometheusTokens(pctx)
 		return
 	}
 
@@ -450,6 +472,26 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 	p.emitAuditLog(session, requestID, payload.Action, startTime, len(pctx.ToolCallsLog), pctx.ModelUsed, pctx.TokensUsed, pctx.ToolCallsLog, nil)
 	p.recordMetricsEnd(startTime, pctx.TokensUsed, false)
 	p.recordTokenUsage(pctx)
+
+	// Prometheus: record success metrics.
+	duration := time.Since(startTime)
+	metrics.AgentRequestsTotal.WithLabelValues(payload.Action, "success").Inc()
+	metrics.AgentRequestDuration.WithLabelValues(payload.Action).Observe(duration.Seconds())
+	p.recordPrometheusTokens(pctx)
+}
+
+// recordPrometheusTokens emits Prometheus LLM token counters from the pipeline context.
+func (p *Pipeline) recordPrometheusTokens(pctx *PipelineContext) {
+	model := pctx.ModelUsed
+	if model == "" {
+		model = pctx.Model
+	}
+	if pctx.PromptTokens > 0 {
+		metrics.LLMTokensTotal.WithLabelValues(model, "prompt").Add(float64(pctx.PromptTokens))
+	}
+	if pctx.CompletionTokens > 0 {
+		metrics.LLMTokensTotal.WithLabelValues(model, "completion").Add(float64(pctx.CompletionTokens))
+	}
 }
 
 // handleAutocomplete processes an autocomplete.request envelope.

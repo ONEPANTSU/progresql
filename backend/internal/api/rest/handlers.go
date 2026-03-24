@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/onepantsu/progressql/backend/config"
 	"github.com/onepantsu/progressql/backend/internal/auth"
+	"github.com/onepantsu/progressql/backend/internal/metrics"
 	"github.com/onepantsu/progressql/backend/internal/subscription"
 	"github.com/onepantsu/progressql/backend/internal/websocket"
 )
@@ -161,6 +162,9 @@ func registerHandler(jwtSvc *auth.JWTService, userStore *auth.UserStore, emailSv
 			}
 			return
 		}
+
+		// Prometheus: track successful user registration.
+		metrics.UserRegistrationsTotal.Inc()
 
 		// For unverified users (re-registration), resend verification code (async to avoid blocking).
 		if !user.EmailVerified && emailSvc != nil && emailSvc.IsConfigured() {

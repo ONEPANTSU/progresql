@@ -7,6 +7,7 @@ import (
 	"time"
 
 	ws "github.com/gorilla/websocket"
+	"github.com/onepantsu/progressql/backend/internal/metrics"
 	"go.uber.org/zap"
 )
 
@@ -187,6 +188,7 @@ func (s *Session) Send(data []byte) bool {
 	default:
 		// Buffer full — drop message.
 		s.log.Warn("send buffer full, dropping message")
+		metrics.WebSocketSendBufferDropsTotal.Inc()
 		return false
 	}
 }
@@ -209,6 +211,7 @@ func (s *Session) RegisterToolWaiter(callID string) <-chan *Envelope {
 	s.toolResultsMu.Lock()
 	s.toolResults[callID] = ch
 	s.toolResultsMu.Unlock()
+	metrics.WebSocketPendingToolWaiters.Inc()
 	return ch
 }
 
@@ -217,6 +220,7 @@ func (s *Session) UnregisterToolWaiter(callID string) {
 	s.toolResultsMu.Lock()
 	delete(s.toolResults, callID)
 	s.toolResultsMu.Unlock()
+	metrics.WebSocketPendingToolWaiters.Dec()
 }
 
 // Run starts the read and write goroutines. It blocks until the session is closed.
@@ -232,6 +236,7 @@ func (s *Session) readPump() {
 			s.hub.Unregister(s.id)
 		}
 		s.Close()
+		metrics.WebSocketDisconnectionsTotal.WithLabelValues("read_pump_exit").Inc()
 	}()
 
 	s.conn.SetReadLimit(maxMessageSize)
@@ -250,6 +255,9 @@ func (s *Session) readPump() {
 			return
 		}
 
+		// Prometheus: track received message size.
+		metrics.WebSocketMessageSizeBytes.WithLabelValues("received").Observe(float64(len(message)))
+
 		env, err := ParseEnvelope(message)
 		if err != nil {
 			s.log.Warn("invalid message envelope", zap.Error(err))
@@ -267,6 +275,7 @@ func (s *Session) RegisterCancel(requestID string, cancel context.CancelFunc) {
 	s.cancelFuncsMu.Lock()
 	s.cancelFuncs[requestID] = cancel
 	s.cancelFuncsMu.Unlock()
+	metrics.WebSocketActiveRequests.Inc()
 }
 
 // UnregisterCancel removes and returns the cancel function for the given request_id.
@@ -274,10 +283,13 @@ func (s *Session) UnregisterCancel(requestID string) {
 	s.cancelFuncsMu.Lock()
 	delete(s.cancelFuncs, requestID)
 	s.cancelFuncsMu.Unlock()
+	metrics.WebSocketActiveRequests.Dec()
 }
 
 // routeMessage dispatches an incoming envelope by type.
 func (s *Session) routeMessage(env *Envelope) {
+	metrics.WebSocketMessagesReceivedTotal.WithLabelValues(env.Type).Inc()
+
 	switch env.Type {
 	case TypeToolResult:
 		s.handleToolResult(env)
@@ -308,6 +320,7 @@ func (s *Session) handleAgentCancel(env *Envelope) {
 	if ok {
 		s.log.Info("cancelling request", zap.String("request_id", requestID))
 		cancel()
+		metrics.WebSocketCancellationsTotal.Inc()
 	} else {
 		s.log.Warn("no active request to cancel", zap.String("request_id", requestID))
 	}
@@ -364,6 +377,10 @@ func (s *Session) writePump() {
 				s.log.Warn("write error", zap.Error(err))
 				return
 			}
+
+			// Prometheus: track sent message size and count.
+			metrics.WebSocketMessageSizeBytes.WithLabelValues("sent").Observe(float64(len(message)))
+			metrics.WebSocketMessagesSentTotal.WithLabelValues("text").Inc()
 
 		case <-ticker.C:
 			_ = s.conn.SetWriteDeadline(time.Now().Add(writeWait))

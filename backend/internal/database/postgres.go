@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/onepantsu/progressql/backend/internal/metrics"
 	"go.uber.org/zap"
 )
 
@@ -44,7 +45,21 @@ func Connect(ctx context.Context, dsn string, log *zap.Logger) (*pgxpool.Pool, e
 		return nil, fmt.Errorf("migrations: %w", err)
 	}
 
+	// Start background goroutine to report DB pool metrics to Prometheus.
+	go collectPoolMetrics(pool)
+
 	return pool, nil
+}
+
+// collectPoolMetrics periodically reads pgxpool stats and updates Prometheus gauges.
+func collectPoolMetrics(pool *pgxpool.Pool) {
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		stat := pool.Stat()
+		metrics.DBPoolConnectionsActive.Set(float64(stat.AcquiredConns()))
+		metrics.DBPoolConnectionsIdle.Set(float64(stat.IdleConns()))
+	}
 }
 
 func runMigrations(ctx context.Context, pool *pgxpool.Pool, log *zap.Logger) error {

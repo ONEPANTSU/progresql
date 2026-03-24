@@ -16,6 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/onepantsu/progressql/backend/internal/auth"
+	"github.com/onepantsu/progressql/backend/internal/metrics"
 )
 
 // Payment status constants aligned with CryptoCloud lifecycle.
@@ -102,6 +103,10 @@ func CreateInvoiceHandler(client *CryptoCloudClient, userStore *auth.UserStore, 
 			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
 			user.ID, invoice.Result.UUID, orderID, reqBody.Amount, reqBody.Currency,
 			StatusCreated, nilIfEmpty(reqBody.SuccessRedirectURL), nilIfEmpty(reqBody.FailRedirectURL))
+
+		// Prometheus: track payment creation.
+		metrics.PaymentsTotal.WithLabelValues(StatusCreated, reqBody.Currency).Inc()
+		metrics.PaymentsAmountTotal.WithLabelValues(reqBody.Currency).Add(reqBody.Amount)
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(createInvoiceHandlerResponse{
@@ -234,6 +239,13 @@ func WebhookHandler(planUpdater PlanUpdater, db *pgxpool.Pool, secret string) ht
 					`UPDATE payments SET status = $1, updated_at = NOW()
 					 WHERE order_id = $2 AND status IN ('created', 'pending')`,
 					incomingStatus, payload.OrderID)
+
+				// Prometheus: track failed/expired payment.
+				currency := payload.Currency
+				if currency == "" {
+					currency = "unknown"
+				}
+				metrics.PaymentsTotal.WithLabelValues(incomingStatus, currency).Inc()
 			}
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(map[string]string{"status": "ignored"})
@@ -271,6 +283,14 @@ func WebhookHandler(planUpdater PlanUpdater, db *pgxpool.Pool, secret string) ht
 				nilIfEmpty(payload.TxHash),
 				payload.OrderID)
 		}
+
+		// Prometheus: track confirmed payment and subscription activation.
+		currency := payload.Currency
+		if currency == "" {
+			currency = "unknown"
+		}
+		metrics.PaymentsTotal.WithLabelValues(StatusConfirmed, currency).Inc()
+		metrics.UserSubscriptionsActivatedTotal.WithLabelValues("pro").Inc()
 
 		log.Printf("[webhook] payment confirmed for user=%s plan=pro", userID)
 

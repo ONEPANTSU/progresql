@@ -1,6 +1,10 @@
 package websocket
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/onepantsu/progressql/backend/internal/metrics"
+)
 
 // Conn represents a WebSocket connection managed by the Hub.
 // This is an interface to allow mock implementations in tests.
@@ -37,6 +41,10 @@ func (h *Hub) Register(conn Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.conns[conn.SessionID()] = conn
+
+	// Prometheus: track WebSocket connections.
+	metrics.WebSocketConnectionsTotal.Inc()
+	metrics.WebSocketConnectionsActive.Inc()
 }
 
 // Unregister removes a connection from the hub by session_id.
@@ -48,6 +56,10 @@ func (h *Hub) Unregister(sessionID string) bool {
 		delete(h.conns, sessionID)
 		delete(h.models, sessionID)
 		delete(h.userIDs, sessionID)
+
+		// Prometheus: decrement active connections.
+		metrics.WebSocketConnectionsActive.Dec()
+
 		return true
 	}
 	return false
