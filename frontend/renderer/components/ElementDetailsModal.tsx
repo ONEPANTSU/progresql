@@ -132,6 +132,59 @@ const PG_DATA_TYPES = [
   'int[]', 'text[]', 'jsonb[]',
 ];
 
+// ── Reusable style constants for the redesign ──
+
+/** Section header with left purple accent border */
+const sectionHeaderSx = {
+  textTransform: 'uppercase' as const,
+  letterSpacing: '0.08em',
+  color: 'text.secondary',
+  mb: 1.5,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 1,
+  pl: 1.5,
+  py: 0.75,
+  borderLeft: '3px solid #6366f1',
+  borderRadius: '0 4px 4px 0',
+  background: 'linear-gradient(90deg, rgba(99,102,241,0.08) 0%, transparent 100%)',
+  fontSize: '0.75rem',
+  fontWeight: 600,
+};
+
+/** Subtle hover effect for data table rows */
+const dataRowHoverSx = {
+  transition: 'background-color 0.15s ease',
+  '&:hover': {
+    backgroundColor: 'rgba(99,102,241,0.06)',
+  },
+};
+
+/** Table header cell style */
+const headerCellSx = {
+  color: 'text.secondary',
+  fontWeight: 600,
+  fontSize: '0.8125rem',
+  borderBottom: '1px solid rgba(99,102,241,0.2)',
+  backgroundColor: 'rgba(99,102,241,0.04)',
+};
+
+/** Info table label cell (left column in key-value tables) */
+const labelCellSx = {
+  color: 'text.secondary',
+  fontWeight: 500,
+  fontSize: '0.8125rem',
+  width: '40%',
+};
+
+/** Styled TableContainer */
+const styledTableContainerSx = {
+  mb: 3,
+  borderColor: 'rgba(99,102,241,0.15)',
+  borderRadius: 2,
+  overflow: 'hidden',
+};
+
 function escapeIdent(name: string): string {
   if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) return name;
   return `"${name.replace(/"/g, '""')}"`;
@@ -413,7 +466,6 @@ export default function ElementDetailsModal({
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      // Можно добавить уведомление об успешном копировании
     } catch (err) {
       log.error('Failed to copy text:', err);
     }
@@ -444,22 +496,23 @@ export default function ElementDetailsModal({
   };
 
   const getElementIcon = (type: string) => {
+    const iconSx = { fontSize: '1.25rem' };
     switch (type) {
       case 'table':
-        return <InfoIcon color="primary" />;
+        return <InfoIcon sx={{ ...iconSx, color: '#8b5cf6' }} />;
       case 'column':
-        return <ColumnIcon color="info" />;
+        return <ColumnIcon sx={{ ...iconSx, color: '#818cf8' }} />;
       case 'index':
-        return <SpeedIcon color="warning" />;
+        return <SpeedIcon sx={{ ...iconSx, color: '#a78bfa' }} />;
       case 'constraint':
-        return <SecurityIcon color="error" />;
+        return <SecurityIcon sx={{ ...iconSx, color: '#c084fc' }} />;
       case 'trigger':
-        return <FlashIcon color="secondary" />;
+        return <FlashIcon sx={{ ...iconSx, color: '#a78bfa' }} />;
       case 'function':
       case 'procedure':
-        return <KeyIcon color="primary" />;
+        return <KeyIcon sx={{ ...iconSx, color: '#8b5cf6' }} />;
       default:
-        return <InfoIcon color="primary" />;
+        return <InfoIcon sx={{ ...iconSx, color: '#8b5cf6' }} />;
     }
   };
 
@@ -494,29 +547,47 @@ export default function ElementDetailsModal({
     }
   };
 
+  /** Renders a styled section header with icon */
+  const SectionHeader = ({ icon, children }: { icon?: React.ReactNode; children: React.ReactNode }) => (
+    <Typography variant="subtitle2" sx={sectionHeaderSx}>
+      {icon}
+      {children}
+    </Typography>
+  );
+
   const renderTableDetails = () => {
     if (elementType !== 'table' || !element) return null;
 
     return (
       <Box>
-        <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 1 }}>
+        <SectionHeader icon={<InfoIcon sx={{ fontSize: '1rem', color: '#8b5cf6' }} />}>
           Table Information
-        </Typography>
-        <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
+        </SectionHeader>
+        <TableContainer component={Paper} variant="outlined" sx={styledTableContainerSx}>
           <Table size="small">
             <TableBody>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Table Name</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Table Name</TableCell>
                 <TableCell>{element.table_name}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Schema</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Schema</TableCell>
                 <TableCell>{element.table_schema}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Type</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Type</TableCell>
                 <TableCell>
-                  <Chip label={element.table_type} size="small" variant="outlined" sx={{ color: 'text.secondary', borderColor: 'divider' }} />
+                  <Chip
+                    label={element.table_type}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      color: '#a78bfa',
+                      borderColor: 'rgba(99,102,241,0.3)',
+                      fontSize: '0.7rem',
+                      height: 22,
+                    }}
+                  />
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -525,13 +596,13 @@ export default function ElementDetailsModal({
 
         {element.columns && element.columns.length > 0 && (
           <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0 }}>
+              <SectionHeader icon={<ColumnIcon sx={{ fontSize: '1rem', color: '#818cf8' }} />}>
                 Columns ({element.columns.length})
-              </Typography>
+              </SectionHeader>
               {onApplySQL && (
                 <Tooltip title={t('details.addColumn')}>
-                  <IconButton size="small" onClick={() => { setShowAddColumn(true); setAlteringCol(null); }}>
+                  <IconButton size="small" onClick={() => { setShowAddColumn(true); setAlteringCol(null); }} sx={{ color: '#8b5cf6' }}>
                     <AddIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
@@ -546,7 +617,7 @@ export default function ElementDetailsModal({
 
             {/* Add Column Form */}
             {showAddColumn && onApplySQL && (
-              <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+              <Paper variant="outlined" sx={{ p: 2, mb: 2, borderColor: 'rgba(99,102,241,0.2)', borderRadius: 2 }}>
                 <Typography variant="body2" sx={{ fontWeight: 500, mb: 1.5 }}>{t('details.addColumn')}</Typography>
                 <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                   <TextField
@@ -585,7 +656,16 @@ export default function ElementDetailsModal({
                   />
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
-                  <Button size="small" variant="contained" disabled={!newColName.trim() || executingSQL} onClick={handleAddColumn}>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    disabled={!newColName.trim() || executingSQL}
+                    onClick={handleAddColumn}
+                    sx={{
+                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                      '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
+                    }}
+                  >
                     {executingSQL ? 'Executing...' : onExecuteSQL ? 'Execute' : 'Generate SQL'}
                   </Button>
                   <Button size="small" onClick={() => setShowAddColumn(false)}>Cancel</Button>
@@ -593,24 +673,24 @@ export default function ElementDetailsModal({
               </Paper>
             )}
 
-            <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
+            <TableContainer component={Paper} variant="outlined" sx={styledTableContainerSx}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Name</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Type</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Nullable</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Default</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Description</TableCell>
+                    <TableCell sx={headerCellSx}>Name</TableCell>
+                    <TableCell sx={headerCellSx}>Type</TableCell>
+                    <TableCell sx={headerCellSx}>Nullable</TableCell>
+                    <TableCell sx={headerCellSx}>Default</TableCell>
+                    <TableCell sx={headerCellSx}>Description</TableCell>
                     {onApplySQL && (
-                      <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem', width: 80 }}>Actions</TableCell>
+                      <TableCell sx={{ ...headerCellSx, width: 80 }}>Actions</TableCell>
                     )}
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {element.columns.map((column: any, index: number) => (
-                    <TableRow key={index}>
-                      <TableCell>{column.column_name}</TableCell>
+                    <TableRow key={index} sx={dataRowHoverSx}>
+                      <TableCell sx={{ fontWeight: 500 }}>{column.column_name}</TableCell>
                       <TableCell>
                         {alteringCol === column.column_name ? (
                           <TextField
@@ -626,7 +706,9 @@ export default function ElementDetailsModal({
                             ))}
                           </TextField>
                         ) : (
-                          column.data_type
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#a78bfa' }}>
+                            {column.data_type}
+                          </Typography>
                         )}
                       </TableCell>
                       <TableCell>
@@ -641,8 +723,8 @@ export default function ElementDetailsModal({
                             size="small"
                             variant="outlined"
                             sx={{
-                              color: 'text.secondary',
-                              borderColor: 'divider',
+                              color: column.is_nullable === 'YES' ? 'text.secondary' : '#f59e0b',
+                              borderColor: column.is_nullable === 'YES' ? 'rgba(99,102,241,0.2)' : 'rgba(245,158,11,0.3)',
                               fontSize: '0.7rem',
                               height: 22,
                             }}
@@ -767,31 +849,35 @@ export default function ElementDetailsModal({
 
         {element.indexes && element.indexes.length > 0 && (
           <Box>
-            <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 1 }}>
+            <SectionHeader icon={<SpeedIcon sx={{ fontSize: '1rem', color: '#a78bfa' }} />}>
               Indexes ({element.indexes.length})
-            </Typography>
-            <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
+            </SectionHeader>
+            <TableContainer component={Paper} variant="outlined" sx={styledTableContainerSx}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Name</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Type</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Unique</TableCell>
+                    <TableCell sx={headerCellSx}>Name</TableCell>
+                    <TableCell sx={headerCellSx}>Type</TableCell>
+                    <TableCell sx={headerCellSx}>Unique</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {element.indexes.map((index: any, idx: number) => (
-                    <TableRow key={idx}>
-                      <TableCell>{index.index_name}</TableCell>
-                      <TableCell>{index.index_type || 'BTREE'}</TableCell>
+                    <TableRow key={idx} sx={dataRowHoverSx}>
+                      <TableCell sx={{ fontWeight: 500 }}>{index.index_name}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#a78bfa' }}>
+                          {index.index_type || 'BTREE'}
+                        </Typography>
+                      </TableCell>
                       <TableCell>
                         <Chip
                           label={index.is_unique ? 'Unique' : 'Non-unique'}
                           size="small"
                           variant="outlined"
                           sx={{
-                            color: 'text.secondary',
-                            borderColor: 'divider',
+                            color: index.is_unique ? '#34d399' : 'text.secondary',
+                            borderColor: index.is_unique ? 'rgba(52,211,153,0.3)' : 'rgba(99,102,241,0.2)',
                             fontSize: '0.7rem',
                             height: 22,
                           }}
@@ -807,30 +893,30 @@ export default function ElementDetailsModal({
 
         {element.constraints && element.constraints.length > 0 && (
           <Box>
-            <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 1 }}>
+            <SectionHeader icon={<SecurityIcon sx={{ fontSize: '1rem', color: '#c084fc' }} />}>
               Constraints ({element.constraints.length})
-            </Typography>
-            <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
+            </SectionHeader>
+            <TableContainer component={Paper} variant="outlined" sx={styledTableContainerSx}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Name</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Type</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Columns</TableCell>
+                    <TableCell sx={headerCellSx}>Name</TableCell>
+                    <TableCell sx={headerCellSx}>Type</TableCell>
+                    <TableCell sx={headerCellSx}>Columns</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {element.constraints.map((constraint: any, idx: number) => (
-                    <TableRow key={idx}>
-                      <TableCell>{constraint.constraint_name}</TableCell>
+                    <TableRow key={idx} sx={dataRowHoverSx}>
+                      <TableCell sx={{ fontWeight: 500 }}>{constraint.constraint_name}</TableCell>
                       <TableCell>
                         <Chip
                           label={getConstraintTypeLabel(constraint.constraint_type)}
                           size="small"
                           variant="outlined"
                           sx={{
-                            color: 'text.secondary',
-                            borderColor: 'divider',
+                            color: '#c084fc',
+                            borderColor: 'rgba(192,132,252,0.3)',
                             fontSize: '0.7rem',
                             height: 22,
                           }}
@@ -847,24 +933,36 @@ export default function ElementDetailsModal({
 
         {element.triggers && element.triggers.length > 0 && (
           <Box>
-            <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 1 }}>
+            <SectionHeader icon={<FlashIcon sx={{ fontSize: '1rem', color: '#a78bfa' }} />}>
               Triggers ({element.triggers.length})
-            </Typography>
-            <TableContainer component={Paper} variant="outlined">
+            </SectionHeader>
+            <TableContainer component={Paper} variant="outlined" sx={{ ...styledTableContainerSx, mb: 0 }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Name</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Event</TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Timing</TableCell>
+                    <TableCell sx={headerCellSx}>Name</TableCell>
+                    <TableCell sx={headerCellSx}>Event</TableCell>
+                    <TableCell sx={headerCellSx}>Timing</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {element.triggers.map((trigger: any, idx: number) => (
-                    <TableRow key={idx}>
-                      <TableCell>{trigger.trigger_name}</TableCell>
+                    <TableRow key={idx} sx={dataRowHoverSx}>
+                      <TableCell sx={{ fontWeight: 500 }}>{trigger.trigger_name}</TableCell>
                       <TableCell>{trigger.event_manipulation}</TableCell>
-                      <TableCell>{trigger.action_timing}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={trigger.action_timing}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            color: '#a78bfa',
+                            borderColor: 'rgba(167,139,250,0.3)',
+                            fontSize: '0.7rem',
+                            height: 22,
+                          }}
+                        />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -881,50 +979,52 @@ export default function ElementDetailsModal({
 
     return (
       <Box>
-        <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 1 }}>
+        <SectionHeader icon={<ColumnIcon sx={{ fontSize: '1rem', color: '#818cf8' }} />}>
           Column Information
-        </Typography>
-        <TableContainer component={Paper} variant="outlined">
+        </SectionHeader>
+        <TableContainer component={Paper} variant="outlined" sx={styledTableContainerSx}>
           <Table size="small">
             <TableBody>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Column Name</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Column Name</TableCell>
                 <TableCell>{element.column_name}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Data Type</TableCell>
-                <TableCell>{element.data_type}</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Data Type</TableCell>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', color: '#a78bfa' }}>{element.data_type}</Typography>
+                </TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Nullable</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Nullable</TableCell>
                 <TableCell>
                   <Chip
                     label={element.is_nullable === 'YES' ? 'Nullable' : 'NOT NULL'}
                     size="small"
                     variant="outlined"
                     sx={{
-                      color: 'text.secondary',
-                      borderColor: 'divider',
+                      color: element.is_nullable === 'YES' ? 'text.secondary' : '#f59e0b',
+                      borderColor: element.is_nullable === 'YES' ? 'rgba(99,102,241,0.2)' : 'rgba(245,158,11,0.3)',
                       fontSize: '0.7rem',
                       height: 22,
                     }}
                   />
                 </TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Default Value</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Default Value</TableCell>
                 <TableCell>{element.column_default || 'None'}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Character Maximum Length</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Character Maximum Length</TableCell>
                 <TableCell>{element.character_maximum_length || '-'}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Numeric Precision</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Numeric Precision</TableCell>
                 <TableCell>{element.numeric_precision || '-'}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Numeric Scale</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Numeric Scale</TableCell>
                 <TableCell>{element.numeric_scale || '-'}</TableCell>
               </TableRow>
             </TableBody>
@@ -939,46 +1039,48 @@ export default function ElementDetailsModal({
 
     return (
       <Box>
-        <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 1 }}>
+        <SectionHeader icon={<SpeedIcon sx={{ fontSize: '1rem', color: '#a78bfa' }} />}>
           Index Information
-        </Typography>
-        <TableContainer component={Paper} variant="outlined">
+        </SectionHeader>
+        <TableContainer component={Paper} variant="outlined" sx={styledTableContainerSx}>
           <Table size="small">
             <TableBody>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Index Name</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Index Name</TableCell>
                 <TableCell>{element.index_name}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Type</TableCell>
-                <TableCell>{element.index_type || 'BTREE'}</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Type</TableCell>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', color: '#a78bfa' }}>{element.index_type || 'BTREE'}</Typography>
+                </TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Unique</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Unique</TableCell>
                 <TableCell>
                   <Chip
                     label={element.is_unique ? 'Unique' : 'Non-unique'}
                     size="small"
                     variant="outlined"
                     sx={{
-                      color: 'text.secondary',
-                      borderColor: 'divider',
+                      color: element.is_unique ? '#34d399' : 'text.secondary',
+                      borderColor: element.is_unique ? 'rgba(52,211,153,0.3)' : 'rgba(99,102,241,0.2)',
                       fontSize: '0.7rem',
                       height: 22,
                     }}
                   />
                 </TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Primary Key</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Primary Key</TableCell>
                 <TableCell>
                   <Chip
                     label={element.is_primary ? 'Primary' : 'Non-primary'}
                     size="small"
                     variant="outlined"
                     sx={{
-                      color: 'text.secondary',
-                      borderColor: 'divider',
+                      color: element.is_primary ? '#f59e0b' : 'text.secondary',
+                      borderColor: element.is_primary ? 'rgba(245,158,11,0.3)' : 'rgba(99,102,241,0.2)',
                       fontSize: '0.7rem',
                       height: 22,
                     }}
@@ -997,42 +1099,42 @@ export default function ElementDetailsModal({
 
     return (
       <Box>
-        <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 1 }}>
+        <SectionHeader icon={<SecurityIcon sx={{ fontSize: '1rem', color: '#c084fc' }} />}>
           Constraint Information
-        </Typography>
-        <TableContainer component={Paper} variant="outlined">
+        </SectionHeader>
+        <TableContainer component={Paper} variant="outlined" sx={styledTableContainerSx}>
           <Table size="small">
             <TableBody>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Constraint Name</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Constraint Name</TableCell>
                 <TableCell>{element.constraint_name}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Type</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Type</TableCell>
                 <TableCell>
                   <Chip
                     label={getConstraintTypeLabel(element.constraint_type)}
                     size="small"
                     variant="outlined"
                     sx={{
-                      color: 'text.secondary',
-                      borderColor: 'divider',
+                      color: '#c084fc',
+                      borderColor: 'rgba(192,132,252,0.3)',
                       fontSize: '0.7rem',
                       height: 22,
                     }}
                   />
                 </TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Column</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Column</TableCell>
                 <TableCell>{element.column_name || '-'}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Referenced Table</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Referenced Table</TableCell>
                 <TableCell>{element.referenced_table_name || '-'}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Referenced Column</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Referenced Column</TableCell>
                 <TableCell>{element.referenced_column_name || '-'}</TableCell>
               </TableRow>
             </TableBody>
@@ -1047,26 +1149,38 @@ export default function ElementDetailsModal({
 
     return (
       <Box>
-        <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 1 }}>
+        <SectionHeader icon={<FlashIcon sx={{ fontSize: '1rem', color: '#a78bfa' }} />}>
           Trigger Information
-        </Typography>
-        <TableContainer component={Paper} variant="outlined">
+        </SectionHeader>
+        <TableContainer component={Paper} variant="outlined" sx={styledTableContainerSx}>
           <Table size="small">
             <TableBody>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Trigger Name</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Trigger Name</TableCell>
                 <TableCell>{element.trigger_name}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Event</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Event</TableCell>
                 <TableCell>{element.event_manipulation}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Timing</TableCell>
-                <TableCell>{element.action_timing}</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Timing</TableCell>
+                <TableCell>
+                  <Chip
+                    label={element.action_timing}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      color: '#a78bfa',
+                      borderColor: 'rgba(167,139,250,0.3)',
+                      fontSize: '0.7rem',
+                      height: 22,
+                    }}
+                  />
+                </TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Table</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Table</TableCell>
                 <TableCell>{element.event_object_table}</TableCell>
               </TableRow>
             </TableBody>
@@ -1081,26 +1195,28 @@ export default function ElementDetailsModal({
 
     return (
       <Box>
-        <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 1 }}>
+        <SectionHeader icon={<KeyIcon sx={{ fontSize: '1rem', color: '#8b5cf6' }} />}>
           Function Information
-        </Typography>
-        <TableContainer component={Paper} variant="outlined">
+        </SectionHeader>
+        <TableContainer component={Paper} variant="outlined" sx={styledTableContainerSx}>
           <Table size="small">
             <TableBody>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Function Name</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Function Name</TableCell>
                 <TableCell>{element.routine_name}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Return Type</TableCell>
-                <TableCell>{element.data_type}</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Return Type</TableCell>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', color: '#a78bfa' }}>{element.data_type}</Typography>
+                </TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Schema</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Schema</TableCell>
                 <TableCell>{element.routine_schema}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Function Code</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Function Code</TableCell>
                 <TableCell>
                   <Box sx={{ position: 'relative' }}>
                     <Box sx={{
@@ -1108,7 +1224,7 @@ export default function ElementDetailsModal({
                       overflow: 'auto',
                       bgcolor: 'background.paper',
                       border: '1px solid',
-                      borderColor: 'divider',
+                      borderColor: 'rgba(99,102,241,0.2)',
                       p: 2,
                       borderRadius: 2,
                       fontFamily: 'monospace',
@@ -1168,22 +1284,22 @@ export default function ElementDetailsModal({
 
     return (
       <Box>
-        <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 1 }}>
+        <SectionHeader icon={<InfoIcon sx={{ fontSize: '1rem', color: '#8b5cf6' }} />}>
           View Information
-        </Typography>
-        <TableContainer component={Paper} variant="outlined">
+        </SectionHeader>
+        <TableContainer component={Paper} variant="outlined" sx={styledTableContainerSx}>
           <Table size="small">
             <TableBody>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>View Name</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>View Name</TableCell>
                 <TableCell>{element.view_name}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Schema</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Schema</TableCell>
                 <TableCell>{element.view_schema}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>View Code</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>View Code</TableCell>
                 <TableCell>
                   <Box sx={{ position: 'relative' }}>
                     <Box sx={{
@@ -1191,7 +1307,7 @@ export default function ElementDetailsModal({
                       overflow: 'auto',
                       bgcolor: 'background.paper',
                       border: '1px solid',
-                      borderColor: 'divider',
+                      borderColor: 'rgba(99,102,241,0.2)',
                       p: 2,
                       borderRadius: 2,
                       fontFamily: 'monospace',
@@ -1251,22 +1367,22 @@ export default function ElementDetailsModal({
 
     return (
       <Box>
-        <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 1 }}>
+        <SectionHeader icon={<KeyIcon sx={{ fontSize: '1rem', color: '#8b5cf6' }} />}>
           Procedure Information
-        </Typography>
-        <TableContainer component={Paper} variant="outlined">
+        </SectionHeader>
+        <TableContainer component={Paper} variant="outlined" sx={styledTableContainerSx}>
           <Table size="small">
             <TableBody>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Procedure Name</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Procedure Name</TableCell>
                 <TableCell>{element.procedure_name}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Schema</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Schema</TableCell>
                 <TableCell>{element.procedure_schema}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem' }}>Procedure Code</TableCell>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Procedure Code</TableCell>
                 <TableCell>
                   <Box sx={{ position: 'relative' }}>
                     <Box sx={{
@@ -1274,7 +1390,7 @@ export default function ElementDetailsModal({
                       overflow: 'auto',
                       bgcolor: 'background.paper',
                       border: '1px solid',
-                      borderColor: 'divider',
+                      borderColor: 'rgba(99,102,241,0.2)',
                       p: 2,
                       borderRadius: 2,
                       fontFamily: 'monospace',
@@ -1335,13 +1451,10 @@ export default function ElementDetailsModal({
 
     return (
       <Box sx={{ mt: 3 }}>
-        <Divider sx={{ mb: 2 }} />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          <DescriptionIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-          <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
-            User Description
-          </Typography>
-        </Box>
+        <Divider sx={{ mb: 2, borderColor: 'rgba(99,102,241,0.12)' }} />
+        <SectionHeader icon={<DescriptionIcon sx={{ fontSize: '1rem', color: '#818cf8' }} />}>
+          User Description
+        </SectionHeader>
         <TextField
           fullWidth
           multiline
@@ -1357,7 +1470,17 @@ export default function ElementDetailsModal({
               handleSaveDescription();
             }
           }}
-          sx={{ mb: 1 }}
+          sx={{
+            mb: 1,
+            '& .MuiOutlinedInput-root': {
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(99,102,241,0.4)',
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: '#6366f1',
+              },
+            },
+          }}
         />
         <Typography variant="caption" color={descriptionSaved ? 'success.main' : 'text.secondary'}>
           {descriptionSaved ? 'Saved' : 'Saves on blur or Cmd+Enter. Used as AI context.'}
@@ -1388,9 +1511,9 @@ export default function ElementDetailsModal({
       default:
         return (
           <Box>
-            <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 1 }}>
+            <SectionHeader icon={<InfoIcon sx={{ fontSize: '1rem', color: '#8b5cf6' }} />}>
               Element Information
-            </Typography>
+            </SectionHeader>
             <Typography color="text.secondary">
               No detailed information available for this element type.
             </Typography>
@@ -1406,42 +1529,88 @@ export default function ElementDetailsModal({
       maxWidth="lg"
       fullWidth
       PaperProps={{
-        sx: { minHeight: '60vh' }
+        sx: {
+          minHeight: '60vh',
+          borderTop: '2px solid',
+          borderImage: 'linear-gradient(90deg, #6366f1, #8b5cf6, #a78bfa) 1',
+        }
       }}
     >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1.5, px: 3 }}>
+      <DialogTitle sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        py: 2,
+        px: 3,
+        background: 'linear-gradient(180deg, rgba(99,102,241,0.08) 0%, transparent 100%)',
+      }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          {getElementIcon(elementType)}
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 36,
+            height: 36,
+            borderRadius: '10px',
+            background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))',
+            border: '1px solid rgba(99,102,241,0.2)',
+          }}>
+            {getElementIcon(elementType)}
+          </Box>
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{getElementTitle()}</Typography>
         </Box>
-        <IconButton onClick={onClose} size="small">
+        <IconButton onClick={onClose} size="small" sx={{ color: 'text.secondary' }}>
           <CloseIcon />
         </IconButton>
       </DialogTitle>
 
-      <Divider />
+      <Divider sx={{ borderColor: 'rgba(99,102,241,0.15)' }} />
 
       <DialogContent sx={{ p: 3 }}>
         {renderDetails()}
         {renderUserDescription()}
       </DialogContent>
 
-      <Divider />
+      <Divider sx={{ borderColor: 'rgba(99,102,241,0.15)' }} />
 
-      <DialogActions>
+      <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
         {supportsExplain && (
           <Button
             onClick={handleExplain}
             disabled={!onExplainInChat}
             startIcon={<ExplainIcon />}
-            variant="outlined"
-            color="primary"
+            variant="contained"
+            sx={{
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
+              '&.Mui-disabled': {
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.3), rgba(139,92,246,0.3))',
+                color: 'rgba(255,255,255,0.5)',
+              },
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 3,
+              boxShadow: '0 2px 8px rgba(99,102,241,0.25)',
+            }}
             aria-label="Explain object with AI"
           >
             Explain
           </Button>
         )}
-        <Button onClick={onClose} variant="outlined">
+        <Button
+          onClick={onClose}
+          variant="outlined"
+          sx={{
+            borderColor: 'rgba(99,102,241,0.3)',
+            color: 'text.secondary',
+            textTransform: 'none',
+            fontWeight: 500,
+            '&:hover': {
+              borderColor: 'rgba(99,102,241,0.5)',
+              backgroundColor: 'rgba(99,102,241,0.05)',
+            },
+          }}
+        >
           Close
         </Button>
       </DialogActions>
