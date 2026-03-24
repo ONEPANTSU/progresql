@@ -41,6 +41,21 @@ func (s *VisualizationStep) Execute(ctx context.Context, pctx *agent.PipelineCon
 		return nil
 	}
 
+	// Only generate visualization if user explicitly asks for analytics/charts/visualization.
+	msg := strings.ToLower(pctx.UserMessage)
+	wantsViz := false
+	vizKeywords := []string{"аналитик", "график", "диаграмм", "визуализ", "chart", "plot", "graph", "analytics", "visualiz", "distribution", "breakdown", "trend", "статистик", "распределен"}
+	for _, kw := range vizKeywords {
+		if strings.Contains(msg, kw) {
+			wantsViz = true
+			break
+		}
+	}
+	if !wantsViz {
+		pctx.Logger.Info("visualization skipped: user didn't request analytics")
+		return nil
+	}
+
 	// Ask LLM to decide if visualization is appropriate and choose chart type.
 	vizConfig, err := s.classifyVisualization(ctx, pctx, queryData.Rows, queryData.Columns)
 	if err != nil {
