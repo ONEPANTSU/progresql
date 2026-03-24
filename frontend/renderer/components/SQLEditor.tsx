@@ -26,7 +26,9 @@ import { format as formatSQL } from 'sql-formatter';
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState, Transaction, Compartment, StateEffect, StateField, RangeSet } from '@codemirror/state';
 import { sql, PostgreSQL } from '@codemirror/lang-sql';
-import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { HighlightStyle, syntaxHighlighting, indentUnit } from '@codemirror/language';
+import { indentWithTab } from '@codemirror/commands';
+import { keymap } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 import { EditorView as EditorViewTheme, Decoration, GutterMarker, gutter } from '@codemirror/view';
 import { useTheme } from '../contexts/ThemeContext';
@@ -302,6 +304,8 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
         const sqlSchema = buildSQLSchema(databaseInfo);
         const extensions = [
           basicSetup,
+          keymap.of([indentWithTab]),
+          indentUnit.of('  '),
           sqlCompartment.current.of(sql({
             dialect: PostgreSQL,
             schema: sqlSchema,
