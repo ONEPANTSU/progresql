@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import {
   PlayArrow as RunIcon,
+  Stop as StopIcon,
   Clear as ClearIcon,
   ContentCopy as CopyIcon,
   AutoFixHigh as MagicWandIcon,
@@ -494,16 +495,29 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
     return query.trim();
   }, [query]);
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const executeQuery = useCallback(async () => {
     const sqlToRun = getQueryToExecute();
     if (!sqlToRun) return;
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     setIsExecuting(true);
     try {
       await onExecuteQuery(sqlToRun);
     } finally {
+      abortControllerRef.current = null;
       setIsExecuting(false);
     }
   }, [getQueryToExecute, onExecuteQuery]);
+
+  const cancelQuery = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsExecuting(false);
+  }, []);
 
   const clearEditor = () => {
     if (editorView) {
@@ -1030,27 +1044,46 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title={t('editor.runTooltip')}>
+          <Tooltip title={isExecuting ? t('editor.stopTooltip') : t('editor.runTooltip')}>
             <span>
-              <Button
-                variant="contained"
-                startIcon={<RunIcon />}
-                onClick={executeQuery}
-                disabled={!query.trim() || isExecuting}
-                onKeyDown={handleKeyDown}
-                size="small"
-                sx={{
-                  background: "linear-gradient(135deg, #4ade80, #22c55e, #16a34a)",
-                  '&:hover': { background: "linear-gradient(135deg, #22c55e, #16a34a, #15803d)" },
-                  '&.Mui-disabled': { background: "linear-gradient(135deg, #6ee7b7, #4ade80, #34d399)", color: "rgba(255,255,255,0.7)" },
-                  minHeight: 28,
-                  py: 0.25,
-                  px: 1.5,
-                  fontSize: "0.75rem",
-                }}
-              >
-                {isExecuting ? t('editor.executing') : t('editor.run')}
-              </Button>
+              {isExecuting ? (
+                <Button
+                  variant="contained"
+                  startIcon={<StopIcon />}
+                  onClick={cancelQuery}
+                  size="small"
+                  sx={{
+                    background: "linear-gradient(135deg, #ef4444, #dc2626, #b91c1c)",
+                    '&:hover': { background: "linear-gradient(135deg, #f87171, #ef4444, #dc2626)" },
+                    minHeight: 28,
+                    py: 0.25,
+                    px: 1.5,
+                    fontSize: "0.75rem",
+                  }}
+                >
+                  {t('editor.stop')}
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  startIcon={<RunIcon />}
+                  onClick={executeQuery}
+                  disabled={!query.trim()}
+                  onKeyDown={handleKeyDown}
+                  size="small"
+                  sx={{
+                    background: "linear-gradient(135deg, #4ade80, #22c55e, #16a34a)",
+                    '&:hover': { background: "linear-gradient(135deg, #22c55e, #16a34a, #15803d)" },
+                    '&.Mui-disabled': { background: "linear-gradient(135deg, #6ee7b7, #4ade80, #34d399)", color: "rgba(255,255,255,0.7)" },
+                    minHeight: 28,
+                    py: 0.25,
+                    px: 1.5,
+                    fontSize: "0.75rem",
+                  }}
+                >
+                  {t('editor.run')}
+                </Button>
+              )}
             </span>
           </Tooltip>
         </Box>
