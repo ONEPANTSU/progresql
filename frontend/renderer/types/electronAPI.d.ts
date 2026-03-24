@@ -52,6 +52,13 @@ export interface McpToolDescriptor {
   inputSchema?: Record<string, unknown>;
 }
 
+/** Response from checkForUpdates IPC call. */
+export interface UpdateCheckResult {
+  hasUpdate: boolean;
+  latestVersion: string;
+  downloadUrl: string;
+}
+
 declare global {
   interface Window {
     electronAPI: {
@@ -85,6 +92,8 @@ declare global {
       openExternal: (url: string) => Promise<void>;
       // App info
       getAppVersion: () => Promise<string>;
+      // Update check
+      checkForUpdates: () => Promise<UpdateCheckResult>;
     };
   }
 }

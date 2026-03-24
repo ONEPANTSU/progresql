@@ -435,6 +435,11 @@ const ru: Record<TranslationKey, string> = {
   'details.default': 'По умолчанию',
   'details.dropColumnTitle': 'Удаление колонки',
   'details.dropSql': 'Сгенерировать DROP SQL',
+
+  // -- Update Notification --
+  'update.available': 'Доступна новая версия ProgreSQL {version}',
+  'update.download': 'Скачать',
+  'update.dismiss': 'Скрыть уведомление об обновлении',
 };
 
 export default ru;

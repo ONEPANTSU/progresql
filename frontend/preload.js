@@ -224,6 +224,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () => {
     return ipcRenderer.invoke('get-app-version');
   },
+  // Check for app updates via GitHub releases
+  checkForUpdates: async () => {
+    try {
+      return await ipcRenderer.invoke('check-for-updates');
+    } catch (error) {
+      log.error('checkForUpdates error:', error);
+      return { hasUpdate: false, latestVersion: '', downloadUrl: '' };
+    }
+  },
   // Navigate to a route — uses main process loadFile via IPC
   navigate: (route) => {
     ipcRenderer.send('navigate-to', route);

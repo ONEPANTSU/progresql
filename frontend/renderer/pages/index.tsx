@@ -30,6 +30,7 @@ import { userKey } from '../utils/userStorage';
 import { useTranslation } from '../contexts/LanguageContext';
 import CloseIcon from '@mui/icons-material/Close';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import UpdateBanner from '../components/UpdateBanner';
 
 const log = createLogger('Index');
 
@@ -896,6 +897,7 @@ export default function Home() {
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'background.default' }}>
+      <UpdateBanner />
       {/* Main Content Area */}
       <Box sx={{ flexGrow: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Main Content */}

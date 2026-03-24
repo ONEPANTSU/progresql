@@ -430,6 +430,11 @@ const en = {
   'details.default': 'Default',
   'details.dropColumnTitle': 'Drop Column',
   'details.dropSql': 'Generate DROP SQL',
+
+  // -- Update Notification --
+  'update.available': 'ProgreSQL {version} is available',
+  'update.download': 'Download',
+  'update.dismiss': 'Dismiss update notification',
 } as const;
 
 export type TranslationKey = keyof typeof en;
