@@ -10,6 +10,7 @@ export interface UseChatReturn {
   activeChat: Chat | undefined;
   handleCreateChat: () => string;
   handleDeleteChat: (chatId: string) => void;
+  handleRenameChat: (chatId: string, newTitle: string) => void;
   handleClearHistory: () => void;
   messagesEndRef: React.RefObject<HTMLDivElement>;
   tabsContainerRef: React.RefObject<HTMLDivElement>;
@@ -120,9 +121,19 @@ export function useChat(isOpen: boolean): UseChatReturn {
   }, []);
 
   const handleCreateChat = useCallback((): string => {
+    // Find next available Chat number (like Query tabs)
+    const usedNumbers = new Set(
+      chats.map(c => {
+        const match = c.title.match(/^Chat (\d+)$/);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+    );
+    let nextNum = 1;
+    while (usedNumbers.has(nextNum)) nextNum++;
+
     const newChat: Chat = {
       id: Date.now().toString(),
-      title: `Chat ${chats.length + 1}`,
+      title: `Chat ${nextNum}`,
       createdAt: new Date(),
       updatedAt: new Date(),
       messages: [],
@@ -131,7 +142,7 @@ export function useChat(isOpen: boolean): UseChatReturn {
     setChats(prev => [...prev, newChat]);
     setActiveChatIdState(newChat.id);
     return newChat.id;
-  }, [chats.length]);
+  }, [chats]);
 
   const handleDeleteChat = useCallback((chatId: string) => {
     setChats(prev => {
@@ -142,6 +153,12 @@ export function useChat(isOpen: boolean): UseChatReturn {
       return remaining;
     });
   }, [activeChatId]);
+
+  const handleRenameChat = useCallback((chatId: string, newTitle: string) => {
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+    setChats(prev => prev.map(c => c.id === chatId ? { ...c, title: trimmed } : c));
+  }, []);
 
   const handleClearHistory = useCallback(() => {
     clearChatHistory();
@@ -160,6 +177,7 @@ export function useChat(isOpen: boolean): UseChatReturn {
     activeChat,
     handleCreateChat,
     handleDeleteChat,
+    handleRenameChat,
     handleClearHistory,
     messagesEndRef,
     tabsContainerRef,

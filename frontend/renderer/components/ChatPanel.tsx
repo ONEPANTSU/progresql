@@ -79,6 +79,8 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
   const [isTyping, setIsTyping] = useState(false);
   const [attachedSQL, setAttachedSQL] = useState<string | null>(null);
   const [trialBannerDismissed, setTrialBannerDismissed] = useState(false);
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
   const chatInputRef = useRef<ChatInputHandle>(null);
 
   const chat = useChat(isOpen);
@@ -220,20 +222,42 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
                   }}
                 >
                   <ChatIcon sx={{ fontSize: 14, opacity: isActive ? 1 : 0.7, color: isActive ? 'text.primary' : 'text.secondary' }} />
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      flexGrow: 1,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      fontSize: '0.75rem',
-                      fontWeight: isActive ? 600 : 400,
-                      color: isActive ? 'text.primary' : 'text.secondary',
-                    }}
-                  >
-                    {c.title}
-                  </Typography>
+                  {editingChatId === c.id ? (
+                    <input
+                      autoFocus
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onBlur={() => { chat.handleRenameChat(c.id, editingTitle); setEditingChatId(null); }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { chat.handleRenameChat(c.id, editingTitle); setEditingChatId(null); }
+                        if (e.key === 'Escape') setEditingChatId(null);
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        background: 'transparent', border: 'none', outline: 'none',
+                        color: 'inherit', fontSize: '0.75rem', fontWeight: 600,
+                        width: '100%', padding: 0,
+                      }}
+                    />
+                  ) : (
+                    <Typography
+                      variant="caption"
+                      onDoubleClick={(e) => { e.stopPropagation(); setEditingChatId(c.id); setEditingTitle(c.title); }}
+                      sx={{
+                        flexGrow: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        fontSize: '0.75rem',
+                        fontWeight: isActive ? 600 : 400,
+                        color: isActive ? 'text.primary' : 'text.secondary',
+                        cursor: 'text',
+                      }}
+                    >
+                      {c.title}
+                    </Typography>
+                  )}
                   <IconButton
                     size="small"
                     onClick={(e) => { e.stopPropagation(); chat.handleDeleteChat(c.id); }}
