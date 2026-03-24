@@ -26,6 +26,9 @@ func (s *ImproveSQLStep) Execute(ctx context.Context, pctx *agent.PipelineContex
 
 	model := pctx.Model
 
+	// Step 0: Gather schema context so LLM knows which tables/columns exist.
+	schemaContext := s.gatherSchemaContext(pctx)
+
 	// Step 1: Call explain_query tool to get the query plan.
 	explainArgs, _ := json.Marshal(tools.ExplainQueryArgs{SQL: sql})
 	result, err := pctx.DispatchTool(tools.ToolExplainQuery, explainArgs)
@@ -51,10 +54,15 @@ func (s *ImproveSQLStep) Execute(ctx context.Context, pctx *agent.PipelineContex
 		zap.Bool("success", result.Success),
 	)
 
-	// Step 2: Send SQL + plan to LLM for optimization with streaming.
+	// Step 2: Send SQL + plan + schema to LLM for optimization with streaming.
 	userDescSection := ""
 	if pctx.UserDescriptions != "" {
 		userDescSection = fmt.Sprintf("\nUser-provided descriptions for database objects:\n%s\n\n", pctx.UserDescriptions)
+	}
+
+	schemaSection := ""
+	if schemaContext != "" {
+		schemaSection = fmt.Sprintf("\nDatabase schema (tables and columns available):\n%s\n\n", schemaContext)
 	}
 
 	prompt := fmt.Sprintf(
@@ -62,6 +70,7 @@ func (s *ImproveSQLStep) Execute(ctx context.Context, pctx *agent.PipelineContex
 			"IMPORTANT: Always respond in the same language as the user's message. "+
 			"If the user writes in Russian, explain in Russian. If in English, explain in English. "+
 			"SQL code must remain in standard SQL syntax.\n\n"+
+			"%s"+
 			"%s"+
 			"Original SQL:\n```sql\n%s\n```\n\n"+
 			"EXPLAIN output:\n```\n%s\n```\n\n"+
@@ -84,7 +93,7 @@ func (s *ImproveSQLStep) Execute(ctx context.Context, pctx *agent.PipelineContex
 			"- For DDL queries (CREATE TABLE, etc.): you MAY add CREATE INDEX statements after the main query.\n"+
 			"- The ```sql block must contain EXACTLY ONE improved version of the original query (same type), not a replacement.\n\n"+
 			"If the query is already optimal, explain why and return it unchanged.",
-		userDescSection, sql, queryPlan,
+		userDescSection, schemaSection, sql, queryPlan,
 	)
 
 	req := llm.ChatRequest{
@@ -176,6 +185,46 @@ func indexOf(s, substr string) int {
 		}
 	}
 	return -1
+}
+
+// gatherSchemaContext calls list_schemas + list_tables to build a schema summary for the LLM.
+func (s *ImproveSQLStep) gatherSchemaContext(pctx *agent.PipelineContext) string {
+	schemasResult, err := pctx.DispatchTool(tools.ToolListSchemas, nil)
+	if err != nil || !schemasResult.Success {
+		return ""
+	}
+
+	var schemasData struct {
+		Schemas []string `json:"schemas"`
+	}
+	if err := json.Unmarshal(schemasResult.Data, &schemasData); err != nil {
+		return ""
+	}
+
+	var lines []string
+	for _, schema := range schemasData.Schemas {
+		args, _ := json.Marshal(map[string]string{"schema": schema})
+		tablesResult, err := pctx.DispatchTool(tools.ToolListTables, args)
+		if err != nil || !tablesResult.Success {
+			continue
+		}
+		tableNames, _ := parseTableNames(tablesResult.Data)
+		if len(tableNames) > 0 {
+			for _, t := range tableNames {
+				lines = append(lines, fmt.Sprintf("- %s.%s", schema, t))
+			}
+		}
+	}
+
+	if len(lines) == 0 {
+		return ""
+	}
+
+	result := ""
+	for _, l := range lines {
+		result += l + "\n"
+	}
+	return result
 }
 
 func trimSQL(sql string) string {
