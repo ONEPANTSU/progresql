@@ -799,8 +799,8 @@ export default function Home() {
 
   const handleFixInChat = (sqlQuery: string, errorMsg: string) => {
     if (!isChatOpen) setIsChatOpen(true);
-    const context = `Fix this SQL error:\n\n\`\`\`sql\n${sqlQuery}\n\`\`\`\n\nError: ${errorMsg}`;
-    setTimeout(() => chatPanelRef.current?.sendExplainSQL(context), 50);
+    const context = `Fix this SQL error:\n\`\`\`sql\n${sqlQuery}\n\`\`\`\nError: ${errorMsg}`;
+    setTimeout(() => chatPanelRef.current?.sendTextMessage(context, 'Fix SQL error'), 50);
   };
 
   // Silent mutation (UPDATE/INSERT/DELETE) — doesn't update queryResult/lastExecutedQuery
