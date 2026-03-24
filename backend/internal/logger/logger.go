@@ -12,7 +12,9 @@ var global *zap.Logger
 // Init initializes the global logger based on log level and environment.
 // If env is "development", uses a human-readable console encoder.
 // Otherwise, uses JSON encoder suitable for production.
-func Init(level string, env string) (*zap.Logger, error) {
+// The returned logger includes "service" and "version" default fields
+// for structured log filtering (e.g. Loki, Datadog).
+func Init(level string, env string, version ...string) (*zap.Logger, error) {
 	lvl, err := zapcore.ParseLevel(level)
 	if err != nil {
 		return nil, fmt.Errorf("parsing log level %q: %w", level, err)
@@ -30,6 +32,16 @@ func Init(level string, env string) (*zap.Logger, error) {
 	if err != nil {
 		return nil, fmt.Errorf("building logger: %w", err)
 	}
+
+	// Enrich every log line with service identity fields.
+	ver := "unknown"
+	if len(version) > 0 && version[0] != "" {
+		ver = version[0]
+	}
+	logger = logger.With(
+		zap.String("service", "progressql-backend"),
+		zap.String("version", ver),
+	)
 
 	global = logger
 	return logger, nil

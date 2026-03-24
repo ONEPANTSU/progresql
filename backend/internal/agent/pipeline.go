@@ -293,6 +293,8 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		requestID = uuid.New().String()
 	}
 
+	userID := session.UserID()
+
 	// Check rate limit before processing.
 	if p.rateLimiter != nil {
 		if err := p.rateLimiter.Allow(session.SessionID()); err != nil {
@@ -308,6 +310,7 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 	p.logger.Info("pipeline started",
 		zap.String("request_id", requestID),
 		zap.String("action", payload.Action),
+		zap.String("user_id", userID),
 	)
 
 	p.mu.RLock()
@@ -344,12 +347,12 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		UserMessage:         payload.UserMessage,
 		ConversationHistory: convHistory,
 		Model:               model,
-		UserID:              session.UserID(),
+		UserID:              userID,
 		Session:             session,
 		ToolDispatcher:      websocket.NewToolDispatcher(session).WithTimeout(p.toolCallTimeout).WithMaxRetries(p.toolCallMaxRetries).WithLogger(p.logger),
 		LLMClient:           p.llm,
 		ToolRegistry:        p.registry,
-		Logger:              p.logger.With(zap.String("request_id", requestID), zap.String("action", payload.Action)),
+		Logger:              p.logger.With(zap.String("request_id", requestID), zap.String("action", payload.Action), zap.String("user_id", userID)),
 		values:              make(map[string]any),
 	}
 
@@ -640,13 +643,15 @@ func (p *Pipeline) handleDBNotConnected(ctx context.Context, pctx *PipelineConte
 }
 
 // emitAuditLog writes a single structured audit log entry for each agent.request.
-// Fields: timestamp, session_id, request_id, action, tool_calls, model, tokens, duration_ms, error.
+// Fields: timestamp, session_id, request_id, user_id, action, tool_calls, model, tokens, duration_ms, error.
 func (p *Pipeline) emitAuditLog(session *websocket.Session, requestID, action string, startTime time.Time, toolCallCount int, model string, tokens int, toolCalls []websocket.ToolCallLogEntry, pipelineErr error) {
 	durationMs := time.Since(startTime).Milliseconds()
 
 	sessionID := ""
+	userID := ""
 	if session != nil {
 		sessionID = session.SessionID()
+		userID = session.UserID()
 	}
 
 	// Build tool call names for compact audit.
@@ -659,6 +664,7 @@ func (p *Pipeline) emitAuditLog(session *websocket.Session, requestID, action st
 		zap.String("audit", "agent_request"),
 		zap.String("session_id", sessionID),
 		zap.String("request_id", requestID),
+		zap.String("user_id", userID),
 		zap.String("action", action),
 		zap.Int("tool_calls", toolCallCount),
 		zap.Strings("tool_names", toolNames),
@@ -719,9 +725,9 @@ func buildAssistantHistoryMessage(pctx *PipelineContext) string {
 // modelPricePerToken maps model IDs to their per-token cost in USD.
 // Prices are per 1 token (not per 1K or 1M). Source: OpenRouter pricing.
 var modelPricePerToken = map[string]float64{
-	"qwen/qwen3-coder":            0.0000003,  // $0.30/M tokens
-	"openai/gpt-oss-120b":         0.0000001,  // $0.10/M tokens
-	"qwen/qwen3-vl-32b-instruct":  0.00000025, // $0.25/M tokens
+	"qwen/qwen3-coder":           0.0000003,  // $0.30/M tokens
+	"openai/gpt-oss-120b":        0.0000001,  // $0.10/M tokens
+	"qwen/qwen3-vl-32b-instruct": 0.00000025, // $0.25/M tokens
 }
 
 // calcCostUSD estimates the cost in USD for the given model and total tokens.

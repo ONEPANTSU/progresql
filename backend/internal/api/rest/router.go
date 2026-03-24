@@ -105,5 +105,6 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 
 	mux.HandleFunc("/ws/", websocket.HandleWebSocket(hub, jwtSvc, log, nil, sessionFactory))
 
-	return MetricsMiddleware(CORSMiddleware(mux))
+	// Middleware chain (outermost first): Metrics -> Logging -> CORS -> mux
+	return MetricsMiddleware(LoggingMiddleware(log)(CORSMiddleware(mux)))
 }
