@@ -1,31 +1,12 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
-      "type": "datasource",
-      "pluginId": "prometheus"
-    },
-    {
-      "name": "DS_POSTGRESQL",
-      "label": "PostgreSQL",
-      "type": "datasource",
-      "pluginId": "postgres"
-    }
-  ],
-  "__requires": [
-    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
-    { "type": "datasource", "id": "prometheus", "name": "Prometheus" },
-    { "type": "datasource", "id": "postgres", "name": "PostgreSQL" },
-    { "type": "panel", "id": "stat", "name": "Stat" },
-    { "type": "panel", "id": "timeseries", "name": "Time series" },
-    { "type": "panel", "id": "gauge", "name": "Gauge" }
-  ],
   "id": null,
   "uid": "progressql-home",
-  "title": "ProgreSQL — Overview",
+  "title": "ProgreSQL \u2014 Overview",
   "description": "High-level overview of ProgreSQL health, traffic, resources, and users",
-  "tags": ["progressql", "overview"],
+  "tags": [
+    "progressql",
+    "overview"
+  ],
   "timezone": "browser",
   "editable": true,
   "fiscalYearStartMonth": 0,
@@ -35,14 +16,22 @@
   "refresh": "30s",
   "schemaVersion": 39,
   "style": "dark",
-  "time": { "from": "now-1h", "to": "now" },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
   "timepicker": {},
-  "templating": { "list": [] },
+  "templating": {
+    "list": []
+  },
   "annotations": {
     "list": [
       {
         "builtIn": 1,
-        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
         "enable": true,
         "hide": true,
         "iconColor": "#6366f1",
@@ -54,7 +43,12 @@
   "panels": [
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "id": 100,
       "title": "Key Metrics",
       "type": "row"
@@ -64,18 +58,41 @@
       "title": "RPS",
       "description": "Requests per second (all HTTP)",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 5, "x": 0, "y": 1 },
-      "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "fixed", "fixedColor": "#6366f1" },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#6366f1"
+          },
           "unit": "reqps",
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "#6366f1", "value": null }] }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#6366f1",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
@@ -83,7 +100,10 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum(rate(http_requests_total[1m]))",
           "legendFormat": "RPS",
           "refId": "A"
@@ -95,26 +115,49 @@
       "title": "Error %",
       "description": "Percentage of HTTP 5xx responses",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 5, "x": 5, "y": 1 },
-      "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 5,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "thresholds" },
+          "color": {
+            "mode": "thresholds"
+          },
           "unit": "percent",
           "decimals": 2,
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "#10b981", "value": null },
-              { "color": "#f59e0b", "value": 1 },
-              { "color": "#ef4444", "value": 5 }
+              {
+                "color": "#10b981",
+                "value": null
+              },
+              {
+                "color": "#f59e0b",
+                "value": 1
+              },
+              {
+                "color": "#ef4444",
+                "value": 5
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
@@ -122,7 +165,10 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m])) * 100",
           "legendFormat": "Error %",
           "refId": "A"
@@ -134,26 +180,49 @@
       "title": "P95 Latency",
       "description": "95th percentile HTTP latency",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 5, "x": 10, "y": 1 },
-      "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 10,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "thresholds" },
+          "color": {
+            "mode": "thresholds"
+          },
           "unit": "s",
           "decimals": 3,
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "#10b981", "value": null },
-              { "color": "#f59e0b", "value": 0.5 },
-              { "color": "#ef4444", "value": 1 }
+              {
+                "color": "#10b981",
+                "value": null
+              },
+              {
+                "color": "#f59e0b",
+                "value": 0.5
+              },
+              {
+                "color": "#ef4444",
+                "value": 1
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
@@ -161,7 +230,10 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "P95",
           "refId": "A"
@@ -173,18 +245,41 @@
       "title": "Active WS",
       "description": "Active WebSocket connections",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 5, "x": 15, "y": 1 },
-      "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 15,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "fixed", "fixedColor": "#8b5cf6" },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#8b5cf6"
+          },
           "unit": "short",
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "#8b5cf6", "value": null }] }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8b5cf6",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
@@ -192,7 +287,10 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "ws_active_connections",
           "legendFormat": "WS",
           "refId": "A"
@@ -204,18 +302,41 @@
       "title": "Uptime",
       "description": "Backend process uptime",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
-      "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "fixed", "fixedColor": "#10b981" },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#10b981"
+          },
           "unit": "s",
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "#10b981", "value": null }] }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
@@ -223,7 +344,10 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "time() - process_start_time_seconds{job=\"backend\"}",
           "legendFormat": "Uptime",
           "refId": "A"
@@ -232,7 +356,12 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
       "id": 101,
       "title": "Traffic",
       "type": "row"
@@ -242,11 +371,22 @@
       "title": "HTTP Requests per Second",
       "description": "HTTP RPS over time",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
-      "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "fixed", "fixedColor": "#6366f1" },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#6366f1"
+          },
           "unit": "reqps",
           "custom": {
             "drawStyle": "line",
@@ -263,12 +403,21 @@
         "overrides": []
       },
       "options": {
-        "tooltip": { "mode": "single", "sort": "none" },
-        "legend": { "displayMode": "list", "placement": "bottom" }
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum(rate(http_requests_total[1m]))",
           "legendFormat": "RPS",
           "refId": "A"
@@ -280,11 +429,22 @@
       "title": "Agent Requests / min",
       "description": "AI agent requests per minute",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
-      "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "fixed", "fixedColor": "#8b5cf6" },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#8b5cf6"
+          },
           "unit": "reqpm",
           "custom": {
             "drawStyle": "line",
@@ -299,12 +459,21 @@
         "overrides": []
       },
       "options": {
-        "tooltip": { "mode": "single", "sort": "none" },
-        "legend": { "displayMode": "list", "placement": "bottom" }
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum(rate(agent_requests_total[1m])) * 60",
           "legendFormat": "Agent req/min",
           "refId": "A"
@@ -313,7 +482,12 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
       "id": 102,
       "title": "Resources",
       "type": "row"
@@ -322,33 +496,59 @@
       "id": 8,
       "title": "CPU Usage",
       "type": "gauge",
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 15 },
-      "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 15
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "thresholds" },
+          "color": {
+            "mode": "thresholds"
+          },
           "unit": "percent",
           "min": 0,
           "max": 100,
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "#10b981", "value": null },
-              { "color": "#f59e0b", "value": 70 },
-              { "color": "#ef4444", "value": 90 }
+              {
+                "color": "#10b981",
+                "value": null
+              },
+              {
+                "color": "#f59e0b",
+                "value": 70
+              },
+              {
+                "color": "#ef4444",
+                "value": 90
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "showThresholdLabels": false,
         "showThresholdMarkers": true
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
           "legendFormat": "CPU",
           "refId": "A"
@@ -359,33 +559,59 @@
       "id": 9,
       "title": "RAM Usage",
       "type": "gauge",
-      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 15 },
-      "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 15
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "thresholds" },
+          "color": {
+            "mode": "thresholds"
+          },
           "unit": "percent",
           "min": 0,
           "max": 100,
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "#10b981", "value": null },
-              { "color": "#f59e0b", "value": 70 },
-              { "color": "#ef4444", "value": 90 }
+              {
+                "color": "#10b981",
+                "value": null
+              },
+              {
+                "color": "#f59e0b",
+                "value": 70
+              },
+              {
+                "color": "#ef4444",
+                "value": 90
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "showThresholdLabels": false,
         "showThresholdMarkers": true
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
           "legendFormat": "RAM",
           "refId": "A"
@@ -396,33 +622,59 @@
       "id": 10,
       "title": "Disk Usage",
       "type": "gauge",
-      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 15 },
-      "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 15
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "thresholds" },
+          "color": {
+            "mode": "thresholds"
+          },
           "unit": "percent",
           "min": 0,
           "max": 100,
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "#10b981", "value": null },
-              { "color": "#f59e0b", "value": 70 },
-              { "color": "#ef4444", "value": 90 }
+              {
+                "color": "#10b981",
+                "value": null
+              },
+              {
+                "color": "#f59e0b",
+                "value": 70
+              },
+              {
+                "color": "#ef4444",
+                "value": 90
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "showThresholdLabels": false,
         "showThresholdMarkers": true
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "(1 - (node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"})) * 100",
           "legendFormat": "Disk",
           "refId": "A"
@@ -433,33 +685,59 @@
       "id": 11,
       "title": "DB Pool Usage",
       "type": "gauge",
-      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 15 },
-      "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 15
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "thresholds" },
+          "color": {
+            "mode": "thresholds"
+          },
           "unit": "percent",
           "min": 0,
           "max": 100,
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "#10b981", "value": null },
-              { "color": "#f59e0b", "value": 70 },
-              { "color": "#ef4444", "value": 90 }
+              {
+                "color": "#10b981",
+                "value": null
+              },
+              {
+                "color": "#f59e0b",
+                "value": 70
+              },
+              {
+                "color": "#ef4444",
+                "value": 90
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "showThresholdLabels": false,
         "showThresholdMarkers": true
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "db_pool_active_connections / db_pool_max_connections * 100",
           "legendFormat": "DB Pool",
           "refId": "A"
@@ -468,7 +746,12 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
       "id": 103,
       "title": "Users",
       "type": "row"
@@ -477,18 +760,41 @@
       "id": 12,
       "title": "Total Users",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 22 },
-      "datasource": { "type": "postgres", "uid": "DS_POSTGRESQL" },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 22
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "fixed", "fixedColor": "#6366f1" },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#6366f1"
+          },
           "unit": "short",
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "#6366f1", "value": null }] }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#6366f1",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
@@ -496,7 +802,10 @@
       },
       "targets": [
         {
-          "datasource": { "type": "postgres", "uid": "DS_POSTGRESQL" },
+          "datasource": {
+            "type": "postgres",
+            "uid": "postgres"
+          },
           "rawSql": "SELECT COUNT(*) AS \"Total Users\" FROM users",
           "format": "table",
           "refId": "A"
@@ -507,18 +816,41 @@
       "id": 13,
       "title": "Pro Users",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 22 },
-      "datasource": { "type": "postgres", "uid": "DS_POSTGRESQL" },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 22
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "fixed", "fixedColor": "#8b5cf6" },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#8b5cf6"
+          },
           "unit": "short",
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "#8b5cf6", "value": null }] }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8b5cf6",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
@@ -526,7 +858,10 @@
       },
       "targets": [
         {
-          "datasource": { "type": "postgres", "uid": "DS_POSTGRESQL" },
+          "datasource": {
+            "type": "postgres",
+            "uid": "postgres"
+          },
           "rawSql": "SELECT COUNT(*) AS \"Pro Users\" FROM users WHERE plan='pro' AND plan_expires_at > NOW()",
           "format": "table",
           "refId": "A"
@@ -537,18 +872,41 @@
       "id": 14,
       "title": "Trial Users",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 22 },
-      "datasource": { "type": "postgres", "uid": "DS_POSTGRESQL" },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 22
+      },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "fixed", "fixedColor": "#06b6d4" },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#06b6d4"
+          },
           "unit": "short",
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "#06b6d4", "value": null }] }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#06b6d4",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
@@ -556,7 +914,10 @@
       },
       "targets": [
         {
-          "datasource": { "type": "postgres", "uid": "DS_POSTGRESQL" },
+          "datasource": {
+            "type": "postgres",
+            "uid": "postgres"
+          },
           "rawSql": "SELECT COUNT(*) AS \"Trial Users\" FROM users WHERE plan='free' AND trial_ends_at > NOW()",
           "format": "table",
           "refId": "A"
