@@ -1,6 +1,9 @@
 package rest
 
 import (
+	"bufio"
+	"fmt"
+	"net"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -26,6 +29,21 @@ type statusRecorder struct {
 func (r *statusRecorder) WriteHeader(code int) {
 	r.statusCode = code
 	r.ResponseWriter.WriteHeader(code)
+}
+
+// Hijack implements http.Hijacker so WebSocket upgrades work through this middleware.
+func (r *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hj, ok := r.ResponseWriter.(http.Hijacker); ok {
+		return hj.Hijack()
+	}
+	return nil, nil, fmt.Errorf("underlying ResponseWriter does not implement http.Hijacker")
+}
+
+// Flush implements http.Flusher for streaming responses.
+func (r *statusRecorder) Flush() {
+	if f, ok := r.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 // MetricsMiddleware records Prometheus HTTP metrics for every request.
