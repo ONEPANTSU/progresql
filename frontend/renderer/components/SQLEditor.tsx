@@ -334,7 +334,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
                     showGhostText(viewRef.current, completion, currentPos);
                   }
                 });
-              }, 800);
+              }, 400);
             }
           }
         });

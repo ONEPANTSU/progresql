@@ -432,8 +432,8 @@ const en = {
   'details.dropSql': 'Generate DROP SQL',
 
   // -- Update Notification --
-  'update.available': 'ProgreSQL {version} is available',
-  'update.download': 'Download',
+  'update.available': 'New version available — ',
+  'update.download': 'Update',
   'update.dismiss': 'Dismiss update notification',
 } as const;
 

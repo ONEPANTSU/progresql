@@ -437,8 +437,8 @@ const ru: Record<TranslationKey, string> = {
   'details.dropSql': 'Сгенерировать DROP SQL',
 
   // -- Update Notification --
-  'update.available': 'Доступна новая версия ProgreSQL {version}',
-  'update.download': 'Скачать',
+  'update.available': 'Доступна новая версия — ',
+  'update.download': 'Обновить',
   'update.dismiss': 'Скрыть уведомление об обновлении',
 };
 
