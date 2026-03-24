@@ -29,8 +29,8 @@ jobs:
           file: deploy/Dockerfile.backend
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/progresql-backend:latest
-            ghcr.io/${{ github.repository_owner }}/progresql-backend:${{ github.ref_name }}
+            ghcr.io/onepantsu/progresql-backend:latest
+            ghcr.io/onepantsu/progresql-backend:${{ github.ref_name }}
 
       - name: Deploy to production
         uses: appleboy/ssh-action@v1
@@ -39,8 +39,8 @@ jobs:
           username: root
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker pull ghcr.io/${{ github.repository_owner }}/progresql-backend:latest
-            docker tag ghcr.io/${{ github.repository_owner }}/progresql-backend:latest progresql-backend:latest
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u onepantsu --password-stdin
+            docker pull ghcr.io/onepantsu/progresql-backend:latest
+            docker tag ghcr.io/onepantsu/progresql-backend:latest progresql-backend:latest
             cd /opt/progresql && docker compose up -d backend
             docker system prune -f
