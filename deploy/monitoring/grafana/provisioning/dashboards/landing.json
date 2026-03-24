@@ -1,0 +1,168 @@
+{
+  "uid": "landing",
+  "title": "Landing Page Analytics",
+  "tags": ["landing", "analytics"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "type": "row",
+      "title": "📊 Overview",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "Page Views (24h)",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "increase(landing_page_views_total[24h])", "legendFormat": "" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "#6366f1", "value": null }] } } },
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } }
+    },
+    {
+      "type": "stat",
+      "title": "Unique Sessions (24h)",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "increase(landing_unique_sessions_total[24h])", "legendFormat": "" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "#8b5cf6", "value": null }] } } },
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } }
+    },
+    {
+      "type": "stat",
+      "title": "Downloads (24h)",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(increase(landing_downloads_total[24h]))", "legendFormat": "" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "#10b981", "value": null }] } } },
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } }
+    },
+    {
+      "type": "stat",
+      "title": "Video Plays (24h)",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "increase(landing_video_events_total{action=\"play\"}[24h])", "legendFormat": "" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "#06b6d4", "value": null }] } } },
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } }
+    },
+    {
+      "type": "gauge",
+      "title": "Download Conversion Rate",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(increase(landing_downloads_total[24h])) / sum(increase(landing_page_views_total[24h])) * 100", "legendFormat": "" }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "steps": [{ "color": "#ef4444", "value": null }, { "color": "#f59e0b", "value": 2 }, { "color": "#10b981", "value": 5 }] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "showThresholdMarkers": true }
+    },
+    {
+      "type": "gauge",
+      "title": "Scroll-to-Bottom Rate",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "increase(landing_scroll_depth_total{percent=\"100\"}[24h]) / sum(increase(landing_page_views_total[24h])) * 100", "legendFormat": "" }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "steps": [{ "color": "#ef4444", "value": null }, { "color": "#f59e0b", "value": 20 }, { "color": "#10b981", "value": 40 }] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "showThresholdMarkers": true }
+    },
+    {
+      "type": "row",
+      "title": "📈 Traffic",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Page Views Over Time",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rate(landing_page_views_total[5m])) * 60", "legendFormat": "Views/min" }],
+      "fieldConfig": { "defaults": { "color": { "fixedColor": "#6366f1", "mode": "fixed" }, "custom": { "lineWidth": 2, "fillOpacity": 12, "gradientMode": "opacity", "showPoints": "never" } } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "type": "piechart",
+      "title": "Traffic Sources (Referrer)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum by(referrer_domain) (increase(landing_page_views_total[24h]))", "legendFormat": "{{referrer_domain}}" }],
+      "options": { "pieType": "donut", "displayLabels": ["name", "percent"], "legend": { "displayMode": "table", "placement": "right" } }
+    },
+    {
+      "type": "piechart",
+      "title": "UTM Sources",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum by(utm_source) (increase(landing_page_views_total{utm_source!=\"\"}[24h]))", "legendFormat": "{{utm_source}}" }],
+      "options": { "pieType": "donut", "displayLabels": ["name", "percent"], "legend": { "displayMode": "table", "placement": "right" } }
+    },
+    {
+      "type": "piechart",
+      "title": "Countries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum by(country) (increase(landing_page_views_total{country!=\"\"}[24h]))", "legendFormat": "{{country}}" }],
+      "options": { "pieType": "donut", "displayLabels": ["name", "percent"], "legend": { "displayMode": "table", "placement": "right" } }
+    },
+    {
+      "type": "barchart",
+      "title": "Screen Widths",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 14 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [{ "rawSql": "SELECT CASE WHEN screen_width < 768 THEN 'Mobile' WHEN screen_width < 1024 THEN 'Tablet' ELSE 'Desktop' END AS device, COUNT(*) AS count FROM landing_events WHERE event_type='page_view' AND created_at > NOW() - INTERVAL '24 hours' GROUP BY device ORDER BY count DESC", "format": "table" }],
+      "options": { "xTickLabelRotation": 0, "barRadius": 4, "fillOpacity": 85 }
+    },
+    {
+      "type": "row",
+      "title": "🖱️ Conversions",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
+      "collapsed": false
+    },
+    {
+      "type": "barchart",
+      "title": "Button Clicks (24h)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum by(button_id) (increase(landing_button_clicks_total[24h]))", "legendFormat": "{{button_id}}" }],
+      "options": { "xTickLabelRotation": -45, "barRadius": 4, "fillOpacity": 85 }
+    },
+    {
+      "type": "barchart",
+      "title": "Downloads by Platform (24h)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum by(platform) (increase(landing_downloads_total[24h]))", "legendFormat": "{{platform}}" }],
+      "options": { "xTickLabelRotation": 0, "barRadius": 4, "fillOpacity": 85 }
+    },
+    {
+      "type": "row",
+      "title": "📜 Scroll & Video Funnel",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 },
+      "collapsed": false
+    },
+    {
+      "type": "barchart",
+      "title": "Scroll Depth Funnel",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "increase(landing_scroll_depth_total{percent=\"25\"}[24h])", "legendFormat": "25%" },
+        { "expr": "increase(landing_scroll_depth_total{percent=\"50\"}[24h])", "legendFormat": "50%" },
+        { "expr": "increase(landing_scroll_depth_total{percent=\"75\"}[24h])", "legendFormat": "75%" },
+        { "expr": "increase(landing_scroll_depth_total{percent=\"100\"}[24h])", "legendFormat": "100%" }
+      ],
+      "options": { "xTickLabelRotation": 0, "barRadius": 4, "fillOpacity": 85, "stacking": { "mode": "none" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Video Events Over Time",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum by(action) (rate(landing_video_events_total[5m])) * 60", "legendFormat": "{{action}}" }],
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 12, "gradientMode": "opacity", "showPoints": "never" } } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } }
+    }
+  ],
+  "schemaVersion": 39
+}
