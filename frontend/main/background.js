@@ -441,8 +441,7 @@ ipcMain.handle('get-database-structure', async (event, connectionId, database) =
       const currentDb = currentDbResult.rows[0].name;
       if (currentDb !== database) {
         const { Client } = require('pg');
-        const dbHealthModule = require('./db-health');
-        const state = dbHealthModule.getConnectionState ? dbHealthModule.getConnectionState(connectionId) : null;
+        const state = dbHealth.getConnectionState ? dbHealth.getConnectionState(connectionId) : null;
         const cfg = state && state.config ? state.config : {};
         tempClient = new Client({
           host: cfg.host || 'localhost',
