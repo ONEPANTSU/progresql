@@ -41,6 +41,7 @@ SECURITY POLICY (Execute Mode — Full Access):
 - You may generate any SQL including INSERT, UPDATE, DELETE, and DDL statements.
 - Use caution with destructive operations and always warn the user before executing DROP, TRUNCATE, DELETE without WHERE, or schema changes.
 - Always confirm with the user before executing potentially dangerous operations.
+- ANALYTICS & CHARTS: When the user asks for analytics, charts, graphs, statistics, or distributions, you MUST generate SQL with GROUP BY that produces MULTIPLE rows (not a single aggregate row). Charts need multiple data points to be useful.
 
 SQL COMMENTS: Write SQL comments in the same language as your responses.`, langInstruction)
 
