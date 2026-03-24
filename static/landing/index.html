@@ -1710,5 +1710,39 @@ h2 {
   }
 })();
 </script>
+
+<!-- Analytics -->
+<script>
+(function(){
+  var API='/api/v1/analytics/event';
+  var sid=sessionStorage.getItem('_psid')||crypto.randomUUID();
+  sessionStorage.setItem('_psid',sid);
+  var p=new URLSearchParams(location.search);
+  var base={page:location.pathname,referrer:document.referrer,
+    utm_source:p.get('utm_source')||'',utm_medium:p.get('utm_medium')||'',
+    utm_campaign:p.get('utm_campaign')||'',screen_width:window.innerWidth,session_id:sid};
+  function send(d){var payload=JSON.stringify(Object.assign({},base,d));
+    navigator.sendBeacon?navigator.sendBeacon(API,payload):
+    (function(){var x=new XMLHttpRequest();x.open('POST',API,true);
+    x.setRequestHeader('Content-Type','application/json');x.send(payload)})()}
+  send({event:'page_view'});
+  document.addEventListener('click',function(e){
+    var btn=e.target.closest('a[href*="download"],.btn-primary,.btn-secondary,[data-track]');
+    if(!btn)return;var id=btn.getAttribute('data-track')||btn.textContent.trim().substring(0,50);
+    var h=btn.getAttribute('href')||'';
+    if(h.indexOf('.dmg')!==-1)id='download-mac';
+    else if(h.indexOf('.exe')!==-1)id='download-windows';
+    else if(h.indexOf('.AppImage')!==-1)id='download-linux';
+    send({event:'button_click',button_id:id})});
+  var sm={},tk=false;
+  window.addEventListener('scroll',function(){if(tk)return;tk=true;
+    requestAnimationFrame(function(){
+      var pct=Math.round((window.scrollY+window.innerHeight)/document.body.scrollHeight*100);
+      [25,50,75,100].forEach(function(m){if(pct>=m&&!sm[m]){sm[m]=true;
+        send({event:'scroll_depth',scroll_percent:m})}});tk=false})});
+  window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);
+    if(d.event==='onStateChange'&&d.info===1)send({event:'video_play',video_action:'play'})}catch(r){}});
+})();
+</script>
 </body>
 </html>

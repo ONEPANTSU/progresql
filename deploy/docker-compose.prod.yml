@@ -70,9 +70,11 @@ services:
       PROGRESSQL_DB_NAME: "${PROGRESSQL_DB_NAME:-progressql}"
       PROGRESSQL_DB_USER: "${PROGRESSQL_DB_USER:-progressql}"
       PROGRESSQL_DB_PASSWORD: "${PROGRESSQL_DB_PASSWORD:-progressql}"
+      TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN}"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/provisioning/alerting:/etc/grafana/provisioning/alerting:ro
     depends_on:
       - prometheus
       - loki

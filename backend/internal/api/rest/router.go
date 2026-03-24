@@ -64,6 +64,9 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	// Prometheus metrics endpoint (no auth required).
 	mux.Handle("GET /metrics", promhttp.Handler())
 
+	// Landing page analytics endpoint (no auth required, rate-limited).
+	mux.HandleFunc("POST /api/v1/analytics/event", analyticsLandingEventHandler(db))
+
 	// Email verification service.
 	emailSvc := auth.NewEmailService(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPassword, cfg.SMTPFrom)
 

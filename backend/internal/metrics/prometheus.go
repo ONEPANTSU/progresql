@@ -131,3 +131,35 @@ var DBPoolConnectionsIdle = promauto.NewGauge(prometheus.GaugeOpts{
 	Name: "db_pool_connections_idle",
 	Help: "Number of idle database pool connections.",
 })
+
+// --- Landing page metrics ---
+
+var LandingPageViews = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "landing_page_views_total",
+	Help: "Total landing page views.",
+}, []string{"referrer_domain", "utm_source", "country"})
+
+var LandingButtonClicks = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "landing_button_clicks_total",
+	Help: "Landing page button clicks.",
+}, []string{"button_id"})
+
+var LandingScrollDepth = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "landing_scroll_depth_total",
+	Help: "Landing page scroll depth milestones reached.",
+}, []string{"percent"})
+
+var LandingVideoEvents = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "landing_video_events_total",
+	Help: "Landing page video events.",
+}, []string{"action"})
+
+var LandingDownloads = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "landing_downloads_total",
+	Help: "Landing page download button clicks by platform.",
+}, []string{"platform"})
+
+var LandingUniqueSessions = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "landing_unique_sessions_total",
+	Help: "Total unique landing page sessions.",
+})

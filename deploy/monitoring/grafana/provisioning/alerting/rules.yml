@@ -1,0 +1,377 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: ProgreSQL Alerts
+    folder: ProgreSQL Alerts
+    interval: 1m
+    rules:
+
+      # -----------------------------------------------------------------------
+      # 1. Backend Down — critical if the backend scrape target disappears
+      # -----------------------------------------------------------------------
+      - uid: alert-backend-down
+        title: Backend Down
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            model:
+              expr: up{job="backend"}
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: eq
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend is down"
+          description: "The backend service has been unreachable for more than 1 minute. Scrape target up{job=\"backend\"} == 0."
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # 2. High Error Rate — 5xx responses exceed 5 % of total requests for 5 m
+      # -----------------------------------------------------------------------
+      - uid: alert-high-error-rate
+        title: High Error Rate
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            model:
+              expr: >
+                sum(rate(http_requests_total{job="backend",status=~"5.."}[5m]))
+                /
+                sum(rate(http_requests_total{job="backend"}[5m]))
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0.05]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP 5xx error rate"
+          description: "More than 5 % of HTTP responses are 5xx errors over the last 5 minutes."
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # 3. High P95 Latency — 95th-percentile response time exceeds 5 s for 5 m
+      # -----------------------------------------------------------------------
+      - uid: alert-high-p95-latency
+        title: High P95 Latency
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            model:
+              expr: >
+                histogram_quantile(0.95,
+                  sum by (le) (rate(http_request_duration_seconds_bucket{job="backend"}[5m]))
+                )
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [5]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 response latency is above 5 s"
+          description: "The 95th-percentile HTTP request duration has exceeded 5 seconds for more than 5 minutes."
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # 4. High CPU — CPU utilisation above 90 % for 10 m
+      # -----------------------------------------------------------------------
+      - uid: alert-high-cpu
+        title: High CPU
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            model:
+              expr: >
+                100 - (
+                  avg by (instance) (
+                    rate(node_cpu_seconds_total{mode="idle"}[5m])
+                  ) * 100
+                )
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [90]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU utilisation is above 90 %"
+          description: "Host CPU usage has been above 90 % for more than 10 minutes."
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # 5. Low Disk Space — filesystem usage above 85 %
+      # -----------------------------------------------------------------------
+      - uid: alert-low-disk-space
+        title: Low Disk Space
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            model:
+              expr: >
+                (
+                  1 - (
+                    node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}
+                    /
+                    node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}
+                  )
+                ) * 100
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [85]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+        for: 0s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk usage is above 85 %"
+          description: "Filesystem usage has exceeded 85 %. Free up space or expand the volume."
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # 6. LLM Error Spike — AI agent error rate above 20 % for 5 m
+      # -----------------------------------------------------------------------
+      - uid: alert-llm-error-spike
+        title: LLM Error Spike
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            model:
+              expr: >
+                sum(rate(agent_requests_total{job="backend",status="error"}[5m]))
+                /
+                sum(rate(agent_requests_total{job="backend"}[5m]))
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0.2]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM / AI agent error rate spike"
+          description: "The AI agent error rate has exceeded 20 % over the last 5 minutes."
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # 7. DB Pool Exhausted — active connections / pool capacity above 90 %
+      # -----------------------------------------------------------------------
+      - uid: alert-db-pool-exhausted
+        title: DB Pool Exhausted
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            model:
+              expr: >
+                db_pool_active_connections{job="backend"}
+                /
+                (
+                  db_pool_active_connections{job="backend"}
+                  + db_pool_idle_connections{job="backend"}
+                )
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0.9]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+        for: 0s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database connection pool is near exhaustion"
+          description: "Active DB connections exceed 90 % of the pool capacity (active / (active + idle) > 0.9)."
+        isPaused: false
+
+      # -----------------------------------------------------------------------
+      # 8. High Memory — memory usage above 90 % for 5 m
+      # -----------------------------------------------------------------------
+      - uid: alert-high-memory
+        title: High Memory
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            model:
+              expr: >
+                (
+                  1 - (
+                    node_memory_MemAvailable_bytes
+                    /
+                    node_memory_MemTotal_bytes
+                  )
+                ) * 100
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [90]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memory usage is above 90 %"
+          description: "Host memory utilisation has been above 90 % for more than 5 minutes."
+        isPaused: false
