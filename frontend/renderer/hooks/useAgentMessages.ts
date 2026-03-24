@@ -99,11 +99,8 @@ function formatAgentResponse(response: AgentResponsePayload, t: TFunction): stri
     }
   }
 
-  // Show security mode restriction message.
-  if (response.result.security_blocked) {
-    parts.push('\n> 🔒 ' + t('agentError.securityBlocked'));
-  } else if (response.result.validation_error) {
-    // Show validation error only for EXPLAIN failures.
+  // Show validation error only when there's no explanation (avoid confusing users).
+  if (response.result.validation_error && !response.result.explanation) {
     parts.push('\n> ⚠️ ' + t('agentError.validationFailed') + ': ' + response.result.validation_error);
   }
 

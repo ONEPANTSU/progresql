@@ -37,34 +37,62 @@ type SchemaContext struct {
 }
 
 func (s *SchemaGroundingStep) Execute(ctx context.Context, pctx *agent.PipelineContext) error {
-	// Step 1: Call list_tables to get all tables in the public schema.
-	tablesArg, _ := json.Marshal(map[string]string{"schema": "public"})
-	result, err := pctx.DispatchTool(tools.ToolListTables, tablesArg)
+	// Step 1: Discover all schemas.
+	schemasResult, err := pctx.DispatchTool(tools.ToolListSchemas, json.RawMessage(`{}`))
 	if err != nil {
-		return fmt.Errorf("list_tables failed: %w", err)
-	}
-	if !result.Success {
-		if agent.IsDBNotConnectedMessage(result.Error) {
-			return agent.NewDatabaseNotConnectedError("list_tables")
-		}
-		return fmt.Errorf("list_tables returned error: %s", result.Error)
+		return fmt.Errorf("list_schemas failed: %w", err)
 	}
 
-	// Parse the list of table names from the tool result.
-	tableNames, err := parseTableNames(result.Data)
-	if err != nil {
-		// Treat parse errors on valid but empty responses as empty database.
-		pctx.Logger.Warn("parse list_tables result failed, treating as empty", zap.Error(err))
-		tableNames = nil
+	schemas := []string{"public"}
+	if schemasResult.Success {
+		parsed := parseSchemaNames(schemasResult.Data)
+		if len(parsed) > 0 {
+			schemas = parsed
+		}
+	}
+
+	// Step 2: Call list_tables for each schema and collect all tables with their schema prefix.
+	type schemaTable struct {
+		Schema string
+		Table  string
+	}
+	var allTables []schemaTable
+	var tableNames []string // "schema.table" format for LLM
+
+	for _, schema := range schemas {
+		tablesArg, _ := json.Marshal(map[string]string{"schema": schema})
+		result, err := pctx.DispatchTool(tools.ToolListTables, tablesArg)
+		if err != nil {
+			pctx.Logger.Warn("list_tables failed for schema, skipping", zap.String("schema", schema), zap.Error(err))
+			continue
+		}
+		if !result.Success {
+			if agent.IsDBNotConnectedMessage(result.Error) {
+				return agent.NewDatabaseNotConnectedError("list_tables")
+			}
+			pctx.Logger.Warn("list_tables error for schema, skipping", zap.String("schema", schema), zap.String("error", result.Error))
+			continue
+		}
+
+		names, err := parseTableNames(result.Data)
+		if err != nil {
+			pctx.Logger.Warn("parse list_tables failed for schema", zap.String("schema", schema), zap.Error(err))
+			continue
+		}
+
+		for _, name := range names {
+			allTables = append(allTables, schemaTable{Schema: schema, Table: name})
+			tableNames = append(tableNames, schema+"."+name)
+		}
 	}
 
 	if len(tableNames) == 0 {
 		return s.handleEmptyDatabase(ctx, pctx)
 	}
 
-	pctx.Logger.Info("tables discovered", zap.Int("count", len(tableNames)))
+	pctx.Logger.Info("tables discovered", zap.Int("count", len(tableNames)), zap.Strings("schemas", schemas))
 
-	// Step 2: Determine relevant tables using LLM.
+	// Step 3: Determine relevant tables using LLM.
 	relevant, err := s.selectRelevantTables(ctx, pctx, tableNames)
 	if err != nil {
 		return fmt.Errorf("select relevant tables: %w", err)
@@ -76,11 +104,18 @@ func (s *SchemaGroundingStep) Execute(ctx context.Context, pctx *agent.PipelineC
 		zap.Strings("tables", relevant),
 	)
 
-	// Step 3: Call describe_table for each relevant table.
+	// Step 4: Call describe_table for each relevant table.
 	var schemaCtx SchemaContext
-	for _, tableName := range relevant {
+	for _, fullName := range relevant {
+		// Parse "schema.table" format
+		schema := "public"
+		tableName := fullName
+		if parts := strings.SplitN(fullName, ".", 2); len(parts) == 2 {
+			schema = parts[0]
+			tableName = parts[1]
+		}
 		descArg, _ := json.Marshal(map[string]string{
-			"schema": "public",
+			"schema": schema,
 			"table":  tableName,
 		})
 		descResult, err := pctx.DispatchTool(tools.ToolDescribeTable, descArg)
@@ -100,7 +135,7 @@ func (s *SchemaGroundingStep) Execute(ctx context.Context, pctx *agent.PipelineC
 		}
 
 		schemaCtx.Tables = append(schemaCtx.Tables, TableInfo{
-			Schema:  "public",
+			Schema:  schema,
 			Table:   tableName,
 			Details: descResult.Data,
 		})
