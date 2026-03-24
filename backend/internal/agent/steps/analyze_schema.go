@@ -217,6 +217,14 @@ func (s *AnalyzeSchemaStep) handleEmptyDatabase(ctx context.Context, pctx *agent
 // parseSchemaNames extracts schema names from the list_schemas tool result.
 // Supports both a plain JSON array of strings and an array of objects with a "schema_name" field.
 func parseSchemaNames(data json.RawMessage) []string {
+	// Try object with "schemas" field (tool-server format: {"schemas": ["public", "shop"]}).
+	var wrapper struct {
+		Schemas []string `json:"schemas"`
+	}
+	if err := json.Unmarshal(data, &wrapper); err == nil && len(wrapper.Schemas) > 0 {
+		return wrapper.Schemas
+	}
+
 	// Try array of objects with schema_name field.
 	var objects []map[string]any
 	if err := json.Unmarshal(data, &objects); err == nil && len(objects) > 0 {
