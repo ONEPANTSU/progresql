@@ -722,18 +722,20 @@ export default function Home() {
 
   const handleApplySQL = async (sql: string, targetConnectionId?: string, targetDatabase?: string) => {
     if (targetConnectionId) {
-      // Switch to the target connection if different from current
+      // Switch editor to the target connection
+      setEditorConnectionId(targetConnectionId);
       const targetConn = connections.find(c => c.id === targetConnectionId);
-      if (targetConn && targetConn.id !== activeConnection?.id) {
+      if (targetConn) {
         setActiveConnection(targetConn);
+        // Switch global.dbClient to target connection
+        window.electronAPI?.setActiveClient?.(targetConnectionId);
       }
       // Switch to the target database if specified and different
       if (targetDatabase && targetConn && targetConn.activeDatabase !== targetDatabase) {
         await handleSwitchDatabase(targetConnectionId, targetDatabase);
       }
-      // Small delay to let state settle after DB switch
-      await new Promise(r => setTimeout(r, 200));
-      // Create a new tab on the target connection with the migration SQL
+      // Wait for state to settle, then create tab with migration SQL
+      await new Promise(r => setTimeout(r, 300));
       const newTab = sqlTabs.createTab(targetConnectionId);
       sqlTabs.updateTabContent(newTab.id, sql);
     } else if (activeConnection) {
