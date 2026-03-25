@@ -1,0 +1,156 @@
+name: Deploy Client Downloads
+
+# Triggered after build-desktop.yml completes, or manually.
+# Downloads DMG + EXE + AppImage from the GitHub Release and copies
+# them to /opt/progresql/downloads/ on the production server via SSH.
+
+on:
+  workflow_run:
+    workflows:
+      - 'Build Desktop Clients'
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to deploy (e.g. client-v1.2.3)'
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Only run on success when triggered by workflow_run; always run for manual dispatch
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            # Extract the tag from the triggering workflow_run event
+            TAG="${{ github.event.workflow_run.head_branch }}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Deploying release: ${TAG}"
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan progresql.com >> ~/.ssh/known_hosts
+
+      - name: Wait for and download release assets
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          VERSION=$(echo "$TAG" | sed 's/client-v//')
+          echo "==> Waiting for release assets for ${TAG}..."
+
+          DMG_ID=""
+          for i in $(seq 1 20); do
+            RELEASE_JSON=$(curl -sL \
+              -H "Authorization: token ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/ONEPANTSU/progresql/releases/tags/${TAG}")
+
+            if ! echo "$RELEASE_JSON" | jq -e '.assets' > /dev/null 2>&1; then
+              echo "  Attempt $i/20: release not found, retrying in 30s..."
+              sleep 30
+              continue
+            fi
+
+            DMG_ID=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".dmg")) | .id' 2>/dev/null)
+            if [ -n "$DMG_ID" ] && [ "$DMG_ID" != "null" ]; then
+              echo "==> DMG found (asset ${DMG_ID}) on attempt $i"
+              break
+            fi
+            echo "  Attempt $i/20: DMG not yet available, retrying in 30s..."
+            sleep 30
+          done
+
+          if [ -z "$DMG_ID" ] || [ "$DMG_ID" = "null" ]; then
+            echo "ERROR: DMG not found in release after 10 minutes"
+            exit 1
+          fi
+
+          mkdir -p downloads
+
+          echo "==> Downloading DMG..."
+          curl -sL \
+            -H "Authorization: token ${GH_TOKEN}" \
+            -H "Accept: application/octet-stream" \
+            "https://api.github.com/repos/ONEPANTSU/progresql/releases/assets/${DMG_ID}" \
+            -o "downloads/ProgreSQL-${VERSION}-arm64.dmg"
+
+          EXE_ID=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".exe")) | .id' 2>/dev/null)
+          if [ -n "$EXE_ID" ] && [ "$EXE_ID" != "null" ]; then
+            echo "==> Downloading EXE..."
+            curl -sL \
+              -H "Authorization: token ${GH_TOKEN}" \
+              -H "Accept: application/octet-stream" \
+              "https://api.github.com/repos/ONEPANTSU/progresql/releases/assets/${EXE_ID}" \
+              -o "downloads/ProgreSQL-${VERSION}-Setup.exe"
+          else
+            echo "WARNING: No EXE found in release"
+          fi
+
+          APPIMAGE_ID=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".AppImage")) | .id' 2>/dev/null)
+          if [ -n "$APPIMAGE_ID" ] && [ "$APPIMAGE_ID" != "null" ]; then
+            echo "==> Downloading AppImage..."
+            curl -sL \
+              -H "Authorization: token ${GH_TOKEN}" \
+              -H "Accept: application/octet-stream" \
+              "https://api.github.com/repos/ONEPANTSU/progresql/releases/assets/${APPIMAGE_ID}" \
+              -o "downloads/ProgreSQL-${VERSION}.AppImage"
+          else
+            echo "WARNING: No AppImage found in release"
+          fi
+
+          echo "==> Downloaded files:"
+          ls -lh downloads/
+
+      - name: Upload downloads to server
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          VERSION=$(echo "$TAG" | sed 's/client-v//')
+
+          ssh -i ~/.ssh/deploy_key root@progresql.com \
+            "mkdir -p /opt/progresql/downloads"
+
+          rsync -avz -e "ssh -i ~/.ssh/deploy_key" \
+            downloads/ \
+            root@progresql.com:/opt/progresql/downloads/
+
+      - name: Update symlinks on server
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          VERSION=$(echo "$TAG" | sed 's/client-v//')
+
+          ssh -i ~/.ssh/deploy_key root@progresql.com << EOF
+            cd /opt/progresql/downloads
+
+            [ -f "ProgreSQL-${VERSION}-arm64.dmg" ] \
+              && ln -sf "ProgreSQL-${VERSION}-arm64.dmg" ProgreSQL-latest.dmg \
+              && echo "Linked ProgreSQL-latest.dmg"
+
+            [ -f "ProgreSQL-${VERSION}-Setup.exe" ] \
+              && ln -sf "ProgreSQL-${VERSION}-Setup.exe" ProgreSQL-latest.exe \
+              && echo "Linked ProgreSQL-latest.exe"
+
+            [ -f "ProgreSQL-${VERSION}.AppImage" ] \
+              && ln -sf "ProgreSQL-${VERSION}.AppImage" ProgreSQL-latest.AppImage \
+              && echo "Linked ProgreSQL-latest.AppImage"
+
+            echo "==> Downloads directory:"
+            ls -lh /opt/progresql/downloads/
+          EOF

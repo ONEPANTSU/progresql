@@ -19,3 +19,4 @@ frontend/renderer/node_modules/
 # Temp files
 _fix_menu.mjs
 .claude/
+deploy/.env.production

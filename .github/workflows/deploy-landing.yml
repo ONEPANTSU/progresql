@@ -1,0 +1,64 @@
+name: Deploy Landing
+
+on:
+  push:
+    tags:
+      - 'landing-v*'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan progresql.com >> ~/.ssh/known_hosts
+
+      - name: Create target directories on server
+        run: |
+          ssh -i ~/.ssh/deploy_key root@progresql.com \
+            "mkdir -p /var/www/progresql/landing /var/www/progresql/payment /var/www/progresql/legal"
+
+      - name: Deploy landing static files
+        run: |
+          rsync -avz --delete -e "ssh -i ~/.ssh/deploy_key" \
+            static/landing/ \
+            root@progresql.com:/var/www/progresql/landing/
+
+      - name: Deploy payment static files
+        run: |
+          rsync -avz -e "ssh -i ~/.ssh/deploy_key" \
+            static/payment/ \
+            root@progresql.com:/var/www/progresql/payment/
+
+      - name: Deploy legal static files
+        run: |
+          rsync -avz -e "ssh -i ~/.ssh/deploy_key" \
+            static/legal/ \
+            root@progresql.com:/var/www/progresql/legal/
+
+      - name: Copy screenshot to web root
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            static/landing/screenshot.png \
+            root@progresql.com:/var/www/progresql/screenshot.png
+
+      - name: Deploy nginx config and reload
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            deploy/nginx/progresql.conf \
+            root@progresql.com:/etc/nginx/sites-available/progresql
+          ssh -i ~/.ssh/deploy_key root@progresql.com \
+            "nginx -t && nginx -s reload"
+
+      - name: Verify deployment
+        run: |
+          echo "Landing deployed from tag ${{ github.ref_name }}"
+          ssh -i ~/.ssh/deploy_key root@progresql.com \
+            "ls -lh /var/www/progresql/landing/"
