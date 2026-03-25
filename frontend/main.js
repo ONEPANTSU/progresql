@@ -430,6 +430,15 @@ ipcMain.handle('execute-query', async (event, params) => {
   }
 });
 
+ipcMain.handle('reconnect-database', async (event, connectionId) => {
+  try {
+    const result = await dbHealth.tryImmediateReconnect(connectionId);
+    return { success: result, message: result ? 'Reconnected' : 'Reconnect failed' };
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+});
+
 ipcMain.handle('get-database-structure', async (event, connectionId) => {
   try {
     let client;
@@ -449,7 +458,15 @@ ipcMain.handle('get-database-structure', async (event, connectionId) => {
     } catch (connError) {
       log.warn(`Connection check failed in get-database-structure [${connectionId}]:`, connError.message);
       if (connectionId && global.dbClients) global.dbClients.delete(connectionId);
-      throw new Error('Database connection lost. Please reconnect.');
+      // Try auto-reconnect before giving up
+      const reconnected = await dbHealth.tryImmediateReconnect(connectionId);
+      if (reconnected) {
+        client = global.dbClients.get(connectionId) || global.dbClient;
+        if (!client) throw new Error('Database connection lost. Please reconnect.');
+        log.info('Auto-reconnected on refresh');
+      } else {
+        throw new Error('Database connection lost. Please reconnect.');
+      }
     }
 
     log.debug('Getting database structure...');
