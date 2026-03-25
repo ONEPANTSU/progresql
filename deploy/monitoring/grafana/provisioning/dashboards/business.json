@@ -394,7 +394,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "increase(subscriptions_activated_total[1h])",
+          "expr": "increase(user_subscriptions_activated_total[1h])",
           "legendFormat": "Subscriptions activated",
           "refId": "A"
         }

@@ -408,7 +408,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(agent_tokens_total[1m])) * 60",
+          "expr": "sum(rate(llm_tokens_total[1m])) * 60",
           "legendFormat": "Tokens/min",
           "refId": "A"
         }
@@ -493,7 +493,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (type)(rate(agent_tokens_total[5m])) * 60",
+          "expr": "sum by (type)(rate(llm_tokens_total[5m])) * 60",
           "legendFormat": "{{type}}",
           "refId": "A"
         }
@@ -578,7 +578,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (model)(rate(agent_tokens_total[5m])) * 60",
+          "expr": "sum by (model)(rate(llm_tokens_total[5m])) * 60",
           "legendFormat": "{{model}}",
           "refId": "A"
         }
@@ -643,8 +643,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (tool)(increase(agent_tool_calls_total[1h]))",
-          "legendFormat": "{{tool}}",
+          "expr": "sum by (tool_name)(increase(agent_tool_calls_total[1h]))",
+          "legendFormat": "{{tool_name}}",
           "refId": "A",
           "instant": true
         }
@@ -699,8 +699,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (tool)(rate(agent_tool_call_errors_total[5m]))",
-          "legendFormat": "{{tool}}",
+          "expr": "sum by (tool_name)(rate(agent_tool_calls_total{status=\"error\"}[5m]))",
+          "legendFormat": "{{tool_name}}",
           "refId": "A"
         }
       ]
@@ -754,7 +754,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(agent_errors_total[5m]))",
+          "expr": "sum(rate(agent_requests_total{status=\"error\"}[5m]))",
           "legendFormat": "Errors",
           "refId": "A"
         }
@@ -809,7 +809,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(agent_cancellations_total[5m]))",
+          "expr": "sum(rate(agent_requests_total{status=\"cancelled\"}[5m]))",
           "legendFormat": "Cancellations",
           "refId": "A"
         }

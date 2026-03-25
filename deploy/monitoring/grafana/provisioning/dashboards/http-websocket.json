@@ -873,7 +873,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(websocket_messages_received_total[1m]) + rate(websocket_messages_sent_total[1m])",
+          "expr": "sum(rate(websocket_messages_received_total[1m]))",
           "legendFormat": "Messages/sec",
           "refId": "A"
         }
@@ -982,7 +982,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, rate(websocket_message_size_bytes_bucket[5m]))",
+          "expr": "histogram_quantile(0.95, sum(rate(websocket_message_size_bytes_bucket[5m])) by (le))",
           "legendFormat": "P95 size",
           "refId": "A"
         }

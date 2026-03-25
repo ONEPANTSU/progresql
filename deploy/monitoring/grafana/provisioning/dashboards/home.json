@@ -169,7 +169,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m])) * 100",
+          "expr": "sum(rate(http_requests_total{status_code=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m])) * 100",
           "legendFormat": "Error %",
           "refId": "A"
         }
@@ -291,7 +291,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "ws_active_connections",
+          "expr": "websocket_connections_active",
           "legendFormat": "WS",
           "refId": "A"
         }
@@ -738,7 +738,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "db_pool_active_connections / db_pool_max_connections * 100",
+          "expr": "db_pool_connections_active / (db_pool_connections_active + db_pool_connections_idle) * 100",
           "legendFormat": "DB Pool",
           "refId": "A"
         }
