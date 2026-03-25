@@ -403,7 +403,29 @@ async function runDescribeTable(args) {
     columns: r.columns,
   }));
 
-  return { columns, indexes, foreign_keys, check_constraints, triggers, key_constraints };
+  // Enum values for columns that use enum types
+  const enumResult = await global.dbClient.query(
+    `SELECT
+       a.attname AS column_name,
+       t.typname AS enum_type,
+       array_agg(e.enumlabel ORDER BY e.enumsortorder) AS allowed_values
+     FROM pg_attribute a
+     JOIN pg_class c ON c.oid = a.attrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     JOIN pg_type t ON t.oid = a.atttypid
+     JOIN pg_enum e ON e.enumtypid = t.oid
+     WHERE n.nspname = $1 AND c.relname = $2
+       AND a.attnum > 0 AND NOT a.attisdropped
+     GROUP BY a.attname, t.typname`,
+    [schema, table]
+  );
+  const enum_columns = enumResult.rows.map(r => ({
+    column: r.column_name,
+    enum_type: r.enum_type,
+    allowed_values: r.allowed_values,
+  }));
+
+  return { columns, indexes, foreign_keys, check_constraints, triggers, key_constraints, enum_columns };
 }
 
 async function runListIndexes(args) {
