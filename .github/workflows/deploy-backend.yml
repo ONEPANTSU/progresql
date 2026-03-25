@@ -38,5 +38,5 @@ jobs:
           script: |
             docker load < /tmp/progresql-backend.tar.gz
             rm -f /tmp/progresql-backend.tar.gz
-            cd /opt/progresql && docker compose up -d backend
+            cd /opt/progresql && docker compose up -d --force-recreate backend
             docker system prune -f
