@@ -20,6 +20,7 @@ import {
   Checkbox,
   FormControlLabel,
   Link,
+  TextField,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -37,12 +38,13 @@ import {
   Gavel as GavelIcon,
   AutoAwesome as AutoAwesomeIcon,
   Palette as PaletteIcon,
+  CardGiftcard as CardGiftcardIcon,
 } from '@mui/icons-material';
 import { useAgent } from '../contexts/AgentContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useAuth } from '../providers/AuthProvider';
-import { authService, createPaymentInvoice, isSubscriptionActive } from '../services/auth';
+import { authService, createPaymentInvoice, isSubscriptionActive, applyPromoCode } from '../services/auth';
 
 interface SettingsPanelProps {
   open: boolean;
@@ -93,6 +95,12 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [legalAccepted, setLegalAccepted] = React.useState(false);
   const [appVersion, setAppVersion] = React.useState<string>('');
 
+  // Promo code state
+  const [promoCode, setPromoCode] = React.useState('');
+  const [promoLoading, setPromoLoading] = React.useState(false);
+  const [promoSuccess, setPromoSuccess] = React.useState<string | null>(null);
+  const [promoError, setPromoError] = React.useState<string | null>(null);
+
   React.useEffect(() => {
     if (window.electronAPI?.getAppVersion) {
       window.electronAPI.getAppVersion().then(setAppVersion);
@@ -140,6 +148,25 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       setPaymentError(message);
     } finally {
       setPaymentLoading(false);
+    }
+  };
+
+  const handleApplyPromoCode = async () => {
+    if (!promoCode.trim()) return;
+    setPromoLoading(true);
+    setPromoSuccess(null);
+    setPromoError(null);
+    try {
+      await applyPromoCode(promoCode.trim());
+      setPromoSuccess(t('settings.promoCodeSuccess'));
+      setPromoCode('');
+      // Refresh user data to reflect the new plan
+      await refreshUser();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : t('settings.promoCodeError');
+      setPromoError(message);
+    } finally {
+      setPromoLoading(false);
     }
   };
 
@@ -299,6 +326,62 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
           </Box>
         )}
 
+        {/* Promo Code */}
+        {user && (
+          <Box sx={sectionCardSx}>
+            <SectionHeader
+              icon={<CardGiftcardIcon sx={{ fontSize: 16, color: '#a78bfa' }} />}
+              title={t('settings.promoCode')}
+            />
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <TextField
+                size="small"
+                placeholder={t('settings.promoCodePlaceholder')}
+                value={promoCode}
+                onChange={(e) => {
+                  setPromoCode(e.target.value);
+                  setPromoError(null);
+                  setPromoSuccess(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleApplyPromoCode();
+                }}
+                disabled={promoLoading}
+                sx={{ flex: 1 }}
+                inputProps={{ style: { fontSize: '0.85rem' } }}
+              />
+              <Button
+                variant="contained"
+                size="small"
+                disabled={promoLoading || !promoCode.trim()}
+                onClick={handleApplyPromoCode}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  minWidth: 'auto',
+                  px: 2,
+                  background: (promoLoading || !promoCode.trim()) ? undefined : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                  },
+                }}
+              >
+                {promoLoading ? <CircularProgress size={16} color="inherit" /> : t('settings.promoCodeApply')}
+              </Button>
+            </Box>
+            {promoSuccess && (
+              <Typography variant="caption" sx={{ color: 'success.main', mt: 0.5, display: 'block' }}>
+                {promoSuccess}
+              </Typography>
+            )}
+            {promoError && (
+              <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, display: 'block' }}>
+                {promoError}
+              </Typography>
+            )}
+          </Box>
+        )}
+
         {/* AI Model */}
         <Box sx={sectionCardSx}>
           <SectionHeader
@@ -346,7 +429,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
             >
               <MenuItem value="safe">
                 <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>🛡️ Safe Mode</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>Safe Mode</Typography>
                   <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                     {t('settings.securityModeSafeDesc')}
                   </Typography>
@@ -354,7 +437,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               </MenuItem>
               <MenuItem value="data">
                 <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>📊 Data Mode</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>Data Mode</Typography>
                   <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                     {t('settings.securityModeDataDesc')}
                   </Typography>
@@ -362,7 +445,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               </MenuItem>
               <MenuItem value="execute">
                 <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>⚡ Execute Mode</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>Execute Mode</Typography>
                   <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                     {t('settings.securityModeExecuteDesc')}
                   </Typography>

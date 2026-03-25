@@ -34,11 +34,11 @@ jest.mock('../contexts/LanguageContext', () => ({
     setLanguage: jest.fn(),
     t: (key: string) => {
       const translations: Record<string, string> = {
-        'chat.backendUnavailable': 'Backend unavailable. Connect to Go backend in settings.',
+        'chat.backendUnavailable': 'Backend unavailable. Reconnecting...',
         'chat.dbNotConnected': 'Database not connected. Connect to PostgreSQL to use AI tools.',
         'chat.emptyState': 'Send a message to start a conversation',
-        'chat.input.placeholder': 'Ask a question about your database…',
-        'chat.input.backendUnavailable': 'Backend unavailable…',
+        'chat.input.placeholder': 'Ask a question about your database\u2026',
+        'chat.input.backendUnavailable': 'Backend unavailable\u2026',
         'chat.input.send': 'Send message',
         'chat.settings': 'Settings',
         'chat.clearHistory': 'Clear history',

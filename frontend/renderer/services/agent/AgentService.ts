@@ -1,5 +1,5 @@
 /**
- * AgentService — WebSocket client for the Go backend agent pipeline.
+ * AgentService — WebSocket client for the backend agent pipeline.
  *
  * Handles the full lifecycle:
  *   1. POST /api/v1/auth/token  -> JWT
@@ -7,7 +7,7 @@
  *   3. WebSocket connect to ws_url?token=JWT
  *   4. Send agent.request, receive agent.stream / agent.response / agent.error
  *   5. Handle tool.call from backend, execute locally, send tool.result
- *   6. Auto-reconnect on connection loss
+ *   6. Auto-reconnect on connection loss with exponential backoff
  */
 
 import { createLogger } from '../../utils/logger';
@@ -126,6 +126,7 @@ export interface AgentServiceConfig {
   model?: string;      // LLM model name
   reconnectMaxRetries?: number;
   reconnectBaseDelay?: number; // ms
+  reconnectMaxDelay?: number;  // ms — cap for exponential backoff
 }
 
 // ── Service ──
@@ -175,8 +176,9 @@ export class AgentService {
 
   constructor(config: AgentServiceConfig) {
     this.config = {
-      reconnectMaxRetries: 5,
-      reconnectBaseDelay: 1000,
+      reconnectMaxRetries: Infinity,    // unlimited retries
+      reconnectBaseDelay: 1000,         // 1s initial delay
+      reconnectMaxDelay: 30000,         // 30s max delay cap
       ...config,
     };
   }
@@ -521,22 +523,24 @@ export class AgentService {
   // ── Reconnect ──
 
   private handleUnexpectedClose(_event: CloseEvent): void {
-    const maxRetries = this.config.reconnectMaxRetries!;
-    if (this.reconnectAttempt >= maxRetries) {
-      this.setConnectionState('disconnected');
-      // Notify all pending requests
-      this.pendingRequests.forEach(function (cbs) {
-        if (cbs.onError) cbs.onError({ code: 'connection_lost', message: 'Connection lost after max reconnect attempts' });
-      });
-      this.pendingRequests.clear();
-      return;
-    }
+    // Guard against multiple simultaneous reconnect attempts
+    if (this.reconnectTimer) return;
 
     this.setConnectionState('reconnecting');
-    const delay = this.config.reconnectBaseDelay! * Math.pow(2, this.reconnectAttempt);
+
+    const baseDelay = this.config.reconnectBaseDelay!;
+    const maxDelay = this.config.reconnectMaxDelay!;
+    const delay = Math.min(baseDelay * Math.pow(2, this.reconnectAttempt), maxDelay);
     this.reconnectAttempt++;
 
+    log.warn(`WebSocket closed unexpectedly. Reconnecting in ${delay}ms (attempt ${this.reconnectAttempt})...`);
+
     this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
+
+      // Don't reconnect if intentionally closed while timer was pending
+      if (this.intentionalClose) return;
+
       try {
         // Re-auth if JWT is expired or about to expire
         if (!this.jwt || !this.jwtExpiresAt || new Date() >= this.jwtExpiresAt) {
@@ -547,8 +551,15 @@ export class AgentService {
         this.reconnectAttempt = 0;
         this.scheduleJWTRefresh();
         this.setConnectionState('connected');
-      } catch {
-        this.handleUnexpectedClose(_event);
+        log.info('WebSocket reconnected successfully');
+      } catch (err) {
+        log.warn(`Reconnect attempt ${this.reconnectAttempt} failed:`, err);
+        // Schedule another attempt — handleUnexpectedClose will be called
+        // from connectWebSocket's onclose/onerror, but if the error happens
+        // before the WebSocket is created, we need to retry manually.
+        if (!this.intentionalClose) {
+          this.handleUnexpectedClose(_event);
+        }
       }
     }, delay);
   }
@@ -558,6 +569,7 @@ export class AgentService {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.reconnectAttempt = 0;
   }
 
   // ── JWT Refresh ──
