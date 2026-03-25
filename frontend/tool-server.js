@@ -330,7 +330,28 @@ async function runDescribeTable(args) {
   }
   const foreign_keys = fkOrder.map(name => fkMap.get(name));
 
-  return { columns, indexes, foreign_keys };
+  // CHECK constraints
+  const checkResult = await global.dbClient.query(
+    `SELECT
+       con.conname AS constraint_name,
+       col.attname AS column_name,
+       pg_get_constraintdef(con.oid) AS constraint_definition
+     FROM pg_constraint con
+     JOIN pg_class rel ON rel.oid = con.conrelid
+     JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+     LEFT JOIN pg_attribute col ON col.attrelid = con.conrelid AND col.attnum = ANY(con.conkey)
+     WHERE rel.relname = $1
+       AND nsp.nspname = $2
+       AND con.contype = 'c'
+     ORDER BY col.attname`,
+    [table, schema]
+  );
+  const check_constraints = checkResult.rows.map(r => ({
+    column: r.column_name,
+    constraint: r.constraint_definition,
+  }));
+
+  return { columns, indexes, foreign_keys, check_constraints };
 }
 
 async function runListIndexes(args) {
