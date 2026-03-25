@@ -1727,12 +1727,13 @@ h2 {
     x.setRequestHeader('Content-Type','application/json');x.send(payload)})()}
   send({event:'page_view'});
   document.addEventListener('click',function(e){
-    var btn=e.target.closest('a[href*="download"],.btn-primary,.btn-secondary,[data-track]');
+    var btn=e.target.closest('.download-link,.btn-primary,.btn-secondary,[data-track]');
     if(!btn)return;var id=btn.getAttribute('data-track')||btn.textContent.trim().substring(0,50);
     var h=btn.getAttribute('href')||'';
     if(h.indexOf('.dmg')!==-1)id='download-mac';
     else if(h.indexOf('.exe')!==-1)id='download-windows';
     else if(h.indexOf('.AppImage')!==-1)id='download-linux';
+    else if(btn.classList.contains('download-link'))id='download-click';
     send({event:'button_click',button_id:id})});
   var sm={},tk=false;
   window.addEventListener('scroll',function(){if(tk)return;tk=true;
