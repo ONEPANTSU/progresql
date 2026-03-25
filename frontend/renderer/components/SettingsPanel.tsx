@@ -101,11 +101,38 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [promoSuccess, setPromoSuccess] = React.useState<string | null>(null);
   const [promoError, setPromoError] = React.useState<string | null>(null);
 
+  // Dynamic price state
+  const [currentPrice, setCurrentPrice] = React.useState<number>(20);
+  const [originalPrice, setOriginalPrice] = React.useState<number>(20);
+
   React.useEffect(() => {
     if (window.electronAPI?.getAppVersion) {
       window.electronAPI.getAppVersion().then(setAppVersion);
     }
   }, []);
+
+  // Fetch dynamic price when panel opens
+  React.useEffect(() => {
+    if (!open || !user) return;
+    const fetchPrice = async () => {
+      try {
+        const api = (window as any).electronAPI;
+        const baseUrl = api?.getBackendUrl?.() || localStorage.getItem('backend_url') || 'https://progresql.com';
+        const token = localStorage.getItem('auth_token') || '';
+        const resp = await fetch(`${baseUrl}/api/v1/payment/price`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          setCurrentPrice(data.price ?? 20);
+          setOriginalPrice(data.original_price ?? 20);
+        }
+      } catch {
+        // fallback to default price
+      }
+    };
+    fetchPrice();
+  }, [open, user, promoSuccess]);
 
   const isActive = isSubscriptionActive(user);
   const trialDays = getTrialDaysRemaining(user?.trialEndsAt);
@@ -314,7 +341,11 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                     },
                   }}
                 >
-                  {paymentLoading ? t('settings.upgradeWaiting') : t('settings.upgradeButton')}
+                  {paymentLoading ? t('settings.upgradeWaiting') : (
+                    currentPrice < originalPrice
+                      ? `${t('settings.upgradeButton')} — $${currentPrice.toFixed(0)}/mo (was $${originalPrice})`
+                      : `${t('settings.upgradeButton')} — $${currentPrice}/mo`
+                  )}
                 </Button>
                 {paymentError && (
                   <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, display: 'block' }}>

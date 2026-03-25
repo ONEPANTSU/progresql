@@ -91,6 +91,7 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	// CryptoCloud payment routes.
 	cryptoClient := payment.NewCryptoCloudClient(cfg.CryptoCloudAPIKey, cfg.CryptoCloudShopID)
 	mux.Handle("POST /api/v1/payments/create-invoice", authMW(http.HandlerFunc(payment.CreateInvoiceHandler(cryptoClient, userStore, db))))
+	mux.Handle("GET /api/v1/payment/price", authMW(http.HandlerFunc(payment.PriceHandler(db))))
 	mux.HandleFunc("POST /api/v1/payments/webhook", payment.WebhookHandler(userStore, db, cfg.CryptoCloudSecret))
 
 	// Admin analytics endpoints (JWT + admin user ID required).
