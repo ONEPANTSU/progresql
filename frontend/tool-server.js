@@ -351,7 +351,59 @@ async function runDescribeTable(args) {
     constraint: r.constraint_definition,
   }));
 
-  return { columns, indexes, foreign_keys, check_constraints };
+  // Triggers
+  const triggerResult = await global.dbClient.query(
+    `SELECT
+       t.tgname AS trigger_name,
+       CASE
+         WHEN t.tgtype & 2 = 2 THEN 'BEFORE'
+         WHEN t.tgtype & 64 = 64 THEN 'INSTEAD OF'
+         ELSE 'AFTER'
+       END AS timing,
+       array_to_string(ARRAY[
+         CASE WHEN t.tgtype & 4 = 4 THEN 'INSERT' END,
+         CASE WHEN t.tgtype & 8 = 8 THEN 'DELETE' END,
+         CASE WHEN t.tgtype & 16 = 16 THEN 'UPDATE' END
+       ], ' OR ') AS events,
+       p.proname AS function_name
+     FROM pg_trigger t
+     JOIN pg_class c ON c.oid = t.tgrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     JOIN pg_proc p ON p.oid = t.tgfoid
+     WHERE n.nspname = $1 AND c.relname = $2
+       AND NOT t.tgisinternal
+     ORDER BY t.tgname`,
+    [schema, table]
+  );
+  const triggers = triggerResult.rows.map(r => ({
+    name: r.trigger_name,
+    timing: r.timing,
+    events: r.events,
+    function: r.function_name,
+  }));
+
+  // Primary key & unique constraints
+  const pkResult = await global.dbClient.query(
+    `SELECT
+       tc.constraint_name,
+       tc.constraint_type,
+       array_agg(kcu.column_name ORDER BY kcu.ordinal_position) AS columns
+     FROM information_schema.table_constraints tc
+     JOIN information_schema.key_column_usage kcu
+       ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+     WHERE tc.table_schema = $1 AND tc.table_name = $2
+       AND tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE')
+     GROUP BY tc.constraint_name, tc.constraint_type
+     ORDER BY tc.constraint_type, tc.constraint_name`,
+    [schema, table]
+  );
+  const key_constraints = pkResult.rows.map(r => ({
+    name: r.constraint_name,
+    type: r.constraint_type,
+    columns: r.columns,
+  }));
+
+  return { columns, indexes, foreign_keys, check_constraints, triggers, key_constraints };
 }
 
 async function runListIndexes(args) {

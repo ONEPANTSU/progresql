@@ -121,6 +121,18 @@ func buildSchemaDescription(sc *SchemaContext) string {
 				fkJSON, _ := json.MarshalIndent(fks, "  ", "  ")
 				sb.WriteString(fmt.Sprintf("  Foreign Keys: %s\n", string(fkJSON)))
 			}
+			if checks, ok := details["check_constraints"]; ok {
+				checkJSON, _ := json.MarshalIndent(checks, "  ", "  ")
+				sb.WriteString(fmt.Sprintf("  CHECK Constraints (allowed values): %s\n", string(checkJSON)))
+			}
+			if triggers, ok := details["triggers"]; ok {
+				trigJSON, _ := json.MarshalIndent(triggers, "  ", "  ")
+				sb.WriteString(fmt.Sprintf("  Triggers: %s\n", string(trigJSON)))
+			}
+			if keys, ok := details["key_constraints"]; ok {
+				keyJSON, _ := json.MarshalIndent(keys, "  ", "  ")
+				sb.WriteString(fmt.Sprintf("  Key Constraints (PK/UNIQUE): %s\n", string(keyJSON)))
+			}
 		} else {
 			sb.WriteString(fmt.Sprintf("  Details: %s\n", string(table.Details)))
 		}
