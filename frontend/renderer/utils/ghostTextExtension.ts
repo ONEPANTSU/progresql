@@ -56,6 +56,14 @@ const ghostTextField = StateField.define<GhostTextState | null>({
       return null;
     }
 
+    // Clear when cursor moves (selection changed without typing)
+    if (tr.selection && value) {
+      const newPos = tr.selection.main.head;
+      if (newPos !== value.pos) {
+        return null;
+      }
+    }
+
     for (const effect of tr.effects) {
       if (effect.is(setGhostText)) {
         return effect.value;
