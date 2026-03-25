@@ -1424,8 +1424,8 @@ export default function DatabasePanel({
 
                             {/* Types */}
                             {(() => {
-                              const typesInSchema = schemaDatabase.types?.filter(t => t.schema === schema.schema_name) || [];
-                              return (schemaDatabase.types?.filter(t => t.schema === schema.schema_name) || []).length > 0;
+                              const typesInSchema = schemaDatabase.types?.filter(t => t.schema === schema.schema_name && !t.name.startsWith('_')) || [];
+                              return (schemaDatabase.types?.filter(t => t.schema === schema.schema_name && !t.name.startsWith('_')) || []).length > 0;
                             })() && (
                               <Accordion
                                 expanded={expandedSections.has(`${connection.id}-types-${schema.schema_name}`)}
@@ -1442,14 +1442,14 @@ export default function DatabasePanel({
                                     {t('db.sections.types')}
                                   </Typography>
                                   <Chip
-                                    label={(schemaDatabase.types?.filter(t => t.schema === schema.schema_name) || []).length}
+                                    label={(schemaDatabase.types?.filter(t => t.schema === schema.schema_name && !t.name.startsWith('_')) || []).length}
                                     size="small"
                                     sx={counterChipSx}
                                   />
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
                                   <List dense disablePadding>
-                                    {(schemaDatabase.types?.filter(t => t.schema === schema.schema_name) || [])
+                                    {(schemaDatabase.types?.filter(t => t.schema === schema.schema_name && !t.name.startsWith('_')) || [])
                                       .map((type, index) => (
                                         <ListItem key={`${type.name}-${index}`} disablePadding>
                                           <ListItemButton sx={treeItemSx} onContextMenu={(e) => handleObjectContextMenu(e, type, 'type', schema.schema_name)}>
