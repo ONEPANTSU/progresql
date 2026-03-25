@@ -3,7 +3,8 @@
 *.out
 /config.yaml
 .env
-.env.*
+.env.local
+.env.production
 .idea/
 *.log
 
