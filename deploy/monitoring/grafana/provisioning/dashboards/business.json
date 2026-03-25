@@ -632,7 +632,7 @@
             "type": "postgres",
             "uid": "postgres"
           },
-          "rawSql": "SELECT COUNT(*) * 9 as \"Revenue ($)\" FROM users WHERE plan = 'pro' AND plan_expires_at > NOW()",
+          "rawSql": "SELECT COALESCE(SUM(amount), 0) as \"Revenue ($)\" FROM payments WHERE status = 'confirmed' AND created_at > NOW() - INTERVAL '30 days'",
           "format": "table",
           "refId": "A"
         }
@@ -1325,7 +1325,7 @@
             "type": "postgres",
             "uid": "postgres"
           },
-          "rawSql": "SELECT ROUND(((SELECT COUNT(*) FROM users WHERE plan = 'pro' AND plan_expires_at > NOW()) * 9)::numeric / NULLIF((SELECT COUNT(*) FROM users WHERE plan_expires_at > NOW() OR trial_ends_at > NOW()), 0), 2) as \"ARPU ($)\"",
+          "rawSql": "SELECT ROUND(COALESCE(SUM(p.amount) / NULLIF(COUNT(DISTINCT p.user_id), 0), 0)::numeric, 2) as \"ARPU ($)\" FROM payments p WHERE p.status = 'confirmed' AND p.created_at > NOW() - INTERVAL '30 days'",
           "format": "table",
           "refId": "A"
         }
