@@ -133,6 +133,10 @@ func buildSchemaDescription(sc *SchemaContext) string {
 				keyJSON, _ := json.MarshalIndent(keys, "  ", "  ")
 				sb.WriteString(fmt.Sprintf("  Key Constraints (PK/UNIQUE): %s\n", string(keyJSON)))
 			}
+			if enums, ok := details["enum_columns"]; ok {
+				enumJSON, _ := json.MarshalIndent(enums, "  ", "  ")
+				sb.WriteString(fmt.Sprintf("  ENUM Columns (ONLY use these exact values, NEVER invent new ones): %s\n", string(enumJSON)))
+			}
 		} else {
 			sb.WriteString(fmt.Sprintf("  Details: %s\n", string(table.Details)))
 		}
