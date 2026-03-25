@@ -286,10 +286,7 @@ export default function ElementDetailsModal({
     if (!open || elementType !== 'type' || !element || !onExecuteSQL) return;
     const typeName = element.name;
     if (!typeName) return;
-    // Only fetch for enum types
-    const typeCategory = element.type || element.typtype || '';
-    if (typeCategory && typeCategory !== 'enum' && typeCategory !== 'e') return;
-
+    // Always try to fetch enum values — we may not know the category upfront
     setEnumLoading(true);
     const sql = `SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = '${typeName.replace(/'/g, "''")}' ORDER BY e.enumsortorder`;
     onExecuteSQL(sql)
@@ -1480,8 +1477,9 @@ export default function ElementDetailsModal({
   const renderTypeDetails = () => {
     if (elementType !== 'type' || !element) return null;
 
-    const typeCategory = element.type || element.typtype || 'unknown';
-    const isEnum = typeCategory === 'enum' || typeCategory === 'e';
+    const typeCategory = element.typtype || element.type || 'unknown';
+    // Always try to load enum values — we may not know the category upfront
+    const isEnum = typeCategory === 'enum' || typeCategory === 'e' || enumValues.length > 0;
 
     return (
       <Box>
@@ -1503,7 +1501,7 @@ export default function ElementDetailsModal({
                 <TableCell sx={labelCellSx}>Category</TableCell>
                 <TableCell>
                   <Chip
-                    label={isEnum ? 'ENUM' : typeCategory.toUpperCase()}
+                    label={isEnum ? 'ENUM' : (typeCategory === 'unknown' ? 'COMPOSITE' : typeCategory.toUpperCase())}
                     size="small"
                     variant="outlined"
                     sx={{
