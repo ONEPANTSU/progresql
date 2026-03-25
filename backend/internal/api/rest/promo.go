@@ -18,9 +18,12 @@ type applyPromoRequest struct {
 }
 
 type applyPromoResponse struct {
-	Success   bool   `json:"success"`
-	Plan      string `json:"plan"`
-	ExpiresAt string `json:"expires_at"`
+	Success         bool    `json:"success"`
+	Plan            string  `json:"plan,omitempty"`
+	ExpiresAt       string  `json:"expires_at,omitempty"`
+	DiscountPercent int     `json:"discount_percent,omitempty"`
+	DiscountAmount  float64 `json:"discount_amount,omitempty"`
+	Message         string  `json:"message,omitempty"`
 }
 
 // promoApplyHandler validates and applies a promo code for the authenticated user.
@@ -57,15 +60,19 @@ func promoApplyHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Handler
 		var promoID int
 		var promoType string
 		var durationDays int
+		var discountPercent int
+		var discountAmount float64
 		var maxUses *int
 		var usedCount int
 		var expiresAt *time.Time
 		var isActive bool
 
 		err := db.QueryRow(ctx,
-			`SELECT id, type, duration_days, max_uses, used_count, expires_at, is_active
+			`SELECT id, type, duration_days, COALESCE(discount_percent, 0), COALESCE(discount_amount, 0),
+			        max_uses, used_count, expires_at, is_active
 			 FROM promo_codes WHERE LOWER(code) = LOWER($1)`, code,
-		).Scan(&promoID, &promoType, &durationDays, &maxUses, &usedCount, &expiresAt, &isActive)
+		).Scan(&promoID, &promoType, &durationDays, &discountPercent, &discountAmount,
+			&maxUses, &usedCount, &expiresAt, &isActive)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(errorResponse{Error: "invalid or expired promo code"})
@@ -141,6 +148,38 @@ func promoApplyHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Handler
 			if trialEnd != nil {
 				newExpiresAt = trialEnd.UTC()
 			}
+		case "discount":
+			// Save discount to user's pending discount (stored in promo_code_uses, checked at payment).
+			// Record usage now, payment handler will look up active discount.
+			metrics.PromoCodesApplied.WithLabelValues(code, promoType).Inc()
+
+			_, err = db.Exec(ctx,
+				`UPDATE promo_codes SET used_count = used_count + 1 WHERE id = $1`, promoID)
+			if err != nil {
+				// Non-fatal.
+			}
+			_, err = db.Exec(ctx,
+				`INSERT INTO promo_code_uses (promo_code_id, user_id) VALUES ($1, $2::uuid)`,
+				promoID, claims.UserID)
+			if err != nil {
+				// Non-fatal.
+			}
+
+			var msg string
+			if discountPercent > 0 {
+				msg = fmt.Sprintf("Discount %d%% applied! It will be used on your next payment.", discountPercent)
+			} else if discountAmount > 0 {
+				msg = fmt.Sprintf("Discount $%.2f applied! It will be used on your next payment.", discountAmount)
+			}
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(applyPromoResponse{
+				Success:         true,
+				DiscountPercent: discountPercent,
+				DiscountAmount:  discountAmount,
+				Message:         msg,
+			})
+			return
 		default:
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(errorResponse{Error: "unknown promo code type"})

@@ -77,6 +77,7 @@ func CreateInvoiceHandler(client *CryptoCloudClient, userStore *auth.UserStore, 
 		var reqBody struct {
 			Amount             float64 `json:"amount"`
 			Currency           string  `json:"currency"`
+			PromoCode          string  `json:"promo_code"`
 			SuccessRedirectURL string  `json:"success_redirect_url"`
 			FailRedirectURL    string  `json:"fail_redirect_url"`
 		}
@@ -85,6 +86,32 @@ func CreateInvoiceHandler(client *CryptoCloudClient, userStore *auth.UserStore, 
 		}
 		if reqBody.Currency == "" {
 			reqBody.Currency = "USD"
+		}
+
+		// Check for active discount promo code.
+		if db != nil {
+			var discountPercent int
+			var discountAmount float64
+			pctx, pcancel := context.WithTimeout(r.Context(), 3*time.Second)
+			defer pcancel()
+			err := db.QueryRow(pctx,
+				`SELECT COALESCE(pc.discount_percent, 0), COALESCE(pc.discount_amount, 0)
+				 FROM promo_code_uses pcu
+				 JOIN promo_codes pc ON pc.id = pcu.promo_code_id
+				 WHERE pcu.user_id = $1::uuid AND pc.type = 'discount' AND pc.is_active = true
+				 ORDER BY pcu.applied_at DESC LIMIT 1`,
+				user.ID,
+			).Scan(&discountPercent, &discountAmount)
+			if err == nil {
+				if discountPercent > 0 {
+					reqBody.Amount = reqBody.Amount * (1 - float64(discountPercent)/100)
+				} else if discountAmount > 0 {
+					reqBody.Amount = reqBody.Amount - discountAmount
+				}
+				if reqBody.Amount < 0.01 {
+					reqBody.Amount = 0.01
+				}
+			}
 		}
 
 		invoice, err := client.CreateInvoice(reqBody.Amount, reqBody.Currency, orderID, user.Email)
