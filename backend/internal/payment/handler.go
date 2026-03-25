@@ -19,6 +19,45 @@ import (
 	"github.com/onepantsu/progressql/backend/internal/metrics"
 )
 
+// PriceHandler returns the current price for the user, applying any active discount promo.
+func PriceHandler(db *pgxpool.Pool) http.HandlerFunc {
+	const basePrice = 20.0
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		claims := auth.ClaimsFromContext(r.Context())
+		price := basePrice
+		if claims != nil && claims.UserID != "" && db != nil {
+			var discountPercent int
+			var discountAmount float64
+			ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+			defer cancel()
+			err := db.QueryRow(ctx,
+				`SELECT COALESCE(pc.discount_percent, 0), COALESCE(pc.discount_amount, 0)
+				 FROM promo_code_uses pcu
+				 JOIN promo_codes pc ON pc.id = pcu.promo_code_id
+				 WHERE pcu.user_id = $1::uuid AND pc.type = 'discount' AND pc.is_active = true
+				 ORDER BY pcu.applied_at DESC LIMIT 1`,
+				claims.UserID,
+			).Scan(&discountPercent, &discountAmount)
+			if err == nil {
+				if discountPercent > 0 {
+					price = basePrice * (1 - float64(discountPercent)/100)
+				} else if discountAmount > 0 {
+					price = basePrice - discountAmount
+				}
+				if price < 0.01 {
+					price = 0.01
+				}
+			}
+		}
+		json.NewEncoder(w).Encode(map[string]float64{
+			"price":          price,
+			"original_price": basePrice,
+		})
+	}
+}
+
 // Payment status constants aligned with CryptoCloud lifecycle.
 const (
 	StatusCreated   = "created"
