@@ -692,7 +692,7 @@
             "type": "postgres",
             "uid": "postgres"
           },
-          "rawSql": "SELECT (SELECT COUNT(*) * 9 FROM users WHERE plan = 'pro' AND plan_expires_at > NOW()) - (SELECT COALESCE(SUM(cost_usd), 0) FROM token_usage WHERE created_at > NOW() - INTERVAL '30 days') as \"Profit/Loss\"",
+          "rawSql": "SELECT (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'confirmed' AND created_at > NOW() - INTERVAL '30 days') - (SELECT COALESCE(SUM(cost_usd), 0) FROM token_usage WHERE created_at > NOW() - INTERVAL '30 days') as \"Profit/Loss ($)\"",
           "format": "table",
           "refId": "A"
         }
