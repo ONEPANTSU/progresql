@@ -112,7 +112,7 @@ const en = {
   'settings.proUntil': 'Pro until {date}',
   'settings.daysRemaining': '{count} day(s) remaining',
   'settings.upgradePrompt': 'Upgrade to unlock AI features',
-  'settings.upgradeButton': 'Upgrade to Pro - $20/mo',
+  'settings.upgradeButton': 'Upgrade to Pro',
   'settings.upgradeWaiting': 'Waiting for payment\u2026',
   'settings.legalConsent': 'I have read and accept the {offer}, {cryptoPayments} and {refunds}',
   'settings.legalOffer': 'Offer Agreement',
