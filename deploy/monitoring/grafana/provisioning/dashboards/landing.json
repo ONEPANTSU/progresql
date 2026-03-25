@@ -38,7 +38,7 @@
       },
       "targets": [
         {
-          "expr": "increase(landing_page_views_total[24h])",
+          "expr": "sum(increase(landing_page_views_total[24h]))",
           "legendFormat": ""
         }
       ],
