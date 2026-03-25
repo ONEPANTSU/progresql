@@ -289,12 +289,18 @@ export default function ElementDetailsModal({
     // Always try to fetch enum values — we may not know the category upfront
     setEnumLoading(true);
     const sql = `SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = '${typeName.replace(/'/g, "''")}' ORDER BY e.enumsortorder`;
-    onExecuteSQL(sql)
+
+    // Try electronAPI first (returns rows), fall back to onExecuteSQL
+    const api = typeof window !== 'undefined' ? (window as any).electronAPI : null;
+    const queryPromise = api?.executeQuery
+      ? api.executeQuery(null, sql)
+      : onExecuteSQL(sql);
+
+    queryPromise
       .then((result: any) => {
-        if (result.success && result.rows) {
-          setEnumValues(result.rows.map((r: any) => r.enumlabel));
-        } else if (result.success && result.data?.rows) {
-          setEnumValues(result.data.rows.map((r: any) => r.enumlabel));
+        const rows = result?.rows || result?.data?.rows || [];
+        if (rows.length > 0) {
+          setEnumValues(rows.map((r: any) => r.enumlabel || r[0]));
         }
       })
       .catch(() => {
