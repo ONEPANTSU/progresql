@@ -36,9 +36,9 @@ export interface AgentContextValue {
   isConnected: boolean;
   /** Whether the last error was an authentication error */
   isAuthError: boolean;
-  /** Connect to the Go backend (auth + session + websocket) */
+  /** Connect to the backend (auth + session + websocket) */
   connect: () => Promise<void>;
-  /** Disconnect from the Go backend */
+  /** Disconnect from the backend */
   disconnect: () => void;
   /** Send an agent.request and receive callbacks for stream/response/error */
   sendRequest: (payload: AgentRequestPayload, callbacks: AgentRequestCallbacks) => string;

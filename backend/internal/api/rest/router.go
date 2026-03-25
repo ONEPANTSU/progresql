@@ -80,6 +80,9 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	mux.HandleFunc("POST /api/v1/auth/reset-password", resetPasswordHandler(userStore, emailSvc))
 	mux.Handle("POST /api/v1/sessions", authMW(http.HandlerFunc(createSessionHandler(hub, cfg.ServerPort, userStore))))
 
+	// Promo code endpoint (authenticated).
+	mux.Handle("POST /api/v1/promo/apply", authMW(http.HandlerFunc(promoApplyHandler(db, userStore))))
+
 	// Legal document endpoints (GET — public, POST accept — authenticated).
 	mux.HandleFunc("GET /api/v1/legal/{type}/{version}", legalDocumentHandler(db))
 	mux.HandleFunc("GET /api/v1/legal/{type}", legalDocumentHandler(db))

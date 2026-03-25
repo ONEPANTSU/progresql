@@ -57,6 +57,11 @@ var UserSubscriptionsExpiredTotal = promauto.NewCounterVec(prometheus.CounterOpt
 	Help: "Total number of user subscriptions expired.",
 }, []string{"reason"})
 
+var PromoCodesApplied = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "promo_codes_applied_total",
+	Help: "Total promo codes applied",
+}, []string{"code", "type"})
+
 var PaymentsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "payments_total",
 	Help: "Total number of payments.",

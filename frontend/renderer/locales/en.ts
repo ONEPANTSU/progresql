@@ -129,6 +129,11 @@ const en = {
   'settings.version': 'Version {version}',
   'settings.account': 'Account',
   'settings.logout': 'Log out',
+  'settings.promoCode': 'Promo Code',
+  'settings.promoCodePlaceholder': 'Enter promo code',
+  'settings.promoCodeApply': 'Apply',
+  'settings.promoCodeSuccess': 'Promo code applied! Your plan has been updated.',
+  'settings.promoCodeError': 'Invalid or expired promo code',
 
   // ── Status Bar ──
   'status.db.connecting': 'DB: Connecting\u2026',
@@ -183,7 +188,7 @@ const en = {
   'chat.closeChat': 'Close chat',
   'chat.scrollTabs': 'Scroll tabs',
   'chat.emptyState': 'Send a message to start a conversation',
-  'chat.backendUnavailable': 'Backend unavailable. Connect to Go backend in settings.',
+  'chat.backendUnavailable': 'Backend unavailable. Reconnecting...',
   'chat.dbNotConnected': 'Database not connected. Connect to PostgreSQL to use AI tools.',
   'chat.configureApiKey': 'Configure the backend API key in settings.',
   'chat.authError': 'Invalid API key. Click to open settings.',
@@ -202,7 +207,7 @@ const en = {
   'sqlBlock.explainSql': 'Explain SQL',
   'sqlBlock.applySql': 'Apply SQL to editor',
   'sqlBlock.executeSql': 'Execute SQL',
-  'sqlBlock.verifying': 'Verifying…',
+  'sqlBlock.verifying': 'Verifying\u2026',
   'sqlBlock.verified': 'Verified',
   'sqlBlock.verifyInvalid': 'Invalid SQL',
 
@@ -277,7 +282,7 @@ const en = {
   'agentError.sendFailed': 'Failed to send message. Check backend connection.',
   'agentError.validationFailed': 'SQL validation failed',
   'agentError.securityBlocked': 'This operation is not allowed in the current security mode. Switch to Execute Mode to run DDL/DML queries.',
-  'agentError.backendUnavailable': 'Backend unavailable. Connect to Go backend in settings.',
+  'agentError.backendUnavailable': 'Backend unavailable. Reconnecting...',
 
   // ── Notifications (index.tsx) ──
   'notify.connected': 'Connection established',
@@ -326,7 +331,7 @@ const en = {
 
   // -- Legal --
   'legal.disclaimer': 'ProgreSQL is an independent project and is not affiliated with PostgreSQL.',
-  'legal.copyright': '© 2026 ProgreSQL. All rights reserved. Owned by Vnukov Ivan.',
+  'legal.copyright': '\u00a9 2026 ProgreSQL. All rights reserved. Owned by Vnukov Ivan.',
 
   // -- ER Diagram --
   'er.autoLayout': 'Auto Layout',

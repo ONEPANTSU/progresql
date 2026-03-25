@@ -86,6 +86,26 @@ export async function createPaymentInvoice(): Promise<{ payment_url: string }> {
   return res.json();
 }
 
+export async function applyPromoCode(code: string): Promise<{ success: boolean; plan: string; expires_at: string }> {
+  const baseUrl = getBackendUrl();
+  const token = getAuthToken();
+  const res = await fetch(`${baseUrl}/api/v1/promo/apply`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ code }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || 'Invalid or expired promo code');
+  }
+
+  return res.json();
+}
+
 /** Compute subscription warning from user's plan/trial dates (client-side fallback) */
 export function getSubscriptionWarning(user: AuthUser | null): SubscriptionWarning {
   // Prefer server-provided value
