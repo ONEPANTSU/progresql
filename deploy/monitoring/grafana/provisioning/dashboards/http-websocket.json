@@ -168,7 +168,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m])) * 100",
+          "expr": "sum(rate(http_requests_total{status_code=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m])) * 100",
           "legendFormat": "Error %",
           "refId": "A"
         }
@@ -229,8 +229,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (handler)(rate(http_requests_total[1m]))",
-          "legendFormat": "{{handler}}",
+          "expr": "sum by (path)(rate(http_requests_total[1m]))",
+          "legendFormat": "{{path}}",
           "refId": "A"
         }
       ]
@@ -328,8 +328,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (status)(increase(http_requests_total[1h]))",
-          "legendFormat": "{{status}}",
+          "expr": "sum by (status_code)(increase(http_requests_total[1h]))",
+          "legendFormat": "{{status_code}}",
           "refId": "A",
           "instant": true
         }
@@ -524,7 +524,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "ws_active_connections",
+          "expr": "websocket_connections_active",
           "legendFormat": "Active",
           "refId": "A"
         }
@@ -579,7 +579,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(ws_connections_total[1m]) * 60",
+          "expr": "rate(websocket_connections_total[1m]) * 60",
           "legendFormat": "New conn/min",
           "refId": "A"
         }
@@ -632,7 +632,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (reason)(increase(ws_disconnections_total[1h]))",
+          "expr": "sum by (reason)(increase(websocket_disconnections_total[1h]))",
           "legendFormat": "{{reason}}",
           "refId": "A",
           "instant": true
@@ -696,7 +696,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "increase(ws_send_buffer_drops_total[1h])",
+          "expr": "increase(websocket_send_buffer_drops_total[1h])",
           "legendFormat": "Drops",
           "refId": "A"
         }
@@ -763,7 +763,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "ws_inflight_requests",
+          "expr": "websocket_active_requests",
           "legendFormat": "In-flight",
           "refId": "A"
         }
@@ -818,7 +818,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "ws_pending_tool_waiters",
+          "expr": "websocket_pending_tool_waiters",
           "legendFormat": "Pending waiters",
           "refId": "A"
         }
@@ -873,7 +873,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(ws_messages_received_total[1m]))",
+          "expr": "rate(websocket_messages_received_total[1m]) + rate(websocket_messages_sent_total[1m])",
           "legendFormat": "Messages/sec",
           "refId": "A"
         }
@@ -926,8 +926,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (type)(increase(ws_messages_received_total[1h]))",
-          "legendFormat": "{{type}}",
+          "expr": "sum by (message_type)(increase(websocket_messages_received_total[1h]))",
+          "legendFormat": "{{message_type}}",
           "refId": "A",
           "instant": true
         }
@@ -982,7 +982,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(ws_message_size_bytes_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, rate(websocket_message_size_bytes_bucket[5m]))",
           "legendFormat": "P95 size",
           "refId": "A"
         }
@@ -1037,7 +1037,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(ws_cancellations_total[1m]) * 60",
+          "expr": "rate(websocket_cancellations_total[1m]) * 60",
           "legendFormat": "Cancellations/min",
           "refId": "A"
         }
