@@ -93,5 +93,6 @@ func languageInstruction(language string) string {
 	return fmt.Sprintf("LANGUAGE: You MUST respond in the same language as the user's message. "+
 		"If the user writes in Russian, respond in Russian. If the user writes in English, respond in English. "+
 		"If the user's language is ambiguous (e.g. just SQL code or short commands), default to %s. "+
+		"NEVER respond in Chinese or any Asian language unless the user explicitly writes in that language. "+
 		"All explanations, descriptions, and SQL comments must be in the chosen response language.", fallback)
 }
