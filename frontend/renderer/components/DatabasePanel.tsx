@@ -586,7 +586,7 @@ export default function DatabasePanel({
       case 'create_type': {
         const st = schemaName || 'public';
         if (onQueryTable) {
-          onQueryTable(`CREATE TYPE "${st}".new_type AS (\n  field1 TEXT,\n  field2 INTEGER\n);\n`);
+          onQueryTable(`CREATE TYPE "${st}".new_type AS ENUM (\n  'value1',\n  'value2',\n  'value3'\n);\n`);
         }
         break;
       }
@@ -1425,7 +1425,7 @@ export default function DatabasePanel({
                             {/* Types */}
                             {(() => {
                               const typesInSchema = schemaDatabase.types?.filter(t => t.schema === schema.schema_name) || [];
-                              return typesInSchema.length > 0;
+                              return true; // Always show Types section (even when empty, for the + button)
                             })() && (
                               <Accordion
                                 expanded={expandedSections.has(`${connection.id}-types-${schema.schema_name}`)}
@@ -1442,15 +1442,29 @@ export default function DatabasePanel({
                                     {t('db.sections.types')}
                                   </Typography>
                                   <Chip
-                                    label={schemaDatabase.types.filter(t => t.schema === schema.schema_name).length}
+                                    label={(schemaDatabase.types?.filter(t => t.schema === schema.schema_name) || []).length}
                                     size="small"
                                     sx={counterChipSx}
                                   />
+                                  <Tooltip title="Create Enum Type">
+                                    <IconButton
+                                      size="small"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const st = schema.schema_name || 'public';
+                                        if (onQueryTable) {
+                                          onQueryTable(`CREATE TYPE "${st}".new_type AS ENUM (\n  'value1',\n  'value2',\n  'value3'\n);\n`);
+                                        }
+                                      }}
+                                      sx={{ p: 0, ml: 0.5, color: '#06b6d4', '&:hover': { color: '#22d3ee' } }}
+                                    >
+                                      <AddIcon sx={{ fontSize: DETAIL_ICON_SIZE }} />
+                                    </IconButton>
+                                  </Tooltip>
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
                                   <List dense disablePadding>
-                                    {schemaDatabase.types
-                                      .filter(t => t.schema === schema.schema_name)
+                                    {(schemaDatabase.types?.filter(t => t.schema === schema.schema_name) || [])
                                       .map((type, index) => (
                                         <ListItem key={`${type.name}-${index}`} disablePadding>
                                           <ListItemButton sx={treeItemSx} onContextMenu={(e) => handleObjectContextMenu(e, type, 'type', schema.schema_name)}>
@@ -2001,6 +2015,10 @@ export default function DatabasePanel({
           </MenuItem>,
         ]}
         {contextMenuObject?.type === 'type' && [
+          <MenuItem key="view_info" onClick={() => handleObjectMenuAction('view_info')}>
+            <ListItemIcon><InfoIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
+            View Details
+          </MenuItem>,
           <MenuItem key="copy_name" onClick={() => handleObjectMenuAction('copy_name')}>
             <ListItemIcon><CopyIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
             {t('db.copyName')}

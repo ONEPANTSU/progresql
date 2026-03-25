@@ -227,6 +227,10 @@ export default function ElementDetailsModal({
   const [executingSQL, setExecutingSQL] = useState(false);
   const [sqlError, setSqlError] = useState<string | null>(null);
 
+  // Enum values for type details
+  const [enumValues, setEnumValues] = useState<string[]>([]);
+  const [enumLoading, setEnumLoading] = useState(false);
+
   const supportsExplain = ['table', 'function', 'procedure', 'view'].includes(elementType);
 
   const getObjectSchema = useCallback((): string => {
@@ -275,6 +279,32 @@ export default function ElementDetailsModal({
       setColumnDescriptions({});
     }
   }, [element, elementType]);
+
+  // Fetch enum values when viewing a type
+  useEffect(() => {
+    setEnumValues([]);
+    if (!open || elementType !== 'type' || !element || !onExecuteSQL) return;
+    const typeName = element.name;
+    if (!typeName) return;
+    // Only fetch for enum types
+    const typeCategory = element.type || element.typtype || '';
+    if (typeCategory && typeCategory !== 'enum' && typeCategory !== 'e') return;
+
+    setEnumLoading(true);
+    const sql = `SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = '${typeName.replace(/'/g, "''")}' ORDER BY e.enumsortorder`;
+    onExecuteSQL(sql)
+      .then((result: any) => {
+        if (result.success && result.rows) {
+          setEnumValues(result.rows.map((r: any) => r.enumlabel));
+        } else if (result.success && result.data?.rows) {
+          setEnumValues(result.data.rows.map((r: any) => r.enumlabel));
+        }
+      })
+      .catch(() => {
+        // Silently fail — not all types are enums
+      })
+      .finally(() => setEnumLoading(false));
+  }, [open, element, elementType, onExecuteSQL]);
 
   const handleSaveDescription = useCallback(() => {
     const schema = getObjectSchema();
@@ -511,6 +541,8 @@ export default function ElementDetailsModal({
       case 'function':
       case 'procedure':
         return <KeyIcon sx={{ ...iconSx, color: '#8b5cf6' }} />;
+      case 'type':
+        return <InfoIcon sx={{ ...iconSx, color: '#06b6d4' }} />;
       default:
         return <InfoIcon sx={{ ...iconSx, color: '#8b5cf6' }} />;
     }
@@ -1445,6 +1477,90 @@ export default function ElementDetailsModal({
     );
   };
 
+  const renderTypeDetails = () => {
+    if (elementType !== 'type' || !element) return null;
+
+    const typeCategory = element.type || element.typtype || 'unknown';
+    const isEnum = typeCategory === 'enum' || typeCategory === 'e';
+
+    return (
+      <Box>
+        <SectionHeader icon={<InfoIcon sx={{ fontSize: '1rem', color: '#06b6d4' }} />}>
+          Type Information
+        </SectionHeader>
+        <TableContainer component={Paper} variant="outlined" sx={styledTableContainerSx}>
+          <Table size="small">
+            <TableBody>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Type Name</TableCell>
+                <TableCell sx={{ fontWeight: 500 }}>{element.name}</TableCell>
+              </TableRow>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Schema</TableCell>
+                <TableCell>{element.schema || 'public'}</TableCell>
+              </TableRow>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Category</TableCell>
+                <TableCell>
+                  <Chip
+                    label={isEnum ? 'ENUM' : typeCategory.toUpperCase()}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      color: '#06b6d4',
+                      borderColor: 'rgba(6,182,212,0.3)',
+                      fontSize: '0.7rem',
+                      height: 22,
+                    }}
+                  />
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {isEnum && (
+          <Box>
+            <SectionHeader icon={<InfoIcon sx={{ fontSize: '1rem', color: '#06b6d4' }} />}>
+              Enum Values {enumValues.length > 0 && `(${enumValues.length})`}
+            </SectionHeader>
+            {enumLoading ? (
+              <Typography variant="body2" color="text.secondary" sx={{ pl: 1.5 }}>
+                Loading enum values...
+              </Typography>
+            ) : enumValues.length > 0 ? (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, pl: 1.5, mb: 2 }}>
+                {enumValues.map((val, idx) => (
+                  <Chip
+                    key={idx}
+                    label={val}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      color: '#06b6d4',
+                      borderColor: 'rgba(6,182,212,0.3)',
+                      backgroundColor: 'rgba(6,182,212,0.06)',
+                      fontSize: '0.8rem',
+                      height: 28,
+                      fontFamily: 'monospace',
+                      '&:hover': {
+                        backgroundColor: 'rgba(6,182,212,0.12)',
+                      },
+                    }}
+                  />
+                ))}
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary" sx={{ pl: 1.5, mb: 2 }}>
+                No enum values found. The type may not be an enum or the query could not be executed.
+              </Typography>
+            )}
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
   const renderUserDescription = () => {
     const name = getObjectName();
     if (!name) return null;
@@ -1508,6 +1624,8 @@ export default function ElementDetailsModal({
         return renderViewDetails();
       case 'procedure':
         return renderProcedureDetails();
+      case 'type':
+        return renderTypeDetails();
       default:
         return (
           <Box>
