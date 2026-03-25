@@ -599,7 +599,7 @@
     {
       "id": 8,
       "title": "Tool Calls by Tool",
-      "type": "barchart",
+      "type": "timeseries",
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -643,10 +643,11 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (tool_name)(increase(agent_tool_calls_total[1h]))",
+          "expr": "sum by (tool_name)(rate(agent_tool_calls_total[5m]))",
           "legendFormat": "{{tool_name}}",
           "refId": "A",
-          "instant": true
+          "instant": true,
+          "format": "time_series"
         }
       ]
     },
