@@ -1425,7 +1425,7 @@ export default function DatabasePanel({
                             {/* Types */}
                             {(() => {
                               const typesInSchema = schemaDatabase.types?.filter(t => t.schema === schema.schema_name) || [];
-                              return true; // Always show Types section (even when empty, for the + button)
+                              return (schemaDatabase.types?.filter(t => t.schema === schema.schema_name) || []).length > 0;
                             })() && (
                               <Accordion
                                 expanded={expandedSections.has(`${connection.id}-types-${schema.schema_name}`)}
@@ -1446,21 +1446,6 @@ export default function DatabasePanel({
                                     size="small"
                                     sx={counterChipSx}
                                   />
-                                  <Tooltip title="Create Enum Type">
-                                    <IconButton
-                                      size="small"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const st = schema.schema_name || 'public';
-                                        if (onQueryTable) {
-                                          onQueryTable(`CREATE TYPE "${st}".new_type AS ENUM (\n  'value1',\n  'value2',\n  'value3'\n);\n`);
-                                        }
-                                      }}
-                                      sx={{ p: 0, ml: 0.5, color: '#06b6d4', '&:hover': { color: '#22d3ee' } }}
-                                    >
-                                      <AddIcon sx={{ fontSize: DETAIL_ICON_SIZE }} />
-                                    </IconButton>
-                                  </Tooltip>
                                 </AccordionSummary>
                                 <AccordionDetails sx={{ p: 0 }}>
                                   <List dense disablePadding>
