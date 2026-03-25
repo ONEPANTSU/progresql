@@ -139,6 +139,8 @@ async function startAutoReconnect(connectionId) {
 
       await client.connect();
       global.dbClients.set(connectionId, client);
+      // Sync legacy single-client ref for tool-server compatibility
+      global.dbClient = client;
       state.reconnectAttempt = 0;
       log.info(`Auto-reconnect successful [${connectionId}]`);
 
@@ -280,6 +282,8 @@ async function tryImmediateReconnect(connectionId) {
 
     await client.connect();
     global.dbClients.set(connectionId, client);
+    // Sync legacy single-client ref for tool-server compatibility
+    global.dbClient = client;
     state.reconnectAttempt = 0;
     log.debug(`Immediate reconnect successful [${connectionId}]`);
 
