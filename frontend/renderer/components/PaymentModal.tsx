@@ -12,11 +12,13 @@ import {
   Link,
   CircularProgress,
   IconButton,
+  Chip,
 } from '@mui/material';
 import {
   Close as CloseIcon,
   CreditCard as CreditCardIcon,
   QrCode as QrCodeIcon,
+  CheckCircleOutline as CheckCircleIcon,
 } from '@mui/icons-material';
 import { useTranslation } from '../contexts/LanguageContext';
 import { applyPromoCode, getAuthToken } from '../services/auth';
@@ -71,7 +73,7 @@ export default function PaymentModal({
   paymentError,
 }: PaymentModalProps) {
   const { t } = useTranslation();
-  const { refreshUser } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   // Promo code state
   const [promoCode, setPromoCode] = React.useState('');
@@ -88,6 +90,9 @@ export default function PaymentModal({
   // Dynamic price (local, refreshed after promo)
   const [localCurrentPrice, setLocalCurrentPrice] = React.useState(currentPrice);
   const [localOriginalPrice, setLocalOriginalPrice] = React.useState(originalPrice);
+
+  // Check if user is Pro
+  const isPro = user?.plan === 'pro' && user?.planExpiresAt && new Date(user.planExpiresAt) > new Date();
 
   // Sync prices from parent
   React.useEffect(() => {
@@ -119,11 +124,17 @@ export default function PaymentModal({
     setPromoSuccess(null);
     setPromoError(null);
     try {
-      await applyPromoCode(promoCode.trim());
+      const result = await applyPromoCode(promoCode.trim());
       setPromoSuccess(t('settings.promoCodeSuccess'));
       setPromoCode('');
       await refreshUser();
       await refreshPrice();
+      // If promo granted Pro, close modal after short delay
+      if (result.plan === 'pro') {
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('settings.promoCodeError');
       setPromoError(message);
@@ -273,90 +284,122 @@ export default function PaymentModal({
           )}
         </Box>
 
-        {/* Legal Checkbox */}
-        <Box sx={{ mb: 2 }}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={legalAccepted}
-                onChange={(_, checked) => setLegalAccepted(checked)}
-                size="small"
+        {isPro ? (
+          /* User is already Pro - show success message instead of payment methods */
+          <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 1.5,
+            py: 3,
+            px: 2,
+            borderRadius: 2,
+            bgcolor: 'rgba(99,102,241,0.08)',
+            border: '1.5px solid rgba(99,102,241,0.2)',
+          }}>
+            <CheckCircleIcon sx={{ fontSize: 48, color: '#10b981' }} />
+            <Chip
+              label="Pro"
+              size="small"
+              sx={{
+                fontWeight: 700,
+                fontSize: '0.8rem',
+                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                color: '#fff',
+              }}
+            />
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, textAlign: 'center' }}>
+              {t('settings.planPro')}
+            </Typography>
+          </Box>
+        ) : (
+          <>
+            {/* Legal Checkbox */}
+            <Box sx={{ mb: 2 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={legalAccepted}
+                    onChange={(_, checked) => setLegalAccepted(checked)}
+                    size="small"
+                  />
+                }
+                label={
+                  <Typography variant="caption" sx={{ lineHeight: 1.4 }}>
+                    {(() => {
+                      const template = t('settings.legalConsent');
+                      const parts = template.split(/(\{offer\}|\{cryptoPayments\}|\{refunds\})/);
+                      return parts.map((part, i) => {
+                        if (part === '{offer}') return <Link key={i} component="button" variant="caption" onClick={() => openLegalLink('https://progresql.com/offer')}>{t('settings.legalOffer')}</Link>;
+                        if (part === '{cryptoPayments}') return <Link key={i} component="button" variant="caption" onClick={() => openLegalLink('https://progresql.com/crypto-payments')}>{t('settings.legalCryptoPayments')}</Link>;
+                        if (part === '{refunds}') return <Link key={i} component="button" variant="caption" onClick={() => openLegalLink('https://progresql.com/refunds')}>{t('settings.legalRefunds')}</Link>;
+                        return <React.Fragment key={i}>{part}</React.Fragment>;
+                      });
+                    })()}
+                  </Typography>
+                }
+                sx={{ alignItems: 'flex-start', mx: 0 }}
               />
-            }
-            label={
-              <Typography variant="caption" sx={{ lineHeight: 1.4 }}>
-                {(() => {
-                  const template = t('settings.legalConsent');
-                  const parts = template.split(/(\{offer\}|\{cryptoPayments\}|\{refunds\})/);
-                  return parts.map((part, i) => {
-                    if (part === '{offer}') return <Link key={i} component="button" variant="caption" onClick={() => openLegalLink('https://progresql.com/offer')}>{t('settings.legalOffer')}</Link>;
-                    if (part === '{cryptoPayments}') return <Link key={i} component="button" variant="caption" onClick={() => openLegalLink('https://progresql.com/crypto-payments')}>{t('settings.legalCryptoPayments')}</Link>;
-                    if (part === '{refunds}') return <Link key={i} component="button" variant="caption" onClick={() => openLegalLink('https://progresql.com/refunds')}>{t('settings.legalRefunds')}</Link>;
-                    return <React.Fragment key={i}>{part}</React.Fragment>;
-                  });
-                })()}
-              </Typography>
-            }
-            sx={{ alignItems: 'flex-start', mx: 0 }}
-          />
-        </Box>
+            </Box>
 
-        {/* Payment Methods */}
-        <Typography
-          variant="caption"
-          sx={{
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            color: 'text.secondary',
-            mb: 1.5,
-            display: 'block',
-          }}
-        >
-          {t('payment.selectMethod')}
-        </Typography>
-
-        <Box sx={{ display: 'flex', gap: 2, mb: 2.5 }}>
-          {/* Card */}
-          <Box
-            onClick={() => handleSelectMethod('card')}
-            sx={{
-              ...(selectedMethod === 'card' && paymentLoading ? selectedCardSx : glassCardSx),
-              opacity: (!legalAccepted && !paymentLoading) ? 0.5 : 1,
-              pointerEvents: (paymentLoading || !legalAccepted) ? 'none' : 'auto',
-            }}
-          >
-            {paymentLoading && selectedMethod === 'card' ? (
-              <CircularProgress size={28} sx={{ color: '#6366f1' }} />
-            ) : (
-              <CreditCardIcon sx={{ fontSize: 32, color: '#6366f1' }} />
-            )}
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              {t('payment.card')}
+            {/* Payment Methods */}
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                color: 'text.secondary',
+                mb: 1.5,
+                display: 'block',
+              }}
+            >
+              {t('payment.selectMethod')}
             </Typography>
-            {renderPrice()}
-          </Box>
 
-          {/* SBP */}
-          <Box
-            onClick={() => handleSelectMethod('sbp')}
-            sx={{
-              ...(selectedMethod === 'sbp' && paymentLoading ? selectedCardSx : glassCardSx),
-              opacity: (!legalAccepted && !paymentLoading) ? 0.5 : 1,
-              pointerEvents: (paymentLoading || !legalAccepted) ? 'none' : 'auto',
-            }}
-          >
-            {paymentLoading && selectedMethod === 'sbp' ? (
-              <CircularProgress size={28} sx={{ color: '#6366f1' }} />
-            ) : (
-              <QrCodeIcon sx={{ fontSize: 32, color: '#6366f1' }} />
-            )}
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              {t('payment.sbp')}
-            </Typography>
-            {renderPrice()}
-          </Box>
-        </Box>
+            <Box sx={{ display: 'flex', gap: 2, mb: 2.5 }}>
+              {/* Card */}
+              <Box
+                onClick={() => handleSelectMethod('card')}
+                sx={{
+                  ...(selectedMethod === 'card' && paymentLoading ? selectedCardSx : glassCardSx),
+                  opacity: (!legalAccepted && !paymentLoading) ? 0.5 : 1,
+                  pointerEvents: (paymentLoading || !legalAccepted) ? 'none' : 'auto',
+                }}
+              >
+                {paymentLoading && selectedMethod === 'card' ? (
+                  <CircularProgress size={28} sx={{ color: '#6366f1' }} />
+                ) : (
+                  <CreditCardIcon sx={{ fontSize: 32, color: '#6366f1' }} />
+                )}
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  {t('payment.card')}
+                </Typography>
+                {renderPrice()}
+              </Box>
+
+              {/* SBP */}
+              <Box
+                onClick={() => handleSelectMethod('sbp')}
+                sx={{
+                  ...(selectedMethod === 'sbp' && paymentLoading ? selectedCardSx : glassCardSx),
+                  opacity: (!legalAccepted && !paymentLoading) ? 0.5 : 1,
+                  pointerEvents: (paymentLoading || !legalAccepted) ? 'none' : 'auto',
+                }}
+              >
+                {paymentLoading && selectedMethod === 'sbp' ? (
+                  <CircularProgress size={28} sx={{ color: '#6366f1' }} />
+                ) : (
+                  <QrCodeIcon sx={{ fontSize: 32, color: '#6366f1' }} />
+                )}
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  {t('payment.sbp')}
+                </Typography>
+                {renderPrice()}
+              </Box>
+            </Box>
+          </>
+        )}
 
         {/* Payment error */}
         {paymentError && (

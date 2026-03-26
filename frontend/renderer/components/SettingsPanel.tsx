@@ -32,6 +32,7 @@ import {
   Gavel as GavelIcon,
   AutoAwesome as AutoAwesomeIcon,
   Palette as PaletteIcon,
+  Star as StarIcon,
 } from '@mui/icons-material';
 import { useAgent } from '../contexts/AgentContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -54,10 +55,10 @@ function getTrialDaysRemaining(trialEndsAt?: string): number {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
-function formatPlanExpiry(planExpiresAt?: string, lang?: string): string {
+function formatPlanExpiryCompact(planExpiresAt?: string, lang?: string): string {
   if (!planExpiresAt) return '';
   const date = new Date(planExpiresAt);
-  return date.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return date.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'short', day: 'numeric' });
 }
 
 const sectionCardSx = {
@@ -200,93 +201,111 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       </Box>
 
       <Box sx={{ overflowY: 'auto', flex: 1, mx: -0.5, px: 0.5 }}>
-        {/* Subscription */}
+        {/* Subscription - compact one-line */}
         {user && (
-          <Box sx={sectionCardSx}>
-            <SectionHeader
-              icon={<PremiumIcon sx={{ fontSize: 16, color: isPro ? '#a78bfa' : isTrialActive ? '#a78bfa' : 'text.disabled' }} />}
-              title={t('settings.subscription')}
-            />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+          <Box sx={{ ...sectionCardSx, pb: 1.25 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <PremiumIcon sx={{ fontSize: 16, color: isPro ? '#a78bfa' : isTrialActive ? '#a78bfa' : 'text.disabled' }} />
+              <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
+                {t('settings.subscription')}
+              </Typography>
               {isPro ? (
-                <Chip
-                  label={t('settings.planPro')}
-                  size="small"
-                  sx={{
-                    fontWeight: 700,
-                    fontSize: '0.7rem',
-                    height: 22,
-                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                    color: '#fff',
-                  }}
-                />
+                <>
+                  <Chip
+                    label={t('settings.planPro')}
+                    size="small"
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: '0.65rem',
+                      height: 20,
+                      ml: 0.5,
+                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                      color: '#fff',
+                    }}
+                  />
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem', ml: 0.25 }}>
+                    {language === 'ru' ? 'до' : 'until'} {formatPlanExpiryCompact(user.planExpiresAt, language)}
+                  </Typography>
+                </>
               ) : isTrialActive ? (
-                <Chip
-                  label={t('settings.planTrial')}
-                  size="small"
-                  sx={{
-                    fontWeight: 700,
-                    fontSize: '0.7rem',
-                    height: 22,
-                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                    color: '#fff',
-                  }}
-                />
+                <>
+                  <Chip
+                    label={t('settings.planTrial')}
+                    size="small"
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: '0.65rem',
+                      height: 20,
+                      ml: 0.5,
+                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                      color: '#fff',
+                    }}
+                  />
+                  <Typography variant="caption" sx={{ color: '#a78bfa', fontSize: '0.7rem', ml: 0.25 }}>
+                    {trialDays}{language === 'ru' ? 'д' : 'd'} {language === 'ru' ? 'ост.' : 'left'}
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => setPaymentModalOpen(true)}
+                    startIcon={<StarIcon sx={{ fontSize: 12 }} />}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      fontSize: '0.65rem',
+                      height: 22,
+                      ml: 'auto',
+                      px: 1,
+                      py: 0,
+                      minWidth: 'auto',
+                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                      },
+                    }}
+                  >
+                    Upgrade
+                  </Button>
+                </>
               ) : (
-                <Chip
-                  label={t('settings.planFree')}
-                  size="small"
-                  sx={{
-                    fontWeight: 700,
-                    fontSize: '0.7rem',
-                    height: 22,
-                    bgcolor: 'action.selected',
-                    color: 'text.secondary',
-                  }}
-                />
+                <>
+                  <Chip
+                    label={t('settings.planFree')}
+                    size="small"
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: '0.65rem',
+                      height: 20,
+                      ml: 0.5,
+                      bgcolor: 'action.selected',
+                      color: 'text.secondary',
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => setPaymentModalOpen(true)}
+                    startIcon={<StarIcon sx={{ fontSize: 12 }} />}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      fontSize: '0.65rem',
+                      height: 22,
+                      ml: 'auto',
+                      px: 1,
+                      py: 0,
+                      minWidth: 'auto',
+                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                      },
+                    }}
+                  >
+                    Upgrade
+                  </Button>
+                </>
               )}
             </Box>
-
-            {isPro && (
-              <Typography variant="caption" sx={{ color: 'success.main', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Box component="span" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'success.main', display: 'inline-block' }} />
-                {t('settings.proUntil', { date: formatPlanExpiry(user.planExpiresAt, language) })}
-              </Typography>
-            )}
-
-            {!isPro && isTrialActive && (
-              <Typography variant="caption" sx={{ color: '#a78bfa' }}>
-                {t('settings.daysRemaining', { count: String(trialDays) })}
-              </Typography>
-            )}
-
-            {!isPro && !isTrialActive && (
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                {t('settings.upgradePrompt')}
-              </Typography>
-            )}
-
-            {!isPro && (
-              <Box sx={{ mt: 1.5 }}>
-                <Button
-                  variant="contained"
-                  size="small"
-                  fullWidth
-                  onClick={() => setPaymentModalOpen(true)}
-                  startIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
-                  sx={{
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-                    },
-                  }}
-                >
-                  {t('settings.upgradeButton')}
-                </Button>
-              </Box>
-            )}
           </Box>
         )}
 
