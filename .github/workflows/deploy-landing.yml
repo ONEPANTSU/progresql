@@ -27,21 +27,21 @@ jobs:
 
       - name: Deploy landing static files
         run: |
-          rsync -avz --delete -e "ssh -i ~/.ssh/deploy_key" \
+          rsync -avz --delete --exclude='legal/' --exclude='downloads/' -e "ssh -i ~/.ssh/deploy_key" \
             static/landing/ \
             root@progresql.com:/var/www/progresql/landing/
+
+      - name: Deploy legal pages (under landing)
+        run: |
+          rsync -avz -e "ssh -i ~/.ssh/deploy_key" \
+            static/legal/ \
+            root@progresql.com:/var/www/progresql/landing/legal/
 
       - name: Deploy payment static files
         run: |
           rsync -avz -e "ssh -i ~/.ssh/deploy_key" \
             static/payment/ \
             root@progresql.com:/var/www/progresql/payment/
-
-      - name: Deploy legal static files
-        run: |
-          rsync -avz -e "ssh -i ~/.ssh/deploy_key" \
-            static/legal/ \
-            root@progresql.com:/var/www/progresql/legal/
 
       - name: Copy screenshot to web root
         run: |
