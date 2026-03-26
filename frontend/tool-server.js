@@ -141,17 +141,21 @@ async function handleToolCall(ws, envelope) {
   const args = payload.arguments || {};
 
   if (!global.dbClient) {
-    // Try immediate reconnect if db-health module is available
-    if (dbHealthRef) {
+    // First try to recover from dbClients Map (client may exist but global ref was nulled)
+    if (global.dbClients && global.dbClients.size > 0) {
+      global.dbClient = global.dbClients.values().next().value;
+      log.info('Recovered global.dbClient from dbClients Map');
+    } else if (dbHealthRef) {
+      // Try immediate reconnect if db-health module is available
       log.warn('No database connection for tool.call, attempting reconnect');
       const reconnected = await dbHealthRef.tryImmediateReconnect();
       if (!reconnected) {
-        sendToolResult(ws, callId, false, null, 'No database connection');
+        sendToolResult(ws, callId, false, null, 'Database is not connected. The user needs to connect to a PostgreSQL database first before you can query it. Please ask the user to connect to a database.');
         return;
       }
       log.debug('Reconnected successfully, proceeding with tool.call');
     } else {
-      sendToolResult(ws, callId, false, null, 'No database connection');
+      sendToolResult(ws, callId, false, null, 'Database is not connected. The user needs to connect to a PostgreSQL database first before you can query it. Please ask the user to connect to a database.');
       return;
     }
   }

@@ -47,12 +47,29 @@ function startHealthCheck(connectionId) {
 
   state.healthCheckInterval = setInterval(async () => {
     const client = global.dbClients.get(connectionId);
-    if (!client) return;
+    if (!client) {
+      // Client disappeared from Map (error/end handler cleared it)
+      // but config still exists — try immediate reconnect
+      log.warn(`Health check: client missing from Map [${connectionId}], attempting reconnect`);
+      const reconnected = await tryImmediateReconnect(connectionId);
+      if (!reconnected) {
+        log.warn(`Health check: reconnect failed [${connectionId}], starting auto-reconnect`);
+        stopHealthCheck(connectionId);
+        startAutoReconnect(connectionId);
+      }
+      return;
+    }
     try {
       await client.query('SELECT 1');
+      // Ensure global.dbClient is synced (may have been nulled by error handler)
+      if (!global.dbClient) {
+        global.dbClient = client;
+        log.debug(`Health check: re-synced global.dbClient [${connectionId}]`);
+      }
     } catch (err) {
       log.warn(`Health check failed [${connectionId}]:`, err.message);
       global.dbClients.delete(connectionId);
+      if (global.dbClient === client) global.dbClient = null;
       stopHealthCheck(connectionId);
       notifyRenderer('db-connection-lost', { connectionId, message: err.message });
       startAutoReconnect(connectionId);
