@@ -12,20 +12,14 @@ import {
   ToggleButton,
   Button,
   Avatar,
-  Switch,
   Alert,
   Snackbar,
   Chip,
-  CircularProgress,
-  Checkbox,
-  FormControlLabel,
   Link,
-  TextField,
 } from '@mui/material';
 import {
   Close as CloseIcon,
   Settings as SettingsIcon,
-  Warning as WarningIcon,
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
   SettingsBrightness as SystemIcon,
@@ -38,14 +32,14 @@ import {
   Gavel as GavelIcon,
   AutoAwesome as AutoAwesomeIcon,
   Palette as PaletteIcon,
-  CardGiftcard as CardGiftcardIcon,
 } from '@mui/icons-material';
 import { useAgent } from '../contexts/AgentContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useAuth } from '../providers/AuthProvider';
-import { authService, createPaymentInvoice, isSubscriptionActive, applyPromoCode, getAuthToken } from '../services/auth';
+import { authService, createPaymentInvoice, getAuthToken } from '../services/auth';
 import { loadBackendUrl } from '../utils/secureSettingsStorage';
+import PaymentModal from './PaymentModal';
 
 interface SettingsPanelProps {
   open: boolean;
@@ -93,14 +87,10 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const { user, logout, refreshUser } = useAuth();
   const [paymentLoading, setPaymentLoading] = React.useState(false);
   const [paymentError, setPaymentError] = React.useState<string | null>(null);
-  const [legalAccepted, setLegalAccepted] = React.useState(false);
   const [appVersion, setAppVersion] = React.useState<string>('');
 
-  // Promo code state
-  const [promoCode, setPromoCode] = React.useState('');
-  const [promoLoading, setPromoLoading] = React.useState(false);
-  const [promoSuccess, setPromoSuccess] = React.useState<string | null>(null);
-  const [promoError, setPromoError] = React.useState<string | null>(null);
+  // Payment modal state
+  const [paymentModalOpen, setPaymentModalOpen] = React.useState(false);
 
   // Dynamic price state
   const [currentPrice, setCurrentPrice] = React.useState<number>(20);
@@ -132,9 +122,8 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       }
     };
     fetchPrice();
-  }, [open, user, promoSuccess]);
+  }, [open, user]);
 
-  const isActive = isSubscriptionActive(user);
   const trialDays = getTrialDaysRemaining(user?.trialEndsAt);
   const isTrialActive = trialDays > 0;
   const isPro = user?.plan === 'pro' && user?.planExpiresAt && new Date(user.planExpiresAt) > new Date();
@@ -147,7 +136,8 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     }
   };
 
-  const handleUpgrade = async () => {
+  const handleSelectPaymentMethod = async (method: 'card' | 'sbp') => {
+    const paymentMethod = method === 'card' ? 11 : 2;
     setPaymentLoading(true);
     setPaymentError(null);
     try {
@@ -157,8 +147,8 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         authService.acceptLegal('crypto-payments', '1.0'),
         authService.acceptLegal('refunds', '1.0'),
       ]);
-      const { payment_url } = await createPaymentInvoice();
-      // Open in external browser (Electron's window.open shows blank page)
+      const { payment_url } = await createPaymentInvoice(paymentMethod);
+      // Open in external browser
       if (window.electronAPI?.openExternal) {
         window.electronAPI.openExternal(payment_url);
       } else {
@@ -175,25 +165,6 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       setPaymentError(message);
     } finally {
       setPaymentLoading(false);
-    }
-  };
-
-  const handleApplyPromoCode = async () => {
-    if (!promoCode.trim()) return;
-    setPromoLoading(true);
-    setPromoSuccess(null);
-    setPromoError(null);
-    try {
-      await applyPromoCode(promoCode.trim());
-      setPromoSuccess(t('settings.promoCodeSuccess'));
-      setPromoCode('');
-      // Refresh user data to reflect the new plan
-      await refreshUser();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t('settings.promoCodeError');
-      setPromoError(message);
-    } finally {
-      setPromoLoading(false);
     }
   };
 
@@ -290,135 +261,24 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 
             {!isPro && (
               <Box sx={{ mt: 1.5 }}>
-                {/* Legal consent checkbox */}
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={legalAccepted}
-                      onChange={(_, checked) => setLegalAccepted(checked)}
-                      size="small"
-                    />
-                  }
-                  label={
-                    <Typography variant="caption" sx={{ lineHeight: 1.4 }}>
-                      {(() => {
-                        const template = t('settings.legalConsent');
-                        const parts = template.split(/(\{offer\}|\{cryptoPayments\}|\{refunds\})/);
-                        return parts.map((part, i) => {
-                          if (part === '{offer}') return <Link key={i} component="button" variant="caption" onClick={() => openLegalLink('https://progresql.com/offer')}>{t('settings.legalOffer')}</Link>;
-                          if (part === '{cryptoPayments}') return <Link key={i} component="button" variant="caption" onClick={() => openLegalLink('https://progresql.com/crypto-payments')}>{t('settings.legalCryptoPayments')}</Link>;
-                          if (part === '{refunds}') return <Link key={i} component="button" variant="caption" onClick={() => openLegalLink('https://progresql.com/refunds')}>{t('settings.legalRefunds')}</Link>;
-                          return <React.Fragment key={i}>{part}</React.Fragment>;
-                        });
-                      })()}
-                    </Typography>
-                  }
-                  sx={{ alignItems: 'flex-start', mb: 0.5, mx: 0 }}
-                />
-
-                {/* Crypto transaction warning */}
-                <Alert
-                  severity="warning"
-                  icon={<WarningIcon sx={{ fontSize: 16 }} />}
-                  sx={{ mb: 1.5, py: 0, '& .MuiAlert-message': { fontSize: '0.7rem' } }}
-                >
-                  {t('settings.cryptoWarning')}
-                </Alert>
-
                 <Button
                   variant="contained"
                   size="small"
                   fullWidth
-                  disabled={paymentLoading || !legalAccepted}
-                  onClick={handleUpgrade}
-                  startIcon={paymentLoading ? <CircularProgress size={14} color="inherit" /> : <OpenInNewIcon sx={{ fontSize: 14 }} />}
+                  onClick={() => setPaymentModalOpen(true)}
+                  startIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
                   sx={{
                     textTransform: 'none',
                     fontWeight: 600,
-                    background: (paymentLoading || !legalAccepted) ? undefined : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                     '&:hover': {
                       background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
                     },
                   }}
                 >
-                  {paymentLoading ? t('settings.upgradeWaiting') : (
-                    <>
-                      {t('settings.upgradeButton')}
-                      {currentPrice < originalPrice ? (
-                        <span style={{ marginLeft: 6 }}>
-                          ${currentPrice.toFixed(0)}/mo
-                          <span style={{ textDecoration: 'line-through', opacity: 0.6, marginLeft: 4, fontSize: '0.8em' }}>
-                            ${originalPrice}
-                          </span>
-                        </span>
-                      ) : (
-                        <span style={{ marginLeft: 6 }}>${currentPrice}/mo</span>
-                      )}
-                    </>
-                  )}
+                  {t('settings.upgradeButton')}
                 </Button>
-                {paymentError && (
-                  <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, display: 'block' }}>
-                    {paymentError}
-                  </Typography>
-                )}
               </Box>
-            )}
-          </Box>
-        )}
-
-        {/* Promo Code */}
-        {user && (
-          <Box sx={sectionCardSx}>
-            <SectionHeader
-              icon={<CardGiftcardIcon sx={{ fontSize: 16, color: '#a78bfa' }} />}
-              title={t('settings.promoCode')}
-            />
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <TextField
-                size="small"
-                placeholder={t('settings.promoCodePlaceholder')}
-                value={promoCode}
-                onChange={(e) => {
-                  setPromoCode(e.target.value);
-                  setPromoError(null);
-                  setPromoSuccess(null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleApplyPromoCode();
-                }}
-                disabled={promoLoading}
-                sx={{ flex: 1 }}
-                inputProps={{ style: { fontSize: '0.85rem' } }}
-              />
-              <Button
-                variant="contained"
-                size="small"
-                disabled={promoLoading || !promoCode.trim()}
-                onClick={handleApplyPromoCode}
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  minWidth: 'auto',
-                  px: 2,
-                  background: (promoLoading || !promoCode.trim()) ? undefined : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-                  },
-                }}
-              >
-                {promoLoading ? <CircularProgress size={16} color="inherit" /> : t('settings.promoCodeApply')}
-              </Button>
-            </Box>
-            {promoSuccess && (
-              <Typography variant="caption" sx={{ color: 'success.main', mt: 0.5, display: 'block' }}>
-                {promoSuccess}
-              </Typography>
-            )}
-            {promoError && (
-              <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, display: 'block' }}>
-                {promoError}
-              </Typography>
             )}
           </Box>
         )}
@@ -652,6 +512,17 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         {t('settings.unsafeWarning')}
       </Alert>
     </Snackbar>
+
+    {/* Payment Modal */}
+    <PaymentModal
+      open={paymentModalOpen}
+      onClose={() => setPaymentModalOpen(false)}
+      currentPrice={currentPrice}
+      originalPrice={originalPrice}
+      onSelectMethod={handleSelectPaymentMethod}
+      paymentLoading={paymentLoading}
+      paymentError={paymentError}
+    />
     </>
   );
 }
