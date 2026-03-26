@@ -38,10 +38,10 @@ type Config struct {
 	SMTPPassword string `mapstructure:"smtp_password"`
 	SMTPFrom     string `mapstructure:"smtp_from"`
 
-	// CryptoCloud payment gateway settings.
-	CryptoCloudAPIKey string `mapstructure:"cryptocloud_api_key"`
-	CryptoCloudShopID string `mapstructure:"cryptocloud_shop_id"`
-	CryptoCloudSecret string `mapstructure:"cryptocloud_secret"`
+	// Platega.io payment gateway settings.
+	PlategaMerchantID string `mapstructure:"platega_merchant_id"`
+	PlategaAPIKey     string `mapstructure:"platega_api_key"`
+	PlategaSecret     string `mapstructure:"platega_secret"`
 
 	// Admin user IDs (comma-separated in env var PROGRESSQL_ADMIN_USER_IDS).
 	AdminUserIDs []string `mapstructure:"admin_user_ids"`
@@ -70,9 +70,9 @@ func LoadConfig(configPath ...string) (*Config, error) {
 	v.SetDefault("smtp_user", "")
 	v.SetDefault("smtp_password", "")
 	v.SetDefault("smtp_from", "progresql.noreply@yandex.ru")
-	v.SetDefault("cryptocloud_api_key", "")
-	v.SetDefault("cryptocloud_shop_id", "")
-	v.SetDefault("cryptocloud_secret", "")
+	v.SetDefault("platega_merchant_id", "")
+	v.SetDefault("platega_api_key", "")
+	v.SetDefault("platega_secret", "")
 
 	// Config file
 	v.SetConfigName("config")
