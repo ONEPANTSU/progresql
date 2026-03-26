@@ -47,10 +47,13 @@ func CreateInvoiceHandlerV2(client *PlategaClient, userStore *auth.UserStore, db
 			FailRedirectURL    string  `json:"fail_redirect_url"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil || reqBody.Amount <= 0 {
-			reqBody.Amount = 20.0
+			reqBody.Amount = 1800.0 // ~$20 in RUB
 		}
 		if reqBody.Currency == "" {
-			reqBody.Currency = "USD"
+			reqBody.Currency = "RUB"
+		}
+		if reqBody.PaymentMethod == 0 {
+			reqBody.PaymentMethod = 11 // Card acquiring
 		}
 
 		// Check for active discount promo code.
