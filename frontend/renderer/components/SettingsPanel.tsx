@@ -342,9 +342,19 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   }}
                 >
                   {paymentLoading ? t('settings.upgradeWaiting') : (
-                    currentPrice < originalPrice
-                      ? `${t('settings.upgradeButton')} — $${currentPrice.toFixed(0)}/mo (was $${originalPrice})`
-                      : `${t('settings.upgradeButton')} — $${currentPrice}/mo`
+                    <>
+                      {t('settings.upgradeButton')}
+                      {currentPrice < originalPrice ? (
+                        <span style={{ marginLeft: 6 }}>
+                          ${currentPrice.toFixed(0)}/mo
+                          <span style={{ textDecoration: 'line-through', opacity: 0.6, marginLeft: 4, fontSize: '0.8em' }}>
+                            ${originalPrice}
+                          </span>
+                        </span>
+                      ) : (
+                        <span style={{ marginLeft: 6 }}>${currentPrice}/mo</span>
+                      )}
+                    </>
                   )}
                 </Button>
                 {paymentError && (
