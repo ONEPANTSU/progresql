@@ -29,6 +29,10 @@ jobs:
         run: |
           scp -i ~/.ssh/deploy_key /tmp/progresql-backend.tar.gz root@progresql.com:/tmp/progresql-backend.tar.gz
 
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#backend-v}" >> $GITHUB_OUTPUT
+
       - name: Deploy on server
         uses: appleboy/ssh-action@v1
         with:
@@ -38,5 +42,7 @@ jobs:
           script: |
             docker load < /tmp/progresql-backend.tar.gz
             rm -f /tmp/progresql-backend.tar.gz
-            cd /opt/progresql && docker compose up -d --force-recreate backend
+            cd /opt/progresql
+            sed -i "s/PROGRESSQL_VERSION=.*/PROGRESSQL_VERSION=${{ steps.version.outputs.VERSION }}/" .env
+            docker compose up -d --force-recreate backend
             docker system prune -f

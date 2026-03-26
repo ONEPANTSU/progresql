@@ -273,7 +273,7 @@ async function runDescribeTable(args) {
 
   // Columns
   const colResult = await global.dbClient.query(
-    `SELECT column_name, data_type, is_nullable, column_default
+    `SELECT column_name, data_type, udt_name, is_nullable, column_default
      FROM information_schema.columns
      WHERE table_schema = $1 AND table_name = $2
      ORDER BY ordinal_position`,
@@ -282,7 +282,8 @@ async function runDescribeTable(args) {
   const columns = colResult.rows.map(r => {
     const col = {
       name: r.column_name,
-      type: r.data_type,
+      // Use udt_name for USER-DEFINED types (enums) so LLM sees actual type name
+      type: r.data_type === 'USER-DEFINED' ? r.udt_name : r.data_type,
       nullable: r.is_nullable === 'YES',
     };
     if (r.column_default !== null) {
@@ -404,26 +405,31 @@ async function runDescribeTable(args) {
   }));
 
   // Enum values for columns that use enum types
-  const enumResult = await global.dbClient.query(
-    `SELECT
-       a.attname AS column_name,
-       t.typname AS enum_type,
-       array_agg(e.enumlabel ORDER BY e.enumsortorder) AS allowed_values
-     FROM pg_attribute a
-     JOIN pg_class c ON c.oid = a.attrelid
-     JOIN pg_namespace n ON n.oid = c.relnamespace
-     JOIN pg_type t ON t.oid = a.atttypid
-     JOIN pg_enum e ON e.enumtypid = t.oid
-     WHERE n.nspname = $1 AND c.relname = $2
-       AND a.attnum > 0 AND NOT a.attisdropped
-     GROUP BY a.attname, t.typname`,
-    [schema, table]
-  );
-  const enum_columns = enumResult.rows.map(r => ({
-    column: r.column_name,
-    enum_type: r.enum_type,
-    allowed_values: r.allowed_values,
-  }));
+  let enum_columns = [];
+  try {
+    const enumResult = await global.dbClient.query(
+      `SELECT
+         a.attname AS column_name,
+         t.typname AS enum_type,
+         array_agg(e.enumlabel ORDER BY e.enumsortorder) AS allowed_values
+       FROM pg_attribute a
+       JOIN pg_class c ON c.oid = a.attrelid
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       JOIN pg_type t ON t.oid = a.atttypid
+       JOIN pg_enum e ON e.enumtypid = t.oid
+       WHERE n.nspname = $1 AND c.relname = $2
+         AND a.attnum > 0 AND NOT a.attisdropped
+       GROUP BY a.attname, t.typname`,
+      [schema, table]
+    );
+    enum_columns = enumResult.rows.map(r => ({
+      column: r.column_name,
+      enum_type: r.enum_type,
+      allowed_values: r.allowed_values,
+    }));
+  } catch (enumErr) {
+    log.warn(`Failed to fetch enum columns for ${schema}.${table}:`, enumErr.message);
+  }
 
   return { columns, indexes, foreign_keys, check_constraints, triggers, key_constraints, enum_columns };
 }
