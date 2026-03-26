@@ -822,9 +822,9 @@ export default function ElementDetailsModal({
                         )}
                       </TableCell>
                       {onApplySQL && (
-                        <TableCell sx={{ whiteSpace: 'nowrap', position: 'relative', minWidth: alteringCol === column.column_name ? 80 : 'auto', pr: alteringCol === column.column_name ? '72px' : undefined }}>
+                        <TableCell sx={{ whiteSpace: 'nowrap', position: 'relative', minWidth: alteringCol === column.column_name ? 90 : 'auto', pr: alteringCol === column.column_name ? '76px' : undefined }}>
                           {alteringCol === column.column_name ? (
-                            <Box sx={{ display: 'flex', gap: 0.5, position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', zIndex: 2, bgcolor: 'background.paper', borderRadius: 1, px: 0.5 }}>
+                            <Box sx={{ display: 'flex', gap: 0.5, position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', zIndex: 2, bgcolor: 'background.paper', borderRadius: 1, px: 0.5 }}>
                               <Tooltip title={t('details.applyChanges')}>
                                 <IconButton size="small" color="success" disabled={executingSQL} onClick={() => handleAlterColumn(column.column_name, column.data_type, column.is_nullable, column.column_default)}>
                                   <CheckIcon fontSize="small" />
