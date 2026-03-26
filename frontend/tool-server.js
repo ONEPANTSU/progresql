@@ -431,6 +431,9 @@ async function runDescribeTable(args) {
       enum_type: r.enum_type,
       allowed_values: r.allowed_values,
     }));
+    if (enum_columns.length > 0) {
+      log.debug('describe_table enum_columns:', JSON.stringify(enum_columns));
+    }
   } catch (enumErr) {
     log.warn(`Failed to fetch enum columns for ${schema}.${table}:`, enumErr.message);
   }
