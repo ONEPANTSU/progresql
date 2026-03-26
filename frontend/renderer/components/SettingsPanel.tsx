@@ -244,7 +244,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
                 }}
               >
-                ⭐ Upgrade to Pro
+                Upgrade to Pro
               </Button>
             )}
           </Box>
