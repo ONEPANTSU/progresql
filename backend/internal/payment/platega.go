@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
@@ -97,7 +98,8 @@ func (c *PlategaClient) CreateInvoice(amount float64, currency, orderID, email, 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Platega returned status %d", resp.StatusCode)
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("Platega returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	var result PlategaTransactionResponse
