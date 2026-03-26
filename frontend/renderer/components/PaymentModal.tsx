@@ -285,7 +285,6 @@ export default function PaymentModal({
         </Box>
 
         {/* Legal Checkbox */}
-        {
             <Box sx={{ mb: 2 }}>
               <FormControlLabel
                 control={
@@ -369,7 +368,6 @@ export default function PaymentModal({
                 {renderPrice()}
               </Box>
             </Box>
-        }
 
         {/* Payment error */}
         {paymentError && (
