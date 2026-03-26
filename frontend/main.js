@@ -395,6 +395,11 @@ ipcMain.handle('execute-query', async (event, params) => {
       client = global.dbClients.get(connectionId);
     } else if (global.dbClient) {
       client = global.dbClient;
+    } else if (global.dbClients && global.dbClients.size > 0) {
+      // Recover from Map — global.dbClient was nulled by error handler
+      client = global.dbClients.values().next().value;
+      global.dbClient = client;
+      log.info('Recovered global.dbClient from dbClients Map in execute-query');
     } else {
       throw new Error('No database connection');
     }
@@ -446,6 +451,11 @@ ipcMain.handle('get-database-structure', async (event, connectionId) => {
       client = global.dbClients.get(connectionId);
     } else if (global.dbClients && global.dbClients.size > 0) {
       client = global.dbClients.values().next().value;
+      // Re-sync global.dbClient if it was nulled
+      if (!global.dbClient) {
+        global.dbClient = client;
+        log.info('Re-synced global.dbClient from dbClients Map in get-database-structure');
+      }
     } else if (global.dbClient) {
       client = global.dbClient;
     } else {
@@ -1039,6 +1049,12 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
     let result;
     const toolName = toolRequest.toolName;
     const args = toolRequest.arguments || {};
+
+    // Ensure global.dbClient is available — recover from Map if nulled
+    if (!global.dbClient && global.dbClients && global.dbClients.size > 0) {
+      global.dbClient = global.dbClients.values().next().value;
+      log.info('Recovered global.dbClient from dbClients Map in tool.call handler');
+    }
 
     // Route to appropriate handler — prefer direct SQL (global.dbClient) for reliability,
     // fall back to MCP safeApi only when needed. MCP may not support all tools.
