@@ -69,7 +69,7 @@ function userFromResponse(data: AuthResponse): AuthUser {
 export async function createPaymentInvoice(): Promise<{ payment_url: string }> {
   const baseUrl = getBackendUrl();
   const token = getAuthToken();
-  const res = await fetch(`${baseUrl}/api/v1/payments/create-invoice`, {
+  const res = await fetch(`${baseUrl}/api/v2/payments/create-invoice`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

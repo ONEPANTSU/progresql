@@ -114,10 +114,10 @@ PROGRESSQL_SMTP_USER=
 PROGRESSQL_SMTP_PASSWORD=
 PROGRESSQL_SMTP_FROM=progresql.noreply@yandex.ru
 
-# CryptoCloud payment gateway
-PROGRESSQL_CRYPTOCLOUD_API_KEY=
-PROGRESSQL_CRYPTOCLOUD_SHOP_ID=
-PROGRESSQL_CRYPTOCLOUD_SECRET=
+# Platega.io payment gateway
+PROGRESSQL_PLATEGA_MERCHANT_ID=
+PROGRESSQL_PLATEGA_API_KEY=
+PROGRESSQL_PLATEGA_SECRET=
 ENVFILE
     echo ">>> .env template written to ${APP_DIR}/.env — edit it before starting the backend."
 else

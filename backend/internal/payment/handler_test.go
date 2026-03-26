@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 )
 
@@ -28,18 +27,24 @@ func (m *mockPlanUpdater) SetPlan(userID, plan string, expiresAt *string) error 
 }
 
 func TestWebhookHandler_ValidPayment(t *testing.T) {
+	merchantID := "test-merchant-id"
 	secret := "test-webhook-secret"
 	mock := &mockPlanUpdater{}
-	handler := WebhookHandler(mock, nil, secret)
+	handler := WebhookHandler(mock, nil, merchantID, secret)
 
-	payload := webhookPayload{
-		Status:  "success",
-		OrderID: "user_550e8400-e29b-41d4-a716-446655440000",
-		Token:   secret,
+	payload := plategaWebhookPayload{
+		ID:            "txn-123",
+		Amount:        20.0,
+		Currency:      "USD",
+		Status:        "CONFIRMED",
+		PaymentMethod: 12,
+		Payload:       "user_550e8400-e29b-41d4-a716-446655440000",
 	}
 	body, _ := json.Marshal(payload)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", bytes.NewReader(body))
+	req.Header.Set("X-MerchantId", merchantID)
+	req.Header.Set("X-Secret", secret)
 	w := httptest.NewRecorder()
 	handler(w, req)
 
@@ -69,46 +74,85 @@ func TestWebhookHandler_ValidPayment(t *testing.T) {
 	}
 }
 
-func TestWebhookHandler_InvalidToken(t *testing.T) {
+func TestWebhookHandler_InvalidCredentials(t *testing.T) {
+	merchantID := "correct-merchant"
 	secret := "correct-secret"
 	mock := &mockPlanUpdater{}
-	handler := WebhookHandler(mock, nil, secret)
+	handler := WebhookHandler(mock, nil, merchantID, secret)
 
-	payload := webhookPayload{
-		Status:  "success",
-		OrderID: "user_550e8400-e29b-41d4-a716-446655440000",
-		Token:   "wrong-secret",
+	payload := plategaWebhookPayload{
+		ID:            "txn-123",
+		Amount:        20.0,
+		Currency:      "USD",
+		Status:        "CONFIRMED",
+		PaymentMethod: 12,
+		Payload:       "user_550e8400-e29b-41d4-a716-446655440000",
 	}
 	body, _ := json.Marshal(payload)
 
+	// Wrong secret.
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", bytes.NewReader(body))
+	req.Header.Set("X-MerchantId", merchantID)
+	req.Header.Set("X-Secret", "wrong-secret")
 	w := httptest.NewRecorder()
 	handler(w, req)
 
 	if w.Code != http.StatusForbidden {
-		t.Errorf("expected 403 for invalid token, got %d", w.Code)
+		t.Errorf("expected 403 for invalid credentials, got %d", w.Code)
 	}
 	if len(mock.calls) != 0 {
-		t.Error("SetPlan should not have been called for invalid token")
+		t.Error("SetPlan should not have been called for invalid credentials")
 	}
 
 	var resp errorResponse
 	json.NewDecoder(w.Body).Decode(&resp)
-	if resp.Error != "invalid webhook token" {
+	if resp.Error != "invalid webhook credentials" {
 		t.Errorf("unexpected error message: %s", resp.Error)
+	}
+}
+
+func TestWebhookHandler_WrongMerchantID(t *testing.T) {
+	merchantID := "correct-merchant"
+	secret := "correct-secret"
+	mock := &mockPlanUpdater{}
+	handler := WebhookHandler(mock, nil, merchantID, secret)
+
+	payload := plategaWebhookPayload{
+		ID:            "txn-123",
+		Amount:        20.0,
+		Currency:      "USD",
+		Status:        "CONFIRMED",
+		PaymentMethod: 12,
+		Payload:       "user_550e8400-e29b-41d4-a716-446655440000",
+	}
+	body, _ := json.Marshal(payload)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", bytes.NewReader(body))
+	req.Header.Set("X-MerchantId", "wrong-merchant")
+	req.Header.Set("X-Secret", secret)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for wrong merchant ID, got %d", w.Code)
+	}
+	if len(mock.calls) != 0 {
+		t.Error("SetPlan should not have been called for wrong merchant ID")
 	}
 }
 
 func TestWebhookHandler_EmptySecret_Rejected(t *testing.T) {
 	// When webhook secret is not configured, ALL webhooks must be rejected.
-	// This prevents plan activation when the server is misconfigured.
 	mock := &mockPlanUpdater{}
-	handler := WebhookHandler(mock, nil, "")
+	handler := WebhookHandler(mock, nil, "", "")
 
-	payload := webhookPayload{
-		Status:  "success",
-		OrderID: "user_550e8400-e29b-41d4-a716-446655440000",
-		Token:   "",
+	payload := plategaWebhookPayload{
+		ID:            "txn-123",
+		Amount:        20.0,
+		Currency:      "USD",
+		Status:        "CONFIRMED",
+		PaymentMethod: 12,
+		Payload:       "user_550e8400-e29b-41d4-a716-446655440000",
 	}
 	body, _ := json.Marshal(payload)
 
@@ -130,76 +174,116 @@ func TestWebhookHandler_EmptySecret_Rejected(t *testing.T) {
 	}
 }
 
-func TestWebhookHandler_NonSuccessStatus_Ignored(t *testing.T) {
+func TestWebhookHandler_CanceledStatus_Ignored(t *testing.T) {
+	merchantID := "test-merchant"
 	secret := "test-secret"
 	mock := &mockPlanUpdater{}
-	handler := WebhookHandler(mock, nil, secret)
+	handler := WebhookHandler(mock, nil, merchantID, secret)
 
-	for _, status := range []string{"pending", "expired", "cancelled", "failed"} {
-		t.Run(status, func(t *testing.T) {
-			mock.calls = nil
-			payload := webhookPayload{
-				Status:  status,
-				OrderID: "user_550e8400-e29b-41d4-a716-446655440000",
-				Token:   secret,
-			}
-			body, _ := json.Marshal(payload)
+	payload := plategaWebhookPayload{
+		ID:            "txn-123",
+		Amount:        20.0,
+		Currency:      "USD",
+		Status:        "CANCELED",
+		PaymentMethod: 12,
+		Payload:       "user_550e8400-e29b-41d4-a716-446655440000",
+	}
+	body, _ := json.Marshal(payload)
 
-			req := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", bytes.NewReader(body))
-			w := httptest.NewRecorder()
-			handler(w, req)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", bytes.NewReader(body))
+	req.Header.Set("X-MerchantId", merchantID)
+	req.Header.Set("X-Secret", secret)
+	w := httptest.NewRecorder()
+	handler(w, req)
 
-			if w.Code != http.StatusOK {
-				t.Errorf("expected 200 for status %q, got %d", status, w.Code)
-			}
-			if len(mock.calls) != 0 {
-				t.Errorf("SetPlan should not be called for status %q", status)
-			}
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for CANCELED status, got %d", w.Code)
+	}
+	if len(mock.calls) != 0 {
+		t.Error("SetPlan should not be called for CANCELED status")
+	}
 
-			var resp map[string]string
-			json.NewDecoder(w.Body).Decode(&resp)
-			if resp["status"] != "ignored" {
-				t.Errorf("expected ignored, got %s", resp["status"])
-			}
-		})
+	var resp map[string]string
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp["status"] != "ignored" {
+		t.Errorf("expected ignored, got %s", resp["status"])
 	}
 }
 
-func TestWebhookHandler_InvalidOrderID(t *testing.T) {
+func TestWebhookHandler_PendingStatus_Ignored(t *testing.T) {
+	merchantID := "test-merchant"
 	secret := "test-secret"
 	mock := &mockPlanUpdater{}
-	handler := WebhookHandler(mock, nil, secret)
+	handler := WebhookHandler(mock, nil, merchantID, secret)
 
-	for _, orderID := range []string{"invalid", "payment_123", "user", ""} {
-		t.Run(fmt.Sprintf("order_%s", orderID), func(t *testing.T) {
+	payload := plategaWebhookPayload{
+		ID:            "txn-123",
+		Amount:        20.0,
+		Currency:      "USD",
+		Status:        "PENDING",
+		PaymentMethod: 12,
+		Payload:       "user_550e8400-e29b-41d4-a716-446655440000",
+	}
+	body, _ := json.Marshal(payload)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", bytes.NewReader(body))
+	req.Header.Set("X-MerchantId", merchantID)
+	req.Header.Set("X-Secret", secret)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for PENDING status, got %d", w.Code)
+	}
+	if len(mock.calls) != 0 {
+		t.Error("SetPlan should not be called for PENDING status")
+	}
+}
+
+func TestWebhookHandler_InvalidPayload(t *testing.T) {
+	merchantID := "test-merchant"
+	secret := "test-secret"
+	mock := &mockPlanUpdater{}
+	handler := WebhookHandler(mock, nil, merchantID, secret)
+
+	for _, payloadStr := range []string{"invalid", "payment_123", "user", ""} {
+		t.Run(fmt.Sprintf("payload_%s", payloadStr), func(t *testing.T) {
 			mock.calls = nil
-			payload := webhookPayload{
-				Status:  "success",
-				OrderID: orderID,
-				Token:   secret,
+			payload := plategaWebhookPayload{
+				ID:            "txn-123",
+				Amount:        20.0,
+				Currency:      "USD",
+				Status:        "CONFIRMED",
+				PaymentMethod: 12,
+				Payload:       payloadStr,
 			}
 			body, _ := json.Marshal(payload)
 
 			req := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", bytes.NewReader(body))
+			req.Header.Set("X-MerchantId", merchantID)
+			req.Header.Set("X-Secret", secret)
 			w := httptest.NewRecorder()
 			handler(w, req)
 
 			if w.Code != http.StatusBadRequest {
-				t.Errorf("expected 400 for order_id %q, got %d", orderID, w.Code)
+				t.Errorf("expected 400 for payload %q, got %d", payloadStr, w.Code)
 			}
 			if len(mock.calls) != 0 {
-				t.Errorf("SetPlan should not be called for invalid order_id %q", orderID)
+				t.Errorf("SetPlan should not be called for invalid payload %q", payloadStr)
 			}
 		})
 	}
 }
 
 func TestWebhookHandler_InvalidBody(t *testing.T) {
+	merchantID := "test-merchant"
 	secret := "test-secret"
 	mock := &mockPlanUpdater{}
-	handler := WebhookHandler(mock, nil, secret)
+	handler := WebhookHandler(mock, nil, merchantID, secret)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", bytes.NewReader([]byte("not json")))
+	req.Header.Set("X-MerchantId", merchantID)
+	req.Header.Set("X-Secret", secret)
 	w := httptest.NewRecorder()
 	handler(w, req)
 
@@ -211,47 +295,25 @@ func TestWebhookHandler_InvalidBody(t *testing.T) {
 	}
 }
 
-func TestWebhookHandler_PaidStatus_Accepted(t *testing.T) {
-	// CryptoCloud may send "paid" instead of "success" — both should activate the plan.
-	secret := "test-secret"
-	mock := &mockPlanUpdater{}
-	handler := WebhookHandler(mock, nil, secret)
-
-	payload := webhookPayload{
-		Status:  "paid",
-		OrderID: "user_550e8400-e29b-41d4-a716-446655440000",
-		Token:   secret,
-	}
-	body, _ := json.Marshal(payload)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	handler(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", w.Code)
-	}
-	if len(mock.calls) != 1 {
-		t.Fatalf("expected 1 SetPlan call for 'paid' status, got %d", len(mock.calls))
-	}
-	if mock.calls[0].Plan != "pro" {
-		t.Errorf("expected plan 'pro', got %s", mock.calls[0].Plan)
-	}
-}
-
 func TestWebhookHandler_SetPlanError(t *testing.T) {
+	merchantID := "test-merchant"
 	secret := "test-secret"
 	mock := &mockPlanUpdater{err: fmt.Errorf("user not found")}
-	handler := WebhookHandler(mock, nil, secret)
+	handler := WebhookHandler(mock, nil, merchantID, secret)
 
-	payload := webhookPayload{
-		Status:  "success",
-		OrderID: "user_nonexistent-uuid",
-		Token:   secret,
+	payload := plategaWebhookPayload{
+		ID:            "txn-123",
+		Amount:        20.0,
+		Currency:      "USD",
+		Status:        "CONFIRMED",
+		PaymentMethod: 12,
+		Payload:       "user_nonexistent-uuid",
 	}
 	body, _ := json.Marshal(payload)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", bytes.NewReader(body))
+	req.Header.Set("X-MerchantId", merchantID)
+	req.Header.Set("X-Secret", secret)
 	w := httptest.NewRecorder()
 	handler(w, req)
 
@@ -260,32 +322,47 @@ func TestWebhookHandler_SetPlanError(t *testing.T) {
 	}
 }
 
-func TestWebhookHandler_CryptoFieldsParsed(t *testing.T) {
-	// Verify that crypto-specific fields from CryptoCloud webhooks are parsed correctly.
-	secret := "test-secret"
+func TestWebhookHandler_ForgedWebhook_Rejected(t *testing.T) {
+	// Simulates an attacker trying to forge a webhook to activate a free subscription.
+	merchantID := "production-merchant"
+	secret := "production-secret"
 	mock := &mockPlanUpdater{}
-	handler := WebhookHandler(mock, nil, secret)
+	handler := WebhookHandler(mock, nil, merchantID, secret)
 
-	payload := webhookPayload{
-		Status:         "success",
-		OrderID:        "user_550e8400-e29b-41d4-a716-446655440000",
-		Token:          secret,
-		AmountCrypto:   "0.0042",
-		CryptoCurrency: "BTC",
-		CryptoNetwork:  "bitcoin",
-		TxHash:         "abc123def456",
+	// Attempt 1: no credentials at all.
+	payload := plategaWebhookPayload{
+		ID:            "txn-123",
+		Amount:        20.0,
+		Currency:      "USD",
+		Status:        "CONFIRMED",
+		PaymentMethod: 12,
+		Payload:       "user_attacker-uuid",
 	}
 	body, _ := json.Marshal(payload)
-
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 	handler(w, req)
 
-	if w.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", w.Code)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("forged webhook should be rejected with 403, got %d", w.Code)
 	}
-	if len(mock.calls) != 1 {
-		t.Fatalf("expected 1 SetPlan call, got %d", len(mock.calls))
+	if len(mock.calls) != 0 {
+		t.Error("plan should not be activated by forged webhook")
+	}
+
+	// Attempt 2: guessed credentials.
+	body2, _ := json.Marshal(payload)
+	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", bytes.NewReader(body2))
+	req2.Header.Set("X-MerchantId", "guessed-merchant")
+	req2.Header.Set("X-Secret", "guessed-secret")
+	w2 := httptest.NewRecorder()
+	handler(w2, req2)
+
+	if w2.Code != http.StatusForbidden {
+		t.Errorf("guessed credentials should be rejected with 403, got %d", w2.Code)
+	}
+	if len(mock.calls) != 0 {
+		t.Error("plan should not be activated by guessed credentials")
 	}
 }
 
@@ -315,73 +392,5 @@ func TestStatusConstants(t *testing.T) {
 	}
 	if StatusExpired != "expired" {
 		t.Errorf("StatusExpired = %q", StatusExpired)
-	}
-}
-
-func TestWebhookHandler_FormURLEncoded(t *testing.T) {
-	// CryptoCloud v2 sends postbacks as application/x-www-form-urlencoded.
-	secret := "test-secret"
-	mock := &mockPlanUpdater{}
-	handler := WebhookHandler(mock, nil, secret)
-
-	form := "status=success&order_id=user_550e8400-e29b-41d4-a716-446655440000&token=" + secret + "&currency_received=BTC&network=bitcoin&txid=abc123"
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", strings.NewReader(form))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	w := httptest.NewRecorder()
-	handler(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", w.Code)
-	}
-	if len(mock.calls) != 1 {
-		t.Fatalf("expected 1 SetPlan call, got %d", len(mock.calls))
-	}
-	if mock.calls[0].UserID != "550e8400-e29b-41d4-a716-446655440000" {
-		t.Errorf("unexpected userID: %s", mock.calls[0].UserID)
-	}
-}
-
-func TestWebhookHandler_ForgedWebhook_Rejected(t *testing.T) {
-	// Simulates an attacker trying to forge a webhook to activate a free subscription.
-	// The success redirect page is static HTML and never calls this endpoint,
-	// so the ONLY way to activate a plan is through a properly signed webhook.
-	secret := "production-secret"
-	mock := &mockPlanUpdater{}
-	handler := WebhookHandler(mock, nil, secret)
-
-	// Attempt 1: guessed token → rejected
-	payload := webhookPayload{
-		Status:  "success",
-		OrderID: "user_attacker-uuid",
-		Token:   "guessed-token",
-	}
-	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	handler(w, req)
-
-	if w.Code != http.StatusForbidden {
-		t.Errorf("forged webhook should be rejected with 403, got %d", w.Code)
-	}
-	if len(mock.calls) != 0 {
-		t.Error("plan should not be activated by forged webhook")
-	}
-
-	// Attempt 2: empty token → rejected
-	payload2 := webhookPayload{
-		Status:  "success",
-		OrderID: "user_attacker-uuid",
-		Token:   "",
-	}
-	body2, _ := json.Marshal(payload2)
-	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/payments/webhook", bytes.NewReader(body2))
-	w2 := httptest.NewRecorder()
-	handler(w2, req2)
-
-	if w2.Code != http.StatusForbidden {
-		t.Errorf("empty token webhook should be rejected with 403, got %d", w2.Code)
-	}
-	if len(mock.calls) != 0 {
-		t.Error("plan should not be activated by empty-token webhook")
 	}
 }

@@ -88,11 +88,16 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	mux.HandleFunc("GET /api/v1/legal/{type}", legalDocumentHandler(db))
 	mux.Handle("POST /api/v1/legal/accept", authMW(http.HandlerFunc(legalAcceptHandler(db))))
 
-	// CryptoCloud payment routes.
-	cryptoClient := payment.NewCryptoCloudClient(cfg.CryptoCloudAPIKey, cfg.CryptoCloudShopID)
-	mux.Handle("POST /api/v1/payments/create-invoice", authMW(http.HandlerFunc(payment.CreateInvoiceHandler(cryptoClient, userStore, db))))
+	// Platega.io payment routes (v1).
+	plategaClient := payment.NewPlategaClient(cfg.PlategaMerchantID, cfg.PlategaAPIKey)
+	mux.Handle("POST /api/v1/payments/create-invoice", authMW(http.HandlerFunc(payment.CreateInvoiceHandler(plategaClient, userStore, db))))
 	mux.Handle("GET /api/v1/payment/price", authMW(http.HandlerFunc(payment.PriceHandler(db))))
-	mux.HandleFunc("POST /api/v1/payments/webhook", payment.WebhookHandler(userStore, db, cfg.CryptoCloudSecret))
+	mux.HandleFunc("POST /api/v1/payments/webhook", payment.WebhookHandler(userStore, db, cfg.PlategaMerchantID, cfg.PlategaSecret))
+
+	// v2 — Platega payment routes.
+	mux.Handle("POST /api/v2/payments/create-invoice", authMW(http.HandlerFunc(payment.CreateInvoiceHandlerV2(plategaClient, userStore, db))))
+	mux.Handle("GET /api/v2/payment/price", authMW(http.HandlerFunc(payment.PriceHandler(db))))
+	mux.HandleFunc("POST /api/v2/payments/webhook", payment.WebhookHandlerV2(userStore, db, cfg.PlategaMerchantID, cfg.PlategaSecret))
 
 	// Admin analytics endpoints (JWT + admin user ID required).
 	if len(cfg.AdminUserIDs) > 0 {
