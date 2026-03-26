@@ -135,6 +135,12 @@ const en = {
   'settings.promoCodeSuccess': 'Promo code applied! Your plan has been updated.',
   'settings.promoCodeError': 'Invalid or expired promo code',
 
+  // ── Payment Modal ──
+  'payment.selectMethod': 'Choose payment method',
+  'payment.card': 'Card',
+  'payment.sbp': 'SBP',
+  'payment.commission': 'commission',
+
   // ── Status Bar ──
   'status.db.connecting': 'DB: Connecting\u2026',
   'status.db.reconnecting': 'DB: Reconnecting\u2026',

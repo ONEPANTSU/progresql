@@ -66,7 +66,7 @@ function userFromResponse(data: AuthResponse): AuthUser {
   };
 }
 
-export async function createPaymentInvoice(): Promise<{ payment_url: string }> {
+export async function createPaymentInvoice(paymentMethod: number = 11): Promise<{ payment_url: string }> {
   const baseUrl = getBackendUrl();
   const token = getAuthToken();
   const res = await fetch(`${baseUrl}/api/v2/payments/create-invoice`, {
@@ -75,7 +75,7 @@ export async function createPaymentInvoice(): Promise<{ payment_url: string }> {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ amount: 20, currency: 'USD' }),
+    body: JSON.stringify({ amount: 20, currency: 'USD', payment_method: paymentMethod }),
   });
 
   if (!res.ok) {
