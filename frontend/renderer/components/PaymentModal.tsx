@@ -284,37 +284,8 @@ export default function PaymentModal({
           )}
         </Box>
 
-        {isPro ? (
-          /* User is already Pro - show success message instead of payment methods */
-          <Box sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 1.5,
-            py: 3,
-            px: 2,
-            borderRadius: 2,
-            bgcolor: 'rgba(99,102,241,0.08)',
-            border: '1.5px solid rgba(99,102,241,0.2)',
-          }}>
-            <CheckCircleIcon sx={{ fontSize: 48, color: '#10b981' }} />
-            <Chip
-              label="Pro"
-              size="small"
-              sx={{
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                color: '#fff',
-              }}
-            />
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, textAlign: 'center' }}>
-              {t('settings.planPro')}
-            </Typography>
-          </Box>
-        ) : (
-          <>
-            {/* Legal Checkbox */}
+        {/* Legal Checkbox */}
+        {
             <Box sx={{ mb: 2 }}>
               <FormControlLabel
                 control={
@@ -398,8 +369,7 @@ export default function PaymentModal({
                 {renderPrice()}
               </Box>
             </Box>
-          </>
-        )}
+        }
 
         {/* Payment error */}
         {paymentError && (
