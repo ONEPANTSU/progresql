@@ -68,6 +68,8 @@ const en = {
   'auth.forgot.newPasswordLabel': 'New password',
   'auth.forgot.confirmPassword': 'Confirm password',
   'auth.forgot.changePassword': 'Change password',
+  'auth.forgot.verify': 'Verify code',
+  'auth.forgot.back': 'Back',
   'auth.forgot.changingPassword': 'Saving\u2026',
   'auth.forgot.success': 'Password changed successfully!',
   'auth.forgot.loginButton': 'Sign In',

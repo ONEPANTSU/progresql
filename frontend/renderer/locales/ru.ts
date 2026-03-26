@@ -62,6 +62,8 @@ const ru: Record<TranslationKey, string> = {
   'auth.forgot.codeLabel': '\u041a\u043e\u0434 \u0438\u0437 \u043f\u0438\u0441\u044c\u043c\u0430',
   'auth.forgot.newPasswordLabel': '\u041d\u043e\u0432\u044b\u0439 \u043f\u0430\u0440\u043e\u043b\u044c',
   'auth.forgot.confirmPassword': '\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 \u043f\u0430\u0440\u043e\u043b\u044c',
+  'auth.forgot.verify': 'Подтвердить код',
+  'auth.forgot.back': 'Назад',
   'auth.forgot.changePassword': '\u0421\u043c\u0435\u043d\u0438\u0442\u044c \u043f\u0430\u0440\u043e\u043b\u044c',
   'auth.forgot.changingPassword': '\u0421\u043e\u0445\u0440\u0430\u043d\u044f\u0435\u043c\u2026',
   'auth.forgot.success': '\u041f\u0430\u0440\u043e\u043b\u044c \u0443\u0441\u043f\u0435\u0448\u043d\u043e \u0438\u0437\u043c\u0435\u043d\u0451\u043d!',
