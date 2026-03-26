@@ -30,12 +30,22 @@ jobs:
     steps:
       - name: Resolve release tag
         id: tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG="${{ github.event.inputs.tag }}"
           else
-            # Extract the tag from the triggering workflow_run event
-            TAG="${{ github.event.workflow_run.head_branch }}"
+            # workflow_run doesn't carry the tag — find the latest client-v* release
+            TAG=$(curl -sL \
+              -H "Authorization: token ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/ONEPANTSU/progresql/releases" \
+              | jq -r '[.[] | select(.tag_name | startswith("client-v"))][0].tag_name')
+            if [ -z "$TAG" ] || [ "$TAG" = "null" ]; then
+              echo "ERROR: Could not find latest client release"
+              exit 1
+            fi
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "Deploying release: ${TAG}"
@@ -97,7 +107,7 @@ jobs:
               -H "Authorization: token ${GH_TOKEN}" \
               -H "Accept: application/octet-stream" \
               "https://api.github.com/repos/ONEPANTSU/progresql/releases/assets/${EXE_ID}" \
-              -o "downloads/ProgreSQL-${VERSION}-Setup.exe"
+              -o "downloads/ProgreSQL.Setup.${VERSION}.exe"
           else
             echo "WARNING: No EXE found in release"
           fi
@@ -143,8 +153,8 @@ jobs:
               && ln -sf "ProgreSQL-${VERSION}-arm64.dmg" ProgreSQL-latest.dmg \
               && echo "Linked ProgreSQL-latest.dmg"
 
-            [ -f "ProgreSQL-${VERSION}-Setup.exe" ] \
-              && ln -sf "ProgreSQL-${VERSION}-Setup.exe" ProgreSQL-latest.exe \
+            [ -f "ProgreSQL.Setup.${VERSION}.exe" ] \
+              && ln -sf "ProgreSQL.Setup.${VERSION}.exe" ProgreSQL-latest.exe \
               && echo "Linked ProgreSQL-latest.exe"
 
             [ -f "ProgreSQL-${VERSION}.AppImage" ] \
