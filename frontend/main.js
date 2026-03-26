@@ -350,7 +350,7 @@ ipcMain.handle('connect-database', async (event, connectionConfig) => {
     }
 
     // Start periodic health check for auto-reconnect
-    dbHealth.onConnected(connectionConfig, mainWindow);
+    dbHealth.onConnected(connId, connectionConfig, mainWindow);
 
     return { success: true, message: 'Connected successfully' };
   } catch (error) {
@@ -946,7 +946,7 @@ ipcMain.handle('switch-database', async (event, { connectionId, database }) => {
     }
 
     // Update health check
-    dbHealth.onConnected(newConfig, mainWindow);
+    dbHealth.onConnected(connId, newConfig, mainWindow);
 
     return { success: true, message: `Switched to database: ${database}` };
   } catch (error) {

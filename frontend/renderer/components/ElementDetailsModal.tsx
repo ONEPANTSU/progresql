@@ -774,7 +774,7 @@ export default function ElementDetailsModal({
                             placeholder={t('details.noDefault')}
                             value={alterColDefault}
                             onChange={(e) => setAlterColDefault(e.target.value)}
-                            sx={{ minWidth: 100, '& .MuiInput-input': { fontSize: '0.8125rem' } }}
+                            sx={{ minWidth: 120, '& .MuiInput-input': { fontSize: '0.8125rem' } }}
                           />
                         ) : (
                           column.column_default || '-'
@@ -822,7 +822,7 @@ export default function ElementDetailsModal({
                         )}
                       </TableCell>
                       {onApplySQL && (
-                        <TableCell sx={{ whiteSpace: 'nowrap', position: 'relative', minWidth: alteringCol === column.column_name ? 70 : 'auto' }}>
+                        <TableCell sx={{ whiteSpace: 'nowrap', position: 'relative', minWidth: alteringCol === column.column_name ? 80 : 'auto', pr: alteringCol === column.column_name ? '72px' : undefined }}>
                           {alteringCol === column.column_name ? (
                             <Box sx={{ display: 'flex', gap: 0.5, position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', zIndex: 2, bgcolor: 'background.paper', borderRadius: 1, px: 0.5 }}>
                               <Tooltip title={t('details.applyChanges')}>

@@ -44,7 +44,8 @@ import { useAgent } from '../contexts/AgentContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useAuth } from '../providers/AuthProvider';
-import { authService, createPaymentInvoice, isSubscriptionActive, applyPromoCode } from '../services/auth';
+import { authService, createPaymentInvoice, isSubscriptionActive, applyPromoCode, getAuthToken } from '../services/auth';
+import { loadBackendUrl } from '../utils/secureSettingsStorage';
 
 interface SettingsPanelProps {
   open: boolean;
@@ -116,9 +117,8 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     if (!open || !user) return;
     const fetchPrice = async () => {
       try {
-        const api = (window as any).electronAPI;
-        const baseUrl = api?.getBackendUrl?.() || localStorage.getItem('backend_url') || 'https://progresql.com';
-        const token = localStorage.getItem('auth_token') || '';
+        const baseUrl = loadBackendUrl('https://progresql.com');
+        const token = getAuthToken() || '';
         const resp = await fetch(`${baseUrl}/api/v1/payment/price`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
