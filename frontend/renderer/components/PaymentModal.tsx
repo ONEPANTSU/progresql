@@ -10,7 +10,6 @@ import {
   Checkbox,
   FormControlLabel,
   Link,
-  Alert,
   CircularProgress,
   IconButton,
 } from '@mui/material';
@@ -18,7 +17,6 @@ import {
   Close as CloseIcon,
   CreditCard as CreditCardIcon,
   QrCode as QrCodeIcon,
-  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useTranslation } from '../contexts/LanguageContext';
 import { applyPromoCode, getAuthToken } from '../services/auth';
@@ -35,8 +33,6 @@ interface PaymentModalProps {
   paymentError: string | null;
 }
 
-const CARD_COMMISSION = '12%';
-const SBP_COMMISSION = '11%';
 
 const glassCardSx = {
   flex: 1,
@@ -339,9 +335,6 @@ export default function PaymentModal({
               {t('payment.card')}
             </Typography>
             {renderPrice()}
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {CARD_COMMISSION} {t('payment.commission')}
-            </Typography>
           </Box>
 
           {/* SBP */}
@@ -362,20 +355,8 @@ export default function PaymentModal({
               {t('payment.sbp')}
             </Typography>
             {renderPrice()}
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {SBP_COMMISSION} {t('payment.commission')}
-            </Typography>
           </Box>
         </Box>
-
-        {/* Warning */}
-        <Alert
-          severity="warning"
-          icon={<WarningIcon sx={{ fontSize: 16 }} />}
-          sx={{ mb: 1, py: 0, '& .MuiAlert-message': { fontSize: '0.75rem' } }}
-        >
-          {t('settings.cryptoWarning')}
-        </Alert>
 
         {/* Payment error */}
         {paymentError && (

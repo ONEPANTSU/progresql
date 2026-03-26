@@ -96,6 +96,13 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [currentPrice, setCurrentPrice] = React.useState<number>(20);
   const [originalPrice, setOriginalPrice] = React.useState<number>(20);
 
+  // Auto-close payment modal when user becomes Pro
+  React.useEffect(() => {
+    if (user?.plan === 'pro' && paymentModalOpen) {
+      setPaymentModalOpen(false);
+    }
+  }, [user?.plan, paymentModalOpen]);
+
   React.useEffect(() => {
     if (window.electronAPI?.getAppVersion) {
       window.electronAPI.getAppVersion().then(setAppVersion);
