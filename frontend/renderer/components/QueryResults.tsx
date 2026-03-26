@@ -585,7 +585,7 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
                             }}
                           >
                             {isEditing ? (
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 200 }}>
                                 <TextField
                                   value={editValue}
                                   onChange={(e) => setEditValue(e.target.value)}
@@ -596,7 +596,7 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
                                   size="small"
                                   autoFocus
                                   variant="standard"
-                                  sx={{ flex: 1, '& input': { fontSize: '0.875rem', py: 0 } }}
+                                  sx={{ flex: 1, minWidth: 120, '& input': { fontSize: '0.875rem', py: 0 } }}
                                 />
                                 <IconButton size="small" onClick={handleEditSave} color="success" sx={{ p: 0.25 }}>
                                   <CheckIcon sx={{ fontSize: 16 }} />
