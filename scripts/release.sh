@@ -122,6 +122,21 @@ while true; do
   sleep 15
 done
 
+# --- Update download symlinks on server ---
+echo ""
+echo "==> Updating download links on progresql.com..."
+DOWNLOAD_DIR="/opt/progresql/downloads"
+GITHUB_DL="https://github.com/ONEPANTSU/progresql/releases/download/${TAG}"
+ssh -i ~/.ssh/progresql_server root@147.45.198.0 "cd ${DOWNLOAD_DIR} && \
+  curl -sL '${GITHUB_DL}/ProgreSQL-${VERSION}-arm64.dmg' -o ProgreSQL-${VERSION}-arm64.dmg && \
+  curl -sL '${GITHUB_DL}/ProgreSQL.Setup.${VERSION}.exe' -o ProgreSQL.Setup.${VERSION}.exe && \
+  curl -sL '${GITHUB_DL}/ProgreSQL-${VERSION}.AppImage' -o ProgreSQL-${VERSION}.AppImage && \
+  ln -sf ProgreSQL-${VERSION}-arm64.dmg ProgreSQL-latest.dmg && \
+  ln -sf ProgreSQL.Setup.${VERSION}.exe ProgreSQL-latest.exe && \
+  ln -sf ProgreSQL-${VERSION}.AppImage ProgreSQL-latest.AppImage && \
+  echo 'Symlinks updated:' && ls -lh ProgreSQL-latest*"
+echo "==> ✅ Download links updated!"
+
 # --- Final summary ---
 echo ""
 echo "==> Release v${VERSION} complete!"
