@@ -26,8 +26,12 @@
       {
         "current": {
           "selected": true,
-          "text": ["All"],
-          "value": ["$__all"]
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
         },
         "datasource": {
           "type": "prometheus",
@@ -36,11 +40,11 @@
         "definition": "label_values(node_cpu_seconds_total, instance)",
         "hide": 0,
         "includeAll": true,
-        "label": "Instance",
+        "label": "Server",
         "multi": true,
-        "name": "instance",
+        "name": "server",
         "options": [],
-        "query": "label_values(node_cpu_seconds_total, instance)",
+        "query": "label_values(node_cpu_seconds_total, alias)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -130,7 +134,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 - (avg by (cpu, instance)(rate(node_cpu_seconds_total{mode=\"idle\", instance=~\"$instance\"}[5m])) * 100)",
+          "expr": "100 - (avg by (cpu, instance)(rate(node_cpu_seconds_total{mode=\"idle\", instance=~\"$server\"}[5m])) * 100)",
           "legendFormat": "{{instance}} CPU {{cpu}}",
           "refId": "A"
         }
@@ -193,7 +197,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(1 - (node_memory_MemAvailable_bytes{instance=~\"$instance\"} / node_memory_MemTotal_bytes{instance=~\"$instance\"})) * 100",
+          "expr": "(1 - (node_memory_MemAvailable_bytes{instance=~\"$server\"} / node_memory_MemTotal_bytes{instance=~\"$server\"})) * 100",
           "legendFormat": "RAM %",
           "refId": "A"
         }
@@ -248,7 +252,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "node_memory_MemTotal_bytes{instance=~\"$instance\"} - node_memory_MemAvailable_bytes{instance=~\"$instance\"}",
+          "expr": "node_memory_MemTotal_bytes{instance=~\"$server\"} - node_memory_MemAvailable_bytes{instance=~\"$server\"}",
           "legendFormat": "Used",
           "refId": "A"
         },
@@ -257,7 +261,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "node_memory_MemTotal_bytes{instance=~\"$instance\"}",
+          "expr": "node_memory_MemTotal_bytes{instance=~\"$server\"}",
           "legendFormat": "Total",
           "refId": "B"
         }
@@ -332,7 +336,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(1 - (node_filesystem_avail_bytes{mountpoint=\"/\", instance=~\"$instance\"} / node_filesystem_size_bytes{mountpoint=\"/\", instance=~\"$instance\"})) * 100",
+          "expr": "(1 - (node_filesystem_avail_bytes{mountpoint=\"/\", instance=~\"$server\"} / node_filesystem_size_bytes{mountpoint=\"/\", instance=~\"$server\"})) * 100",
           "legendFormat": "Disk %",
           "refId": "A"
         }
@@ -414,7 +418,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(node_network_receive_bytes_total{device!=\"lo\", instance=~\"$instance\"}[5m])",
+          "expr": "rate(node_network_receive_bytes_total{device!=\"lo\", instance=~\"$server\"}[5m])",
           "legendFormat": "Received",
           "refId": "A"
         },
@@ -423,7 +427,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(node_network_transmit_bytes_total{device!=\"lo\", instance=~\"$instance\"}[5m])",
+          "expr": "rate(node_network_transmit_bytes_total{device!=\"lo\", instance=~\"$server\"}[5m])",
           "legendFormat": "Transmitted",
           "refId": "B"
         }
