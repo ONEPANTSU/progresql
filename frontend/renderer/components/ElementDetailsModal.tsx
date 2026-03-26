@@ -734,7 +734,7 @@ export default function ElementDetailsModal({
                             variant="standard"
                             value={alterColType}
                             onChange={(e) => setAlterColType(e.target.value)}
-                            sx={{ minWidth: 150, '& .MuiInput-input': { fontSize: '0.8125rem' } }}
+                            sx={{ minWidth: 200, '& .MuiInput-input': { fontSize: '0.8125rem' } }}
                           >
                             {PG_DATA_TYPES.map((dtype) => (
                               <MenuItem key={dtype} value={dtype}>{dtype}</MenuItem>
@@ -774,14 +774,14 @@ export default function ElementDetailsModal({
                             placeholder={t('details.noDefault')}
                             value={alterColDefault}
                             onChange={(e) => setAlterColDefault(e.target.value)}
-                            sx={{ minWidth: 150, '& .MuiInput-input': { fontSize: '0.8125rem' } }}
+                            sx={{ minWidth: 200, '& .MuiInput-input': { fontSize: '0.8125rem' } }}
                           />
                         ) : (
                           column.column_default || '-'
                         )}
                       </TableCell>
                       <TableCell
-                        sx={{ cursor: 'pointer', minWidth: 150, maxWidth: 300 }}
+                        sx={{ cursor: 'pointer', minWidth: 200 }}
                         onClick={() => {
                           if (editingColName !== column.column_name) {
                             setEditingColName(column.column_name);
@@ -822,9 +822,9 @@ export default function ElementDetailsModal({
                         )}
                       </TableCell>
                       {onApplySQL && (
-                        <TableCell sx={{ whiteSpace: 'nowrap', position: 'relative', minWidth: alteringCol === column.column_name ? 90 : 'auto', pr: alteringCol === column.column_name ? '76px' : undefined }}>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
                           {alteringCol === column.column_name ? (
-                            <Box sx={{ display: 'flex', gap: 0.5, position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', zIndex: 2, bgcolor: 'background.paper', borderRadius: 1, px: 0.5 }}>
+                            <Box sx={{ display: 'flex', gap: 0.5 }}>
                               <Tooltip title={t('details.applyChanges')}>
                                 <IconButton size="small" color="success" disabled={executingSQL} onClick={() => handleAlterColumn(column.column_name, column.data_type, column.is_nullable, column.column_default)}>
                                   <CheckIcon fontSize="small" />

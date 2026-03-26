@@ -21,7 +21,7 @@ import {
   CheckCircleOutline as CheckCircleIcon,
 } from '@mui/icons-material';
 import { useTranslation } from '../contexts/LanguageContext';
-import { applyPromoCode, getAuthToken } from '../services/auth';
+import { applyPromoCode, getAuthToken, isSubscriptionActive } from '../services/auth';
 import { useAuth } from '../providers/AuthProvider';
 import { loadBackendUrl } from '../utils/secureSettingsStorage';
 
@@ -91,8 +91,8 @@ export default function PaymentModal({
   const [localCurrentPrice, setLocalCurrentPrice] = React.useState(currentPrice);
   const [localOriginalPrice, setLocalOriginalPrice] = React.useState(originalPrice);
 
-  // Check if user is Pro
-  const isPro = user?.plan === 'pro' && user?.planExpiresAt && new Date(user.planExpiresAt) > new Date();
+  // Check if user has active subscription (pro/trial with valid expiry)
+  const isPro = isSubscriptionActive(user);
 
   // Sync prices from parent
   React.useEffect(() => {
