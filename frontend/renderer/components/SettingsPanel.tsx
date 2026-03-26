@@ -201,10 +201,10 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       </Box>
 
       <Box sx={{ overflowY: 'auto', flex: 1, mx: -0.5, px: 0.5 }}>
-        {/* Subscription - compact one-line */}
+        {/* Subscription - compact with wrap */}
         {user && (
           <Box sx={{ ...sectionCardSx, pb: 1.25 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, rowGap: 0.5 }}>
               <PremiumIcon sx={{ fontSize: 16, color: isPro ? '#a78bfa' : isTrialActive ? '#a78bfa' : 'text.disabled' }} />
               <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
                 {t('settings.subscription')}
@@ -218,12 +218,11 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                       fontWeight: 700,
                       fontSize: '0.65rem',
                       height: 20,
-                      ml: 0.5,
                       background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                       color: '#fff',
                     }}
                   />
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem', ml: 0.25 }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
                     {language === 'ru' ? 'до' : 'until'} {formatPlanExpiryCompact(user.planExpiresAt, language)}
                   </Typography>
                 </>
@@ -236,12 +235,11 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                       fontWeight: 700,
                       fontSize: '0.65rem',
                       height: 20,
-                      ml: 0.5,
                       background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                       color: '#fff',
                     }}
                   />
-                  <Typography variant="caption" sx={{ color: '#a78bfa', fontSize: '0.7rem', ml: 0.25 }}>
+                  <Typography variant="caption" sx={{ color: '#a78bfa', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
                     {trialDays}{language === 'ru' ? 'д' : 'd'} {language === 'ru' ? 'ост.' : 'left'}
                   </Typography>
                   <Button
@@ -258,6 +256,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                       px: 1,
                       py: 0,
                       minWidth: 'auto',
+                      flexShrink: 0,
                       background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                       '&:hover': {
                         background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
@@ -276,7 +275,6 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                       fontWeight: 700,
                       fontSize: '0.65rem',
                       height: 20,
-                      ml: 0.5,
                       bgcolor: 'action.selected',
                       color: 'text.secondary',
                     }}
@@ -295,6 +293,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                       px: 1,
                       py: 0,
                       minWidth: 'auto',
+                      flexShrink: 0,
                       background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                       '&:hover': {
                         background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',

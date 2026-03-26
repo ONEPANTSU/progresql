@@ -17,7 +17,7 @@ function navigateTo(route: string, router: ReturnType<typeof useRouter>) {
   }
 }
 
-type Step = 'email' | 'code' | 'done';
+type Step = 'email' | 'code' | 'password' | 'done';
 
 const CODE_LENGTH = 6;
 
@@ -89,6 +89,13 @@ export default function ForgotPasswordPage() {
     }
   };
 
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (code.length < CODE_LENGTH) return;
+    setStep('password');
+  };
+
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -121,6 +128,7 @@ export default function ForgotPasswordPage() {
           </Typography>
         </Box>
 
+        {/* Step 1: Email */}
         {step === 'email' && (
           <>
             <Typography variant="h5" gutterBottom sx={{ textAlign: 'center' }}>{t('auth.forgot.title')}</Typography>
@@ -137,18 +145,15 @@ export default function ForgotPasswordPage() {
           </>
         )}
 
+        {/* Step 2: OTP Code */}
         {step === 'code' && (
           <>
-            <Typography variant="h5" gutterBottom sx={{ textAlign: 'center' }}>{t('auth.forgot.newPassword')}</Typography>
+            <Typography variant="h5" gutterBottom sx={{ textAlign: 'center' }}>{t('auth.forgot.codeLabel')}</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
               {t('auth.forgot.newPasswordSubtitle')}
             </Typography>
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            <Box component="form" onSubmit={handleResetPassword} sx={{ display: 'grid', gap: 2 }}>
-              {/* OTP-style 6 digit code input */}
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-                {t('auth.forgot.codeLabel')}
-              </Typography>
+            <Box component="form" onSubmit={handleVerifyCode} sx={{ display: 'grid', gap: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }} onPaste={handlePaste}>
                 {digits.map((digit, i) => (
                   <TextField
@@ -180,15 +185,35 @@ export default function ForgotPasswordPage() {
                   />
                 ))}
               </Box>
-              <TextField label={t('auth.forgot.newPasswordLabel')} type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} fullWidth />
-              <TextField label={t('auth.forgot.confirmPassword')} type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} fullWidth />
-              <Button type="submit" variant="contained" disabled={loading || code.length < CODE_LENGTH}>
-                {loading ? t('auth.forgot.changingPassword') : t('auth.forgot.changePassword')}
+              <Button type="submit" variant="contained" disabled={code.length < CODE_LENGTH}>
+                {t('auth.forgot.verify') || 'Verify'}
+              </Button>
+              <Button variant="text" size="small" onClick={() => { setStep('email'); setError(null); }}>
+                {t('auth.forgot.back') || 'Back'}
               </Button>
             </Box>
           </>
         )}
 
+        {/* Step 3: New Password */}
+        {step === 'password' && (
+          <>
+            <Typography variant="h5" gutterBottom sx={{ textAlign: 'center' }}>{t('auth.forgot.newPassword')}</Typography>
+            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            <Box component="form" onSubmit={handleResetPassword} sx={{ display: 'grid', gap: 2 }}>
+              <TextField label={t('auth.forgot.newPasswordLabel')} type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} fullWidth autoFocus />
+              <TextField label={t('auth.forgot.confirmPassword')} type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} fullWidth />
+              <Button type="submit" variant="contained" disabled={loading}>
+                {loading ? t('auth.forgot.changingPassword') : t('auth.forgot.changePassword')}
+              </Button>
+              <Button variant="text" size="small" onClick={() => { setStep('code'); setError(null); }}>
+                {t('auth.forgot.back') || 'Back'}
+              </Button>
+            </Box>
+          </>
+        )}
+
+        {/* Step 4: Done */}
         {step === 'done' && (
           <>
             <Alert severity="success" sx={{ mb: 2 }}>{t('auth.forgot.success')}</Alert>
