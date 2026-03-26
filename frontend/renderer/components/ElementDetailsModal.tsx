@@ -734,7 +734,7 @@ export default function ElementDetailsModal({
                             variant="standard"
                             value={alterColType}
                             onChange={(e) => setAlterColType(e.target.value)}
-                            sx={{ minWidth: 120, '& .MuiInput-input': { fontSize: '0.8125rem' } }}
+                            sx={{ minWidth: 150, '& .MuiInput-input': { fontSize: '0.8125rem' } }}
                           >
                             {PG_DATA_TYPES.map((dtype) => (
                               <MenuItem key={dtype} value={dtype}>{dtype}</MenuItem>
@@ -774,7 +774,7 @@ export default function ElementDetailsModal({
                             placeholder={t('details.noDefault')}
                             value={alterColDefault}
                             onChange={(e) => setAlterColDefault(e.target.value)}
-                            sx={{ minWidth: 120, '& .MuiInput-input': { fontSize: '0.8125rem' } }}
+                            sx={{ minWidth: 150, '& .MuiInput-input': { fontSize: '0.8125rem' } }}
                           />
                         ) : (
                           column.column_default || '-'
