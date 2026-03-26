@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { Box, Button, Link as MuiLink, Paper, TextField, Typography, Alert } from '@mui/material';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
+import { Box, Button, Link as MuiLink, LinearProgress, Paper, TextField, Typography, Alert } from '@mui/material';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { authService } from '../services/auth';
@@ -15,6 +15,31 @@ function navigateTo(route: string, router: ReturnType<typeof useRouter>) {
   } else {
     router.replace(route);
   }
+}
+
+interface PasswordCheck {
+  key: string;
+  met: boolean;
+}
+
+function getPasswordChecks(password: string): PasswordCheck[] {
+  return [
+    { key: 'minLength', met: password.length >= 8 },
+    { key: 'uppercase', met: /[A-Z]/.test(password) },
+    { key: 'lowercase', met: /[a-z]/.test(password) },
+    { key: 'digit', met: /[0-9]/.test(password) },
+    { key: 'special', met: /[^A-Za-z0-9]/.test(password) },
+  ];
+}
+
+function getPasswordStrength(password: string): { level: 'weak' | 'medium' | 'strong'; value: number; color: string } {
+  if (password.length === 0) return { level: 'weak', value: 0, color: '#d32f2f' };
+  const checks = getPasswordChecks(password);
+  const metCount = checks.filter(c => c.met).length;
+  if (metCount <= 2) return { level: 'weak', value: 20, color: '#d32f2f' };
+  if (metCount <= 3) return { level: 'medium', value: 50, color: '#ed6c02' };
+  if (metCount <= 4) return { level: 'strong', value: 75, color: '#2e7d32' };
+  return { level: 'strong', value: 100, color: '#2e7d32' };
 }
 
 type Step = 'email' | 'code' | 'password' | 'done';
@@ -34,6 +59,24 @@ export default function ForgotPasswordPage() {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const code = digits.join('');
+
+  const passwordChecks = useMemo(() => getPasswordChecks(newPassword), [newPassword]);
+  const strength = useMemo(() => getPasswordStrength(newPassword), [newPassword]);
+  const allChecksMet = passwordChecks.every(c => c.met);
+
+  const strengthLabels: Record<string, string> = {
+    weak: t('auth.register.passwordWeak'),
+    medium: t('auth.register.passwordMedium'),
+    strong: t('auth.register.passwordStrong'),
+  };
+
+  const checkLabels: Record<string, string> = {
+    minLength: t('auth.register.req.minLength'),
+    uppercase: t('auth.register.req.uppercase'),
+    lowercase: t('auth.register.req.lowercase'),
+    digit: t('auth.register.req.digit'),
+    special: t('auth.register.req.special'),
+  };
 
   const setDigitAt = useCallback((index: number, value: string) => {
     setDigits(prev => {
@@ -100,6 +143,10 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setError(null);
 
+    if (!allChecksMet) {
+      setError(t('auth.register.passwordRequirementFail'));
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setError(t('auth.forgot.passwordMismatch'));
       return;
@@ -202,6 +249,49 @@ export default function ForgotPasswordPage() {
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             <Box component="form" onSubmit={handleResetPassword} sx={{ display: 'grid', gap: 2 }}>
               <TextField label={t('auth.forgot.newPasswordLabel')} type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} fullWidth autoFocus />
+
+              {/* Password strength indicator */}
+              {newPassword.length > 0 && (
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {t('auth.register.passwordStrength')}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: strength.color, fontWeight: 600 }}>
+                      {strengthLabels[strength.level]}
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={strength.value}
+                    sx={{
+                      height: 6,
+                      borderRadius: 3,
+                      bgcolor: 'action.hover',
+                      '& .MuiLinearProgress-bar': {
+                        bgcolor: strength.color,
+                        borderRadius: 3,
+                      },
+                    }}
+                  />
+                  <Box sx={{ mt: 1 }}>
+                    {passwordChecks.map((check) => (
+                      <Typography
+                        key={check.key}
+                        variant="caption"
+                        sx={{
+                          display: 'block',
+                          color: check.met ? 'success.main' : 'text.disabled',
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        {check.met ? '\u2713' : '\u2717'} {checkLabels[check.key]}
+                      </Typography>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
               <TextField label={t('auth.forgot.confirmPassword')} type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} fullWidth />
               <Button type="submit" variant="contained" disabled={loading}>
                 {loading ? t('auth.forgot.changingPassword') : t('auth.forgot.changePassword')}
