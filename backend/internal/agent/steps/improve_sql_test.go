@@ -55,6 +55,18 @@ func TestImproveSQL_Success(t *testing.T) {
 		errCh <- step.Execute(context.Background(), pctx)
 	}()
 
+	// Step 0: schema context gathering calls list_schemas first.
+	schemasEnv := readEnvelope(t, client)
+	if schemasEnv.Type != websocket.TypeToolCall {
+		t.Fatalf("expected tool.call for list_schemas, got %s", schemasEnv.Type)
+	}
+	var schemasPayload websocket.ToolCallPayload
+	schemasEnv.DecodePayload(&schemasPayload)
+	if schemasPayload.ToolName != "list_schemas" {
+		t.Fatalf("expected list_schemas, got %s", schemasPayload.ToolName)
+	}
+	sendToolResult(t, client, "req-improve", schemasEnv.CallID, true, []string{"public"})
+
 	// Read tool.call for explain_query.
 	toolCallEnv := readEnvelope(t, client)
 	if toolCallEnv.Type != websocket.TypeToolCall {
@@ -106,12 +118,12 @@ func TestImproveSQL_Success(t *testing.T) {
 		t.Errorf("expected model test-model, got %s", pctx.ModelUsed)
 	}
 
-	// Verify tool call logged.
-	if len(pctx.ToolCallsLog) != 1 {
-		t.Fatalf("expected 1 tool call log entry, got %d", len(pctx.ToolCallsLog))
+	// Verify tool calls logged: list_schemas + explain_query = 2.
+	if len(pctx.ToolCallsLog) != 2 {
+		t.Fatalf("expected 2 tool call log entries, got %d", len(pctx.ToolCallsLog))
 	}
-	if pctx.ToolCallsLog[0].ToolName != "explain_query" {
-		t.Errorf("expected explain_query in log, got %s", pctx.ToolCallsLog[0].ToolName)
+	if pctx.ToolCallsLog[1].ToolName != "explain_query" {
+		t.Errorf("expected explain_query in log at index 1, got %s", pctx.ToolCallsLog[1].ToolName)
 	}
 
 	_ = llmResponse // used for documentation
@@ -155,6 +167,10 @@ func TestImproveSQL_ExplainToolFailure_StillSendsToLLM(t *testing.T) {
 		step := &ImproveSQLStep{}
 		errCh <- step.Execute(context.Background(), pctx)
 	}()
+
+	// Step 0: Respond to list_schemas.
+	schemasEnv := readEnvelope(t, client)
+	sendToolResult(t, client, "req-improve", schemasEnv.CallID, true, []string{"public"})
 
 	// Read tool.call for explain_query.
 	toolCallEnv := readEnvelope(t, client)
@@ -204,7 +220,11 @@ func TestImproveSQL_LLMError(t *testing.T) {
 		errCh <- step.Execute(context.Background(), pctx)
 	}()
 
-	// Read and respond to tool.call.
+	// Step 0: Respond to list_schemas.
+	schemasEnv := readEnvelope(t, client)
+	sendToolResult(t, client, "req-improve", schemasEnv.CallID, true, []string{"public"})
+
+	// Read and respond to tool.call for explain_query.
 	toolCallEnv := readEnvelope(t, client)
 	sendToolResult(t, client, "req-improve", toolCallEnv.CallID, true, tools.ExplainQueryResult{
 		Plan: "Seq Scan on users",
@@ -250,6 +270,10 @@ func TestImproveSQL_IntegrationWithPipeline(t *testing.T) {
 
 	go p.HandleMessage(session, env)
 
+	// Step 0: Respond to list_schemas.
+	schemasEnv := readEnvelope(t, client)
+	sendToolResult(t, client, "req-pipe", schemasEnv.CallID, true, []string{"public"})
+
 	// Read tool.call for explain_query.
 	toolCallEnv := readEnvelope(t, client)
 	if toolCallEnv.Type != websocket.TypeToolCall {
@@ -289,12 +313,12 @@ func TestImproveSQL_IntegrationWithPipeline(t *testing.T) {
 	if respPayload.ModelUsed != "test-model" {
 		t.Errorf("expected model=test-model, got %q", respPayload.ModelUsed)
 	}
-	// Verify tool call log.
-	if len(respPayload.ToolCallsLog) != 1 {
-		t.Fatalf("expected 1 tool call log, got %d", len(respPayload.ToolCallsLog))
+	// Verify tool call log: list_schemas + explain_query = 2.
+	if len(respPayload.ToolCallsLog) != 2 {
+		t.Fatalf("expected 2 tool call log entries, got %d", len(respPayload.ToolCallsLog))
 	}
-	if respPayload.ToolCallsLog[0].ToolName != "explain_query" {
-		t.Errorf("expected explain_query in tool_calls_log, got %s", respPayload.ToolCallsLog[0].ToolName)
+	if respPayload.ToolCallsLog[1].ToolName != "explain_query" {
+		t.Errorf("expected explain_query in tool_calls_log at index 1, got %s", respPayload.ToolCallsLog[1].ToolName)
 	}
 }
 
@@ -318,7 +342,11 @@ func TestImproveSQL_CustomModel(t *testing.T) {
 		errCh <- step.Execute(context.Background(), pctx)
 	}()
 
-	// Respond to tool.call.
+	// Step 0: Respond to list_schemas.
+	schemasEnv := readEnvelope(t, client)
+	sendToolResult(t, client, "req-improve", schemasEnv.CallID, true, []string{"public"})
+
+	// Respond to tool.call for explain_query.
 	toolCallEnv := readEnvelope(t, client)
 	sendToolResult(t, client, "req-improve", toolCallEnv.CallID, true, tools.ExplainQueryResult{
 		Plan: "Aggregate  (cost=1.05..1.06 rows=1 width=8)",
@@ -406,6 +434,10 @@ func TestImproveSQL_ExplainQueryArgs(t *testing.T) {
 		step := &ImproveSQLStep{}
 		errCh <- step.Execute(context.Background(), pctx)
 	}()
+
+	// Step 0: Respond to list_schemas.
+	schemasEnv := readEnvelope(t, client)
+	sendToolResult(t, client, "req-improve", schemasEnv.CallID, true, []string{"public"})
 
 	// Read tool.call and verify the SQL argument.
 	toolCallEnv := readEnvelope(t, client)

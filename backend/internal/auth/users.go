@@ -37,17 +37,27 @@ var (
 )
 
 // UserStore manages user accounts with PostgreSQL persistence.
+// When db is nil, an in-memory store is used (for testing).
 type UserStore struct {
-	db *pgxpool.Pool
+	db  *pgxpool.Pool
+	mem *memStore
 }
 
 // NewUserStore creates a new PostgreSQL-backed UserStore.
+// When db is nil, falls back to an in-memory store suitable for unit tests.
 func NewUserStore(db *pgxpool.Pool) *UserStore {
+	if db == nil {
+		return &UserStore{mem: newMemStore()}
+	}
 	return &UserStore{db: db}
 }
 
 // Register creates a new user with the given name, email, and password.
 func (s *UserStore) Register(name, email, password string, marketingConsent bool) (*User, error) {
+	if s.usingMem() {
+		return s.registerMem(name, email, password, marketingConsent)
+	}
+
 	email = strings.TrimSpace(strings.ToLower(email))
 	name = strings.TrimSpace(name)
 
@@ -125,6 +135,9 @@ func (s *UserStore) Register(name, email, password string, marketingConsent bool
 
 // Authenticate validates email and password, returning the user on success.
 func (s *UserStore) Authenticate(email, password string) (*User, error) {
+	if s.usingMem() {
+		return s.mem.authenticate(strings.TrimSpace(strings.ToLower(email)), password)
+	}
 	email = strings.TrimSpace(strings.ToLower(email))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -147,6 +160,9 @@ func (s *UserStore) Authenticate(email, password string) (*User, error) {
 
 // GetByID returns a user by ID.
 func (s *UserStore) GetByID(id string) (*User, error) {
+	if s.usingMem() {
+		return s.mem.getByID(id)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -162,6 +178,9 @@ func (s *UserStore) GetByID(id string) (*User, error) {
 
 // GetByEmail returns a user by email address.
 func (s *UserStore) GetByEmail(email string) (*User, error) {
+	if s.usingMem() {
+		return s.mem.getByEmail(strings.TrimSpace(strings.ToLower(email)))
+	}
 	email = strings.TrimSpace(strings.ToLower(email))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -179,6 +198,9 @@ func (s *UserStore) GetByEmail(email string) (*User, error) {
 
 // SetEmailVerified marks the user as email-verified.
 func (s *UserStore) SetEmailVerified(userID string) error {
+	if s.usingMem() {
+		return s.mem.setEmailVerified(userID)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -194,6 +216,9 @@ func (s *UserStore) SetEmailVerified(userID string) error {
 
 // SetPlan updates the subscription plan for a user.
 func (s *UserStore) SetPlan(userID, plan string, expiresAt *string) error {
+	if s.usingMem() {
+		return s.mem.setPlan(userID, plan, expiresAt)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -219,6 +244,12 @@ func (s *UserStore) SetPlan(userID, plan string, expiresAt *string) error {
 
 // UpdatePassword changes the password for a user.
 func (s *UserStore) UpdatePassword(userID, newPassword string) error {
+	if s.usingMem() {
+		if err := ValidatePassword(newPassword); err != nil {
+			return err
+		}
+		return s.mem.updatePassword(userID, newPassword)
+	}
 	if err := ValidatePassword(newPassword); err != nil {
 		return err
 	}

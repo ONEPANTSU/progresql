@@ -27,7 +27,7 @@ func TestServerStartsAndServesHealth(t *testing.T) {
 	}
 
 	hub := websocket.NewHub()
-	userStore, _ := auth.NewUserStore("")
+	userStore := auth.NewUserStore(nil)
 	router := rest.NewRouter(cfg, log, hub, userStore, nil)
 
 	srv := &http.Server{

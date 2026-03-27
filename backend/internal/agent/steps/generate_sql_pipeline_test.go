@@ -156,6 +156,8 @@ func TestFullGenerateSQLPipeline(t *testing.T) {
 	// Handle all tool.call messages from the pipeline.
 	toolHandler := func(toolName string, args json.RawMessage) (any, bool) {
 		switch toolName {
+		case "list_schemas":
+			return []string{"public"}, true
 		case "list_tables":
 			return []string{"users", "orders", "products"}, true
 		case "describe_table":
@@ -176,12 +178,8 @@ func TestFullGenerateSQLPipeline(t *testing.T) {
 		}
 	}
 
-	streams, resp := handleToolCalls(t, client, toolHandler, 30*time.Second)
-
-	// Verify streaming happened (from result aggregation step).
-	if len(streams) == 0 {
-		t.Error("expected agent.stream messages, got none")
-	}
+	// Note: result aggregation now uses non-streaming LLM, so no agent.stream messages expected.
+	_, resp := handleToolCalls(t, client, toolHandler, 30*time.Second)
 
 	// Verify agent.response.
 	if resp.Type != websocket.TypeAgentResponse {
@@ -222,7 +220,8 @@ func TestFullGenerateSQLPipeline(t *testing.T) {
 }
 
 func TestFullGenerateSQLPipeline_ListTablesFails(t *testing.T) {
-	// If list_tables tool fails, the pipeline should send agent.error.
+	// If list_tables tool returns "No database connection", the pipeline should send
+	// a friendly agent.response (not agent.error) with a DB-not-connected explanation.
 	hub := websocket.NewHub()
 	session, client := wsDialer(t, hub)
 	llmClient := llm.NewClient("test-key", llm.WithBaseURL("http://localhost:1"), llm.WithMaxRetries(0))
@@ -244,7 +243,14 @@ func TestFullGenerateSQLPipeline_ListTablesFails(t *testing.T) {
 
 	go pipeline.HandleMessage(session, env)
 
-	// Read the tool.call for list_tables and respond with failure.
+	// Step 1: Respond to list_schemas with success.
+	schemasEnv := readEnvelope(t, client)
+	if schemasEnv.Type != websocket.TypeToolCall {
+		t.Fatalf("expected tool.call for list_schemas, got %s", schemasEnv.Type)
+	}
+	sendToolResult(t, client, schemasEnv.RequestID, schemasEnv.CallID, true, []string{"public"})
+
+	// Step 2: Read the tool.call for list_tables and respond with "No database connection" failure.
 	tcEnv := readEnvelope(t, client)
 	if tcEnv.Type != websocket.TypeToolCall {
 		t.Fatalf("expected tool.call, got %s", tcEnv.Type)
@@ -252,21 +258,21 @@ func TestFullGenerateSQLPipeline_ListTablesFails(t *testing.T) {
 
 	failPayload := websocket.ToolResultPayload{
 		Success: false,
-		Error:   "connection refused",
+		Error:   "No database connection",
 	}
 	failEnv, _ := websocket.NewEnvelopeWithID(websocket.TypeToolResult, tcEnv.RequestID, tcEnv.CallID, failPayload)
 	raw, _ := failEnv.Marshal()
 	client.WriteMessage(ws.TextMessage, raw)
 
-	// Expect agent.error.
-	errEnv := readEnvelope(t, client)
-	if errEnv.Type != websocket.TypeAgentError {
-		t.Fatalf("expected agent.error, got %s", errEnv.Type)
+	// Expect agent.response with a friendly DB-not-connected message (not agent.error).
+	respEnv := readEnvelope(t, client)
+	if respEnv.Type != websocket.TypeAgentResponse {
+		t.Fatalf("expected agent.response for DB-not-connected, got %s", respEnv.Type)
 	}
-	var ep websocket.AgentErrorPayload
-	errEnv.DecodePayload(&ep)
-	if ep.Code == "" {
-		t.Error("expected non-empty error code")
+	var rp websocket.AgentResponsePayload
+	respEnv.DecodePayload(&rp)
+	if rp.Result.Explanation == "" {
+		t.Error("expected non-empty explanation in DB-not-connected response")
 	}
 }
 
@@ -309,6 +315,8 @@ func TestFullGenerateSQLPipeline_StepOrder(t *testing.T) {
 	toolHandler := func(toolName string, args json.RawMessage) (any, bool) {
 		toolCallOrder = append(toolCallOrder, toolName)
 		switch toolName {
+		case "list_schemas":
+			return []string{"public"}, true
 		case "list_tables":
 			return []string{"users", "orders"}, true
 		case "describe_table":
@@ -325,18 +333,23 @@ func TestFullGenerateSQLPipeline_StepOrder(t *testing.T) {
 		t.Fatal("no response received")
 	}
 
-	// Verify tool call order: first list_tables, then describe_tables, then explain_queries.
-	if len(toolCallOrder) < 4 {
-		t.Fatalf("expected at least 4 tool calls, got %d: %v", len(toolCallOrder), toolCallOrder)
+	// Verify tool call order: list_schemas first, then list_tables, then describe_tables, then explain_queries.
+	if len(toolCallOrder) < 5 {
+		t.Fatalf("expected at least 5 tool calls, got %d: %v", len(toolCallOrder), toolCallOrder)
 	}
 
-	// First call must be list_tables (schema grounding).
-	if toolCallOrder[0] != "list_tables" {
-		t.Errorf("first tool call should be list_tables, got %s", toolCallOrder[0])
+	// First call must be list_schemas (schema grounding).
+	if toolCallOrder[0] != "list_schemas" {
+		t.Errorf("first tool call should be list_schemas, got %s", toolCallOrder[0])
+	}
+
+	// Second call must be list_tables (schema grounding).
+	if toolCallOrder[1] != "list_tables" {
+		t.Errorf("second tool call should be list_tables, got %s", toolCallOrder[1])
 	}
 
 	// After list_tables, describe_table calls come next (schema grounding).
-	listTablesIdx := 0
+	listTablesIdx := 1
 	describeEnd := listTablesIdx + 1
 	for describeEnd < len(toolCallOrder) && toolCallOrder[describeEnd] == "describe_table" {
 		describeEnd++

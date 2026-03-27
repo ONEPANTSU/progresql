@@ -583,8 +583,9 @@ func TestAPI_AllFourActionsViaTestutil(t *testing.T) {
 	defer conn.Close()
 
 	actions := []struct {
-		name    string
-		payload websocketpkg.AgentRequestPayload
+		name          string
+		payload       websocketpkg.AgentRequestPayload
+		requireStream bool
 	}{
 		{
 			name: "generate_sql",
@@ -592,6 +593,8 @@ func TestAPI_AllFourActionsViaTestutil(t *testing.T) {
 				Action:      "generate_sql",
 				UserMessage: "show all users",
 			},
+			// generate_sql in safe mode (single candidate) does not stream.
+			requireStream: false,
 		},
 		{
 			name: "explain_sql",
@@ -601,6 +604,7 @@ func TestAPI_AllFourActionsViaTestutil(t *testing.T) {
 					SelectedSQL: "SELECT * FROM users",
 				},
 			},
+			requireStream: true,
 		},
 		{
 			name: "improve_sql",
@@ -610,12 +614,14 @@ func TestAPI_AllFourActionsViaTestutil(t *testing.T) {
 					SelectedSQL: "SELECT * FROM users",
 				},
 			},
+			requireStream: true,
 		},
 		{
 			name: "analyze_schema",
 			payload: websocketpkg.AgentRequestPayload{
 				Action: "analyze_schema",
 			},
+			requireStream: true,
 		},
 	}
 
@@ -627,7 +633,7 @@ func TestAPI_AllFourActionsViaTestutil(t *testing.T) {
 			if resp.Type != websocketpkg.TypeAgentResponse {
 				t.Fatalf("expected agent.response, got %s", resp.Type)
 			}
-			if len(streams) == 0 {
+			if tc.requireStream && len(streams) == 0 {
 				t.Error("expected streaming chunks")
 			}
 

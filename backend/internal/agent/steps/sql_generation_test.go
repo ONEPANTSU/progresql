@@ -212,11 +212,15 @@ func TestSQLGeneration_IntegrationWithSchemaGrounding(t *testing.T) {
 		errCh <- step2.Execute(context.Background(), pctx)
 	}()
 
-	// Respond to list_tables.
+	// Step 1: Respond to list_schemas.
+	schemasEnv := readEnvelope(t, client)
+	sendToolResult(t, client, schemasEnv.RequestID, schemasEnv.CallID, true, []string{"public"})
+
+	// Step 2: Respond to list_tables.
 	env := readEnvelope(t, client)
 	sendToolResult(t, client, env.RequestID, env.CallID, true, []string{"users", "orders"})
 
-	// Respond to describe_table for each table.
+	// Step 3: Respond to describe_table for each table.
 	for i := 0; i < 2; i++ {
 		desc := readEnvelope(t, client)
 		sendToolResult(t, client, desc.RequestID, desc.CallID, true,

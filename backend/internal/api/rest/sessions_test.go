@@ -27,6 +27,7 @@ func TestCreateSessionHandler_ValidJWT(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/sessions", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Host = "localhost:8080"
 
 	// Add claims to context (simulating auth middleware)
 	claims := &auth.Claims{SessionID: "auth-session-123"}

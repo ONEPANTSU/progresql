@@ -191,12 +191,8 @@ func testE2EGenerateSQL(t *testing.T, pipeline *agent.Pipeline, session *websock
 	go pipeline.HandleMessage(session, env)
 
 	// Handle tool calls + collect streams + get response.
-	streams, resp := handleToolCalls(t, client, e2eToolHandler, 30*time.Second)
-
-	// Verify streaming.
-	if len(streams) == 0 {
-		t.Error("expected agent.stream messages for generate_sql")
-	}
+	// Note: result aggregation uses non-streaming LLM, so no agent.stream messages are expected.
+	_, resp := handleToolCalls(t, client, e2eToolHandler, 30*time.Second)
 
 	// Verify response.
 	if resp.Type != websocket.TypeAgentResponse {

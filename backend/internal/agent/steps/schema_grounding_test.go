@@ -155,21 +155,32 @@ func TestSchemaGrounding_SmallSchema_SkipsLLM(t *testing.T) {
 		errCh <- step.Execute(context.Background(), pctx)
 	}()
 
-	// Client receives tool.call for list_tables.
+	// Step 1: Client receives tool.call for list_schemas.
 	env := readEnvelope(t, client)
 	if env.Type != websocket.TypeToolCall {
 		t.Fatalf("expected tool.call, got %s", env.Type)
 	}
 	var tc websocket.ToolCallPayload
 	env.DecodePayload(&tc)
-	if tc.ToolName != "list_tables" {
-		t.Fatalf("expected list_tables, got %s", tc.ToolName)
+	if tc.ToolName != "list_schemas" {
+		t.Fatalf("expected list_schemas, got %s", tc.ToolName)
 	}
+	sendToolResult(t, client, env.RequestID, env.CallID, true, []string{"public"})
 
+	// Step 2: Client receives tool.call for list_tables with schema arg.
+	ltEnv := readEnvelope(t, client)
+	if ltEnv.Type != websocket.TypeToolCall {
+		t.Fatalf("expected tool.call, got %s", ltEnv.Type)
+	}
+	var ltc websocket.ToolCallPayload
+	ltEnv.DecodePayload(&ltc)
+	if ltc.ToolName != "list_tables" {
+		t.Fatalf("expected list_tables, got %s", ltc.ToolName)
+	}
 	// Reply with 3 tables (<=5, so LLM won't be called).
-	sendToolResult(t, client, env.RequestID, env.CallID, true, []string{"users", "orders", "products"})
+	sendToolResult(t, client, ltEnv.RequestID, ltEnv.CallID, true, []string{"users", "orders", "products"})
 
-	// Client receives describe_table for each of the 3 tables.
+	// Step 3: Client receives describe_table for each of the 3 tables.
 	for i := 0; i < 3; i++ {
 		desc := readEnvelope(t, client)
 		if desc.Type != websocket.TypeToolCall {
@@ -206,8 +217,8 @@ func TestSchemaGrounding_SmallSchema_SkipsLLM(t *testing.T) {
 	}
 
 	// Verify tool calls were logged.
-	if len(pctx.ToolCallsLog) != 4 { // 1 list_tables + 3 describe_table
-		t.Errorf("expected 4 tool call log entries, got %d", len(pctx.ToolCallsLog))
+	if len(pctx.ToolCallsLog) != 5 { // 1 list_schemas + 1 list_tables + 3 describe_table
+		t.Errorf("expected 5 tool call log entries, got %d", len(pctx.ToolCallsLog))
 	}
 }
 
@@ -215,8 +226,8 @@ func TestSchemaGrounding_LargeSchema_UsesLLM(t *testing.T) {
 	hub := websocket.NewHub()
 	session, client := wsDialer(t, hub)
 
-	// Mock LLM that returns ["users", "orders"] as relevant tables.
-	llmSrv := newMockLLMServer(t, `["users", "orders"]`)
+	// Mock LLM that returns qualified table names matching the schema.table format.
+	llmSrv := newMockLLMServer(t, `["public.users", "public.orders"]`)
 	llmClient := llm.NewClient("test-key", llm.WithBaseURL(llmSrv.URL))
 	pctx := buildPipelineContext(t, session, llmClient)
 
@@ -227,12 +238,16 @@ func TestSchemaGrounding_LargeSchema_UsesLLM(t *testing.T) {
 		errCh <- step.Execute(context.Background(), pctx)
 	}()
 
-	// Respond to list_tables with 8 tables (>5, triggers LLM selection).
+	// Step 1: Respond to list_schemas.
+	schemasEnv := readEnvelope(t, client)
+	sendToolResult(t, client, schemasEnv.RequestID, schemasEnv.CallID, true, []string{"public"})
+
+	// Step 2: Respond to list_tables with 8 tables (>5, triggers LLM selection).
 	env := readEnvelope(t, client)
 	tables := []string{"users", "orders", "products", "categories", "reviews", "inventory", "payments", "shipping"}
 	sendToolResult(t, client, env.RequestID, env.CallID, true, tables)
 
-	// LLM selected ["users", "orders"], so expect 2 describe_table calls.
+	// LLM selected ["public.users", "public.orders"], so expect 2 describe_table calls.
 	for i := 0; i < 2; i++ {
 		desc := readEnvelope(t, client)
 		if desc.Type != websocket.TypeToolCall {
@@ -280,13 +295,17 @@ func TestSchemaGrounding_ListTablesFails(t *testing.T) {
 		errCh <- step.Execute(context.Background(), pctx)
 	}()
 
-	// Respond to list_tables with error.
-	env := readEnvelope(t, client)
+	// Step 1: Respond to list_schemas with success.
+	schemasEnv := readEnvelope(t, client)
+	sendToolResult(t, client, schemasEnv.RequestID, schemasEnv.CallID, true, []string{"public"})
+
+	// Step 2: Respond to list_tables with a "No database connection" error (triggers DatabaseNotConnectedError).
+	ltEnv := readEnvelope(t, client)
 	payload := websocket.ToolResultPayload{
 		Success: false,
-		Error:   "connection refused",
+		Error:   "No database connection",
 	}
-	errEnv, _ := websocket.NewEnvelopeWithID(websocket.TypeToolResult, env.RequestID, env.CallID, payload)
+	errEnv, _ := websocket.NewEnvelopeWithID(websocket.TypeToolResult, ltEnv.RequestID, ltEnv.CallID, payload)
 	raw, _ := errEnv.Marshal()
 	client.WriteMessage(ws.TextMessage, raw)
 
@@ -295,8 +314,8 @@ func TestSchemaGrounding_ListTablesFails(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !strings.Contains(err.Error(), "list_tables returned error") {
-			t.Errorf("unexpected error: %v", err)
+		if !agent.IsDatabaseNotConnected(err) {
+			t.Errorf("expected DatabaseNotConnectedError, got: %v", err)
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("step timed out")
@@ -318,7 +337,11 @@ func TestSchemaGrounding_DescribeTablePartialFailure(t *testing.T) {
 		errCh <- step.Execute(context.Background(), pctx)
 	}()
 
-	// Reply to list_tables with 2 tables.
+	// Step 1: Respond to list_schemas.
+	schemasEnv := readEnvelope(t, client)
+	sendToolResult(t, client, schemasEnv.RequestID, schemasEnv.CallID, true, []string{"public"})
+
+	// Step 2: Reply to list_tables with 2 tables.
 	env := readEnvelope(t, client)
 	sendToolResult(t, client, env.RequestID, env.CallID, true, []string{"users", "orders"})
 
@@ -357,8 +380,8 @@ func TestSchemaGrounding_LLMReturnsCodeFencedJSON(t *testing.T) {
 	hub := websocket.NewHub()
 	session, client := wsDialer(t, hub)
 
-	// LLM returns JSON wrapped in code fences.
-	llmSrv := newMockLLMServer(t, "```json\n[\"users\", \"orders\"]\n```")
+	// LLM returns JSON wrapped in code fences with qualified table names.
+	llmSrv := newMockLLMServer(t, "```json\n[\"public.users\", \"public.orders\"]\n```")
 	llmClient := llm.NewClient("test-key", llm.WithBaseURL(llmSrv.URL))
 	pctx := buildPipelineContext(t, session, llmClient)
 
@@ -369,7 +392,11 @@ func TestSchemaGrounding_LLMReturnsCodeFencedJSON(t *testing.T) {
 		errCh <- step.Execute(context.Background(), pctx)
 	}()
 
-	// 8 tables to trigger LLM.
+	// Step 1: Respond to list_schemas.
+	schemasEnv := readEnvelope(t, client)
+	sendToolResult(t, client, schemasEnv.RequestID, schemasEnv.CallID, true, []string{"public"})
+
+	// Step 2: 8 tables to trigger LLM.
 	env := readEnvelope(t, client)
 	tables := []string{"users", "orders", "products", "categories", "reviews", "inventory", "payments", "shipping"}
 	sendToolResult(t, client, env.RequestID, env.CallID, true, tables)
@@ -486,7 +513,11 @@ func TestSchemaGrounding_ObjectTableFormat(t *testing.T) {
 		errCh <- step.Execute(context.Background(), pctx)
 	}()
 
-	// Reply with object format.
+	// Step 1: Respond to list_schemas.
+	schemasEnv := readEnvelope(t, client)
+	sendToolResult(t, client, schemasEnv.RequestID, schemasEnv.CallID, true, []string{"public"})
+
+	// Step 2: Reply with object format.
 	env := readEnvelope(t, client)
 	sendToolResult(t, client, env.RequestID, env.CallID, true,
 		[]map[string]string{
@@ -539,6 +570,11 @@ func TestSchemaGrounding_NoTablesFound(t *testing.T) {
 		errCh <- step.Execute(context.Background(), pctx)
 	}()
 
+	// Step 1: Respond to list_schemas.
+	schemasEnv := readEnvelope(t, client)
+	sendToolResult(t, client, schemasEnv.RequestID, schemasEnv.CallID, true, []string{"public"})
+
+	// Step 2: Respond to list_tables with empty table list.
 	env := readEnvelope(t, client)
 	sendToolResult(t, client, env.RequestID, env.CallID, true, []string{})
 
@@ -583,7 +619,11 @@ func TestSchemaGrounding_DBNotConnected(t *testing.T) {
 		errCh <- step.Execute(context.Background(), pctx)
 	}()
 
-	// Respond to list_tables with "No database connection" error.
+	// Step 1: Respond to list_schemas with success (fall back to "public").
+	schemasEnv := readEnvelope(t, client)
+	sendToolResult(t, client, schemasEnv.RequestID, schemasEnv.CallID, true, []string{"public"})
+
+	// Step 2: Respond to list_tables with "No database connection" error.
 	env := readEnvelope(t, client)
 	payload := websocket.ToolResultPayload{
 		Success: false,
