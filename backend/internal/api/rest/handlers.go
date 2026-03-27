@@ -24,6 +24,13 @@ type healthResponse struct {
 }
 
 // healthHandler returns a handler that responds with service status and version.
+//
+// @Summary      Health check
+// @Description  Returns service status and current version
+// @Tags         system
+// @Produce      json
+// @Success      200  {object}  healthResponse
+// @Router       /api/v1/health [get]
 func healthHandler(version string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -46,6 +53,14 @@ type errorResponse struct {
 
 // authTokenHandler returns a handler that issues a JWT for the local desktop client.
 // No API key validation — the LLM API key lives on the backend only.
+//
+// @Summary      Issue anonymous JWT
+// @Description  Issues a short-lived JWT for the local desktop client (no credentials required)
+// @Tags         auth
+// @Produce      json
+// @Success      200  {object}  authTokenResponse
+// @Failure      500  {object}  errorResponse
+// @Router       /api/v1/auth/token [post]
 func authTokenHandler(jwtSvc *auth.JWTService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -133,6 +148,18 @@ func userInfoFromUser(user *auth.User) userInfo {
 
 // registerHandler creates a new user account and returns a JWT.
 // If the email is already registered but not verified, it updates credentials and resends the verification code.
+//
+// @Summary      Register a new user
+// @Description  Creates a new user account and returns a JWT. If the email exists but is unverified, credentials are updated and a new verification code is sent.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      registerRequest   true  "Registration data"
+// @Success      201   {object}  authUserResponse
+// @Failure      400   {object}  errorResponse
+// @Failure      409   {object}  errorResponse
+// @Failure      500   {object}  errorResponse
+// @Router       /api/v1/auth/register [post]
 func registerHandler(jwtSvc *auth.JWTService, userStore *auth.UserStore, emailSvc *auth.EmailService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -193,6 +220,18 @@ func registerHandler(jwtSvc *auth.JWTService, userStore *auth.UserStore, emailSv
 }
 
 // loginHandler authenticates a user and returns a JWT.
+//
+// @Summary      Login
+// @Description  Authenticates the user with email and password and returns a JWT
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      loginRequest      true  "Login credentials"
+// @Success      200   {object}  authUserResponse
+// @Failure      400   {object}  errorResponse
+// @Failure      401   {object}  errorResponse
+// @Failure      500   {object}  errorResponse
+// @Router       /api/v1/auth/login [post]
 func loginHandler(jwtSvc *auth.JWTService, userStore *auth.UserStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -230,6 +269,15 @@ func loginHandler(jwtSvc *auth.JWTService, userStore *auth.UserStore) http.Handl
 }
 
 // profileHandler returns the authenticated user's profile.
+//
+// @Summary      Get current user profile
+// @Description  Returns profile information for the authenticated user
+// @Tags         auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  userInfo
+// @Failure      401  {object}  errorResponse
+// @Router       /api/v1/auth/profile [get]
 func profileHandler(userStore *auth.UserStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -270,6 +318,19 @@ type sendVerificationResponse struct {
 }
 
 // sendVerificationHandler sends a verification code email to the authenticated user.
+//
+// @Summary      Send email verification code
+// @Description  Sends a one-time verification code to the authenticated user's email address
+// @Tags         auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  sendVerificationResponse
+// @Failure      400  {object}  errorResponse
+// @Failure      401  {object}  errorResponse
+// @Failure      404  {object}  errorResponse
+// @Failure      500  {object}  errorResponse
+// @Failure      503  {object}  errorResponse
+// @Router       /api/v1/auth/send-verification [post]
 func sendVerificationHandler(jwtSvc *auth.JWTService, userStore *auth.UserStore, emailSvc *auth.EmailService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -329,6 +390,19 @@ type verifyCodeResponse struct {
 }
 
 // verifyCodeHandler checks a verification code submitted by the authenticated user.
+//
+// @Summary      Verify email code
+// @Description  Validates the one-time code and marks the user's email as verified
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      verifyCodeRequest  true  "Verification code"
+// @Success      200   {object}  verifyCodeResponse
+// @Failure      400   {object}  errorResponse
+// @Failure      401   {object}  errorResponse
+// @Failure      500   {object}  errorResponse
+// @Router       /api/v1/auth/verify-code [post]
 func verifyCodeHandler(userStore *auth.UserStore, emailSvc *auth.EmailService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -369,6 +443,18 @@ type forgotPasswordRequest struct {
 }
 
 // forgotPasswordHandler sends a password reset code to the user's email.
+//
+// @Summary      Forgot password
+// @Description  Sends a password-reset code to the provided email address. Always returns 200 to prevent email enumeration.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      forgotPasswordRequest  true  "User email"
+// @Success      200   {object}  map[string]string
+// @Failure      400   {object}  errorResponse
+// @Failure      500   {object}  errorResponse
+// @Failure      503   {object}  errorResponse
+// @Router       /api/v1/auth/forgot-password [post]
 func forgotPasswordHandler(userStore *auth.UserStore, emailSvc *auth.EmailService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -419,6 +505,18 @@ type resetPasswordRequest struct {
 }
 
 // resetPasswordHandler verifies the reset code and updates the user's password.
+//
+// @Summary      Reset password
+// @Description  Verifies the reset code and sets a new password for the user
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      resetPasswordRequest  true  "Reset payload"
+// @Success      200   {object}  map[string]string
+// @Failure      400   {object}  errorResponse
+// @Failure      404   {object}  errorResponse
+// @Failure      500   {object}  errorResponse
+// @Router       /api/v1/auth/reset-password [post]
 func resetPasswordHandler(userStore *auth.UserStore, emailSvc *auth.EmailService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -482,6 +580,18 @@ type createSessionResponse struct {
 
 // createSessionHandler returns a handler that creates a new agent session.
 // Requires JWT authentication (claims must be in context).
+//
+// @Summary      Create agent session
+// @Description  Creates a new agent session and returns the session ID with the WebSocket URL to connect to
+// @Tags         sessions
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      createSessionRequest   true  "Session parameters"
+// @Success      201   {object}  createSessionResponse
+// @Failure      400   {object}  errorResponse
+// @Failure      401   {object}  errorResponse
+// @Router       /api/v1/sessions [post]
 func createSessionHandler(hub *websocket.Hub, serverPort string, userStore *auth.UserStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -566,6 +676,13 @@ type modelsListResponse struct {
 }
 
 // modelsHandler returns a handler that responds with the list of available LLM models.
+//
+// @Summary      List available LLM models
+// @Description  Returns the list of available LLM models including which one is the default
+// @Tags         models
+// @Produce      json
+// @Success      200  {object}  modelsListResponse
+// @Router       /api/v1/models [get]
 func modelsHandler(models []config.ModelInfo, defaultModel string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -604,6 +721,31 @@ type legalDocumentResponse struct {
 // legalDocumentHandler returns the active legal document for the given type.
 // GET /api/v1/legal/{type} — returns the latest active document.
 // GET /api/v1/legal/{type}/{version} — returns a specific version.
+//
+// @Summary      Get legal document (latest)
+// @Description  Returns the latest active legal document of the given type. Use ?lang=ru|en to select language (default: ru).
+// @Tags         legal
+// @Produce      json
+// @Param        type     path     string  true   "Document type (e.g. privacy, terms)"
+// @Param        lang     query    string  false  "Language code (ru or en)"
+// @Success      200      {object} legalDocumentResponse
+// @Failure      400      {object} errorResponse
+// @Failure      404      {object} errorResponse
+// @Failure      500      {object} errorResponse
+// @Router       /api/v1/legal/{type} [get]
+//
+// @Summary      Get legal document (specific version)
+// @Description  Returns a specific version of the legal document.
+// @Tags         legal
+// @Produce      json
+// @Param        type     path     string  true   "Document type (e.g. privacy, terms)"
+// @Param        version  path     string  true   "Document version"
+// @Param        lang     query    string  false  "Language code (ru or en)"
+// @Success      200      {object} legalDocumentResponse
+// @Failure      400      {object} errorResponse
+// @Failure      404      {object} errorResponse
+// @Failure      500      {object} errorResponse
+// @Router       /api/v1/legal/{type}/{version} [get]
 func legalDocumentHandler(db *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -689,6 +831,19 @@ type legalAcceptResponse struct {
 
 // legalAcceptHandler records user acceptance of a legal document.
 // POST /api/v1/legal/accept — requires JWT authentication.
+//
+// @Summary      Accept legal document
+// @Description  Records the authenticated user's acceptance of a specific legal document version
+// @Tags         legal
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      legalAcceptRequest   true  "Acceptance data"
+// @Success      201   {object}  legalAcceptResponse
+// @Failure      400   {object}  errorResponse
+// @Failure      401   {object}  errorResponse
+// @Failure      500   {object}  errorResponse
+// @Router       /api/v1/legal/accept [post]
 func legalAcceptHandler(db *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -789,6 +944,18 @@ type analyticsUsersResponse struct {
 
 // analyticsUsersHandler returns aggregated token usage per user.
 // Supports ?month=YYYY-MM query parameter for filtering.
+//
+// @Summary      Admin: list user analytics
+// @Description  Returns aggregated token usage and cost per user. Admin-only endpoint. Optionally filter by month (YYYY-MM).
+// @Tags         admin
+// @Produce      json
+// @Security     BearerAuth
+// @Param        month  query     string  false  "Filter by month in YYYY-MM format"
+// @Success      200    {object}  analyticsUsersResponse
+// @Failure      401    {object}  errorResponse
+// @Failure      403    {object}  errorResponse
+// @Failure      500    {object}  errorResponse
+// @Router       /api/v1/admin/analytics/users [get]
 func analyticsUsersHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -871,6 +1038,19 @@ type analyticsUserDetailResponse struct {
 }
 
 // analyticsUserDetailHandler returns detailed token usage for a specific user with monthly breakdown.
+//
+// @Summary      Admin: user analytics detail
+// @Description  Returns total and monthly token usage breakdown for a specific user. Admin-only endpoint.
+// @Tags         admin
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "User ID"
+// @Success      200  {object}  analyticsUserDetailResponse
+// @Failure      400  {object}  errorResponse
+// @Failure      401  {object}  errorResponse
+// @Failure      403  {object}  errorResponse
+// @Failure      500  {object}  errorResponse
+// @Router       /api/v1/admin/analytics/users/{id} [get]
 func analyticsUserDetailHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

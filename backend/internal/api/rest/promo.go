@@ -27,6 +27,20 @@ type applyPromoResponse struct {
 }
 
 // promoApplyHandler validates and applies a promo code for the authenticated user.
+//
+// @Summary      Apply promo code
+// @Description  Validates and applies a promo code for the authenticated user. Supports pro_grant, trial_extension, and discount code types.
+// @Tags         promo
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      applyPromoRequest   true  "Promo code"
+// @Success      200   {object}  applyPromoResponse
+// @Failure      400   {object}  errorResponse
+// @Failure      401   {object}  errorResponse
+// @Failure      409   {object}  errorResponse
+// @Failure      500   {object}  errorResponse
+// @Router       /api/v1/promo/apply [post]
 func promoApplyHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

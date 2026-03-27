@@ -103,3 +103,40 @@ func TestInit_DevelopmentMode(t *testing.T) {
 		t.Error("expected debug level to be enabled in development mode")
 	}
 }
+
+func TestGet_AfterInit(t *testing.T) {
+	l, err := Init("info", "production")
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	got := Get()
+	if got == nil {
+		t.Fatal("Get() should return non-nil after Init")
+	}
+	_ = l
+}
+
+func TestSync(t *testing.T) {
+	// Sync before Init should not panic.
+	old := global
+	global = nil
+	Sync()
+	global = old
+
+	// Sync after Init should not panic.
+	_, err := Init("info", "production")
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	Sync() // should not panic
+}
+
+func TestInit_WithVersion(t *testing.T) {
+	l, err := Init("info", "production", "1.2.3")
+	if err != nil {
+		t.Fatalf("Init with version: %v", err)
+	}
+	if l == nil {
+		t.Fatal("expected non-nil logger")
+	}
+}
