@@ -252,6 +252,44 @@ func TestCheckSQLWithMode_UnsafeMode(t *testing.T) {
 	}
 }
 
+// ── skipCommentsAndWhitespace edge cases ─────────────────────────────────────
+
+func TestCheckSQL_SingleLineComment_NoNewline(t *testing.T) {
+	// Single-line comment with no trailing newline → skipCommentsAndWhitespace
+	// returns "" → CheckSQL treats it as empty SQL → error.
+	err := CheckSQL("-- only a comment, no newline")
+	if err == nil {
+		t.Fatal("expected error for SQL that is only a comment with no newline")
+	}
+}
+
+func TestCheckSQL_MultiLineComment_Unterminated(t *testing.T) {
+	// Multi-line comment with no closing */ → skipCommentsAndWhitespace
+	// returns "" → CheckSQL treats it as empty SQL → error.
+	err := CheckSQL("/* unterminated comment")
+	if err == nil {
+		t.Fatal("expected error for SQL with unterminated multi-line comment")
+	}
+}
+
+// ── splitStatements edge cases ────────────────────────────────────────────────
+
+func TestCheckSQL_EscapedSingleQuotesInString(t *testing.T) {
+	// Escaped single quotes ('') inside a string should not split the statement.
+	err := CheckSQL("SELECT * FROM users WHERE name = 'it''s a test'")
+	if err != nil {
+		t.Errorf("escaped single quotes caused error: %v", err)
+	}
+}
+
+func TestCheckSQL_SemicolonInDoubleQuotedIdentifier(t *testing.T) {
+	// Semicolon inside a double-quoted identifier must not split statements.
+	err := CheckSQL(`SELECT "col;name" FROM users`)
+	if err != nil {
+		t.Errorf("semicolon in double-quoted identifier caused error: %v", err)
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && searchString(s, substr)
 }
