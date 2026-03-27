@@ -323,7 +323,9 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
                 const dbInfo = databaseInfoRef.current;
                 const schemaCtx = dbInfo
                   ? Object.entries(dbInfo.schemas || {}).map(([schema, info]: [string, any]) =>
-                      `${schema}: ${(info.tables || []).map((t: any) => `${t.name}(${(t.columns || []).map((c: any) => c.name).join(', ')})`).join(', ')}`
+                      `Schema "${schema}":\n` + (info.tables || []).map((t: any) =>
+                        `  ${schema}.${t.name}(${(t.columns || []).map((c: any) => `${c.name} ${c.type || ''}`).join(', ')})`
+                      ).join('\n')
                     ).join('\n')
                   : '';
                 const doc = viewRef.current.state.doc.toString();
