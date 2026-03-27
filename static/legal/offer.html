@@ -161,13 +161,13 @@
     </div>
     <div class="nav-footer">
       <div class="nav-links">
-        <a href="/legal/privacy.html">Privacy</a>
-        <a href="/legal/terms.html">Terms</a>
-        <a href="/legal/offer.html" class="current">Offer</a>
-        <a href="/legal/refunds.html">Refunds</a>
-        <a href="/legal/contacts.html">Contacts</a>
+        <a href="/legal/privacy.html" data-en="Privacy" data-ru="Конфиденциальность">Конфиденциальность</a>
+        <a href="/legal/terms.html" data-en="Terms" data-ru="Условия">Условия</a>
+        <a href="/legal/offer.html" class="current" data-en="Offer" data-ru="Оферта">Оферта</a>
+        <a href="/legal/refunds.html" data-en="Refunds" data-ru="Возвраты">Возвраты</a>
+        <a href="/legal/contacts.html" data-en="Contacts" data-ru="Контакты">Контакты</a>
       </div>
-      <a href="https://progresql.com" class="back-link">&larr; Back to home</a>
+      <a href="https://progresql.com" class="back-link" data-en="&larr; Back to home" data-ru="&larr; На главную">&larr; На главную</a>
     </div>
   </div>
   <script>
@@ -179,6 +179,7 @@
         document.getElementById('content-' + l).style.display = l === lang ? '' : 'none';
         document.getElementById('btn-' + l).className = l === lang ? 'lang-btn active' : 'lang-btn';
       });
+      document.querySelectorAll("[data-" + lang + "]").forEach(function(el) { el.textContent = el.getAttribute("data-" + lang); });
       document.documentElement.lang = lang;
       localStorage.setItem('legal-lang', lang);
     }
