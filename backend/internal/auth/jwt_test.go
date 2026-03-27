@@ -90,6 +90,37 @@ func TestValidateToken_InvalidString(t *testing.T) {
 	}
 }
 
+func TestGenerateUserToken(t *testing.T) {
+	svc := NewJWTService("test-secret-key")
+	user := &User{
+		ID:    "user-123",
+		Email: "alice@example.com",
+		Name:  "Alice",
+	}
+
+	token, err := svc.GenerateUserToken(user)
+	if err != nil {
+		t.Fatalf("GenerateUserToken() error = %v", err)
+	}
+	if token == "" {
+		t.Fatal("GenerateUserToken() returned empty token")
+	}
+
+	claims, err := svc.ValidateToken(token)
+	if err != nil {
+		t.Fatalf("ValidateToken() error = %v", err)
+	}
+	if claims.UserID != "user-123" {
+		t.Errorf("UserID = %q, want user-123", claims.UserID)
+	}
+	if claims.Email != "alice@example.com" {
+		t.Errorf("Email = %q, want alice@example.com", claims.Email)
+	}
+	if claims.Name != "Alice" {
+		t.Errorf("Name = %q, want Alice", claims.Name)
+	}
+}
+
 func TestValidateToken_WrongSigningMethod(t *testing.T) {
 	// Create a token with a non-HMAC method (none).
 	claims := Claims{
