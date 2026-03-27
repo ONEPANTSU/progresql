@@ -37,7 +37,7 @@ func CreateInvoiceHandlerV2(client *PlategaClient, userStore *auth.UserStore, db
 
 		orderID := fmt.Sprintf("user_%s", user.ID)
 
-		// Parse amount from request body, default to 20 USD.
+		// Parse amount from request body, default to 1999 RUB.
 		var reqBody struct {
 			Amount             float64 `json:"amount"`
 			Currency           string  `json:"currency"`
@@ -47,10 +47,10 @@ func CreateInvoiceHandlerV2(client *PlategaClient, userStore *auth.UserStore, db
 			FailRedirectURL    string  `json:"fail_redirect_url"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil || reqBody.Amount <= 0 {
-			reqBody.Amount = 20.0
+			reqBody.Amount = 1999.0
 		}
 		if reqBody.Currency == "" {
-			reqBody.Currency = "USD"
+			reqBody.Currency = "RUB"
 		}
 		if reqBody.PaymentMethod == 0 {
 			reqBody.PaymentMethod = 11 // Card acquiring
@@ -82,17 +82,8 @@ func CreateInvoiceHandlerV2(client *PlategaClient, userStore *auth.UserStore, db
 			}
 		}
 
-		// Convert USD to RUB for Platega
-		const usdToRub = 90.0
-		plategaAmount := reqBody.Amount
-		plategaCurrency := reqBody.Currency
-		if reqBody.Currency == "USD" {
-			plategaAmount = reqBody.Amount * usdToRub
-			plategaCurrency = "RUB"
-		}
-
 		invoice, err := client.CreateInvoice(
-			plategaAmount, plategaCurrency, orderID, user.Email,
+			reqBody.Amount, reqBody.Currency, orderID, user.Email,
 			reqBody.SuccessRedirectURL, reqBody.FailRedirectURL, reqBody.PaymentMethod,
 		)
 		if err != nil {

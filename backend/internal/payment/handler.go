@@ -16,7 +16,7 @@ import (
 
 // PriceHandler returns the current price for the user, applying any active discount promo.
 func PriceHandler(db *pgxpool.Pool) http.HandlerFunc {
-	const basePrice = 20.0
+	const basePrice = 1999.0
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 

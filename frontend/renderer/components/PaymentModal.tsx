@@ -162,14 +162,14 @@ export default function PaymentModal({
         component="span"
         sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981' }}
       >
-        ${localCurrentPrice}/mo
+        {localCurrentPrice} ₽/мес
       </Typography>
       {hasDiscount && (
         <Typography
           component="span"
           sx={{ fontSize: '0.9rem', textDecoration: 'line-through', color: 'text.disabled' }}
         >
-          ${localOriginalPrice}
+          {localOriginalPrice} ₽
         </Typography>
       )}
     </Box>
