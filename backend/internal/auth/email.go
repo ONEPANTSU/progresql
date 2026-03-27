@@ -471,7 +471,7 @@ func buildPasswordResetHTML(code string, ttlMinutes int) string {
 	digits := make([]string, len(code))
 	for i, ch := range code {
 		digits[i] = fmt.Sprintf(
-			`<td width="38" height="46" align="center" valign="middle" style="width:38px;height:46px;text-align:center;font-size:22px;font-weight:700;font-family:Consolas,'Courier New',monospace;color:#ffffff;background-color:#ef4444;border-radius:8px;">%c</td><td width="4" style="width:4px;"></td>`,
+			`<td width="38" height="46" align="center" valign="middle" style="width:38px;height:46px;text-align:center;font-size:22px;font-weight:700;font-family:Consolas,'Courier New',monospace;color:#ffffff;background-color:#6366f1;border-radius:8px;">%c</td><td width="4" style="width:4px;"></td>`,
 			ch,
 		)
 	}
@@ -509,7 +509,7 @@ func buildPasswordResetHTML(code string, ttlMinutes int) string {
   <div style="text-align:center;margin:0 0 28px;font-size:0;">
     %s
   </div>
-  <p style="margin:0 0 4px;color:#9ca3af;font-size:13px;text-align:center;">This code expires in <strong style="color:#ef4444;">%d minutes</strong>.</p>
+  <p style="margin:0 0 4px;color:#9ca3af;font-size:13px;text-align:center;">This code expires in <strong style="color:#6366f1;">%d minutes</strong>.</p>
   <p style="margin:0;color:#6b7280;font-size:12px;text-align:center;">If you didn't request this, you can safely ignore this email.</p>
 </td>
 </tr>

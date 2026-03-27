@@ -691,11 +691,15 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
               {onFixInChat && executedQuery && (
                 <Button
                   size="small"
-                  variant="outlined"
-                  color="primary"
+                  variant="contained"
                   startIcon={<FixIcon />}
                   onClick={() => onFixInChat(executedQuery, result.message)}
-                  sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                  sx={{
+                    textTransform: 'none',
+                    fontSize: '0.75rem',
+                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                    '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
+                  }}
                 >
                   Fix in Chat
                 </Button>

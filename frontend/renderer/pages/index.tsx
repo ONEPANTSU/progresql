@@ -798,10 +798,18 @@ export default function Home() {
     return null;
   };
 
+  const fixInChatBusy = useRef(false);
   const handleFixInChat = (sqlQuery: string, errorMsg: string) => {
+    if (fixInChatBusy.current) return;
+    fixInChatBusy.current = true;
     if (!isChatOpen) setIsChatOpen(true);
-    const context = `Fix this SQL error:\n\`\`\`sql\n${sqlQuery}\n\`\`\`\nError: ${errorMsg}`;
-    setTimeout(() => chatPanelRef.current?.sendTextMessage(context, 'Fix SQL error'), 50);
+    const cleanError = errorMsg.replace(/^Error:\s*/i, '');
+    const context = `Fix this SQL error:\n\`\`\`sql\n${sqlQuery}\n\`\`\`\nError: ${cleanError}`;
+    setTimeout(() => {
+      chatPanelRef.current?.sendTextMessage(context, 'Fix SQL error');
+      // Reset after a delay to allow next use
+      setTimeout(() => { fixInChatBusy.current = false; }, 3000);
+    }, 50);
   };
 
   // Silent mutation (UPDATE/INSERT/DELETE) — doesn't update queryResult/lastExecutedQuery
@@ -824,13 +832,13 @@ export default function Home() {
     }
   };
 
-  const handleExecuteQuery = async (query: string) => {
+  const handleExecuteQuery = async (query: string, overrideConnectionId?: string) => {
     if (isReconnecting) {
       showError('Database is reconnecting. Please wait...');
       return;
     }
-    // Use the active tab's connectionId, falling back to activeConnection
-    const connId = sqlTabs.activeTab?.connectionId ?? activeConnection?.id ?? '';
+    // Use override (from chat), then active tab's connectionId, then activeConnection
+    const connId = overrideConnectionId ?? sqlTabs.activeTab?.connectionId ?? activeConnection?.id ?? '';
     log.debug('Executing query on connection:', connId);
     try {
       setLastExecutedQuery(query);

@@ -152,7 +152,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       // Record legal acceptance BEFORE creating payment invoice
       await Promise.all([
         authService.acceptLegal('offer', '1.0'),
-        authService.acceptLegal('crypto-payments', '1.0'),
+        authService.acceptLegal('privacy', '1.0'),
         authService.acceptLegal('refunds', '1.0'),
       ]);
       const { payment_url } = await createPaymentInvoice(paymentMethod);
@@ -244,7 +244,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
                 }}
               >
-                Upgrade to Pro
+                {t('settings.upgradeButton')}
               </Button>
             )}
           </Box>
@@ -392,7 +392,6 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               { label: 'settings.legalPrivacy', url: 'https://progresql.com/privacy' },
               { label: 'settings.legalTerms', url: 'https://progresql.com/terms' },
               { label: 'settings.legalOfferFull', url: 'https://progresql.com/offer' },
-              { label: 'settings.legalCryptoFull', url: 'https://progresql.com/crypto-payments' },
               { label: 'settings.legalRefundsFull', url: 'https://progresql.com/refunds' },
               { label: 'settings.legalContacts', url: 'https://progresql.com/contacts' },
             ] as const).map(({ label, url }) => (

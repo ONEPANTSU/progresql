@@ -38,8 +38,8 @@ function getPasswordStrength(password: string): { level: 'weak' | 'medium' | 'st
   const metCount = checks.filter(c => c.met).length;
   if (metCount <= 2) return { level: 'weak', value: 20, color: '#d32f2f' };
   if (metCount <= 3) return { level: 'medium', value: 50, color: '#ed6c02' };
-  if (metCount <= 4) return { level: 'strong', value: 75, color: '#2e7d32' };
-  return { level: 'strong', value: 100, color: '#2e7d32' };
+  if (metCount <= 4) return { level: 'strong', value: 75, color: '#6366f1' };
+  return { level: 'strong', value: 100, color: '#6366f1' };
 }
 
 type Step = 'email' | 'code' | 'password' | 'done';

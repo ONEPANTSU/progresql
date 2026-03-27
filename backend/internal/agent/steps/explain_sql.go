@@ -29,11 +29,15 @@ func (s *ExplainSQLStep) Execute(ctx context.Context, pctx *agent.PipelineContex
 		userDescSection = fmt.Sprintf("\nUser-provided descriptions for database objects:\n%s\n\n", pctx.UserDescriptions)
 	}
 
+	// Determine response language from client setting.
+	respLang := "English"
+	if pctx.Language == "ru" {
+		respLang = "Russian"
+	}
+
 	prompt := fmt.Sprintf(
 		"You are an expert PostgreSQL developer and teacher. Explain the following SQL query in clear, structured way.\n\n"+
-			"IMPORTANT: Always respond in the same language as the user's message. "+
-			"If the user writes in Russian, explain in Russian. If in English, explain in English. "+
-			"SQL code must remain in standard SQL syntax.\n\n"+
+			"RESPONSE LANGUAGE: %s. Write all explanations in %s. SQL code must remain in standard SQL syntax.\n\n"+
 			"%s"+
 			"Cover:\n"+
 			"- What the query does (high-level purpose)\n"+
@@ -42,6 +46,7 @@ func (s *ExplainSQLStep) Execute(ctx context.Context, pctx *agent.PipelineContex
 			"- Suggestions for improvement if applicable\n\n"+
 			"User message: %s\n\n"+
 			"SQL:\n```sql\n%s\n```",
+		respLang, respLang,
 		userDescSection,
 		pctx.UserMessage,
 		sql,

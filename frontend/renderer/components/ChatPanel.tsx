@@ -42,7 +42,7 @@ export interface ChatPanelHandle {
 interface ChatPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  onExecuteQuery?: (query: string) => void;
+  onExecuteQuery?: (query: string, connectionId?: string) => void;
   onApplySQL?: (sql: string, targetConnectionId?: string, targetDatabase?: string) => void;
   isDatabaseConnected?: boolean;
   onOpenSettings?: () => void;
@@ -91,6 +91,11 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
   const handleApplyToEditor = useCallback((sql: string) => {
     onApplySQL?.(sql, chatConnectionId, chatDatabase);
   }, [onApplySQL, chatConnectionId, chatDatabase]);
+
+  // Wrap onExecuteQuery to pass chat's connectionId
+  const handleExecuteFromChat = useCallback((query: string) => {
+    onExecuteQuery?.(query, chatConnectionId);
+  }, [onExecuteQuery, chatConnectionId]);
   const agentMessages = useAgentMessages({
     activeChatId: chat.activeChatId,
     setChats: chat.setChats,
@@ -340,7 +345,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
         ) : (
           <List sx={{ p: 0 }}>
             {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} isTyping={isTyping} isAgentConnected={agent.isConnected} isDatabaseConnected={isDatabaseConnected} safeMode={agent.securityMode === 'safe'} securityMode={agent.securityMode} connectionId={chatConnectionId} onExplainSQL={agentMessages.handleSendExplainSQL} onApplySQL={handleApplyToEditor} onExecuteQuery={onExecuteQuery} />
+              <ChatMessage key={message.id} message={message} isTyping={isTyping} isAgentConnected={agent.isConnected} isDatabaseConnected={isDatabaseConnected} safeMode={agent.securityMode === 'safe'} securityMode={agent.securityMode} connectionId={chatConnectionId} onExplainSQL={agentMessages.handleSendExplainSQL} onApplySQL={handleApplyToEditor} onExecuteQuery={handleExecuteFromChat} />
             ))}
           </List>
         )}

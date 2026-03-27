@@ -65,11 +65,15 @@ func (s *ImproveSQLStep) Execute(ctx context.Context, pctx *agent.PipelineContex
 		schemaSection = fmt.Sprintf("\nDatabase schema (tables and columns available):\n%s\n\n", schemaContext)
 	}
 
+	// Determine response language from client setting.
+	respLang := "English"
+	if pctx.Language == "ru" {
+		respLang = "Russian"
+	}
+
 	prompt := fmt.Sprintf(
 		"You are an expert PostgreSQL performance engineer. Analyze the following SQL query and its EXPLAIN plan, then provide an optimized version.\n\n"+
-			"IMPORTANT: Always respond in the same language as the user's message. "+
-			"If the user writes in Russian, explain in Russian. If in English, explain in English. "+
-			"SQL code must remain in standard SQL syntax.\n\n"+
+			"RESPONSE LANGUAGE: %s. Write all explanations, descriptions, and SQL inline comments (--) in %s.\n\n"+
 			"%s"+
 			"%s"+
 			"Original SQL:\n```sql\n%s\n```\n\n"+
@@ -93,7 +97,7 @@ func (s *ImproveSQLStep) Execute(ctx context.Context, pctx *agent.PipelineContex
 			"- For DDL queries (CREATE TABLE, etc.): you MAY add CREATE INDEX statements after the main query.\n"+
 			"- The ```sql block must contain EXACTLY ONE improved version of the original query (same type), not a replacement.\n\n"+
 			"If the query is already optimal, explain why and return it unchanged.",
-		userDescSection, schemaSection, sql, queryPlan,
+		respLang, respLang, userDescSection, schemaSection, sql, queryPlan,
 	)
 
 	req := llm.ChatRequest{
