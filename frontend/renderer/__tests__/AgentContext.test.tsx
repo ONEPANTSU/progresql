@@ -13,6 +13,8 @@ const mockGetSessionId = jest.fn().mockReturnValue('session-abc');
 const mockOnConnectionStateChange = jest.fn().mockReturnValue(jest.fn());
 const mockSetToolCallHandler = jest.fn();
 
+const mockUpdateModel = jest.fn();
+
 jest.mock('../services/agent/AgentService', () => ({
   AgentService: jest.fn().mockImplementation(() => ({
     connect: mockConnect,
@@ -22,6 +24,7 @@ jest.mock('../services/agent/AgentService', () => ({
     getSessionId: mockGetSessionId,
     onConnectionStateChange: mockOnConnectionStateChange,
     setToolCallHandler: mockSetToolCallHandler,
+    updateModel: mockUpdateModel,
   })),
 }));
 
@@ -40,6 +43,10 @@ jest.mock('../utils/logger', () => ({
 
 jest.mock('../utils/userStorage', () => ({
   migrateToUserStorage: jest.fn(),
+  userKey: jest.fn((suffix: string) => `user_${suffix}`),
+  getCurrentUserId: jest.fn(() => null),
+  setCurrentUser: jest.fn(),
+  removeCurrentUser: jest.fn(),
 }));
 
 // Helper component that exposes context values for testing
@@ -82,8 +89,8 @@ describe('AgentContext', () => {
   it('provides default values', () => {
     renderWithProvider();
 
-    expect(screen.getByTestId('backend-url').textContent).toBe('http://localhost:8080');
-    expect(screen.getByTestId('model').textContent).toBe('');
+    expect(screen.getByTestId('backend-url').textContent).toBe('https://progresql.com');
+    expect(screen.getByTestId('model').textContent).toBe('qwen/qwen3-coder');
   });
 
   it('starts in disconnected state', () => {
@@ -98,14 +105,15 @@ describe('AgentContext', () => {
     renderWithProvider();
 
     expect(AgentService).toHaveBeenCalledWith({
-      backendUrl: 'http://localhost:8080',
-      model: '',
+      backendUrl: 'https://progresql.com',
+      model: 'qwen/qwen3-coder',
     });
   });
 
-  it('auto-connects on mount', () => {
+  it('does not auto-connect when no user is logged in', () => {
+    // Without a logged-in user, connect should NOT be called.
     renderWithProvider();
-    expect(mockConnect).toHaveBeenCalled();
+    expect(mockConnect).not.toHaveBeenCalled();
   });
 
   it('registers tool call handler', () => {
@@ -165,7 +173,8 @@ describe('AgentContext', () => {
       capturedValue.setModel('anthropic/claude-3');
     });
 
-    expect(localStorage.getItem('progresql-agent-model')).toBe('anthropic/claude-3');
+    // Model is stored under a user-scoped key (userKey returns 'user_agent-model' in tests)
+    expect(localStorage.getItem('user_agent-model')).toBe('anthropic/claude-3');
   });
 
   it('calls disconnect on service when disconnect is called', () => {

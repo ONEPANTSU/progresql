@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"go.uber.org/zap"
 
@@ -33,19 +32,14 @@ func buildAggregationContext(t *testing.T, session *websocket.Session, llmClient
 }
 
 func TestResultAggregation_Success(t *testing.T) {
-	// 3 candidates, LLM streams explanation + chosen SQL in code block.
+	// 3 candidates, LLM returns explanation + chosen SQL in code block (non-streaming).
 	responseContent := "Candidate 2 is the best because it uses a proper JOIN.\n\n```sql\nSELECT u.name, COUNT(o.id) FROM users u JOIN orders o ON u.id = o.user_id GROUP BY u.name ORDER BY COUNT(o.id) DESC LIMIT 10\n```"
 
-	chunks := []string{
-		makeStreamChunkJSON("Candidate 2 is the best "),
-		makeStreamChunkJSON("because it uses a proper JOIN.\\n\\n```sql\\n"),
-		makeStreamChunkWithUsage("SELECT u.name, COUNT(o.id) FROM users u JOIN orders o ON u.id = o.user_id GROUP BY u.name ORDER BY COUNT(o.id) DESC LIMIT 10\\n```", 100, 50, 150),
-	}
-	mockLLM := sseServer(t, chunks)
+	mockLLM := newMockLLMServer(t, responseContent)
 	defer mockLLM.Close()
 
 	hub := websocket.NewHub()
-	session, client := wsDialer(t, hub)
+	session, _ := wsDialer(t, hub)
 
 	llmClient := llm.NewClient("test-key", llm.WithBaseURL(mockLLM.URL), llm.WithMaxRetries(0))
 	candidates := []string{
@@ -55,27 +49,9 @@ func TestResultAggregation_Success(t *testing.T) {
 	}
 	pctx := buildAggregationContext(t, session, llmClient, candidates)
 
-	errCh := make(chan error, 1)
-	go func() {
-		step := &ResultAggregationStep{}
-		errCh <- step.Execute(context.Background(), pctx)
-	}()
-
-	// Read 3 agent.stream messages.
-	for i := 0; i < 3; i++ {
-		env := readEnvelope(t, client)
-		if env.Type != websocket.TypeAgentStream {
-			t.Fatalf("chunk %d: expected agent.stream, got %s", i, env.Type)
-		}
-	}
-
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Fatalf("step failed: %v", err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("timed out")
+	step := &ResultAggregationStep{}
+	if err := step.Execute(context.Background(), pctx); err != nil {
+		t.Fatalf("step failed: %v", err)
 	}
 
 	// Verify explanation stored.
@@ -95,8 +71,8 @@ func TestResultAggregation_Success(t *testing.T) {
 	}
 
 	// Verify tokens tracked.
-	if pctx.TokensUsed != 150 {
-		t.Errorf("expected 150 tokens, got %d", pctx.TokensUsed)
+	if pctx.TokensUsed != 60 {
+		t.Errorf("expected 60 tokens, got %d", pctx.TokensUsed)
 	}
 
 	if pctx.ModelUsed != "test-model" {
@@ -189,38 +165,19 @@ func TestResultAggregation_LLMError(t *testing.T) {
 
 func TestResultAggregation_NoSQLBlock_FallsBackToFirstCandidate(t *testing.T) {
 	// LLM response without ```sql block — should fall back to first candidate.
-	chunks := []string{
-		makeStreamChunkWithUsage("Candidate 1 is best because it is simple and correct.", 30, 20, 50),
-	}
-	mockLLM := sseServer(t, chunks)
+	mockLLM := newMockLLMServer(t, "Candidate 1 is best because it is simple and correct.")
 	defer mockLLM.Close()
 
 	hub := websocket.NewHub()
-	session, client := wsDialer(t, hub)
+	session, _ := wsDialer(t, hub)
 
 	llmClient := llm.NewClient("test-key", llm.WithBaseURL(mockLLM.URL), llm.WithMaxRetries(0))
 	candidates := []string{"SELECT * FROM users LIMIT 10", "SELECT name FROM users"}
 	pctx := buildAggregationContext(t, session, llmClient, candidates)
 
-	errCh := make(chan error, 1)
-	go func() {
-		step := &ResultAggregationStep{}
-		errCh <- step.Execute(context.Background(), pctx)
-	}()
-
-	// Read agent.stream.
-	env := readEnvelope(t, client)
-	if env.Type != websocket.TypeAgentStream {
-		t.Fatalf("expected agent.stream, got %s", env.Type)
-	}
-
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Fatalf("step failed: %v", err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("timed out")
+	step := &ResultAggregationStep{}
+	if err := step.Execute(context.Background(), pctx); err != nil {
+		t.Fatalf("step failed: %v", err)
 	}
 
 	// Should fallback to first candidate.
@@ -237,39 +194,20 @@ func TestResultAggregation_Name(t *testing.T) {
 }
 
 func TestResultAggregation_CustomModel(t *testing.T) {
-	chunks := []string{
-		makeStreamChunkWithUsage("Best is candidate 1.\\n```sql\\nSELECT * FROM users\\n```", 20, 15, 35),
-	}
-	mockLLM := sseServer(t, chunks)
+	mockLLM := newMockLLMServer(t, "Best is candidate 1.\n```sql\nSELECT * FROM users\n```")
 	defer mockLLM.Close()
 
 	hub := websocket.NewHub()
-	session, client := wsDialer(t, hub)
+	session, _ := wsDialer(t, hub)
 
 	llmClient := llm.NewClient("test-key", llm.WithBaseURL(mockLLM.URL), llm.WithMaxRetries(0))
 	candidates := []string{"SELECT * FROM users", "SELECT name FROM users"}
 	pctx := buildAggregationContext(t, session, llmClient, candidates)
 	pctx.Model = "anthropic/claude-3-haiku"
 
-	errCh := make(chan error, 1)
-	go func() {
-		step := &ResultAggregationStep{}
-		errCh <- step.Execute(context.Background(), pctx)
-	}()
-
-	// Read 1 agent.stream.
-	env := readEnvelope(t, client)
-	if env.Type != websocket.TypeAgentStream {
-		t.Fatalf("expected agent.stream, got %s", env.Type)
-	}
-
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Fatalf("step failed: %v", err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("timed out")
+	step := &ResultAggregationStep{}
+	if err := step.Execute(context.Background(), pctx); err != nil {
+		t.Fatalf("step failed: %v", err)
 	}
 
 	if pctx.Result.SQL != "SELECT * FROM users" {

@@ -58,7 +58,7 @@ func TestVisualization_BarChart(t *testing.T) {
 	hub := websocket.NewHub()
 	session, _ := wsDialer(t, hub)
 	llmClient := llm.NewClient("test-key", llm.WithBaseURL(mockLLM.URL), llm.WithMaxRetries(0))
-	pctx := buildVizContext(t, session, llmClient, "Покажи топ 10 пользователей по заказам")
+	pctx := buildVizContext(t, session, llmClient, "Покажи график топ 10 пользователей по заказам")
 
 	// Set query results (simulating AutoExecuteStep output).
 	queryResult, _ := json.Marshal(map[string]any{
@@ -106,7 +106,7 @@ func TestVisualization_MetricChart(t *testing.T) {
 	hub := websocket.NewHub()
 	session, _ := wsDialer(t, hub)
 	llmClient := llm.NewClient("test-key", llm.WithBaseURL(mockLLM.URL), llm.WithMaxRetries(0))
-	pctx := buildVizContext(t, session, llmClient, "Сколько всего пользователей?")
+	pctx := buildVizContext(t, session, llmClient, "Статистика: сколько всего пользователей?")
 
 	queryResult, _ := json.Marshal(map[string]any{
 		"columns": []string{"count"},
@@ -170,7 +170,7 @@ func TestVisualization_LineChart(t *testing.T) {
 	hub := websocket.NewHub()
 	session, _ := wsDialer(t, hub)
 	llmClient := llm.NewClient("test-key", llm.WithBaseURL(mockLLM.URL), llm.WithMaxRetries(0))
-	pctx := buildVizContext(t, session, llmClient, "Динамика выручки за 30 дней")
+	pctx := buildVizContext(t, session, llmClient, "График динамики выручки за 30 дней")
 
 	queryResult, _ := json.Marshal(map[string]any{
 		"columns": []string{"date", "revenue"},
@@ -340,7 +340,7 @@ func TestVisualization_CodeFencedResponse(t *testing.T) {
 	hub := websocket.NewHub()
 	session, _ := wsDialer(t, hub)
 	llmClient := llm.NewClient("test-key", llm.WithBaseURL(mockLLM.URL), llm.WithMaxRetries(0))
-	pctx := buildVizContext(t, session, llmClient, "Top users")
+	pctx := buildVizContext(t, session, llmClient, "Top users chart")
 
 	queryResult, _ := json.Marshal(map[string]any{
 		"columns": []string{"name", "count"},
