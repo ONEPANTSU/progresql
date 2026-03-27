@@ -295,10 +295,9 @@ export default function PaymentModal({
                   <Typography variant="caption" sx={{ lineHeight: 1.4 }}>
                     {(() => {
                       const template = t('settings.legalConsent');
-                      const parts = template.split(/(\{offer\}|\{cryptoPayments\}|\{refunds\})/);
+                      const parts = template.split(/(\{offer\}|\{refunds\})/);
                       return parts.map((part, i) => {
                         if (part === '{offer}') return <Link key={i} component="button" variant="caption" onClick={() => openLegalLink('https://progresql.com/offer')}>{t('settings.legalOffer')}</Link>;
-                        if (part === '{cryptoPayments}') return <Link key={i} component="button" variant="caption" onClick={() => openLegalLink('https://progresql.com/crypto-payments')}>{t('settings.legalCryptoPayments')}</Link>;
                         if (part === '{refunds}') return <Link key={i} component="button" variant="caption" onClick={() => openLegalLink('https://progresql.com/refunds')}>{t('settings.legalRefunds')}</Link>;
                         return <React.Fragment key={i}>{part}</React.Fragment>;
                       });

@@ -530,7 +530,8 @@ func (p *Pipeline) handleAutocomplete(session *websocket.Session, env *websocket
 
 	systemPrompt := "You are a PostgreSQL SQL autocomplete engine.\n\n" +
 		"STRICT RULES:\n" +
-		"- Return ONLY the completion text that goes after the cursor. Nothing else.\n" +
+		"- Return ONLY the NEW text that should be INSERTED after the cursor position. NEVER repeat any text that already exists before [CURSOR].\n" +
+		"- For example, if SQL before cursor is 'SELECT ', return '* FROM table_name' — NOT 'SELECT * FROM table_name'.\n" +
 		"- No markdown, no code blocks, no explanation, no backticks, no comments.\n" +
 		"- Keep completions short: 1-3 lines maximum.\n" +
 		"- Stop at a natural SQL boundary: semicolon, closing parenthesis, or end of clause.\n" +
@@ -544,7 +545,11 @@ func (p *Pipeline) handleAutocomplete(session *websocket.Session, env *websocket
 		"- If the cursor is after WHERE/AND/OR, suggest conditions using real columns from referenced tables.\n" +
 		"- If the cursor is after a dot (alias.col), resolve the alias to the table and suggest its real columns.\n"
 
-	userPrompt := fmt.Sprintf("%sSQL before cursor: %s[CURSOR]%s", schemaSection, sqlBefore, sqlAfter)
+	afterPart := ""
+	if strings.TrimSpace(sqlAfter) != "" {
+		afterPart = fmt.Sprintf("\nSQL after cursor: %s", sqlAfter)
+	}
+	userPrompt := fmt.Sprintf("%sSQL before cursor: %s%s", schemaSection, sqlBefore, afterPart)
 
 	model := session.Model()
 	if model == "" {
@@ -575,11 +580,39 @@ func (p *Pipeline) handleAutocomplete(session *websocket.Session, env *websocket
 	}
 
 	completion := strings.TrimSpace(resp.Choices[0].Message.Content)
-	// Remove any markdown code blocks the LLM might add despite instructions.
+	// Remove any markdown code blocks or cursor markers the LLM might add despite instructions.
 	completion = strings.TrimPrefix(completion, "```sql")
 	completion = strings.TrimPrefix(completion, "```")
 	completion = strings.TrimSuffix(completion, "```")
+	completion = strings.ReplaceAll(completion, "[CURSOR]", "")
 	completion = strings.TrimSpace(completion)
+
+	if completion == "" {
+		return
+	}
+
+	// Strip duplicated prefix: if LLM repeats the text before cursor, remove it.
+	// Compare case-insensitively since SQL keywords can vary in casing.
+	beforeLower := strings.ToLower(strings.TrimSpace(sqlBefore))
+	completionLower := strings.ToLower(completion)
+	if beforeLower != "" && strings.HasPrefix(completionLower, beforeLower) {
+		completion = strings.TrimSpace(completion[len(beforeLower):])
+	} else {
+		// Check partial overlap: find the longest suffix of sqlBefore that is a prefix of completion.
+		trimmedBefore := strings.TrimSpace(sqlBefore)
+		for i := 1; i < len(trimmedBefore) && i < len(completion); i++ {
+			suffix := strings.ToLower(trimmedBefore[len(trimmedBefore)-i:])
+			prefix := strings.ToLower(completion[:i])
+			if suffix == prefix {
+				// Check if the full word matches (avoid partial word matches).
+				if i == len(trimmedBefore) || i >= len(completion) ||
+					completion[i] == ' ' || completion[i] == '\n' || completion[i] == '(' ||
+					trimmedBefore[len(trimmedBefore)-i-1] == ' ' || trimmedBefore[len(trimmedBefore)-i-1] == '\n' {
+					completion = strings.TrimSpace(completion[i:])
+				}
+			}
+		}
+	}
 
 	if completion == "" {
 		return

@@ -21,3 +21,4 @@ frontend/renderer/node_modules/
 _fix_menu.mjs
 .claude/
 deploy/.env.production
+backend/progresql-server

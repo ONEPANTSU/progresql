@@ -665,7 +665,9 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
       }
     }
 
-    return parts.join('\n').trim();
+    const body = parts.join('\n').trim();
+    if (!body) return '';
+    return `BEGIN;\n\n${body}\n\nCOMMIT;`;
   }, [diff, selected]);
 
 
@@ -986,6 +988,11 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
             size="small"
             onClick={handleInsertToEditor}
             disabled={!finalSQL}
+            sx={{
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
+              '&.Mui-disabled': { background: 'rgba(99, 102, 241, 0.3)', color: 'rgba(255,255,255,0.5)' },
+            }}
           >
             {t('schemaSync.insertToEditor')}
           </Button>

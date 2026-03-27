@@ -114,10 +114,15 @@ func (s *AnalyzeSchemaStep) Execute(ctx context.Context, pctx *agent.PipelineCon
 		userDescSection = fmt.Sprintf("\nUser-provided descriptions for database objects:\n%s\n\n", pctx.UserDescriptions)
 	}
 
+	// Determine response language from client setting.
+	respLang := "English"
+	if pctx.Language == "ru" {
+		respLang = "Russian"
+	}
+
 	prompt := fmt.Sprintf(
 		"You are an expert PostgreSQL database architect. Analyze the following database schema dump.\n\n"+
-			"IMPORTANT: Always respond in the same language as the user's message. "+
-			"If the user writes in Russian, respond in Russian. If in English, respond in English. "+
+			"RESPONSE LANGUAGE: %s. Write all explanations and recommendations in %s. "+
 			"SQL code and technical terms (table names, column names) must remain as-is.\n\n"+
 			"%s"+
 			"User message: %s\n\n"+
@@ -128,6 +133,7 @@ func (s *AnalyzeSchemaStep) Execute(ctx context.Context, pctx *agent.PipelineCon
 			"4. Potential issues: naming inconsistencies, missing constraints, normalization problems\n"+
 			"5. Recommendations: specific actionable improvements\n\n"+
 			"Schema dump:\n%s",
+		respLang, respLang,
 		userDescSection,
 		pctx.UserMessage,
 		schemaDump,
@@ -175,14 +181,17 @@ func (s *AnalyzeSchemaStep) handleEmptyDatabase(ctx context.Context, pctx *agent
 
 	model := pctx.Model
 
+	emptyLang := "English"
+	if pctx.Language == "ru" {
+		emptyLang = "Russian"
+	}
+
 	prompt := "You are a PostgreSQL database assistant. The user is connected to a database, " +
 		"but the database is completely empty — there are no tables, views, or other objects in any schema.\n\n" +
 		"The user asked: " + pctx.UserMessage + "\n\n" +
-		"Respond helpfully. Tell the user that the database is empty and has no tables yet. " +
+		"Respond helpfully in " + emptyLang + ". Tell the user that the database is empty and has no tables yet. " +
 		"Suggest that they can create tables using CREATE TABLE statements, " +
-		"or import an existing schema. Be brief and friendly.\n\n" +
-		"IMPORTANT: Always respond in the same language as the user's message. " +
-		"If the user writes in Russian, respond in Russian. If in English, respond in English."
+		"or import an existing schema. Be brief and friendly."
 
 	req := llm.ChatRequest{
 		Model: model,
