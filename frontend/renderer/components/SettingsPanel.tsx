@@ -94,8 +94,8 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [paymentModalOpen, setPaymentModalOpen] = React.useState(false);
 
   // Dynamic price state
-  const [currentPrice, setCurrentPrice] = React.useState<number>(20);
-  const [originalPrice, setOriginalPrice] = React.useState<number>(20);
+  const [currentPrice, setCurrentPrice] = React.useState<number>(1999);
+  const [originalPrice, setOriginalPrice] = React.useState<number>(1999);
 
   // Auto-close payment modal when user becomes Pro
   React.useEffect(() => {
@@ -122,8 +122,8 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         });
         if (resp.ok) {
           const data = await resp.json();
-          setCurrentPrice(data.price ?? 20);
-          setOriginalPrice(data.original_price ?? 20);
+          setCurrentPrice(data.price ?? 1999);
+          setOriginalPrice(data.original_price ?? 1999);
         }
       } catch {
         // fallback to default price
