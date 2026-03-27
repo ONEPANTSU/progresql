@@ -4,172 +4,44 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Public Offer Agreement — ProgreSQL</title>
-  <meta name="description" content="ProgreSQL Public Offer Agreement — pricing, payment terms, and subscription conditions.">
-  <meta property="og:title" content="Public Offer Agreement — ProgreSQL">
-  <meta property="og:description" content="ProgreSQL Public Offer Agreement — pricing, payment terms, and subscription conditions.">
   <link rel="icon" type="image/png" href="/favicon.png">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      min-height: 100vh;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #080b12;
-      color: #e2e8f0;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding: 40px 16px;
-      -webkit-font-smoothing: antialiased;
-    }
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background:
-        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 50% at 80% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
-      z-index: 0;
-      pointer-events: none;
-    }
-    body::after {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
-      background-size: 48px 48px;
-      z-index: 0;
-      pointer-events: none;
-      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
-      -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
-    }
-    .card {
-      position: relative;
-      z-index: 1;
-      max-width: 800px;
-      width: 100%;
-      padding: 48px 40px;
-      background: rgba(15, 20, 35, 0.6);
-      border: 1px solid rgba(99, 102, 241, 0.15);
-      border-radius: 16px;
-      backdrop-filter: blur(20px);
-    }
-    .header {
-      text-align: center;
-      margin-bottom: 32px;
-      padding-bottom: 24px;
-      border-bottom: 1px solid rgba(99, 102, 241, 0.1);
-    }
-    .logo {
-      font-size: 28px;
-      font-weight: 700;
-      color: #fff;
-      letter-spacing: -0.5px;
-      margin-bottom: 4px;
-    }
+    body { min-height: 100vh; font-family: 'Inter', -apple-system, sans-serif; background: #080b12; color: #e2e8f0; display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; -webkit-font-smoothing: antialiased; }
+    body::before { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99,102,241,0.12) 0%, transparent 60%), radial-gradient(ellipse 60% 50% at 80% 50%, rgba(139,92,246,0.08) 0%, transparent 50%); z-index: 0; pointer-events: none; }
+    body::after { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px); background-size: 48px 48px; z-index: 0; pointer-events: none; mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent); -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent); }
+    .card { position: relative; z-index: 1; max-width: 800px; width: 100%; padding: 48px 40px; background: rgba(15,20,35,0.6); border: 1px solid rgba(99,102,241,0.15); border-radius: 16px; backdrop-filter: blur(20px); }
+    .header { text-align: center; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid rgba(99,102,241,0.1); }
+    .logo { font-size: 28px; font-weight: 700; color: #fff; letter-spacing: -0.5px; margin-bottom: 4px; }
     .logo span { color: #6366f1; }
-    .lang-switcher {
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      margin-top: 16px;
-    }
-    .lang-btn {
-      padding: 6px 16px;
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 8px;
-      background: transparent;
-      color: #94a3b8;
-      font-size: 14px;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
+    .lang-switcher { display: flex; justify-content: center; gap: 8px; margin-top: 16px; }
+    .lang-btn { padding: 6px 16px; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: transparent; color: #94a3b8; font-size: 14px; font-family: inherit; cursor: pointer; transition: all 0.2s; }
     .lang-btn:hover { border-color: rgba(255,255,255,0.3); color: #e2e8f0; }
-    .lang-btn.active {
-      background: rgba(99, 102, 241, 0.2);
-      color: #818cf8;
-      border-color: rgba(99, 102, 241, 0.3);
-    }
-    h1 {
-      font-size: 24px;
-      font-weight: 700;
-      color: #e2e8f0;
-      text-align: center;
-      margin-bottom: 8px;
-    }
-    .version-info {
-      text-align: center;
-      font-size: 13px;
-      color: #94a3b8;
-      margin-bottom: 32px;
-    }
-    h2 {
-      font-size: 18px;
-      font-weight: 600;
-      color: #e2e8f0;
-      margin-top: 28px;
-      margin-bottom: 12px;
-      border-left: 3px solid #6366f1;
-      padding-left: 12px;
-    }
-    p {
-      font-size: 15px;
-      line-height: 1.7;
-      color: #94a3b8;
-      margin-bottom: 12px;
-    }
-    ul, ol {
-      margin: 0 0 12px 24px;
-      color: #94a3b8;
-      font-size: 15px;
-      line-height: 1.7;
-    }
+    .lang-btn.active { background: rgba(99,102,241,0.2); color: #818cf8; border-color: rgba(99,102,241,0.3); }
+    h1 { font-size: 24px; font-weight: 700; color: #e2e8f0; text-align: center; margin-bottom: 8px; }
+    .version-info { text-align: center; font-size: 13px; color: #94a3b8; margin-bottom: 32px; }
+    h2 { font-size: 18px; font-weight: 600; color: #e2e8f0; margin-top: 28px; margin-bottom: 12px; border-left: 3px solid #6366f1; padding-left: 12px; }
+    p { font-size: 15px; line-height: 1.7; color: #94a3b8; margin-bottom: 12px; }
+    ul, ol { margin: 0 0 12px 24px; color: #94a3b8; font-size: 15px; line-height: 1.7; }
     li { margin-bottom: 4px; }
-    a { color: #818cf8; text-decoration: none; transition: color 0.2s; }
+    a { color: #818cf8; text-decoration: none; }
     a:hover { color: #6366f1; text-decoration: underline; }
     strong { color: #e2e8f0; }
     table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-    th, td { padding: 8px 12px; border: 1px solid rgba(99, 102, 241, 0.15); text-align: left; font-size: 14px; }
-    th { background: rgba(99, 102, 241, 0.08); color: #e2e8f0; font-weight: 600; }
+    th, td { padding: 8px 12px; border: 1px solid rgba(99,102,241,0.15); text-align: left; font-size: 14px; }
+    th { background: rgba(99,102,241,0.08); color: #e2e8f0; font-weight: 600; }
     td { color: #94a3b8; }
-    .nav-footer {
-      margin-top: 40px;
-      padding-top: 24px;
-      border-top: 1px solid rgba(99, 102, 241, 0.1);
-      text-align: center;
-    }
-    .nav-links {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 8px 6px;
-      font-size: 14px;
-      margin-bottom: 16px;
-    }
+    .todo { color: #f0ad4e; font-style: italic; }
+    .nav-footer { margin-top: 40px; padding-top: 24px; border-top: 1px solid rgba(99,102,241,0.1); text-align: center; }
+    .nav-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 6px; font-size: 14px; margin-bottom: 16px; }
     .nav-links a { color: #94a3b8; }
     .nav-links a:hover { color: #818cf8; text-decoration: none; }
     .nav-links .current { color: #818cf8; }
-    .nav-links a:not(:last-child)::after {
-      content: '\00b7';
-      margin-left: 6px;
-      color: #475569;
-    }
-    .back-link {
-      display: inline-block;
-      margin-top: 8px;
-      font-size: 14px;
-      color: #818cf8;
-    }
+    .nav-links a:not(:last-child)::after { content: '\00b7'; margin-left: 6px; color: #475569; }
+    .back-link { display: inline-block; margin-top: 8px; font-size: 14px; color: #818cf8; }
     .back-link:hover { color: #6366f1; }
-    @media (max-width: 600px) {
-      body { padding: 20px 12px; }
-      .card { padding: 32px 20px; }
-      h1 { font-size: 20px; }
-      h2 { font-size: 16px; }
-    }
+    @media (max-width: 600px) { body { padding: 20px 12px; } .card { padding: 32px 20px; } h1 { font-size: 20px; } h2 { font-size: 16px; } }
   </style>
 </head>
 <body>
@@ -181,164 +53,121 @@
         <button class="lang-btn" onclick="switchLang('en')" id="btn-en">EN</button>
       </div>
     </div>
-
     <div id="title-ru"><h1>Публичная оферта</h1></div>
     <div id="title-en" style="display:none"><h1>Public Offer Agreement</h1></div>
-
-    <div id="version-ru" class="version-info">Дата вступления в силу: 20 марта 2026 г. | Последнее обновление: 20 марта 2026 г.</div>
-    <div id="version-en" class="version-info" style="display:none">Effective date: March 20, 2026 | Last updated: March 20, 2026</div>
-
+    <div id="version-ru" class="version-info">Дата вступления в силу: __ ______ 2026 г. | Последнее обновление: __ ______ 2026 г.</div>
+    <div id="version-en" class="version-info" style="display:none">Effective date: __________ 2026 | Last updated: __________ 2026</div>
     <div id="content-ru">
       <h2>1. Предмет оферты</h2>
-      <p>Настоящая публичная оферта является официальным предложением администрации сервиса ProgreSQL заключить договор на предоставление доступа к SaaS-сервису ProgreSQL.</p>
+      <p>Настоящая публичная оферта является официальным предложением <span class="todo">ИП Внуков Иван Xxxxxxxx (ИНН: XXXXXXXXXXXX, ОГРНИП: XXXXXXXXXXXXXXX)</span> (далее — «Исполнитель») заключить договор на предоставление доступа к SaaS-сервису ProgreSQL.</p>
       <p>ProgreSQL — десктопное приложение для работы с базами данных PostgreSQL с интегрированным AI-ассистентом, предоставляемое по модели подписки.</p>
-
       <h2>2. Момент акцепта</h2>
       <ul>
         <li>Проставление отметки (чекбокс) о согласии с Офертой при оформлении подписки;</li>
-        <li>или Совершение оплаты подписки.</li>
+        <li>или совершение оплаты подписки.</li>
       </ul>
       <p>С момента акцепта Оферта приобретает силу договора.</p>
-
       <h2>3. Тарифы</h2>
       <table>
-        <tr>
-          <th>Параметр</th>
-          <th>Free</th>
-          <th>Pro</th>
-        </tr>
-        <tr>
-          <td>Стоимость</td>
-          <td>Бесплатно</td>
-          <td>20 USD</td>
-        </tr>
-        <tr>
-          <td>Период</td>
-          <td>Бессрочно</td>
-          <td>30 дней</td>
-        </tr>
-        <tr>
-          <td>Возможности</td>
-          <td>SQL-редактор, браузер БД, экспорт</td>
-          <td>Все функции Free + AI-чат, улучшение запросов, анализ схемы</td>
-        </tr>
+        <tr><th>Параметр</th><th>Free</th><th>Pro</th></tr>
+        <tr><td>Стоимость (РФ)</td><td>Бесплатно</td><td><span class="todo">____ руб./мес</span></td></tr>
+        <tr><td>Стоимость (международная)</td><td>Бесплатно</td><td><span class="todo">$20/мес (после подключения LemonSqueezy)</span></td></tr>
+        <tr><td>Период</td><td>Бессрочно</td><td>30 дней</td></tr>
+        <tr><td>Возможности</td><td>SQL-редактор, браузер БД, экспорт</td><td>Все функции Free + AI-чат, улучшение запросов, анализ схемы</td></tr>
       </table>
       <p>Администрация вправе изменять тарифы с уведомлением за 14 дней.</p>
-
       <h2>4. Условия оплаты</h2>
+      <p><strong>Для резидентов РФ:</strong></p>
       <ul>
-        <li>Оплата через CryptoCloud в криптовалюте;</li>
-        <li>Поддерживаемые валюты определяются CryptoCloud;</li>
-        <li>Подписка активируется после подтверждения платежа сетью блокчейн и получения webhook от CryptoCloud;</li>
-        <li>Redirect не является подтверждением — активация только по серверному подтверждению;</li>
-        <li>Срок подписки: 30 дней.</li>
+        <li>Оплата банковской картой (Мир, Visa, Mastercard) или через СБП;</li>
+        <li>Платёжный провайдер: <span class="todo">platega.io (будет заменён на эквайринг Т-Банка)</span>;</li>
+        <li>Цена указана в рублях;</li>
+        <li>Подписка активируется после подтверждения платежа провайдером.</li>
       </ul>
-
+      <p>Срок подписки: 30 дней с момента активации.</p>
       <h2>5. Возвраты</h2>
       <p>Условия возврата описаны в документе <a href="/legal/refunds.html">«Политика возвратов»</a>.</p>
-
       <h2>6. Ограничение ответственности</h2>
       <ul>
-        <li>Сервис предоставляется «как есть»;</li>
-        <li>Максимальная ответственность ограничена суммой оплаты;</li>
-        <li>Не несёт ответственности за косвенные убытки;</li>
-        <li>Не гарантирует бесперебойную работу.</li>
+        <li>Сервис предоставляется «как есть» (as is);</li>
+        <li>Максимальная ответственность Исполнителя ограничена суммой оплаты за текущий период;</li>
+        <li>Исполнитель не несёт ответственности за косвенные убытки;</li>
+        <li>Исполнитель не гарантирует бесперебойную работу сервиса.</li>
       </ul>
-
       <h2>7. Срок действия и расторжение</h2>
       <ul>
         <li>Действует в течение оплаченного периода;</li>
-        <li>По истечении переходит на Free;</li>
-        <li>Пользователь может отказаться от продления;</li>
-        <li>Исполнитель вправе заблокировать при нарушении.</li>
+        <li>По истечении подписка переходит на тариф Free;</li>
+        <li>Пользователь может отказаться от продления в любое время;</li>
+        <li>Исполнитель вправе заблокировать аккаунт при нарушении условий.</li>
       </ul>
-
-      <h2>8. Контакты</h2>
-      <p>Служба поддержки: Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+      <h2>8. Применимое право</h2>
+      <p>Настоящая Оферта регулируется законодательством Российской Федерации. Все споры подлежат разрешению в соответствии с действующим законодательством РФ. Досудебный претензионный порядок является обязательным. Срок рассмотрения претензии — 30 календарных дней.</p>
+      <h2>9. Контакты</h2>
+      <p>Служба поддержки: Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a><br>
+      Email: <span class="todo">___@progresql.com</span></p>
     </div>
-
     <div id="content-en" style="display:none">
       <h2>1. Subject of the Offer</h2>
-      <p>This public offer is an official proposal by the ProgreSQL service administration to enter into an agreement for access to the ProgreSQL SaaS service.</p>
+      <p>This public offer is an official proposal by <span class="todo">IE Vnukov Ivan (TIN: XXXXXXXXXXXX, OGRNIP: XXXXXXXXXXXXXXX)</span> (hereinafter "Provider") to enter into an agreement for access to the ProgreSQL SaaS service.</p>
       <p>ProgreSQL is a desktop application for working with PostgreSQL databases with an integrated AI assistant, provided on a subscription basis.</p>
-
       <h2>2. Acceptance</h2>
       <ul>
         <li>Checking the consent checkbox when subscribing;</li>
-        <li>or Payment for the subscription.</li>
+        <li>or payment for the subscription.</li>
       </ul>
       <p>Upon acceptance, the Offer becomes a binding agreement.</p>
-
       <h2>3. Pricing</h2>
       <table>
-        <tr>
-          <th>Parameter</th>
-          <th>Free</th>
-          <th>Pro</th>
-        </tr>
-        <tr>
-          <td>Price</td>
-          <td>Free</td>
-          <td>20 USD</td>
-        </tr>
-        <tr>
-          <td>Period</td>
-          <td>Unlimited</td>
-          <td>30 days</td>
-        </tr>
-        <tr>
-          <td>Features</td>
-          <td>SQL editor, DB browser, export</td>
-          <td>All Free features + AI chat, query improvement, schema analysis</td>
-        </tr>
+        <tr><th>Parameter</th><th>Free</th><th>Pro</th></tr>
+        <tr><td>Price (Russia)</td><td>Free</td><td><span class="todo">____ RUB/month</span></td></tr>
+        <tr><td>Price (International)</td><td>Free</td><td><span class="todo">$20/month (after LemonSqueezy integration)</span></td></tr>
+        <tr><td>Period</td><td>Unlimited</td><td>30 days</td></tr>
+        <tr><td>Features</td><td>SQL editor, DB browser, export</td><td>All Free features + AI chat, query improvement, schema analysis</td></tr>
       </table>
-      <p>The Administration reserves the right to change pricing with 14 days notice.</p>
-
+      <p>The Provider reserves the right to change pricing with 14 days notice.</p>
       <h2>4. Payment Terms</h2>
+      <p><strong>For Russian residents:</strong></p>
       <ul>
-        <li>Payment via CryptoCloud in cryptocurrency;</li>
-        <li>Supported currencies determined by CryptoCloud;</li>
-        <li>Subscription activates after blockchain confirmation and webhook;</li>
-        <li>Redirect to success page does not constitute confirmation;</li>
-        <li>Subscription period: 30 days.</li>
+        <li>Payment by bank card (Mir, Visa, Mastercard) or SBP (Fast Payment System);</li>
+        <li>Payment provider: <span class="todo">platega.io (to be replaced with T-Bank acquiring)</span>;</li>
+        <li>Prices in Russian Rubles;</li>
+        <li>Subscription activates after payment confirmation.</li>
       </ul>
-
+      <p>Subscription period: 30 days from activation.</p>
       <h2>5. Refunds</h2>
-      <p>Conditions described in the <a href="/legal/refunds.html">Refund Policy</a> document.</p>
-
+      <p>Conditions described in the <a href="/legal/refunds.html">Refund Policy</a>.</p>
       <h2>6. Limitation of Liability</h2>
       <ul>
         <li>Service provided "as is";</li>
-        <li>Maximum liability limited to payment amount;</li>
+        <li>Maximum liability limited to the current period payment amount;</li>
         <li>Not liable for indirect damages;</li>
         <li>Does not guarantee uninterrupted service.</li>
       </ul>
-
       <h2>7. Duration and Termination</h2>
       <ul>
         <li>Valid for paid period;</li>
         <li>Reverts to Free upon expiry;</li>
-        <li>User may decline renewal;</li>
+        <li>User may decline renewal at any time;</li>
         <li>Provider may block for violations.</li>
       </ul>
-
-      <h2>8. Contact</h2>
-      <p>Support: Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+      <h2>8. Governing Law</h2>
+      <p>This Offer is governed by the laws of the Russian Federation. All disputes shall be resolved in accordance with applicable Russian law. Mandatory pre-trial claims procedure applies. Claim review period — 30 calendar days.</p>
+      <h2>9. Contact</h2>
+      <p>Support: Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a><br>
+      Email: <span class="todo">___@progresql.com</span></p>
     </div>
-
     <div class="nav-footer">
       <div class="nav-links">
         <a href="/legal/privacy.html">Privacy</a>
         <a href="/legal/terms.html">Terms</a>
         <a href="/legal/offer.html" class="current">Offer</a>
-        <a href="/legal/crypto-payments.html">Crypto Payments</a>
         <a href="/legal/refunds.html">Refunds</a>
         <a href="/legal/contacts.html">Contacts</a>
       </div>
       <a href="https://progresql.com" class="back-link">&larr; Back to home</a>
     </div>
   </div>
-
   <script>
     function switchLang(lang) {
       var langs = ['ru', 'en'];
@@ -351,10 +180,7 @@
       document.documentElement.lang = lang;
       localStorage.setItem('legal-lang', lang);
     }
-    (function() {
-      var saved = localStorage.getItem('legal-lang');
-      if (saved && saved !== 'ru') switchLang(saved);
-    })();
+    (function() { var s = localStorage.getItem('legal-lang'); if (s && s !== 'ru') switchLang(s); })();
   </script>
 </body>
 </html>
