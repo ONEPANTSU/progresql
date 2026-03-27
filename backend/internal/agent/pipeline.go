@@ -525,28 +525,26 @@ func (p *Pipeline) handleAutocomplete(session *websocket.Session, env *websocket
 	// Build prompt.
 	schemaSection := ""
 	if payload.SchemaContext != "" {
-		schemaSection = fmt.Sprintf("Available database schema:\n%s\n\n", payload.SchemaContext)
+		schemaSection = fmt.Sprintf("DATABASE SCHEMA (this is the COMPLETE list of all tables and columns — NOTHING else exists):\n%s\n\n", payload.SchemaContext)
 	}
 
-	prompt := fmt.Sprintf(
-		"You are a PostgreSQL SQL autocomplete engine. Complete the SQL query at the cursor position marked [CURSOR].\n\n"+
-			"RULES:\n"+
-			"- Return ONLY the completion text that goes after the cursor. Nothing else.\n"+
-			"- No markdown, no code blocks, no explanation, no backticks.\n"+
-			"- Keep completions short: 1-3 lines maximum.\n"+
-			"- Stop at a natural SQL boundary: semicolon, closing parenthesis, or end of clause.\n"+
-			"- ALWAYS use the provided schema context to suggest REAL table and column names.\n"+
-			"- Use schema-qualified names (e.g. shop.orders, analytics.events) when tables are not in public schema.\n"+
-			"- If the cursor is after a dot (e.g. 'shop.'), suggest a real table or column name from that schema.\n"+
-			"- If the cursor is after FROM/JOIN, suggest a real table with schema prefix from the schema context.\n"+
-			"- If the cursor is after WHERE/AND/OR, suggest a condition using real column names.\n"+
-			"- If the cursor is after SELECT, suggest real columns from the tables already in the query.\n"+
-			"- Match the style of the existing query (aliases, casing, etc.).\n"+
-			"- NEVER suggest placeholder names like 'your_table' or 'column_name'. Use real names from the schema.\n\n"+
-			"%s"+
-			"SQL before cursor: %s[CURSOR]%s",
-		schemaSection, sqlBefore, sqlAfter,
-	)
+	systemPrompt := "You are a PostgreSQL SQL autocomplete engine.\n\n" +
+		"STRICT RULES:\n" +
+		"- Return ONLY the completion text that goes after the cursor. Nothing else.\n" +
+		"- No markdown, no code blocks, no explanation, no backticks, no comments.\n" +
+		"- Keep completions short: 1-3 lines maximum.\n" +
+		"- Stop at a natural SQL boundary: semicolon, closing parenthesis, or end of clause.\n" +
+		"- ONLY use table and column names from the DATABASE SCHEMA provided below.\n" +
+		"- NEVER invent, guess, or hallucinate table or column names that are not in the schema.\n" +
+		"- If you are unsure which column to suggest, return EMPTY response rather than guessing.\n" +
+		"- Use schema-qualified names (e.g. shop.orders) when tables are not in the public schema.\n" +
+		"- Match the style of the existing query (aliases, casing, formatting).\n" +
+		"- If the cursor is after SELECT, suggest only columns that exist in the tables referenced in FROM/JOIN.\n" +
+		"- If the cursor is after FROM/JOIN, suggest a real table from the schema.\n" +
+		"- If the cursor is after WHERE/AND/OR, suggest conditions using real columns from referenced tables.\n" +
+		"- If the cursor is after a dot (alias.col), resolve the alias to the table and suggest its real columns.\n"
+
+	userPrompt := fmt.Sprintf("%sSQL before cursor: %s[CURSOR]%s", schemaSection, sqlBefore, sqlAfter)
 
 	model := session.Model()
 	if model == "" {
@@ -560,7 +558,8 @@ func (p *Pipeline) handleAutocomplete(session *websocket.Session, env *websocket
 	req := llm.ChatRequest{
 		Model: model,
 		Messages: []llm.Message{
-			{Role: "user", Content: prompt},
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: userPrompt},
 		},
 		MaxTokens: &maxTokens,
 	}
