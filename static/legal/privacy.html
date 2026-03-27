@@ -131,6 +131,11 @@
     a { color: #818cf8; text-decoration: none; transition: color 0.2s; }
     a:hover { color: #6366f1; text-decoration: underline; }
     strong { color: #e2e8f0; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td { padding: 8px 12px; border: 1px solid rgba(99, 102, 241, 0.15); text-align: left; font-size: 14px; }
+    th { background: rgba(99, 102, 241, 0.08); color: #e2e8f0; font-weight: 600; }
+    td { color: #94a3b8; }
+    .todo { color: #f0ad4e; font-style: italic; }
     .nav-footer {
       margin-top: 40px;
       padding-top: 24px;
@@ -177,63 +182,109 @@
         <button class="lang-btn" onclick="switchLang('en')" id="btn-en">EN</button>
       </div>
     </div>
-
     <div id="title-ru"><h1>Политика обработки персональных данных</h1></div>
     <div id="title-en" style="display:none"><h1>Privacy Policy</h1></div>
-
-    <div id="version-ru" class="version-info">Дата вступления в силу: 20 марта 2026 г. | Последнее обновление: 20 марта 2026 г.</div>
-    <div id="version-en" class="version-info" style="display:none">Effective date: March 20, 2026 | Last updated: March 20, 2026</div>
-
+    <div id="version-ru" class="version-info">Дата вступления в силу: __ ______ 2026 г. | Последнее обновление: __ ______ 2026 г.</div>
+    <div id="version-en" class="version-info" style="display:none">Effective date: __________ 2026 | Last updated: __________ 2026</div>
     <div id="content-ru">
       <h2>1. Оператор</h2>
-      <p>Оператором персональных данных является администрация сервиса ProgreSQL (далее — «Оператор», «мы»).<br>
-      Telegram для связи: <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
-
+      <p>Оператором персональных данных является:<br>
+      <span class="todo">ИП Внуков Иван Xxxxxxxx</span><br>
+      <span class="todo">ИНН: XXXXXXXXXXXX</span><br>
+      <span class="todo">ОГРНИП: XXXXXXXXXXXXXXX</span><br>
+      <span class="todo">Адрес: ___________</span><br>
+      Email: <span class="todo">___@progresql.com</span><br>
+      Telegram: <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
       <h2>2. Перечень обрабатываемых персональных данных</h2>
       <p>Мы обрабатываем следующие категории персональных данных:</p>
       <ul>
-        <li>Адрес электронной почты (email) — для регистрации, аутентификации, уведомлений;</li>
-        <li>Хеш пароля — для аутентификации (пароль в открытом виде не хранится);</li>
-        <li>IP-адрес — для обеспечения безопасности и ведения журналов;</li>
-        <li>User-Agent браузера/приложения — для технической поддержки и аналитики;</li>
-        <li>Идентификатор платежа — для обработки оплаты через CryptoCloud;</li>
-        <li>Дата и время действий пользователя — журналы событий.</li>
+        <li><strong>Идентификационные:</strong> адрес электронной почты (email), имя пользователя — для регистрации, аутентификации, уведомлений;</li>
+        <li><strong>Аутентификационные:</strong> хеш пароля (bcrypt, необратимое хеширование) — пароль в открытом виде не хранится;</li>
+        <li><strong>Технические:</strong> IP-адрес, User-Agent браузера/приложения — для обеспечения безопасности;</li>
+        <li><strong>Платёжные:</strong> идентификатор платежа, идентификатор заказа, сумма, валюта, статус платежа — для обработки оплаты;</li>
+        <li><strong>Подписочные:</strong> тип плана (Free/Pro), даты начала и окончания подписки, пробного периода;</li>
+        <li><strong>AI-данные:</strong> тексты запросов пользователя (промпты), метаданные схемы базы данных (имена таблиц, типы колонок, индексы), история диалога с AI-ассистентом — для генерации и оптимизации SQL-запросов;</li>
+        <li><strong>Журнальные:</strong> дата и время действий пользователя, идентификатор сессии, количество использованных токенов AI;</li>
+        <li><strong>Юридические:</strong> факт акцепта правовых документов (тип, версия, дата, IP, User-Agent);</li>
+        <li><strong>Аналитические:</strong> анонимизированные данные о взаимодействии с сайтом (идентификатор сессии, клики по элементам интерфейса).</li>
       </ul>
-
       <h2>3. Цели обработки</h2>
       <ul>
         <li>Предоставление доступа к сервису ProgreSQL и его функциям;</li>
         <li>Аутентификация и авторизация пользователей;</li>
         <li>Обработка платежей и управление подписками;</li>
-        <li>Отправка уведомлений о статусе подписки и безопасности аккаунта;</li>
+        <li>Выполнение AI-запросов: генерация, объяснение и оптимизация SQL на основе промптов и метаданных схемы;</li>
+        <li>Отправка сервисных уведомлений (верификация email, сброс пароля, статус подписки);</li>
         <li>Техническая поддержка и устранение неполадок;</li>
         <li>Обеспечение безопасности сервиса и предотвращение злоупотреблений;</li>
+        <li>Учёт использования AI-токенов для управления лимитами;</li>
+        <li>Аналитика использования сайта для улучшения качества сервиса;</li>
         <li>Выполнение требований законодательства.</li>
       </ul>
-
       <h2>4. Правовые основания обработки</h2>
       <ul>
-        <li><strong>Исполнение договора</strong> (ст. 6 п. 1 пп. b GDPR / п. 5 ч. 1 ст. 6 ФЗ-152) — обработка необходима для предоставления сервиса;</li>
-        <li><strong>Согласие пользователя</strong> (ст. 6 п. 1 пп. a GDPR / п. 1 ч. 1 ст. 6 ФЗ-152) — при регистрации пользователь даёт согласие на обработку;</li>
-        <li><strong>Законный интерес</strong> (ст. 6 п. 1 пп. f GDPR) — обеспечение безопасности сервиса.</li>
+        <li><strong>Согласие субъекта</strong> (п. 1 ч. 1 ст. 6 ФЗ-152 / ст. 6 п. 1 пп. a GDPR) — при регистрации пользователь даёт согласие на обработку, включая трансграничную передачу;</li>
+        <li><strong>Исполнение договора</strong> (п. 5 ч. 1 ст. 6 ФЗ-152 / ст. 6 п. 1 пп. b GDPR) — обработка необходима для предоставления сервиса;</li>
+        <li><strong>Исполнение обязанностей оператора</strong> (п. 2 ч. 1 ст. 6 ФЗ-152) — хранение платёжных данных для бухгалтерского учёта;</li>
+        <li><strong>Законный интерес</strong> (п. 7 ч. 1 ст. 6 ФЗ-152 / ст. 6 п. 1 пп. f GDPR) — обеспечение безопасности сервиса.</li>
       </ul>
-
       <h2>5. Сроки хранения</h2>
       <ul>
-        <li>Данные аккаунта — в течение срока действия аккаунта и 30 дней после удаления;</li>
+        <li>Данные аккаунта (email, имя, хеш пароля) — в течение срока действия аккаунта и 30 дней после удаления;</li>
         <li>Платёжные данные — 3 года с момента совершения транзакции (требования бухгалтерского учёта);</li>
-        <li>Журналы событий — 12 месяцев;</li>
+        <li>Журналы событий и данные об использовании AI — 12 месяцев;</li>
         <li>Данные об акцепте правовых документов — бессрочно (для подтверждения согласия).</li>
       </ul>
-
       <h2>6. Передача данных третьим лицам</h2>
       <p>Мы передаём данные следующим третьим лицам:</p>
-      <ul>
-        <li><strong>CryptoCloud</strong> (платёжный провайдер) — email и идентификатор заказа для обработки криптовалютных платежей. Политика конфиденциальности CryptoCloud доступна на их сайте.</li>
-      </ul>
+      <table>
+        <tr>
+          <th>Получатель</th>
+          <th>Передаваемые данные</th>
+          <th>Цель</th>
+        </tr>
+        <tr>
+          <td><strong>platega.io</strong> (платёжный провайдер для РФ)</td>
+          <td>Email, сумма платежа</td>
+          <td>Обработка платежей картой/СБП</td>
+        </tr>
+        <tr>
+          <td><strong>OpenRouter</strong> (AI-провайдер)</td>
+          <td>Тексты запросов (промпты), метаданные схемы БД, история диалога</td>
+          <td>Генерация и оптимизация SQL-запросов</td>
+        </tr>
+        <tr>
+          <td><strong>Яндекс</strong> (SMTP-провайдер)</td>
+          <td>Email, имя пользователя</td>
+          <td>Отправка сервисных уведомлений</td>
+        </tr>
+      </table>
       <p>Мы не продаём персональные данные и не передаём их иным третьим лицам, за исключением случаев, предусмотренных законодательством.</p>
-
-      <h2>7. Права пользователя</h2>
+      <h2>7. Трансграничная передача данных</h2>
+      <p>В процессе оказания услуг персональные данные передаются за пределы Российской Федерации:</p>
+      <table>
+        <tr>
+          <th>Страна</th>
+          <th>Получатель / назначение</th>
+          <th>Передаваемые данные</th>
+          <th>Основание</th>
+        </tr>
+        <tr>
+          <td><strong>Германия</strong></td>
+          <td>Сервер обработки запросов (API-бэкенд)</td>
+          <td>Email, имя, идентификаторы сессий, промпты, платёжные уведомления</td>
+          <td>Согласие субъекта + исполнение договора</td>
+        </tr>
+        <tr>
+          <td><strong>США</strong></td>
+          <td>OpenRouter (AI-обработка)</td>
+          <td>Промпты, метаданные схемы БД, история диалога</td>
+          <td>Согласие субъекта</td>
+        </tr>
+      </table>
+      <p><strong>Важно:</strong> база данных с персональными данными пользователей (email, хеш пароля, платёжная информация) хранится на серверах в Российской Федерации. Серверы в Германии осуществляют обработку данных, но не являются основным местом хранения.</p>
+      <p>Согласие на трансграничную передачу запрашивается у пользователя при регистрации.</p>
+      <h2>8. Права пользователя</h2>
       <p>Вы имеете право:</p>
       <ul>
         <li>Запросить доступ к своим персональным данным;</li>
@@ -241,69 +292,125 @@
         <li>Запросить удаление данных (право на забвение);</li>
         <li>Отозвать согласие на обработку данных;</li>
         <li>Запросить перенос данных (портативность);</li>
-        <li>Подать жалобу в надзорный орган.</li>
+        <li>Подать жалобу в Роскомнадзор (для резидентов РФ) или иной надзорный орган.</li>
       </ul>
-
-      <h2>8. Порядок отзыва согласия</h2>
-      <p>Для отзыва согласия на обработку персональных данных напишите нам в Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a> с указанием email вашего аккаунта. Обработка запроса — до 30 рабочих дней. Отзыв согласия влечёт удаление аккаунта и всех связанных данных.</p>
-
-      <h2>9. Безопасность</h2>
-      <p>Мы применяем следующие меры защиты: шифрование паролей (bcrypt), передача данных по HTTPS/TLS, JWT-токены для аутентификации, ограничение доступа к серверам.</p>
-
-      <h2>10. Контакты</h2>
-      <p>По вопросам обработки персональных данных: Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+      <h2>9. Порядок отзыва согласия</h2>
+      <p>Для отзыва согласия на обработку персональных данных напишите нам в Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a> или на email <span class="todo">___@progresql.com</span> с указанием email вашего аккаунта. Обработка запроса — до 30 рабочих дней. Отзыв согласия влечёт удаление аккаунта и всех связанных данных.</p>
+      <h2>10. Безопасность</h2>
+      <p>Мы применяем следующие меры защиты:</p>
+      <ul>
+        <li>Шифрование паролей (bcrypt, необратимое хеширование);</li>
+        <li>Передача данных по HTTPS/TLS;</li>
+        <li>JWT-токены для аутентификации (HS256, TTL 24 часа);</li>
+        <li>Rate limiting для защиты от перебора;</li>
+        <li>Верификация вебхуков платёжных провайдеров;</li>
+        <li>Шифрование локальных паролей подключений к БД через safeStorage Electron;</li>
+        <li>Ограничение доступа к серверной инфраструктуре.</li>
+      </ul>
+      <h2>11. Контакты</h2>
+      <p>По вопросам обработки персональных данных:<br>
+      Telegram: <a href="https://t.me/progresql" target="_blank">@progresql</a><br>
+      Email: <span class="todo">___@progresql.com</span></p>
     </div>
-
     <div id="content-en" style="display:none">
       <h2>1. Data Controller</h2>
-      <p>The data controller is the ProgreSQL service administration (hereinafter "Controller", "we").<br>
-      Contact Telegram: <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
-
+      <p>The data controller is:<br>
+      <span class="todo">IE Vnukov Ivan Xxxxxxxx</span><br>
+      <span class="todo">TIN: XXXXXXXXXXXX</span><br>
+      <span class="todo">OGRNIP: XXXXXXXXXXXXXXX</span><br>
+      <span class="todo">Address: ___________</span><br>
+      Email: <span class="todo">___@progresql.com</span><br>
+      Telegram: <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
       <h2>2. Personal Data We Collect</h2>
       <p>We process the following categories of personal data:</p>
       <ul>
-        <li>Email address — for registration, authentication, and notifications;</li>
-        <li>Password hash — for authentication (plaintext passwords are never stored);</li>
-        <li>IP address — for security and logging;</li>
-        <li>Browser/application User-Agent — for technical support and analytics;</li>
-        <li>Payment identifier — for processing payments via CryptoCloud;</li>
-        <li>Timestamps of user actions — event logs.</li>
+        <li><strong>Identification:</strong> email address, username — for registration, authentication, and notifications;</li>
+        <li><strong>Authentication:</strong> password hash (bcrypt, irreversible) — plaintext passwords are never stored;</li>
+        <li><strong>Technical:</strong> IP address, browser/application User-Agent — for security;</li>
+        <li><strong>Payment:</strong> payment identifier, order ID, amount, currency, payment status;</li>
+        <li><strong>Subscription:</strong> plan type (Free/Pro), subscription and trial dates;</li>
+        <li><strong>AI data:</strong> user queries (prompts), database schema metadata (table names, column types, indexes), AI chat history — for SQL generation and optimization;</li>
+        <li><strong>Logs:</strong> timestamps of user actions, session identifiers, AI token usage;</li>
+        <li><strong>Legal:</strong> legal document acceptance records (type, version, date, IP, User-Agent);</li>
+        <li><strong>Analytics:</strong> anonymized website interaction data (session ID, UI element clicks).</li>
       </ul>
-
       <h2>3. Purposes of Processing</h2>
       <ul>
         <li>Providing access to the ProgreSQL service and its features;</li>
         <li>User authentication and authorization;</li>
         <li>Payment processing and subscription management;</li>
-        <li>Sending notifications about subscription status and account security;</li>
+        <li>AI query execution: SQL generation, explanation, and optimization based on prompts and schema metadata;</li>
+        <li>Sending service notifications (email verification, password reset, subscription status);</li>
         <li>Technical support and troubleshooting;</li>
         <li>Ensuring service security and preventing abuse;</li>
+        <li>Tracking AI token usage for limit management;</li>
+        <li>Website usage analytics for service improvement;</li>
         <li>Compliance with legal obligations.</li>
       </ul>
-
       <h2>4. Legal Basis for Processing</h2>
       <ul>
+        <li><strong>Consent</strong> (Art. 6(1)(a) GDPR) — the user gives consent upon registration, including for cross-border transfer;</li>
         <li><strong>Performance of a contract</strong> (Art. 6(1)(b) GDPR) — processing is necessary to provide the service;</li>
-        <li><strong>Consent</strong> (Art. 6(1)(a) GDPR) — the user gives consent upon registration;</li>
+        <li><strong>Legal obligation</strong> — retention of payment data for accounting purposes;</li>
         <li><strong>Legitimate interest</strong> (Art. 6(1)(f) GDPR) — ensuring service security.</li>
       </ul>
-
       <h2>5. Data Retention</h2>
       <ul>
-        <li>Account data — for the duration of the account and 30 days after deletion;</li>
+        <li>Account data (email, name, password hash) — for the duration of the account and 30 days after deletion;</li>
         <li>Payment data — 3 years from the transaction date (accounting requirements);</li>
-        <li>Event logs — 12 months;</li>
+        <li>Event logs and AI usage data — 12 months;</li>
         <li>Legal document acceptance records — indefinitely (to confirm consent).</li>
       </ul>
-
       <h2>6. Third-Party Data Sharing</h2>
       <p>We share data with the following third parties:</p>
-      <ul>
-        <li><strong>CryptoCloud</strong> (payment provider) — email and order identifier for processing cryptocurrency payments. CryptoCloud's privacy policy is available on their website.</li>
-      </ul>
+      <table>
+        <tr>
+          <th>Recipient</th>
+          <th>Data shared</th>
+          <th>Purpose</th>
+        </tr>
+        <tr>
+          <td><strong>platega.io</strong> (payment provider for Russia)</td>
+          <td>Email, payment amount</td>
+          <td>Card/SBP payment processing</td>
+        </tr>
+        <tr>
+          <td><strong>OpenRouter</strong> (AI provider)</td>
+          <td>User prompts, DB schema metadata, chat history</td>
+          <td>SQL generation and optimization</td>
+        </tr>
+        <tr>
+          <td><strong>Yandex</strong> (SMTP provider)</td>
+          <td>Email, username</td>
+          <td>Sending service notifications</td>
+        </tr>
+      </table>
       <p>We do not sell personal data or share it with other third parties except as required by law.</p>
-
-      <h2>7. Your Rights</h2>
+      <h2>7. Cross-Border Data Transfer</h2>
+      <p>In the course of providing services, personal data is transferred outside the Russian Federation:</p>
+      <table>
+        <tr>
+          <th>Country</th>
+          <th>Recipient / purpose</th>
+          <th>Data transferred</th>
+          <th>Legal basis</th>
+        </tr>
+        <tr>
+          <td><strong>Germany</strong></td>
+          <td>API backend server</td>
+          <td>Email, name, session IDs, prompts, payment notifications</td>
+          <td>Consent + contract performance</td>
+        </tr>
+        <tr>
+          <td><strong>USA</strong></td>
+          <td>OpenRouter (AI processing)</td>
+          <td>Prompts, DB schema metadata, chat history</td>
+          <td>Consent</td>
+        </tr>
+      </table>
+      <p><strong>Important:</strong> The primary database containing user personal data (email, password hash, payment information) is stored on servers in the Russian Federation. Servers in Germany process data but are not the primary storage location.</p>
+      <p>Consent for cross-border data transfer is obtained from the user upon registration.</p>
+      <h2>8. Your Rights</h2>
       <p>You have the right to:</p>
       <ul>
         <li>Request access to your personal data;</li>
@@ -313,30 +420,35 @@
         <li>Request data portability;</li>
         <li>Lodge a complaint with a supervisory authority.</li>
       </ul>
-
-      <h2>8. Withdrawal of Consent</h2>
-      <p>To withdraw consent for data processing, write to us in Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a> specifying your account email. Processing time — up to 30 business days. Withdrawal of consent results in account deletion and removal of all associated data.</p>
-
-      <h2>9. Security</h2>
-      <p>We implement the following security measures: password encryption (bcrypt), data transmission over HTTPS/TLS, JWT tokens for authentication, restricted server access.</p>
-
-      <h2>10. Contact</h2>
-      <p>For data processing inquiries: Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a></p>
+      <h2>9. Withdrawal of Consent</h2>
+      <p>To withdraw consent for data processing, write to us in Telegram <a href="https://t.me/progresql" target="_blank">@progresql</a> or email <span class="todo">___@progresql.com</span> specifying your account email. Processing time — up to 30 business days. Withdrawal of consent results in account deletion and removal of all associated data.</p>
+      <h2>10. Security</h2>
+      <p>We implement the following security measures:</p>
+      <ul>
+        <li>Password encryption (bcrypt, irreversible hashing);</li>
+        <li>Data transmission over HTTPS/TLS;</li>
+        <li>JWT tokens for authentication (HS256, 24-hour TTL);</li>
+        <li>Rate limiting for brute-force protection;</li>
+        <li>Payment provider webhook verification;</li>
+        <li>Local database connection password encryption via Electron safeStorage;</li>
+        <li>Restricted access to server infrastructure.</li>
+      </ul>
+      <h2>11. Contact</h2>
+      <p>For data processing inquiries:<br>
+      Telegram: <a href="https://t.me/progresql" target="_blank">@progresql</a><br>
+      Email: <span class="todo">___@progresql.com</span></p>
     </div>
-
     <div class="nav-footer">
       <div class="nav-links">
         <a href="/legal/privacy.html" class="current">Privacy</a>
         <a href="/legal/terms.html">Terms</a>
         <a href="/legal/offer.html">Offer</a>
-        <a href="/legal/crypto-payments.html">Crypto Payments</a>
         <a href="/legal/refunds.html">Refunds</a>
         <a href="/legal/contacts.html">Contacts</a>
       </div>
       <a href="https://progresql.com" class="back-link">&larr; Back to home</a>
     </div>
   </div>
-
   <script>
     function switchLang(lang) {
       var langs = ['ru', 'en'];
