@@ -125,40 +125,6 @@ export async function saveConnections(connections: DatabaseServer[]): Promise<vo
 }
 
 /**
- * Clear all connections
- */
-export function clearConnections(): void {
-  try {
-    if (typeof window === 'undefined' || !window.localStorage) {
-      return;
-    }
-    localStorage.removeItem(connectionsKey());
-  } catch (error) {
-    log.error('Failed to clear connections:', error);
-  }
-}
-
-/**
- * Check if there are any saved connections
- */
-export function hasConnections(): boolean {
-  try {
-    if (typeof window === 'undefined' || !window.localStorage) {
-      return false;
-    }
-    const saved = localStorage.getItem(connectionsKey());
-    if (saved) {
-      const connections = JSON.parse(saved);
-      return connections.length > 0;
-    }
-    return false;
-  } catch (error) {
-    log.error('Failed to check connections:', error);
-    return false;
-  }
-}
-
-/**
  * Debug function to inspect localStorage
  */
 export function debugLocalStorage(): void {

@@ -152,6 +152,16 @@ func hashIP(ip string) string {
 }
 
 // analyticsLandingEventHandler returns a handler for POST /api/v1/analytics/event.
+//
+// @Summary      Track landing page event
+// @Description  Records a frontend analytics event (page_view, button_click, scroll_depth, video_play) from the landing page. Rate-limited to 100 requests per minute per IP.
+// @Tags         analytics
+// @Accept       json
+// @Param        body  body  landingEventRequest  true  "Analytics event payload"
+// @Success      204
+// @Failure      400
+// @Failure      429
+// @Router       /api/v1/analytics/event [post]
 func analyticsLandingEventHandler(db *pgxpool.Pool) http.HandlerFunc {
 	rl := newLandingRateLimiter(100, time.Minute)
 

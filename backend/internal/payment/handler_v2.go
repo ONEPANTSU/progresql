@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
+
 	"github.com/onepantsu/progressql/backend/internal/auth"
 	"github.com/onepantsu/progressql/backend/internal/metrics"
 )
@@ -17,6 +18,19 @@ import (
 // CreateInvoiceHandlerV2 returns an HTTP handler that creates a Platega payment
 // for the authenticated user via the v2 API. The payload field is set to
 // "user_<ID>" so the webhook can map payments back to user accounts.
+//
+// @Summary      Create payment invoice (v2)
+// @Description  Creates a Platega payment invoice for the authenticated user via the v2 API. Defaults to 1999 RUB with card acquiring if not specified.
+// @Tags         payments
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      createInvoiceRequest         false  "Invoice parameters"
+// @Success      200   {object}  createInvoiceHandlerResponse
+// @Failure      401   {object}  errorResponse
+// @Failure      404   {object}  errorResponse
+// @Failure      500   {object}  errorResponse
+// @Router       /api/v2/payments/create-invoice [post]
 func CreateInvoiceHandlerV2(client *PlategaClient, userStore *auth.UserStore, db *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -56,52 +70,30 @@ func CreateInvoiceHandlerV2(client *PlategaClient, userStore *auth.UserStore, db
 			reqBody.PaymentMethod = 11 // Card acquiring
 		}
 
-		// Check for active discount promo code.
-		if db != nil {
-			var discountPercent int
-			var discountAmount float64
-			pctx, pcancel := context.WithTimeout(r.Context(), 3*time.Second)
-			defer pcancel()
-			err := db.QueryRow(pctx,
-				`SELECT COALESCE(pc.discount_percent, 0), COALESCE(pc.discount_amount, 0)
-				 FROM promo_code_uses pcu
-				 JOIN promo_codes pc ON pc.id = pcu.promo_code_id
-				 WHERE pcu.user_id = $1::uuid AND pc.type = 'discount' AND pc.is_active = true
-				 ORDER BY pcu.applied_at DESC LIMIT 1`,
-				user.ID,
-			).Scan(&discountPercent, &discountAmount)
-			if err == nil {
-				if discountPercent > 0 {
-					reqBody.Amount = reqBody.Amount * (1 - float64(discountPercent)/100)
-				} else if discountAmount > 0 {
-					reqBody.Amount = reqBody.Amount - discountAmount
-				}
-				if reqBody.Amount < 0.01 {
-					reqBody.Amount = 0.01
-				}
-			}
-		}
+		reqBody.Amount = applyDiscount(r.Context(), db, user.ID, reqBody.Amount)
 
 		invoice, err := client.CreateInvoice(
 			reqBody.Amount, reqBody.Currency, orderID, user.Email,
 			reqBody.SuccessRedirectURL, reqBody.FailRedirectURL, reqBody.PaymentMethod,
 		)
 		if err != nil {
-			log.Printf("[v2/create-invoice] Platega error: %v", err)
+			zap.L().Error("v2/create-invoice: Platega error", zap.Error(err))
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(errorResponse{Error: "failed to create invoice"})
 			return
 		}
 
 		// Record payment in database.
-		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-		defer cancel()
-		_, _ = db.Exec(ctx,
-			`INSERT INTO payments (user_id, invoice_id, order_id, amount, currency, status,
-			                       success_redirect_url, fail_redirect_url, updated_at)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
-			user.ID, invoice.TransactionID, orderID, reqBody.Amount, reqBody.Currency,
-			StatusCreated, nilIfEmpty(reqBody.SuccessRedirectURL), nilIfEmpty(reqBody.FailRedirectURL))
+		if db != nil {
+			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+			defer cancel()
+			_, _ = db.Exec(ctx,
+				`INSERT INTO payments (user_id, invoice_id, order_id, amount, currency, status,
+				                       success_redirect_url, fail_redirect_url, updated_at)
+				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+				user.ID, invoice.TransactionID, orderID, reqBody.Amount, reqBody.Currency,
+				StatusCreated, nilIfEmpty(reqBody.SuccessRedirectURL), nilIfEmpty(reqBody.FailRedirectURL))
+		}
 
 		// Prometheus: track payment creation.
 		metrics.PaymentsTotal.WithLabelValues(StatusCreated, reqBody.Currency).Inc()
@@ -118,11 +110,26 @@ func CreateInvoiceHandlerV2(client *PlategaClient, userStore *auth.UserStore, db
 // callback notifications. It verifies X-MerchantId and X-Secret headers.
 // On successful payment (status=CONFIRMED) it grants 30 days of "pro" plan to
 // the user identified by the payload field (format: "user_<ID>").
+//
+// @Summary      Platega payment webhook (v2)
+// @Description  Receives payment callback from Platega.io via the v2 API. Verified via X-MerchantId and X-Secret headers. Grants 30 days of pro plan on CONFIRMED status.
+// @Tags         payments
+// @Accept       json
+// @Produce      json
+// @Param        X-MerchantId  header    string                 true  "Platega merchant ID"
+// @Param        X-Secret      header    string                 true  "Platega webhook secret"
+// @Param        body          body      plategaWebhookPayload  true  "Platega callback payload"
+// @Success      200           {object}  map[string]string
+// @Failure      400           {object}  errorResponse
+// @Failure      403           {object}  errorResponse
+// @Failure      500           {object}  errorResponse
+// @Router       /api/v2/payments/webhook [post]
 func WebhookHandlerV2(planUpdater PlanUpdater, db *pgxpool.Pool, merchantID, secret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
-		log.Printf("[v2/webhook] received Platega callback Content-Type=%s", r.Header.Get("Content-Type"))
+		log := zap.L().With(zap.String("handler", "v2/webhook"))
+		log.Info("received Platega callback", zap.String("content_type", r.Header.Get("Content-Type")))
 
 		// Verify Platega credentials from headers.
 		if merchantID == "" || secret == "" {
@@ -135,8 +142,9 @@ func WebhookHandlerV2(planUpdater PlanUpdater, db *pgxpool.Pool, merchantID, sec
 		headerSecret := r.Header.Get("X-Secret")
 
 		if headerMerchantID != merchantID || headerSecret != secret {
-			log.Printf("[v2/webhook] credential verification failed: merchantID match=%v, secret match=%v",
-				headerMerchantID == merchantID, headerSecret == secret)
+			log.Warn("credential verification failed",
+				zap.Bool("merchant_id_match", headerMerchantID == merchantID),
+				zap.Bool("secret_match", headerSecret == secret))
 			w.WriteHeader(http.StatusForbidden)
 			json.NewEncoder(w).Encode(errorResponse{Error: "invalid webhook credentials"})
 			return
@@ -149,7 +157,6 @@ func WebhookHandlerV2(planUpdater PlanUpdater, db *pgxpool.Pool, merchantID, sec
 			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
 			return
 		}
-		log.Printf("[v2/webhook] raw body: %s", string(bodyBytes))
 
 		var payload plategaWebhookPayload
 		if err := json.Unmarshal(bodyBytes, &payload); err != nil {
@@ -158,8 +165,8 @@ func WebhookHandlerV2(planUpdater PlanUpdater, db *pgxpool.Pool, merchantID, sec
 			return
 		}
 
-		log.Printf("[v2/webhook] parsed: status=%s transactionID=%s payload=%s",
-			payload.Status, payload.ID, payload.Payload)
+		log.Info("parsed callback", zap.String("status", payload.Status),
+			zap.String("transaction_id", payload.ID), zap.String("payload", payload.Payload))
 
 		// Only process confirmed payments.
 		if payload.Status != "CONFIRMED" {
@@ -218,7 +225,8 @@ func WebhookHandlerV2(planUpdater PlanUpdater, db *pgxpool.Pool, merchantID, sec
 		metrics.PaymentsTotal.WithLabelValues(StatusConfirmed, currency).Inc()
 		metrics.UserSubscriptionsActivatedTotal.WithLabelValues("pro").Inc()
 
-		log.Printf("[v2/webhook] payment confirmed for user=%s plan=pro transactionID=%s", userID, payload.ID)
+		log.Info("payment confirmed", zap.String("user_id", userID),
+			zap.String("plan", "pro"), zap.String("transaction_id", payload.ID))
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})

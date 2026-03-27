@@ -1,3 +1,12 @@
+// @title           ProgreSQL API
+// @version         1.0
+// @description     ProgreSQL backend API — AI-powered SQL assistant
+// @host            localhost:8080
+// @BasePath        /
+// @securityDefinitions.apikey BearerAuth
+// @in              header
+// @name            Authorization
+
 package main
 
 import (
