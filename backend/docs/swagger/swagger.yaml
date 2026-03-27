@@ -1,0 +1,1114 @@
+basePath: /
+definitions:
+  payment.createInvoiceHandlerResponse:
+    properties:
+      payment_url:
+        type: string
+    type: object
+  payment.createInvoiceRequest:
+    properties:
+      amount:
+        type: number
+      currency:
+        type: string
+      fail_redirect_url:
+        type: string
+      payment_method:
+        type: integer
+      promo_code:
+        type: string
+      success_redirect_url:
+        type: string
+    type: object
+  payment.errorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  payment.plategaWebhookPayload:
+    properties:
+      amount:
+        type: number
+      currency:
+        type: string
+      id:
+        type: string
+      payload:
+        type: string
+      paymentMethod:
+        type: integer
+      status:
+        type: string
+    type: object
+  payment.priceResponse:
+    properties:
+      original_price:
+        type: number
+      price:
+        type: number
+    type: object
+  rest.analyticsMonthBreakdown:
+    properties:
+      completion_tokens:
+        type: integer
+      month:
+        type: string
+      prompt_tokens:
+        type: integer
+      total_cost_usd:
+        type: number
+      total_requests:
+        type: integer
+      total_tokens:
+        type: integer
+    type: object
+  rest.analyticsUserDetailResponse:
+    properties:
+      completion_tokens:
+        type: integer
+      email:
+        type: string
+      months:
+        items:
+          $ref: '#/definitions/rest.analyticsMonthBreakdown'
+        type: array
+      name:
+        type: string
+      prompt_tokens:
+        type: integer
+      total_cost_usd:
+        type: number
+      total_requests:
+        type: integer
+      total_tokens:
+        type: integer
+      user_id:
+        type: string
+    type: object
+  rest.analyticsUserSummary:
+    properties:
+      completion_tokens:
+        type: integer
+      email:
+        type: string
+      name:
+        type: string
+      prompt_tokens:
+        type: integer
+      total_cost_usd:
+        type: number
+      total_requests:
+        type: integer
+      total_tokens:
+        type: integer
+      user_id:
+        type: string
+    type: object
+  rest.analyticsUsersResponse:
+    properties:
+      month:
+        type: string
+      users:
+        items:
+          $ref: '#/definitions/rest.analyticsUserSummary'
+        type: array
+    type: object
+  rest.applyPromoRequest:
+    properties:
+      code:
+        type: string
+    type: object
+  rest.applyPromoResponse:
+    properties:
+      discount_amount:
+        type: number
+      discount_percent:
+        type: integer
+      expires_at:
+        type: string
+      message:
+        type: string
+      plan:
+        type: string
+      success:
+        type: boolean
+    type: object
+  rest.authTokenResponse:
+    properties:
+      expires_at:
+        type: string
+      token:
+        type: string
+    type: object
+  rest.authUserResponse:
+    properties:
+      expires_at:
+        type: string
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/rest.userInfo'
+    type: object
+  rest.createSessionRequest:
+    properties:
+      db_context:
+        $ref: '#/definitions/rest.dbContext'
+      model:
+        type: string
+    type: object
+  rest.createSessionResponse:
+    properties:
+      session_id:
+        type: string
+      subscription_warning:
+        type: string
+      ws_url:
+        type: string
+    type: object
+  rest.dbContext:
+    properties:
+      db_name:
+        type: string
+      db_version:
+        type: string
+    type: object
+  rest.errorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  rest.forgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    type: object
+  rest.healthResponse:
+    properties:
+      status:
+        type: string
+      version:
+        type: string
+    type: object
+  rest.landingEventRequest:
+    properties:
+      button_id:
+        type: string
+      event:
+        type: string
+      page:
+        type: string
+      referrer:
+        type: string
+      screen_width:
+        type: integer
+      scroll_percent:
+        type: integer
+      session_id:
+        type: string
+      user_agent:
+        type: string
+      utm_campaign:
+        type: string
+      utm_medium:
+        type: string
+      utm_source:
+        type: string
+      video_action:
+        type: string
+    type: object
+  rest.legalAcceptRequest:
+    properties:
+      doc_type:
+        type: string
+      doc_version:
+        type: string
+      source:
+        type: string
+    type: object
+  rest.legalAcceptResponse:
+    properties:
+      accepted:
+        type: boolean
+    type: object
+  rest.legalDocumentResponse:
+    properties:
+      content_html:
+        type: string
+      doc_type:
+        type: string
+      effective_at:
+        type: string
+      id:
+        type: string
+      language:
+        type: string
+      published_at:
+        type: string
+      title:
+        type: string
+      version:
+        type: string
+    type: object
+  rest.loginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  rest.modelResponse:
+    properties:
+      id:
+        type: string
+      is_default:
+        type: boolean
+      name:
+        type: string
+      provider:
+        type: string
+    type: object
+  rest.modelsListResponse:
+    properties:
+      models:
+        items:
+          $ref: '#/definitions/rest.modelResponse'
+        type: array
+    type: object
+  rest.registerRequest:
+    properties:
+      email:
+        type: string
+      marketing_consent:
+        type: boolean
+      name:
+        type: string
+      password:
+        type: string
+    type: object
+  rest.resetPasswordRequest:
+    properties:
+      code:
+        type: string
+      email:
+        type: string
+      new_password:
+        type: string
+    type: object
+  rest.sendVerificationResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  rest.userInfo:
+    properties:
+      email:
+        type: string
+      email_verified:
+        type: boolean
+      id:
+        type: string
+      marketing_consent:
+        type: boolean
+      name:
+        type: string
+      plan:
+        type: string
+      plan_expires_at:
+        type: string
+      subscription_warning:
+        type: string
+      trial_ends_at:
+        type: string
+    type: object
+  rest.verifyCodeRequest:
+    properties:
+      code:
+        type: string
+    type: object
+  rest.verifyCodeResponse:
+    properties:
+      verified:
+        type: boolean
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: ProgreSQL backend API — AI-powered SQL assistant
+  title: ProgreSQL API
+  version: "1.0"
+paths:
+  /api/v1/admin/analytics/users:
+    get:
+      description: Returns aggregated token usage and cost per user. Admin-only endpoint.
+        Optionally filter by month (YYYY-MM).
+      parameters:
+      - description: Filter by month in YYYY-MM format
+        in: query
+        name: month
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.analyticsUsersResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: list user analytics'
+      tags:
+      - admin
+  /api/v1/admin/analytics/users/{id}:
+    get:
+      description: Returns total and monthly token usage breakdown for a specific
+        user. Admin-only endpoint.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.analyticsUserDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Admin: user analytics detail'
+      tags:
+      - admin
+  /api/v1/analytics/event:
+    post:
+      consumes:
+      - application/json
+      description: Records a frontend analytics event (page_view, button_click, scroll_depth,
+        video_play) from the landing page. Rate-limited to 100 requests per minute
+        per IP.
+      parameters:
+      - description: Analytics event payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rest.landingEventRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+        "429":
+          description: Too Many Requests
+      summary: Track landing page event
+      tags:
+      - analytics
+  /api/v1/auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Sends a password-reset code to the provided email address. Always
+        returns 200 to prevent email enumeration.
+      parameters:
+      - description: User email
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rest.forgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      summary: Forgot password
+      tags:
+      - auth
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates the user with email and password and returns a JWT
+      parameters:
+      - description: Login credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rest.loginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.authUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      summary: Login
+      tags:
+      - auth
+  /api/v1/auth/profile:
+    get:
+      description: Returns profile information for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.userInfo'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user profile
+      tags:
+      - auth
+  /api/v1/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user account and returns a JWT. If the email exists
+        but is unverified, credentials are updated and a new verification code is
+        sent.
+      parameters:
+      - description: Registration data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rest.registerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/rest.authUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      summary: Register a new user
+      tags:
+      - auth
+  /api/v1/auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Verifies the reset code and sets a new password for the user
+      parameters:
+      - description: Reset payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rest.resetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      summary: Reset password
+      tags:
+      - auth
+  /api/v1/auth/send-verification:
+    post:
+      description: Sends a one-time verification code to the authenticated user's
+        email address
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.sendVerificationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Send email verification code
+      tags:
+      - auth
+  /api/v1/auth/token:
+    post:
+      description: Issues a short-lived JWT for the local desktop client (no credentials
+        required)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.authTokenResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      summary: Issue anonymous JWT
+      tags:
+      - auth
+  /api/v1/auth/verify-code:
+    post:
+      consumes:
+      - application/json
+      description: Validates the one-time code and marks the user's email as verified
+      parameters:
+      - description: Verification code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rest.verifyCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.verifyCodeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Verify email code
+      tags:
+      - auth
+  /api/v1/health:
+    get:
+      description: Returns service status and current version
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.healthResponse'
+      summary: Health check
+      tags:
+      - system
+  /api/v1/legal/{type}:
+    get:
+      description: |-
+        Returns the latest active legal document of the given type. Use ?lang=ru|en to select language (default: ru).
+        Returns a specific version of the legal document.
+      parameters:
+      - description: Document type (e.g. privacy, terms)
+        in: path
+        name: type
+        required: true
+        type: string
+      - description: Language code (ru or en)
+        in: query
+        name: lang
+        type: string
+      - description: Document type (e.g. privacy, terms)
+        in: path
+        name: type
+        required: true
+        type: string
+      - description: Language code (ru or en)
+        in: query
+        name: lang
+        type: string
+      produces:
+      - application/json
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.legalDocumentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      summary: Get legal document (specific version)
+      tags:
+      - legal
+      - legal
+  /api/v1/legal/{type}/{version}:
+    get:
+      description: |-
+        Returns the latest active legal document of the given type. Use ?lang=ru|en to select language (default: ru).
+        Returns a specific version of the legal document.
+      parameters:
+      - description: Document type (e.g. privacy, terms)
+        in: path
+        name: type
+        required: true
+        type: string
+      - description: Language code (ru or en)
+        in: query
+        name: lang
+        type: string
+      - description: Document type (e.g. privacy, terms)
+        in: path
+        name: type
+        required: true
+        type: string
+      - description: Document version
+        in: path
+        name: version
+        required: true
+        type: string
+      - description: Language code (ru or en)
+        in: query
+        name: lang
+        type: string
+      produces:
+      - application/json
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.legalDocumentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      summary: Get legal document (specific version)
+      tags:
+      - legal
+      - legal
+  /api/v1/legal/accept:
+    post:
+      consumes:
+      - application/json
+      description: Records the authenticated user's acceptance of a specific legal
+        document version
+      parameters:
+      - description: Acceptance data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rest.legalAcceptRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/rest.legalAcceptResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Accept legal document
+      tags:
+      - legal
+  /api/v1/models:
+    get:
+      description: Returns the list of available LLM models including which one is
+        the default
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.modelsListResponse'
+      summary: List available LLM models
+      tags:
+      - models
+  /api/v1/payment/price:
+    get:
+      description: Returns the current subscription price for the authenticated user,
+        applying any active discount promo codes
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/payment.priceResponse'
+      security:
+      - BearerAuth: []
+      summary: Get payment price
+      tags:
+      - payments
+  /api/v1/payments/create-invoice:
+    post:
+      consumes:
+      - application/json
+      description: Creates a Platega payment invoice for the authenticated user. Defaults
+        to 20 USD if no amount is provided.
+      parameters:
+      - description: Invoice parameters
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/payment.createInvoiceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/payment.createInvoiceHandlerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create payment invoice (v1)
+      tags:
+      - payments
+  /api/v1/payments/webhook:
+    post:
+      consumes:
+      - application/json
+      description: Receives payment callback from Platega.io. Verified via X-MerchantId
+        and X-Secret headers. Grants 30 days of pro plan on CONFIRMED status.
+      parameters:
+      - description: Platega merchant ID
+        in: header
+        name: X-MerchantId
+        required: true
+        type: string
+      - description: Platega webhook secret
+        in: header
+        name: X-Secret
+        required: true
+        type: string
+      - description: Platega callback payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/payment.plategaWebhookPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+      summary: Platega payment webhook (v1)
+      tags:
+      - payments
+  /api/v1/promo/apply:
+    post:
+      consumes:
+      - application/json
+      description: Validates and applies a promo code for the authenticated user.
+        Supports pro_grant, trial_extension, and discount code types.
+      parameters:
+      - description: Promo code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rest.applyPromoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.applyPromoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Apply promo code
+      tags:
+      - promo
+  /api/v1/sessions:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new agent session and returns the session ID with the
+        WebSocket URL to connect to
+      parameters:
+      - description: Session parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rest.createSessionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/rest.createSessionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create agent session
+      tags:
+      - sessions
+  /api/v2/payments/create-invoice:
+    post:
+      consumes:
+      - application/json
+      description: Creates a Platega payment invoice for the authenticated user via
+        the v2 API. Defaults to 1999 RUB with card acquiring if not specified.
+      parameters:
+      - description: Invoice parameters
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/payment.createInvoiceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/payment.createInvoiceHandlerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create payment invoice (v2)
+      tags:
+      - payments
+  /api/v2/payments/webhook:
+    post:
+      consumes:
+      - application/json
+      description: Receives payment callback from Platega.io via the v2 API. Verified
+        via X-MerchantId and X-Secret headers. Grants 30 days of pro plan on CONFIRMED
+        status.
+      parameters:
+      - description: Platega merchant ID
+        in: header
+        name: X-MerchantId
+        required: true
+        type: string
+      - description: Platega webhook secret
+        in: header
+        name: X-Secret
+        required: true
+        type: string
+      - description: Platega callback payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/payment.plategaWebhookPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+      summary: Platega payment webhook (v2)
+      tags:
+      - payments
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
