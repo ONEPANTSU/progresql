@@ -41,8 +41,8 @@ function getPasswordStrength(password: string): { level: 'weak' | 'medium' | 'st
 
   if (metCount <= 2) return { level: 'weak', value: 20, color: '#d32f2f' };
   if (metCount <= 3) return { level: 'medium', value: 50, color: '#ed6c02' };
-  if (metCount <= 4) return { level: 'strong', value: 75, color: '#6366f1' };
-  return { level: 'strong', value: 100, color: '#6366f1' };
+  if (metCount <= 4) return { level: 'medium', value: 75, color: '#ed6c02' };
+  return { level: 'strong', value: 100, color: '#4caf50' };
 }
 
 export default function RegisterPage() {

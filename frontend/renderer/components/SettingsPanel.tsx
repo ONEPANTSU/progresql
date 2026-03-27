@@ -343,17 +343,18 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
             onChange={(_, value) => { if (value) setThemeMode(value); }}
             size="small"
             fullWidth
+            sx={{ '& .MuiToggleButton-root': { fontSize: '0.7rem', px: 0.5, gap: 0.5, minWidth: 0 } }}
           >
             <ToggleButton value="light" aria-label="Light theme">
-              <LightModeIcon sx={{ fontSize: 16, mr: 0.5 }} />
+              <LightModeIcon sx={{ fontSize: 15 }} />
               {t('settings.themeLight')}
             </ToggleButton>
             <ToggleButton value="dark" aria-label="Dark theme">
-              <DarkModeIcon sx={{ fontSize: 16, mr: 0.5 }} />
+              <DarkModeIcon sx={{ fontSize: 15 }} />
               {t('settings.themeDark')}
             </ToggleButton>
             <ToggleButton value="system" aria-label="System theme">
-              <SystemIcon sx={{ fontSize: 16, mr: 0.5 }} />
+              <SystemIcon sx={{ fontSize: 15 }} />
               {t('settings.themeSystem')}
             </ToggleButton>
           </ToggleButtonGroup>

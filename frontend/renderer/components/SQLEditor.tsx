@@ -971,39 +971,6 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
 
         {/* Toolbar actions integrated into tab bar */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 'auto', mr: 1, flexShrink: 0 }}>
-          <Tooltip title={t('editor.templates')}>
-            <IconButton
-              size="small"
-              onClick={(e) => setTemplateMenuAnchor(e.currentTarget)}
-              aria-label={t('editor.templates')}
-              sx={{ p: '4px' }}
-            >
-              <TemplateIcon sx={{ fontSize: 18 }} />
-            </IconButton>
-          </Tooltip>
-          <Menu
-            anchorEl={templateMenuAnchor}
-            open={Boolean(templateMenuAnchor)}
-            onClose={() => setTemplateMenuAnchor(null)}
-            slotProps={{
-              paper: {
-                sx: {
-                  bgcolor: 'background.paper',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  minWidth: 200,
-                },
-              },
-            }}
-          >
-            {SQL_TEMPLATES.map((tpl) => (
-              <MenuItem key={tpl.label} onClick={() => insertTemplate(tpl)}>
-                <ListItemText
-                  primary={tpl.label}
-                  primaryTypographyProps={{ fontSize: '0.8rem', fontFamily: 'monospace' }}
-                />
-              </MenuItem>
-            ))}
-          </Menu>
           <Tooltip title={isImproving ? t('editor.improving') : t('editor.improveTooltip')}>
             <span>
               <IconButton
@@ -1025,17 +992,17 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
               </IconButton>
             </span>
           </Tooltip>
+          <Tooltip title={t('editor.formatTooltip')}>
+            <span>
+              <IconButton onClick={formatQuery} disabled={!query.trim()} size="small" aria-label={t('editor.formatAria')} sx={{ p: '4px' }}>
+                <TemplateIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </span>
+          </Tooltip>
           <Tooltip title={t('editor.copyTooltip')}>
             <span>
               <IconButton onClick={copyQuery} disabled={!query.trim()} size="small" aria-label={t('editor.copyAria')} sx={{ p: '4px' }}>
                 <CopyIcon sx={{ fontSize: 18 }} />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Tooltip title={t('editor.formatTooltip')}>
-            <span>
-              <IconButton onClick={formatQuery} disabled={!query.trim()} size="small" aria-label={t('editor.formatAria')} sx={{ p: '4px' }}>
-                <FormatIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </span>
           </Tooltip>

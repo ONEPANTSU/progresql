@@ -272,13 +272,13 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
         1: 'h5', 2: 'h6', 3: 'subtitle1', 4: 'subtitle2',
       };
       elements.push(
-        <Typography key={i} variant={variants[level] || 'subtitle1'} sx={{ fontWeight: 'bold', mt: 1.5, mb: 0.5, color: 'primary.main' }}>
+        <Typography key={i} variant={variants[level] || 'subtitle1'} sx={{ fontWeight: 'bold', mt: 1, mb: 0.25, color: 'primary.main' }}>
           {processInlineFormatting(headingMatch[2])}
         </Typography>
       );
     } else if (line.startsWith('**') && line.endsWith('**')) {
       elements.push(
-        <Typography key={i} variant="h6" sx={{ fontWeight: 'bold', mt: 2, mb: 1, color: 'primary.main' }}>
+        <Typography key={i} variant="h6" sx={{ fontWeight: 'bold', mt: 1, mb: 0.25, color: 'primary.main' }}>
           {line.slice(2, -2)}
         </Typography>
       );
@@ -286,7 +286,7 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
       const content = line.replace(/^\s*[-*\u2022]\s*/, '').trim();
       const indent = (line.match(/^(\s*)/) || ['', ''])[1].length;
       elements.push(
-        <Typography key={i} variant="body2" sx={{ ml: 2 + indent / 2, mb: 0.5, display: 'flex', alignItems: 'flex-start' }}>
+        <Typography key={i} variant="body2" sx={{ ml: 2 + indent / 2, mb: 0.25, display: 'flex', alignItems: 'flex-start' }}>
           <span style={{ marginRight: '8px' }}>{'\u2022'}</span>
           <span>{processInlineFormatting(content)}</span>
         </Typography>
@@ -296,7 +296,7 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
       if (numMatch) {
         const indent = (line.match(/^(\s*)/) || ['', ''])[1].length;
         elements.push(
-          <Typography key={i} variant="body2" sx={{ ml: 2 + indent / 2, mb: 0.5, display: 'flex', alignItems: 'flex-start' }}>
+          <Typography key={i} variant="body2" sx={{ ml: 2 + indent / 2, mb: 0.25, display: 'flex', alignItems: 'flex-start' }}>
             <span style={{ marginRight: '8px', minWidth: '1.2em' }}>{numMatch[1]}.</span>
             <span>{processInlineFormatting(numMatch[2])}</span>
           </Typography>
@@ -359,12 +359,12 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
       );
     } else if (line.trim()) {
       elements.push(
-        <Typography key={i} variant="body2" sx={{ mb: 1, lineHeight: 1.6 }}>
+        <Typography key={i} variant="body2" sx={{ mb: 0.4, lineHeight: 1.5 }}>
           {processInlineFormatting(line)}
         </Typography>
       );
     } else {
-      elements.push(<br key={i} />);
+      // skip empty lines — spacing handled by mb on elements
     }
   }
 
