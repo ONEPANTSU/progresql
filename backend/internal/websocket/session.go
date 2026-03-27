@@ -180,6 +180,12 @@ func (s *Session) Close() error {
 // Send enqueues a pre-marshaled message for writing to the WebSocket.
 // Returns false if the session is closed or the send buffer is full.
 func (s *Session) Send(data []byte) bool {
+	// Priority check: always prefer the closed signal over the buffer.
+	select {
+	case <-s.done:
+		return false
+	default:
+	}
 	select {
 	case <-s.done:
 		return false
