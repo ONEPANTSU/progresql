@@ -97,7 +97,7 @@ interface DatabasePanelProps {
   onSelectProcedure: (procedureName: string) => void;
   onAnalyzeSchema?: () => void;
   onExplainObject?: (objectName: string, objectType: string, definition?: string) => void;
-  onQueryTable?: (tableName: string) => void;
+  onQueryTable?: (tableName: string, connectionId?: string) => void;
   onApplySQL?: (sql: string) => void;
   onExecuteSQL?: (sql: string) => Promise<{ success: boolean; message?: string }>;
   onRefreshData?: () => void;
@@ -135,6 +135,7 @@ const sectionSummarySx = {
   '&:hover': { bgcolor: 'action.hover' },
   '& .MuiAccordionSummary-content': {
     my: 0,
+    display: 'flex',
     alignItems: 'center',
   },
 } as const;
@@ -439,15 +440,15 @@ export default function DatabasePanel({
 
   // --- Object context menu state ---
   const [objectMenuPosition, setObjectMenuPosition] = useState<{ top: number; left: number } | null>(null);
-  const [contextMenuObject, setContextMenuObject] = useState<{ element: any; type: string; schemaName?: string } | null>(null);
+  const [contextMenuObject, setContextMenuObject] = useState<{ element: any; type: string; schemaName?: string; connectionId?: string } | null>(null);
   const objectMenuPaperRef = useRef<HTMLDivElement | null>(null);
 
-  const handleObjectContextMenu = (e: React.MouseEvent, element: any, type: string, schemaName?: string) => {
+  const handleObjectContextMenu = (e: React.MouseEvent, element: any, type: string, schemaName?: string, connectionId?: string) => {
     e.preventDefault();
     e.stopPropagation();
     // Directly set new position and context — React batches these so menu repositions seamlessly
     setObjectMenuPosition({ top: e.clientY, left: e.clientX });
-    setContextMenuObject({ element, type, schemaName });
+    setContextMenuObject({ element, type, schemaName, connectionId });
   };
 
   const handleObjectMenuClose = () => {
@@ -500,7 +501,7 @@ export default function DatabasePanel({
 
   const handleObjectMenuAction = (action: string) => {
     if (!contextMenuObject) return;
-    const { element, type, schemaName } = contextMenuObject;
+    const { element, type, schemaName, connectionId } = contextMenuObject;
     const name = getObjectName(element, type);
     const qualifiedName = schemaName ? `${schemaName}.${name}` : name;
 
@@ -597,7 +598,7 @@ export default function DatabasePanel({
         break;
       case 'select_top':
         if (onQueryTable) {
-          onQueryTable(`"${schemaName || 'public'}"."${name}"`);
+          onQueryTable(`"${schemaName || 'public'}"."${name}"`, connectionId);
         }
         break;
       case 'drop_schema':
@@ -866,7 +867,7 @@ export default function DatabasePanel({
                       onSwitchDatabase(connection.id, availDb.name);
                     }
                   }}
-                  onContextMenu={isActiveDb && schemaDatabase ? (e) => handleObjectContextMenu(e, { ...schemaDatabase, _connectionId: connection.id }, 'database') : undefined}
+                  onContextMenu={isActiveDb && schemaDatabase ? (e) => handleObjectContextMenu(e, { ...schemaDatabase, _connectionId: connection.id }, 'database', connection.id) : undefined}
                   sx={{
                     py: 0.125,
                     px: 1,
@@ -905,7 +906,7 @@ export default function DatabasePanel({
                       <Box key={schema.schema_name}>
                         <ListItemButton
                           onClick={() => toggleSchemaExpansion(connection.id, schema.schema_name)}
-                          onContextMenu={(e) => handleObjectContextMenu(e, schema, 'schema')}
+                          onContextMenu={(e) => handleObjectContextMenu(e, schema, 'schema', undefined, connection.id)}
                           sx={{
                             py: 0.125,
                             px: 1,
@@ -956,7 +957,7 @@ export default function DatabasePanel({
                                 <AccordionSummary
                                   expandIcon={<ExpandMoreIcon sx={{ fontSize: LEAF_ICON_SIZE }} />}
                                   sx={sectionSummarySx}
-                                  onContextMenu={(e) => handleObjectContextMenu(e, { schema_name: schema.schema_name }, 'section_tables', schema.schema_name)}
+                                  onContextMenu={(e) => handleObjectContextMenu(e, { schema_name: schema.schema_name }, 'section_tables', schema.schema_name, connection.id)}
                                 >
                                   <TablesListIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: '#3b82f6' }} />
                                   <Typography sx={sectionHeaderTypography}>
@@ -979,7 +980,7 @@ export default function DatabasePanel({
                                               <ListItem disablePadding>
                                                 <ListItemButton
                                                   onClick={() => toggleTableDetailsExpansion(connection.id, tableKey)}
-                                                  onContextMenu={(e) => handleObjectContextMenu(e, table, 'table', schema.schema_name)}
+                                                  onContextMenu={(e) => handleObjectContextMenu(e, table, 'table', schema.schema_name, connection.id)}
                                                   sx={treeItemSx}
                                                 >
                                                 <ListItemIcon sx={{ minWidth: '18px' }}>
@@ -1014,7 +1015,7 @@ export default function DatabasePanel({
                                                     <AccordionSummary
                                                       expandIcon={<ExpandMoreIcon sx={{ fontSize: DETAIL_ICON_SIZE }} />}
                                                       sx={sectionSummarySx}
-                                                      onContextMenu={(e) => handleObjectContextMenu(e, { _tableName: table.table_name }, 'section_columns', schema.schema_name)}
+                                                      onContextMenu={(e) => handleObjectContextMenu(e, { _tableName: table.table_name }, 'section_columns', schema.schema_name, connection.id)}
                                                     >
                                                       <ColumnIcon sx={{ fontSize: DETAIL_ICON_SIZE, mr: 0.5, color: '#3b82f6' }} />
                                                       <Typography sx={sectionHeaderTypography}>
@@ -1031,7 +1032,7 @@ export default function DatabasePanel({
                                                         {table.columns.map((column, colIndex) => (
                                                           <ListItem key={`${column.column_name}-${colIndex}`} disablePadding>
                                                             <ListItemButton
-                                                              onContextMenu={(e) => handleObjectContextMenu(e, { ...column, _tableName: table.table_name }, 'column', schema.schema_name)}
+                                                              onContextMenu={(e) => handleObjectContextMenu(e, { ...column, _tableName: table.table_name }, 'column', schema.schema_name, connection.id)}
                                                               sx={leafItemSx}
                                                             >
                                                               <ListItemIcon sx={{ minWidth: '16px' }}>
@@ -1059,7 +1060,7 @@ export default function DatabasePanel({
                                                     <AccordionSummary
                                                       expandIcon={<ExpandMoreIcon sx={{ fontSize: DETAIL_ICON_SIZE }} />}
                                                       sx={sectionSummarySx}
-                                                      onContextMenu={(e) => handleObjectContextMenu(e, { _tableName: table.table_name }, 'section_indexes', schema.schema_name)}
+                                                      onContextMenu={(e) => handleObjectContextMenu(e, { _tableName: table.table_name }, 'section_indexes', schema.schema_name, connection.id)}
                                                     >
                                                       <IndexIcon sx={{ fontSize: DETAIL_ICON_SIZE, mr: 0.5, color: '#f59e0b' }} />
                                                       <Typography sx={sectionHeaderTypography}>
@@ -1076,7 +1077,7 @@ export default function DatabasePanel({
                                                         {table.indexes.map((index, idxIndex) => (
                                                           <ListItem key={`${index.index_name}-${idxIndex}`} disablePadding>
                                                             <ListItemButton
-                                                              onContextMenu={(e) => handleObjectContextMenu(e, { ...index, _tableName: table.table_name }, 'index', schema.schema_name)}
+                                                              onContextMenu={(e) => handleObjectContextMenu(e, { ...index, _tableName: table.table_name }, 'index', schema.schema_name, connection.id)}
                                                               sx={leafItemSx}
                                                             >
                                                               <ListItemIcon sx={{ minWidth: '16px' }}>
@@ -1104,7 +1105,7 @@ export default function DatabasePanel({
                                                     <AccordionSummary
                                                       expandIcon={<ExpandMoreIcon sx={{ fontSize: DETAIL_ICON_SIZE }} />}
                                                       sx={sectionSummarySx}
-                                                      onContextMenu={(e) => handleObjectContextMenu(e, { _tableName: table.table_name }, 'section_constraints', schema.schema_name)}
+                                                      onContextMenu={(e) => handleObjectContextMenu(e, { _tableName: table.table_name }, 'section_constraints', schema.schema_name, connection.id)}
                                                     >
                                                       <ConstraintIcon sx={{ fontSize: DETAIL_ICON_SIZE, mr: 0.5, color: '#ec4899' }} />
                                                       <Typography sx={sectionHeaderTypography}>
@@ -1121,7 +1122,7 @@ export default function DatabasePanel({
                                                         {table.constraints.map((constraint, constIndex) => (
                                                           <ListItem key={`${constraint.constraint_name}-${constIndex}`} disablePadding>
                                                             <ListItemButton
-                                                              onContextMenu={(e) => handleObjectContextMenu(e, { ...constraint, _tableName: table.table_name }, 'constraint', schema.schema_name)}
+                                                              onContextMenu={(e) => handleObjectContextMenu(e, { ...constraint, _tableName: table.table_name }, 'constraint', schema.schema_name, connection.id)}
                                                               sx={leafItemSx}
                                                             >
                                                               <ListItemIcon sx={{ minWidth: '16px' }}>
@@ -1149,7 +1150,7 @@ export default function DatabasePanel({
                                                     <AccordionSummary
                                                       expandIcon={<ExpandMoreIcon sx={{ fontSize: DETAIL_ICON_SIZE }} />}
                                                       sx={sectionSummarySx}
-                                                      onContextMenu={(e) => handleObjectContextMenu(e, { _tableName: table.table_name }, 'section_triggers', schema.schema_name)}
+                                                      onContextMenu={(e) => handleObjectContextMenu(e, { _tableName: table.table_name }, 'section_triggers', schema.schema_name, connection.id)}
                                                     >
                                                       <TriggerIcon sx={{ fontSize: DETAIL_ICON_SIZE, mr: 0.5, color: '#ef4444' }} />
                                                       <Typography sx={sectionHeaderTypography}>
@@ -1166,7 +1167,7 @@ export default function DatabasePanel({
                                                         {table.triggers.map((trigger, trigIndex) => (
                                                           <ListItem key={`${trigger.trigger_name}-${trigIndex}`} disablePadding>
                                                             <ListItemButton
-                                                              onContextMenu={(e) => handleObjectContextMenu(e, { ...trigger, _tableName: table.table_name }, 'trigger', schema.schema_name)}
+                                                              onContextMenu={(e) => handleObjectContextMenu(e, { ...trigger, _tableName: table.table_name }, 'trigger', schema.schema_name, connection.id)}
                                                               sx={leafItemSx}
                                                             >
                                                               <ListItemIcon sx={{ minWidth: '16px' }}>
@@ -1203,7 +1204,7 @@ export default function DatabasePanel({
                                 <AccordionSummary
                                   expandIcon={<ExpandMoreIcon sx={{ fontSize: LEAF_ICON_SIZE }} />}
                                   sx={sectionSummarySx}
-                                  onContextMenu={(e) => handleObjectContextMenu(e, { schema_name: schema.schema_name }, 'section_views', schema.schema_name)}
+                                  onContextMenu={(e) => handleObjectContextMenu(e, { schema_name: schema.schema_name }, 'section_views', schema.schema_name, connection.id)}
                                 >
                                   <ViewIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: '#a78bfa' }} />
                                   <Typography sx={sectionHeaderTypography}>
@@ -1222,7 +1223,7 @@ export default function DatabasePanel({
                                       .map((view, index) => (
                                         <ListItem key={`${view.view_name}-${index}`} disablePadding>
                                           <ListItemButton
-                                            onContextMenu={(e) => handleObjectContextMenu(e, view, 'view', schema.schema_name)}
+                                            onContextMenu={(e) => handleObjectContextMenu(e, view, 'view', schema.schema_name, connection.id)}
                                             sx={treeItemSx}
                                           >
                                             <ListItemIcon sx={{ minWidth: '18px' }}>
@@ -1250,7 +1251,7 @@ export default function DatabasePanel({
                                 <AccordionSummary
                                   expandIcon={<ExpandMoreIcon sx={{ fontSize: LEAF_ICON_SIZE }} />}
                                   sx={sectionSummarySx}
-                                  onContextMenu={(e) => handleObjectContextMenu(e, { schema_name: schema.schema_name }, 'section_functions', schema.schema_name)}
+                                  onContextMenu={(e) => handleObjectContextMenu(e, { schema_name: schema.schema_name }, 'section_functions', schema.schema_name, connection.id)}
                                 >
                                   <FunctionIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: '#22c55e' }} />
                                   <Typography sx={sectionHeaderTypography}>
@@ -1269,7 +1270,7 @@ export default function DatabasePanel({
                                       .map((func, index) => (
                                         <ListItem key={`${func.routine_name}-${index}`} disablePadding>
                                           <ListItemButton
-                                            onContextMenu={(e) => handleObjectContextMenu(e, func, 'function', schema.schema_name)}
+                                            onContextMenu={(e) => handleObjectContextMenu(e, func, 'function', schema.schema_name, connection.id)}
                                             sx={treeItemSx}
                                           >
                                             <ListItemIcon sx={{ minWidth: '18px' }}>
@@ -1315,7 +1316,7 @@ export default function DatabasePanel({
                                       .map((proc, index) => (
                                         <ListItem key={`${proc.procedure_name}-${index}`} disablePadding>
                                           <ListItemButton
-                                            onContextMenu={(e) => handleObjectContextMenu(e, proc, 'procedure', schema.schema_name)}
+                                            onContextMenu={(e) => handleObjectContextMenu(e, proc, 'procedure', schema.schema_name, connection.id)}
                                             sx={treeItemSx}
                                           >
                                             <ListItemIcon sx={{ minWidth: '18px' }}>
@@ -1346,7 +1347,7 @@ export default function DatabasePanel({
                                 <AccordionSummary
                                   expandIcon={<ExpandMoreIcon sx={{ fontSize: LEAF_ICON_SIZE }} />}
                                   sx={sectionSummarySx}
-                                  onContextMenu={(e) => handleObjectContextMenu(e, { schema_name: schema.schema_name }, 'section_sequences', schema.schema_name)}
+                                  onContextMenu={(e) => handleObjectContextMenu(e, { schema_name: schema.schema_name }, 'section_sequences', schema.schema_name, connection.id)}
                                 >
                                   <SequenceIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: '#94a3b8' }} />
                                   <Typography sx={sectionHeaderTypography}>
@@ -1364,7 +1365,7 @@ export default function DatabasePanel({
                                       .filter(s => s.sequence_schema === schema.schema_name)
                                       .map((seq, index) => (
                                         <ListItem key={`${seq.sequence_name}-${index}`} disablePadding>
-                                          <ListItemButton sx={treeItemSx} onContextMenu={(e) => handleObjectContextMenu(e, seq, 'sequence', schema.schema_name)}>
+                                          <ListItemButton sx={treeItemSx} onContextMenu={(e) => handleObjectContextMenu(e, seq, 'sequence', schema.schema_name, connection.id)}>
                                             <ListItemIcon sx={{ minWidth: '18px' }}>
                                               <SequenceIcon sx={{ fontSize: LEAF_ICON_SIZE, color: '#94a3b8' }} />
                                             </ListItemIcon>
@@ -1390,7 +1391,7 @@ export default function DatabasePanel({
                                 <AccordionSummary
                                   expandIcon={<ExpandMoreIcon sx={{ fontSize: LEAF_ICON_SIZE }} />}
                                   sx={sectionSummarySx}
-                                  onContextMenu={(e) => handleObjectContextMenu(e, {}, 'section_extensions', schema.schema_name)}
+                                  onContextMenu={(e) => handleObjectContextMenu(e, {}, 'section_extensions', schema.schema_name, connection.id)}
                                 >
                                   <ExtensionIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: '#f472b6' }} />
                                   <Typography sx={sectionHeaderTypography}>
@@ -1406,7 +1407,7 @@ export default function DatabasePanel({
                                   <List dense disablePadding>
                                     {schemaDatabase.extensions.map((ext, index) => (
                                       <ListItem key={`${ext.name}-${index}`} disablePadding>
-                                        <ListItemButton sx={treeItemSx} onContextMenu={(e) => handleObjectContextMenu(e, ext, 'extension')}>
+                                        <ListItemButton sx={treeItemSx} onContextMenu={(e) => handleObjectContextMenu(e, ext, 'extension', undefined, connection.id)}>
                                             <ListItemIcon sx={{ minWidth: '18px' }}>
                                               <ExtensionIcon sx={{ fontSize: LEAF_ICON_SIZE, color: '#f472b6' }} />
                                             </ListItemIcon>
@@ -1416,7 +1417,7 @@ export default function DatabasePanel({
                                           />
                                         </ListItemButton>
                                       </ListItem>
-                                    ))}
+                                    , connection.id))}
                                   </List>
                                 </AccordionDetails>
                               </Accordion>
@@ -1435,7 +1436,7 @@ export default function DatabasePanel({
                                 <AccordionSummary
                                   expandIcon={<ExpandMoreIcon sx={{ fontSize: LEAF_ICON_SIZE }} />}
                                   sx={sectionSummarySx}
-                                  onContextMenu={(e) => handleObjectContextMenu(e, { schema_name: schema.schema_name }, 'section_types', schema.schema_name)}
+                                  onContextMenu={(e) => handleObjectContextMenu(e, { schema_name: schema.schema_name }, 'section_types', schema.schema_name, connection.id)}
                                 >
                                   <TypeIcon sx={{ fontSize: LEAF_ICON_SIZE, mr: 0.5, color: '#06b6d4' }} />
                                   <Typography sx={sectionHeaderTypography}>
@@ -1452,7 +1453,7 @@ export default function DatabasePanel({
                                     {(schemaDatabase.types?.filter(t => t.schema === schema.schema_name && !t.name.startsWith('_')) || [])
                                       .map((type, index) => (
                                         <ListItem key={`${type.name}-${index}`} disablePadding>
-                                          <ListItemButton sx={treeItemSx} onContextMenu={(e) => handleObjectContextMenu(e, type, 'type', schema.schema_name)}>
+                                          <ListItemButton sx={treeItemSx} onContextMenu={(e) => handleObjectContextMenu(e, type, 'type', schema.schema_name, connection.id)}>
                                             <ListItemIcon sx={{ minWidth: '18px' }}>
                                               <TypeIcon sx={{ fontSize: LEAF_ICON_SIZE, color: '#06b6d4' }} />
                                             </ListItemIcon>
@@ -1482,7 +1483,7 @@ export default function DatabasePanel({
               <Box key={database.name}>
                 <ListItemButton
                   onClick={() => toggleDatabaseExpansion(connection.id, database.name)}
-                  onContextMenu={(e) => handleObjectContextMenu(e, { ...database, _connectionId: connection.id }, 'database')}
+                  onContextMenu={(e) => handleObjectContextMenu(e, { ...database, _connectionId: connection.id }, 'database', connection.id)}
                   sx={{ py: 0.125, px: 1, minHeight: '26px', height: '26px', borderRadius: 1, mx: 0.5, mb: 0.25, '&:hover': { bgcolor: 'action.hover' } }}
                 >
                   <ListItemIcon sx={{ minWidth: '20px' }}>

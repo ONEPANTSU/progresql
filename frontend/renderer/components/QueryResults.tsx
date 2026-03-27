@@ -123,6 +123,9 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
   // Inline editing
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; fieldName: string } | null>(null);
   const [editValue, setEditValue] = useState('');
+  // Pending edits (batched, committed on "Save changes")
+  const [pendingEdits, setPendingEdits] = useState<Map<string, { rowIndex: number; fieldName: string; newValue: string; row: any }>>(new Map());
+  const [isSavingEdits, setIsSavingEdits] = useState(false);
   // Row selection & deletion
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState<boolean>(false);
@@ -145,6 +148,7 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
       setEditingCell(null);
       setIsAddingRow(false);
       setSelectedRows(new Set());
+      setPendingEdits(new Map());
       setSortField(null);
     }
   }, [result]);
@@ -239,31 +243,46 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
     setEditValue('');
   }, []);
 
-  const handleEditSave = useCallback(async () => {
-    if (!editingCell || !result || !queryInfo.table) return;
+  const handleEditSave = useCallback(() => {
+    if (!editingCell || !result) return;
     const row = sortedRows[editingCell.rowIndex];
     if (!row) return;
 
-    const newVal = editValue === '' ? 'NULL' : formatSQLValue(editValue);
-    const where = buildWhereClause(row, result.fields);
-    const tbl = qualifiedTable(queryInfo.schema, queryInfo.table);
-    const sql = `UPDATE ${tbl} SET ${quoteIdentifier(editingCell.fieldName)} = ${newVal} WHERE ctid = (SELECT ctid FROM ${tbl} WHERE ${where} LIMIT 1)`;
-
-    // Use onMutateQuery for silent UPDATE (doesn't reset UI), fall back to onExecuteQuery
-    if (onMutateQuery) {
-      const res = await onMutateQuery(sql);
-      if (!res.success) return; // UPDATE failed, keep editing state
-    } else if (onExecuteQuery) {
-      await onExecuteQuery(sql);
-    } else {
-      return;
-    }
-
-    // Re-run original query to refresh the table
-    if (executedQuery && onExecuteQuery) await onExecuteQuery(executedQuery);
+    const key = `${editingCell.rowIndex}:${editingCell.fieldName}`;
+    setPendingEdits(prev => {
+      const next = new Map(prev);
+      next.set(key, { rowIndex: editingCell.rowIndex, fieldName: editingCell.fieldName, newValue: editValue, row });
+      return next;
+    });
     setEditingCell(null);
     setEditValue('');
-  }, [editingCell, editValue, result, sortedRows, queryInfo, onExecuteQuery, onMutateQuery, executedQuery]);
+  }, [editingCell, editValue, result, sortedRows]);
+
+  const handleCommitEdits = useCallback(async () => {
+    if (!result || !queryInfo.table || pendingEdits.size === 0) return;
+    setIsSavingEdits(true);
+    const tbl = qualifiedTable(queryInfo.schema, queryInfo.table);
+    for (const { rowIndex, fieldName, newValue, row } of pendingEdits.values()) {
+      const newVal = newValue === '' ? 'NULL' : formatSQLValue(newValue);
+      const where = buildWhereClause(row, result.fields);
+      const sql = `UPDATE ${tbl} SET ${quoteIdentifier(fieldName)} = ${newVal} WHERE ctid = (SELECT ctid FROM ${tbl} WHERE ${where} LIMIT 1)`;
+      if (onMutateQuery) {
+        const res = await onMutateQuery(sql);
+        if (!res.success) { setIsSavingEdits(false); return; }
+      } else if (onExecuteQuery) {
+        await onExecuteQuery(sql);
+      }
+    }
+    setPendingEdits(new Map());
+    setIsSavingEdits(false);
+    if (executedQuery && onExecuteQuery) await onExecuteQuery(executedQuery);
+  }, [pendingEdits, result, queryInfo, onMutateQuery, onExecuteQuery, executedQuery]);
+
+  const handleDiscardEdits = useCallback(() => {
+    setPendingEdits(new Map());
+    setEditingCell(null);
+    setEditValue('');
+  }, []);
 
   // --- Row selection ---
   const handleToggleRow = useCallback((rowIndex: number) => {
@@ -391,6 +410,32 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
             Query Results
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {canMutate && pendingEdits.size > 0 && (
+              <>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="success"
+                  startIcon={<CheckIcon />}
+                  onClick={handleCommitEdits}
+                  disabled={isSavingEdits}
+                  sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                >
+                  {t('results.saveChanges')} ({pendingEdits.size})
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={<CloseIcon />}
+                  onClick={handleDiscardEdits}
+                  disabled={isSavingEdits}
+                  sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                >
+                  {t('results.discardChanges')}
+                </Button>
+              </>
+            )}
             {canMutate && selectedRows.size > 0 && (
               <Button
                 size="small"
@@ -571,6 +616,8 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
                       )}
                       {orderedFields.map((field, colIndex) => {
                         const isEditing = editingCell?.rowIndex === globalRowIndex && editingCell?.fieldName === field.name;
+                        const pendingKey = `${globalRowIndex}:${field.name}`;
+                        const isPending = pendingEdits.has(pendingKey);
                         return (
                           <TableCell
                             key={`${field.name}-${colIndex}`}
@@ -582,42 +629,36 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
                               minWidth: 60,
                               maxWidth: columnWidths[field.name] || 300,
                               overflow: 'hidden',
+                              ...(isPending && { bgcolor: 'rgba(99, 102, 241, 0.08)', outline: '1px solid rgba(99, 102, 241, 0.3)' }),
                             }}
                           >
                             {isEditing ? (
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 200 }}>
-                                <TextField
-                                  value={editValue}
-                                  onChange={(e) => setEditValue(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleEditSave();
-                                    if (e.key === 'Escape') handleEditCancel();
-                                  }}
-                                  size="small"
-                                  autoFocus
-                                  variant="standard"
-                                  sx={{ flex: 1, minWidth: 120, '& input': { fontSize: '0.875rem', py: 0 } }}
-                                />
-                                <IconButton size="small" onClick={handleEditSave} color="success" sx={{ p: 0.25 }}>
-                                  <CheckIcon sx={{ fontSize: 16 }} />
-                                </IconButton>
-                                <IconButton size="small" onClick={handleEditCancel} color="error" sx={{ p: 0.25 }}>
-                                  <CloseIcon sx={{ fontSize: 16 }} />
-                                </IconButton>
-                              </Box>
+                              <TextField
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleEditSave();
+                                  if (e.key === 'Escape') handleEditCancel();
+                                }}
+                                onBlur={handleEditSave}
+                                size="small"
+                                autoFocus
+                                variant="standard"
+                                sx={{ width: '100%', '& input': { fontSize: '0.875rem', py: 0 } }}
+                              />
                             ) : (
-                              <Tooltip title={formatValue(row[field.name])} placement="top">
+                              <Tooltip title={isPending ? pendingEdits.get(pendingKey)!.newValue : formatValue(row[field.name])} placement="top">
                                 <Box sx={{
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
                                   maxWidth: '100%',
                                   cursor: canMutate ? 'text' : 'pointer',
-                                  color: (row[field.name] === null || row[field.name] === undefined) ? 'text.disabled' : 'inherit',
-                                  fontStyle: (row[field.name] === null || row[field.name] === undefined) ? 'italic' : 'normal',
+                                  color: isPending ? 'primary.main' : (row[field.name] === null || row[field.name] === undefined) ? 'text.disabled' : 'inherit',
+                                  fontStyle: (row[field.name] === null || row[field.name] === undefined) && !isPending ? 'italic' : 'normal',
                                   '&:hover': { color: 'primary.main' },
                                 }}>
-                                  {formatValue(row[field.name])}
+                                  {isPending ? pendingEdits.get(pendingKey)!.newValue || 'NULL' : formatValue(row[field.name])}
                                 </Box>
                               </Tooltip>
                             )}

@@ -714,7 +714,16 @@ export default function Home() {
     }
   };
 
-  const handleQueryTable = (tableName: string) => {
+  const handleQueryTable = (tableName: string, connectionId?: string) => {
+    // Switch editor connection to match the source connection
+    if (connectionId && connectionId !== editorConnectionId) {
+      setEditorConnectionId(connectionId);
+      const targetConn = connections.find(c => c.id === connectionId);
+      if (targetConn) {
+        setActiveConnection(targetConn);
+        window.electronAPI?.setActiveClient?.(connectionId);
+      }
+    }
     // If it's already a full SQL statement (DDL/DML), use as-is
     const isDDL = /^\s*(CREATE|DROP|ALTER|INSERT|UPDATE|DELETE|TRUNCATE|GRANT|REVOKE)\s/i.test(tableName);
     const query = isDDL ? tableName : `SELECT * FROM ${tableName}\n  LIMIT 100;`;
