@@ -104,7 +104,7 @@ test.describe.serial('Settings Panel and Keyboard Shortcuts', () => {
     await registerAndLogin(ctx.page, {
       name: 'Settings Tester',
       email: `settings.test.${Date.now()}@test.local`,
-      password: 'SettingsPass123',
+      password: 'SettingsPass123!',
     });
 
     await ctx.page.waitForTimeout(2000);
@@ -127,7 +127,7 @@ test.describe.serial('Settings Panel and Keyboard Shortcuts', () => {
 
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, 'settings-01-db-connected.png') });
 
-    await expect(page.getByText(/ProgreSQL/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: /ProgreSQL/i }).first()).toBeVisible({ timeout: 10_000 });
     console.log('[Test 01] App launched and DB connection attempted.');
   });
 
@@ -746,7 +746,7 @@ test.describe.serial('Settings Panel and Keyboard Shortcuts', () => {
         await page.keyboard.press('Escape');
         await page.waitForTimeout(300);
         // App should still be running
-        await expect(page.getByText(/ProgreSQL/i)).toBeVisible({ timeout: 5000 });
+        await expect(page.getByRole('heading', { name: /ProgreSQL/i }).first()).toBeVisible({ timeout: 5000 });
         return;
       }
     }
@@ -771,7 +771,7 @@ test.describe.serial('Settings Panel and Keyboard Shortcuts', () => {
     }
 
     // Verify the app is still functional
-    await expect(page.getByText(/ProgreSQL/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('heading', { name: /ProgreSQL/i }).first()).toBeVisible({ timeout: 5000 });
     console.log('[Test 13] App still functional after Escape key press.');
   });
 
@@ -790,14 +790,14 @@ test.describe.serial('Settings Panel and Keyboard Shortcuts', () => {
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, 'settings-14b-after-f5.png') });
 
     // The app should still be running and showing content
-    const isStillLoaded = await page.getByText(/ProgreSQL/i).isVisible({ timeout: 10_000 }).catch(() => false);
+    const isStillLoaded = await page.locator('h1,h2,h3,h4,h5,h6').filter({hasText:/ProgreSQL/i}).first().isVisible({ timeout: 10_000 }).catch(() => false);
 
     if (isStillLoaded) {
       console.log('[Test 14] App remained functional after F5 (page may have reloaded).');
     } else {
       // Wait longer in case of reload
       await page.waitForTimeout(3000);
-      const recoveredAfterReload = await page.getByText(/ProgreSQL/i).isVisible({ timeout: 10_000 }).catch(() => false);
+      const recoveredAfterReload = await page.locator('h1,h2,h3,h4,h5,h6').filter({hasText:/ProgreSQL/i}).first().isVisible({ timeout: 10_000 }).catch(() => false);
       if (recoveredAfterReload) {
         console.log('[Test 14] App reloaded and recovered after F5 press.');
       } else {
@@ -832,7 +832,7 @@ test.describe.serial('Settings Panel and Keyboard Shortcuts', () => {
       await registerAndLogin(page, {
         name: 'Settings Tester Reload',
         email: `settings.reload.${Date.now()}@test.local`,
-        password: 'ReloadPass123',
+        password: 'ReloadPass123!',
       });
       await page.waitForTimeout(2000);
       await connectToTestDB(page);

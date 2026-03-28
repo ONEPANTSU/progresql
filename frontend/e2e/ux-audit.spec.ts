@@ -162,7 +162,7 @@ test.describe('ProgreSQL UX Audit — all screens and states', () => {
     const { page } = ctx;
     currentScreen = 'login';
 
-    await expect(page.getByText(/ProgreSQL/i)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: /ProgreSQL/i }).first()).toBeVisible({ timeout: 15_000 });
     await screenshot(page, '01-login-page');
 
     // Check interactive elements
@@ -172,10 +172,10 @@ test.describe('ProgreSQL UX Audit — all screens and states', () => {
     const passwordField = page.locator('input[type="password"]');
     await expect(passwordField.first()).toBeVisible();
 
-    const loginButton = page.getByRole('button', { name: /войти/i });
+    const loginButton = page.getByRole('button', { name: /войти|sign in/i });
     await expect(loginButton).toBeVisible();
 
-    const registerLink = page.getByRole('link', { name: /зарегистрируйтесь/i });
+    const registerLink = page.getByRole('link', { name: /register|sign up/i });
     await expect(registerLink).toBeVisible();
 
     // Layout check
@@ -192,7 +192,7 @@ test.describe('ProgreSQL UX Audit — all screens and states', () => {
     await page.getByLabel(/email/i).fill('bad@test.local');
     const passwordFields = page.locator('input[type="password"]');
     await passwordFields.first().fill('wrongpassword');
-    await page.getByRole('button', { name: /войти|входим/i }).click();
+    await page.getByRole('button', { name: /войти|sign in/i }).click();
 
     // Wait for error
     await page.waitForTimeout(1000);
@@ -214,7 +214,7 @@ test.describe('ProgreSQL UX Audit — all screens and states', () => {
     currentScreen = 'register';
 
     // Navigate to register
-    const registerLink = page.getByRole('link', { name: /зарегистрируйтесь/i });
+    const registerLink = page.getByRole('link', { name: /register|sign up/i });
     if (await registerLink.isVisible().catch(() => false)) {
       await registerLink.click();
       await page.waitForURL('**/register', { timeout: 5_000 }).catch(() => {});
@@ -224,7 +224,7 @@ test.describe('ProgreSQL UX Audit — all screens and states', () => {
     await screenshot(page, '03-register-page');
 
     // Check form elements
-    const nameField = page.getByLabel(/имя/i);
+    const nameField = page.getByLabel(/name|имя/i).first();
     if (await nameField.isVisible().catch(() => false)) {
       await expect(nameField).toBeVisible();
     }
@@ -242,7 +242,7 @@ test.describe('ProgreSQL UX Audit — all screens and states', () => {
     await registerAndLogin(page, {
       name: 'UX Audit',
       email: 'audit@test.local',
-      password: 'AuditPass123',
+      password: 'AuditPass123!',
     });
 
     await page.waitForTimeout(2000);

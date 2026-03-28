@@ -11,4 +11,11 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   outputDir: './e2e/test-results',
+  // Auto-start the Next.js dev server before E2E tests
+  webServer: {
+    command: 'npm run dev',
+    port: 8888,
+    reuseExistingServer: true,
+    timeout: 60_000,
+  },
 });
