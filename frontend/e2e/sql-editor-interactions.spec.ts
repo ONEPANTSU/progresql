@@ -81,7 +81,7 @@ test.describe.serial('SQL Editor Interactions', () => {
     await registerAndLogin(ctx.page, {
       name: 'SQL Tester',
       email: `sql.editor.${Date.now()}@test.local`,
-      password: 'SqlTestPass123',
+      password: 'SqlTestPass123!',
     });
 
     // Wait for main page to settle
@@ -107,7 +107,7 @@ test.describe.serial('SQL Editor Interactions', () => {
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, 'sql-01-db-connected.png') });
 
     // Verify the main page is visible
-    await expect(page.getByText(/ProgreSQL/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: /ProgreSQL/i }).first()).toBeVisible({ timeout: 10_000 });
 
     // Check no critical connection error is displayed
     const errorAlert = page.locator('[role="alert"]').filter({ hasText: /ошибка|error|failed|connection refused/i });

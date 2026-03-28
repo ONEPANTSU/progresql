@@ -127,7 +127,10 @@ function createWindow() {
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:8888');
-    mainWindow.webContents.openDevTools();
+    // Skip DevTools when running Playwright E2E tests
+    if (!process.env.PLAYWRIGHT_TEST) {
+      mainWindow.webContents.openDevTools();
+    }
   } else {
     // Nextron builds renderer output to 'app/' directory inside the asar
     mainWindow.loadFile(path.join(__dirname, 'app/index.html'));

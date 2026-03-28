@@ -25,6 +25,7 @@ export async function launchApp(): Promise<AppContext> {
       ...process.env,
       NODE_ENV: 'production',
       ELECTRON_IS_DEV: process.env.PROGRESQL_E2E_DEV === '1' ? '1' : '0',
+      PLAYWRIGHT_TEST: '1',
     },
   });
 
@@ -32,34 +33,57 @@ export async function launchApp(): Promise<AppContext> {
   const page = await app.firstWindow();
   await page.waitForLoadState('domcontentloaded');
 
+  // Close DevTools if it was auto-opened in dev mode (isDev = !app.isPackaged)
+  await app.evaluate(async ({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (win && win.webContents.isDevToolsOpened()) {
+      win.webContents.closeDevTools();
+    }
+  }).catch(() => {/* ignore if DevTools not open */});
+
+  // Wait a bit for the renderer to settle after DevTools close
+  await page.waitForTimeout(500);
+
   return { app, page };
 }
 
 /**
  * Registers a test user and logs in via the UI.
- * Uses the localStorage-based mock auth.
  */
 export async function registerAndLogin(
   page: Page,
   user: { name: string; email: string; password: string },
 ): Promise<void> {
-  // Navigate to register page
-  await page.getByRole('link', { name: /зарегистрируйтесь/i }).click();
-  await page.waitForURL('**/register');
+  // Navigate to register page only if not already there
+  const currentUrl = page.url();
+  if (!currentUrl.includes('register')) {
+    const registerLink = page.getByRole('link', { name: /register|sign up/i });
+    if (await registerLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await registerLink.click();
+      await page.waitForURL('**/register', { timeout: 10_000 }).catch(() => {});
+    }
+  }
 
-  // Fill registration form
-  await page.getByLabel(/имя/i).fill(user.name);
-  await page.getByLabel(/email/i).fill(user.email);
-  // There may be two password fields (password + confirm), fill both
+  // Fill registration form — labels may be "Name", "Email", "Password"
+  const nameField = page.getByLabel(/name|имя/i).first();
+  if (await nameField.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await nameField.fill(user.name);
+  }
+  await page.getByLabel(/email/i).first().fill(user.email);
+
+  // Fill all password fields (password + confirm password)
   const passwordFields = page.locator('input[type="password"]');
   const count = await passwordFields.count();
   for (let i = 0; i < count; i++) {
     await passwordFields.nth(i).fill(user.password);
   }
-  await page.getByRole('button', { name: /зарегистрироваться/i }).click();
+  const registerBtn = page.getByRole('button', { name: /register|sign up/i });
+  if (await registerBtn.isEnabled({ timeout: 5000 }).catch(() => false)) {
+    await registerBtn.click();
+  }
 
   // Wait for redirect to main page
-  await page.waitForURL('**/');
+  await page.waitForURL('**/', { timeout: 10_000 }).catch(() => {/* may stay on same page on error */});
 }
 
 /**

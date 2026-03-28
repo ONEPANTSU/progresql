@@ -63,7 +63,7 @@ test.describe.serial('Accessibility Audit', () => {
     await registerAndLogin(page, {
       name: 'A11y Test',
       email: 'a11y@test.com',
-      password: 'testpass123',
+      password: 'Testpass123!',
     });
 
     // Wait for the main page to be ready

@@ -72,7 +72,7 @@ test.describe.serial('Chat Tabs', () => {
     await registerAndLogin(ctx.page, {
       name: 'Chat Tab Tester',
       email: `chat.tabs.${Date.now()}@test.local`,
-      password: 'ChatTabPass123',
+      password: 'ChatTabPass123!',
     });
 
     await ctx.page.waitForTimeout(2000);
@@ -95,7 +95,7 @@ test.describe.serial('Chat Tabs', () => {
 
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, 'chat-01-db-connected.png') });
 
-    await expect(page.getByText(/ProgreSQL/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: /ProgreSQL/i }).first()).toBeVisible({ timeout: 10_000 });
     console.log('[Test 01] App launched and DB connection attempted.');
   });
 
