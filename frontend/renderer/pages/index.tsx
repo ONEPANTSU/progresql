@@ -561,7 +561,9 @@ export default function Home() {
     setEditDialogOpen(true);
   };
 
-  const handleUpdateConnection = (connectionId: string, updatedData: Omit<DatabaseServer, 'id' | 'databases' | 'isActive'>) => {
+  const handleUpdateConnection = async (connectionId: string, updatedData: Omit<DatabaseServer, 'id' | 'databases' | 'isActive'>) => {
+    const existingConn = connections.find(c => c.id === connectionId);
+
     setConnections(prev => prev.map(conn =>
       conn.id === connectionId
         ? { ...conn, ...updatedData }
@@ -575,9 +577,21 @@ export default function Home() {
 
     showSuccess(t('notify.connectionUpdated', { name: updatedData.connectionName }));
 
-    // Auto-reconnect after editing — always try to connect with updated params.
-    // This handles both active connections (reconnect) and disconnected ones (retry).
-    handleConnect(connectionId);
+    // Disconnect first if currently active — ensures fresh connection with new credentials
+    if (existingConn?.isActive) {
+      try { await window.electronAPI.disconnectDatabase(connectionId); } catch (_) { /* ignore */ }
+      setConnections(prev => prev.map(c =>
+        c.id === connectionId ? { ...c, isActive: false, databases: [] } : c
+      ));
+    }
+
+    // Reconnect with updated data directly — avoids stale closure from handleConnect
+    const updatedConnection: DatabaseServer = {
+      ...(existingConn || {} as DatabaseServer),
+      ...updatedData,
+      id: connectionId,
+    };
+    await performConnection(updatedConnection);
   };
 
   const handleCloseEditDialog = () => {

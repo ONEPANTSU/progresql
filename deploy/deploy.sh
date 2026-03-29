@@ -8,7 +8,9 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-SERVER="root@81.200.157.194"
+SSH_KEY="${HOME}/.ssh/progresql_server"
+SSH_OPTS="-i ${SSH_KEY} -o StrictHostKeyChecking=accept-new"
+SERVER="root@progresql.com"
 APP_DIR="/opt/progresql"
 IMAGE_NAME="progresql-backend"
 IMAGE_TAG="latest"
@@ -72,24 +74,24 @@ echo "    Archive size: ${TAR_SIZE}"
 # ---------------------------------------------------------------------------
 step "Copying image to ${SERVER}:${APP_DIR}/..."
 # Ensure destination directory exists
-ssh "${SERVER}" "mkdir -p ${APP_DIR}"
-scp -C "${TAR_FILE}" "${SERVER}:${APP_DIR}/${IMAGE_NAME}.tar"
+ssh ${SSH_OPTS} "${SERVER}" "mkdir -p ${APP_DIR}"
+scp ${SSH_OPTS} -C "${TAR_FILE}" "${SERVER}:${APP_DIR}/${IMAGE_NAME}.tar"
 
 # ---------------------------------------------------------------------------
 # 4. Deploy static files (payment + legal pages) and nginx config
 # ---------------------------------------------------------------------------
 step "Deploying static files and nginx config..."
-ssh "${SERVER}" "mkdir -p /var/www/progresql/payment /var/www/progresql/legal"
-scp static/payment/success.html static/payment/fail.html static/payment/favicon.png "${SERVER}:/var/www/progresql/payment/"
-scp static/legal/*.html "${SERVER}:/var/www/progresql/legal/"
-scp deploy/nginx/progresql.conf "${SERVER}:/etc/nginx/sites-available/progresql"
-ssh "${SERVER}" "ln -sf /etc/nginx/sites-available/progresql /etc/nginx/sites-enabled/progresql && nginx -t && systemctl reload nginx"
+ssh ${SSH_OPTS} "${SERVER}" "mkdir -p /var/www/progresql/payment /var/www/progresql/legal"
+scp ${SSH_OPTS} static/payment/* "${SERVER}:/var/www/progresql/payment/"
+scp ${SSH_OPTS} static/legal/*.html "${SERVER}:/var/www/progresql/legal/"
+scp ${SSH_OPTS} deploy/nginx/progresql.conf "${SERVER}:/etc/nginx/sites-available/progresql"
+ssh ${SSH_OPTS} "${SERVER}" "ln -sf /etc/nginx/sites-available/progresql /etc/nginx/sites-enabled/progresql && nginx -t && systemctl reload nginx"
 
 # ---------------------------------------------------------------------------
 # 5. Load image and restart container on server
 # ---------------------------------------------------------------------------
 step "Loading image and restarting container on server..."
-ssh "${SERVER}" bash -s << REMOTE
+ssh ${SSH_OPTS} "${SERVER}" bash -s << REMOTE
 set -euo pipefail
 
 echo "  >> Loading image..."
