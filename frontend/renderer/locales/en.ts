@@ -412,6 +412,9 @@ const en = {
   'db.addNewConnection': 'Add New Database Connection',
   'db.dropTrigger': 'Drop Trigger',
   'db.restoring': 'Restoring\u2026',
+  'db.deleteConnectionTitle': 'Delete Connection',
+  'db.deleteConnectionConfirm': 'Are you sure you want to delete connection "{name}"?',
+  'db.deleteConnectionButton': 'Delete',
 
   // -- Schema Sync --
   'schemaSync.title': 'Schema Sync',

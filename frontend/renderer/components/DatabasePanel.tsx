@@ -244,6 +244,8 @@ export default function DatabasePanel({
   const [selectedElement, setSelectedElement] = useState<any>(null);
   const [selectedElementType, setSelectedElementType] = useState<string>('');
   const [schemaSyncOpen, setSchemaSyncOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [connectionToDelete, setConnectionToDelete] = useState<DatabaseServer | null>(null);
 
   // Re-sync selectedElement with fresh data from connections after refresh
   useEffect(() => {
@@ -310,7 +312,8 @@ export default function DatabasePanel({
         onEditConnection(selectedConnection);
         break;
       case 'delete':
-        onDeleteConnection(selectedConnection.id);
+        setConnectionToDelete(selectedConnection);
+        setDeleteConfirmOpen(true);
         break;
       case 'refresh':
         onRefreshConnection(selectedConnection.id);
@@ -2168,6 +2171,37 @@ export default function DatabasePanel({
         connections={connections}
         onApplySQL={onApplySQL}
       />
+
+      {/* Delete Connection Confirmation */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => { setDeleteConfirmOpen(false); setConnectionToDelete(null); }}
+      >
+        <DialogTitle>{t('db.deleteConnectionTitle')}</DialogTitle>
+        <DialogContent>
+          <Typography>
+            {t('db.deleteConnectionConfirm', { name: connectionToDelete?.connectionName || '' })}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setDeleteConfirmOpen(false); setConnectionToDelete(null); }}>
+            {t('details.cancel')}
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              if (connectionToDelete) {
+                onDeleteConnection(connectionToDelete.id);
+              }
+              setDeleteConfirmOpen(false);
+              setConnectionToDelete(null);
+            }}
+          >
+            {t('db.deleteConnectionButton')}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
     </Box>
   );

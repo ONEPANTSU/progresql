@@ -17,6 +17,10 @@ frontend/renderer/node_modules/
 # Go
 /vendor/
 
+# Test artifacts
+test-results/
+**/test-results/
+
 # Temp files
 _fix_menu.mjs
 .claude/
