@@ -717,6 +717,7 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
             labelDisplayedRows={({ from, to, count }) =>
               t('results.displayedRows', { from: String(from), to: String(to), count: String(count !== -1 ? count : `>${to}`) })
             }
+            data-testid="query-results-pagination"
             sx={{ borderTop: 1, borderColor: 'divider' }}
           />
         </>

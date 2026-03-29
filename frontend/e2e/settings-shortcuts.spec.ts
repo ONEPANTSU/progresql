@@ -34,9 +34,16 @@ function modifier(): string {
 async function openSettings(ctx: AppContext): Promise<boolean> {
   const { page } = ctx;
 
+  // Dismiss any MUI drawer/modal overlay that may intercept clicks
+  const overlay = page.locator('.MuiDrawer-root .MuiBackdrop-root, .MuiModal-root .MuiBackdrop-root');
+  if (await overlay.isVisible({ timeout: 500 }).catch(() => false)) {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  }
+
   const settingsBtn = page.locator('[aria-label="Open settings"]');
   if (await settingsBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await settingsBtn.click();
+    await settingsBtn.click({ force: true });
     await page.waitForTimeout(600);
     return true;
   }
@@ -127,7 +134,7 @@ test.describe.serial('Settings Panel and Keyboard Shortcuts', () => {
 
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, 'settings-01-db-connected.png') });
 
-    await expect(page.getByRole('heading', { name: /ProgreSQL/i }).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: /Connections|AI Assistant/i }).first()).toBeVisible({ timeout: 10_000 });
     console.log('[Test 01] App launched and DB connection attempted.');
   });
 
@@ -370,25 +377,38 @@ test.describe.serial('Settings Panel and Keyboard Shortcuts', () => {
       await page.waitForTimeout(500);
     }
 
-    // Try to find and click the "execute" security mode option
-    const executeSelectors = [
-      '[value="execute"]',
-      '[data-value="execute"]',
-      'button:has-text("execute")',
-      'label:has-text("execute")',
-      '[aria-label*="execute"]',
-      '[role="radio"]:has-text("execute")',
-    ];
-
+    // Try to find and click the "execute" security mode option via MUI Select combobox
     let executeClicked = false;
-    for (const sel of executeSelectors) {
-      const el = page.locator(sel).first();
-      if (await el.isVisible({ timeout: 1000 }).catch(() => false)) {
-        await el.click();
+
+    const securitySelect = page.locator('[role="combobox"]').filter({ hasText: /execute|safe/i }).first();
+    if (await securitySelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await securitySelect.click();
+      await page.waitForTimeout(300);
+      const executeOption = page.locator('[role="option"]').filter({ hasText: /execute/i }).first();
+      if (await executeOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await executeOption.click();
         await page.waitForTimeout(500);
         executeClicked = true;
-        console.log(`[Test 07] Clicked execute mode option via selector: ${sel}`);
-        break;
+        console.log('[Test 07] Clicked execute mode option via MUI Select combobox.');
+      }
+    }
+
+    // Fallback: try other selectors
+    if (!executeClicked) {
+      const fallbackSelectors = [
+        '[data-value="execute"]',
+        'label:has-text("execute")',
+        '[role="radio"]:has-text("execute")',
+      ];
+      for (const sel of fallbackSelectors) {
+        const el = page.locator(sel).first();
+        if (await el.isVisible({ timeout: 1000 }).catch(() => false)) {
+          await el.click();
+          await page.waitForTimeout(500);
+          executeClicked = true;
+          console.log(`[Test 07] Clicked execute mode option via selector: ${sel}`);
+          break;
+        }
       }
     }
 
@@ -443,25 +463,40 @@ test.describe.serial('Settings Panel and Keyboard Shortcuts', () => {
 
     await page.waitForTimeout(500);
 
-    // Try to find and click the "safe" security mode option
-    const safeSelectors = [
-      '[value="safe"]',
-      '[data-value="safe"]',
-      'button:has-text("safe")',
-      'label:has-text("safe")',
-      '[aria-label*="safe"]',
-      '[role="radio"]:has-text("safe")',
-    ];
-
+    // Try to find and click the "safe" security mode option via MUI Select combobox
     let safeClicked = false;
-    for (const sel of safeSelectors) {
-      const el = page.locator(sel).first();
-      if (await el.isVisible({ timeout: 1000 }).catch(() => false)) {
-        await el.click();
+
+    // MUI Select: click the combobox to open dropdown, then click the "safe" option
+    const securitySelect = page.locator('[role="combobox"]').filter({ hasText: /execute|safe/i }).first();
+    if (await securitySelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await securitySelect.click();
+      await page.waitForTimeout(300);
+      // Click the "safe" option in the dropdown listbox
+      const safeOption = page.locator('[role="option"]').filter({ hasText: /safe/i }).first();
+      if (await safeOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await safeOption.click();
         await page.waitForTimeout(500);
         safeClicked = true;
-        console.log(`[Test 08] Clicked safe mode option via selector: ${sel}`);
-        break;
+        console.log('[Test 08] Clicked safe mode option via MUI Select combobox.');
+      }
+    }
+
+    // Fallback: try radio/label selectors
+    if (!safeClicked) {
+      const fallbackSelectors = [
+        '[data-value="safe"]',
+        'label:has-text("safe")',
+        '[role="radio"]:has-text("safe")',
+      ];
+      for (const sel of fallbackSelectors) {
+        const el = page.locator(sel).first();
+        if (await el.isVisible({ timeout: 1000 }).catch(() => false)) {
+          await el.click();
+          await page.waitForTimeout(500);
+          safeClicked = true;
+          console.log(`[Test 08] Clicked safe mode option via selector: ${sel}`);
+          break;
+        }
       }
     }
 
@@ -746,7 +781,7 @@ test.describe.serial('Settings Panel and Keyboard Shortcuts', () => {
         await page.keyboard.press('Escape');
         await page.waitForTimeout(300);
         // App should still be running
-        await expect(page.getByRole('heading', { name: /ProgreSQL/i }).first()).toBeVisible({ timeout: 5000 });
+        await expect(page.getByRole('heading', { name: /ProgreSQL|Connections|AI Assistant/i }).first()).toBeVisible({ timeout: 5000 });
         return;
       }
     }
@@ -771,7 +806,7 @@ test.describe.serial('Settings Panel and Keyboard Shortcuts', () => {
     }
 
     // Verify the app is still functional
-    await expect(page.getByRole('heading', { name: /ProgreSQL/i }).first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('heading', { name: /ProgreSQL|Connections|AI Assistant/i }).first()).toBeVisible({ timeout: 5000 });
     console.log('[Test 13] App still functional after Escape key press.');
   });
 

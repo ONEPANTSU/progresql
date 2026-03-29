@@ -34,7 +34,7 @@ test.describe('ProgreSQL E2E — first flow', () => {
     });
 
     // After login, the main page should be visible with key UI elements
-    await expect(page.getByRole('heading', { name: /ProgreSQL/i }).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: /Connections|AI Assistant/i }).first()).toBeVisible({ timeout: 10_000 });
   });
 
   test('connect to test database', async () => {
@@ -59,7 +59,8 @@ test.describe('ProgreSQL E2E — first flow', () => {
     const { page } = ctx;
 
     // Find the chat input — it may be a textarea or input in the ChatInput component
-    const chatInput = page.locator('textarea, input[type="text"]').last();
+    // Filter out MUI hidden textareas (aria-hidden="true", readonly, tabindex="-1")
+    const chatInput = page.locator('textarea:not([aria-hidden="true"]):not([readonly]), input[type="text"]').last();
     await expect(chatInput).toBeVisible({ timeout: 5_000 });
 
     // Type a simple message

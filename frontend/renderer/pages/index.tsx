@@ -812,6 +812,13 @@ export default function Home() {
     if (fixInChatBusy.current) return;
     fixInChatBusy.current = true;
     if (!isChatOpen) setIsChatOpen(true);
+
+    // Switch chat's connection to match the editor's connection so the fix context is correct
+    const currentEditorConnId = editorConnectionId ?? activeConnection?.id;
+    if (currentEditorConnId) {
+      chatPanelRef.current?.switchChatConnection(currentEditorConnId);
+    }
+
     const cleanError = errorMsg.replace(/^Error:\s*/i, '');
     const context = `Fix this SQL error:\n\`\`\`sql\n${sqlQuery}\n\`\`\`\nError: ${cleanError}`;
     setTimeout(() => {
@@ -847,7 +854,17 @@ export default function Home() {
       return;
     }
     // Use override (from chat), then active tab's connectionId, then activeConnection
-    const connId = overrideConnectionId ?? sqlTabs.activeTab?.connectionId ?? activeConnection?.id ?? '';
+    let connId = overrideConnectionId ?? sqlTabs.activeTab?.connectionId ?? activeConnection?.id ?? '';
+
+    // Validate the target connection is actually active; fall back to activeConnection if not
+    if (connId) {
+      const targetConn = connections.find(c => c.id === connId);
+      if (targetConn && !targetConn.isActive && activeConnection?.id) {
+        log.warn(`Target connection ${connId} is not active, falling back to activeConnection ${activeConnection.id}`);
+        connId = activeConnection.id;
+      }
+    }
+
     log.debug('Executing query on connection:', connId);
     try {
       setLastExecutedQuery(query);
@@ -960,6 +977,11 @@ export default function Home() {
                             onRefreshData={() => activeConnection?.id && handleRefreshConnection(activeConnection.id)}
                             onOpenERDiagram={handleOpenERDiagram}
                             onSwitchDatabase={handleSwitchDatabase}
+                            onSelectConnection={(connId) => {
+                              setEditorConnectionId(connId);
+                              const conn = connections.find(c => c.id === connId);
+                              if (conn) setActiveConnection(conn);
+                            }}
                             isRestoringConnections={isRestoringConnections}
                             connectingId={connectingId}
                             connectionErrors={connectionErrors}
