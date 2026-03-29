@@ -22,6 +22,8 @@ const mockGetCurrentUser = jest.fn();
 const mockSendVerificationCode = jest.fn();
 const mockVerifyCode = jest.fn();
 
+const mockGetAuthToken = jest.fn();
+
 jest.mock('../services/auth', () => ({
   authService: {
     getCurrentUser: (...args: unknown[]) => mockGetCurrentUser(...args),
@@ -32,6 +34,7 @@ jest.mock('../services/auth', () => ({
     sendVerificationCode: (...args: unknown[]) => mockSendVerificationCode(...args),
     verifyCode: (...args: unknown[]) => mockVerifyCode(...args),
   },
+  getAuthToken: (...args: unknown[]) => mockGetAuthToken(...args),
 }));
 
 jest.mock('../utils/userStorage', () => ({
@@ -83,6 +86,7 @@ describe('AuthProvider', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetCurrentUser.mockReturnValue(null);
+    mockGetAuthToken.mockReturnValue(null);
     mockRefreshUser.mockResolvedValue(null);
   });
 
@@ -98,8 +102,9 @@ describe('AuthProvider', () => {
 
     it('restores user from storage if one exists', async () => {
       const user = makeUser();
+      mockGetAuthToken.mockReturnValue('fake-jwt-token');
       mockGetCurrentUser.mockReturnValue(user);
-      mockRefreshUser.mockResolvedValue(null);
+      mockRefreshUser.mockResolvedValue(user);
 
       renderWithProvider();
 
@@ -112,6 +117,7 @@ describe('AuthProvider', () => {
     it('updates user when refreshUser returns fresh data', async () => {
       const storedUser = makeUser({ name: 'Old Name' });
       const freshUser = makeUser({ name: 'Fresh Name' });
+      mockGetAuthToken.mockReturnValue('fake-jwt-token');
       mockGetCurrentUser.mockReturnValue(storedUser);
       mockRefreshUser.mockResolvedValue(freshUser);
 
@@ -136,6 +142,7 @@ describe('AuthProvider', () => {
 
   describe('isEmailVerified', () => {
     it('is true when user has emailVerified = true', async () => {
+      mockGetAuthToken.mockReturnValue('fake-jwt-token');
       mockGetCurrentUser.mockReturnValue(makeUser({ emailVerified: true }));
 
       renderWithProvider();
@@ -146,6 +153,7 @@ describe('AuthProvider', () => {
     });
 
     it('is false when user has emailVerified = false', async () => {
+      mockGetAuthToken.mockReturnValue('fake-jwt-token');
       mockGetCurrentUser.mockReturnValue(makeUser({ emailVerified: false }));
 
       renderWithProvider();
@@ -192,6 +200,7 @@ describe('AuthProvider', () => {
 
   describe('logout', () => {
     it('clears user after logout', async () => {
+      mockGetAuthToken.mockReturnValue('fake-jwt-token');
       mockGetCurrentUser.mockReturnValue(makeUser());
 
       renderWithProvider();
@@ -228,7 +237,10 @@ describe('AuthProvider', () => {
 
   describe('verifyCode', () => {
     it('marks user email as verified after verifyCode is called', async () => {
-      mockGetCurrentUser.mockReturnValue(makeUser({ emailVerified: false }));
+      const user = makeUser({ emailVerified: false });
+      mockGetAuthToken.mockReturnValue('fake-jwt-token');
+      mockGetCurrentUser.mockReturnValue(user);
+      mockRefreshUser.mockResolvedValue(user);
       mockVerifyCode.mockResolvedValue(undefined);
 
       let captured: ReturnType<typeof useAuth> | null = null;
@@ -273,6 +285,7 @@ describe('AuthProvider', () => {
     it('updates user state when refreshUser returns new data', async () => {
       const initial = makeUser({ name: 'Initial' });
       const refreshed = makeUser({ name: 'Refreshed' });
+      mockGetAuthToken.mockReturnValue('fake-jwt-token');
       mockGetCurrentUser.mockReturnValue(initial);
       // First call (on mount) returns null, second call (manual) returns refreshed
       mockRefreshUser
@@ -295,8 +308,12 @@ describe('AuthProvider', () => {
 
     it('does not change user when refreshUser returns null', async () => {
       const initial = makeUser({ name: 'Stays Same' });
+      mockGetAuthToken.mockReturnValue('fake-jwt-token');
       mockGetCurrentUser.mockReturnValue(initial);
-      mockRefreshUser.mockResolvedValue(null);
+      // First call (on mount) returns the user to avoid logout, second (manual) returns null
+      mockRefreshUser
+        .mockResolvedValueOnce(initial)
+        .mockResolvedValueOnce(null);
 
       let captured: ReturnType<typeof useAuth> | null = null;
       renderWithProvider((ctx) => { captured = ctx; });
