@@ -75,7 +75,7 @@ export async function createPaymentInvoice(paymentMethod: number = 11): Promise<
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ amount: 20, currency: 'USD', payment_method: paymentMethod }),
+    body: JSON.stringify({ amount: 1999, currency: 'RUB', payment_method: paymentMethod }),
   });
 
   if (!res.ok) {

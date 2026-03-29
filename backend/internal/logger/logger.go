@@ -44,6 +44,7 @@ func Init(level string, env string, version ...string) (*zap.Logger, error) {
 	)
 
 	global = logger
+	zap.ReplaceGlobals(logger)
 	return logger, nil
 }
 
