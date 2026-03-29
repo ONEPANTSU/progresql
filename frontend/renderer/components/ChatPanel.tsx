@@ -59,18 +59,18 @@ interface ChatPanelProps {
 const MODEL_DISPLAY_NAMES: Record<string, string> = {
   // Budget models
   'qwen/qwen3-coder': 'Qwen 3 Coder',
-  'openai/gpt-oss-120b': 'GPT-OSS 120B',
-  'qwen/qwen3-vl-32b-instruct': 'Qwen 3 VL 32B',
-  'deepseek/deepseek-v3-0324': 'DeepSeek V3',
-  'google/gemma-3-27b-it': 'Gemma 3 27B',
   'openai/gpt-4o-mini': 'GPT-4o Mini',
+  'google/gemini-2.0-flash-001': 'Gemini 2.0 Flash',
+  'deepseek/deepseek-chat-v3-0324': 'DeepSeek V3',
+  'qwen/qwen3-vl-32b-instruct': 'Qwen 3 VL 32B',
+  'openai/gpt-oss-120b': 'GPT-OSS 120B',
   // Premium models
-  'anthropic/claude-sonnet-4': 'Claude Sonnet 4',
   'openai/gpt-4.1': 'GPT-4.1',
+  'openai/o4-mini': 'o4 Mini',
+  'anthropic/claude-sonnet-4': 'Claude Sonnet 4',
   'google/gemini-2.5-pro-preview': 'Gemini 2.5 Pro',
-  'anthropic/claude-3.5-sonnet': 'Claude 3.5 Sonnet',
-  'openai/o4-mini': 'o4-mini',
-  'google/gemini-2.5-flash-preview': 'Gemini 2.5 Flash',
+  'deepseek/deepseek-r1': 'DeepSeek R1',
+  'qwen/qwen3-235b-a22b': 'Qwen 3 235B',
 };
 
 function formatModelName(model: string): string {

@@ -52,7 +52,7 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	if cfg.RateLimitPerMin > 0 {
 		pipeline.SetRateLimiter(ratelimit.New(cfg.RateLimitPerMin, time.Minute))
 	}
-	pipeline.RegisterAction(agent.ActionExplainSQL, &steps.ExplainSQLStep{})
+	pipeline.RegisterAction(agent.ActionExplainSQL, &steps.SchemaGroundingStep{}, &steps.ExplainSQLStep{})
 	pipeline.RegisterAction(agent.ActionImproveSQL, &steps.ImproveSQLStep{})
 	pipeline.RegisterAction(agent.ActionAnalyzeSchema, &steps.AnalyzeSchemaStep{})
 	pipeline.RegisterAction(agent.ActionGenerateSQL,

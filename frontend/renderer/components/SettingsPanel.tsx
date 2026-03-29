@@ -48,18 +48,18 @@ import BalanceTopUpModal from './BalanceTopUpModal';
 const ALL_MODELS = [
   // Budget tier — included in subscription
   { id: 'qwen/qwen3-coder', name: 'Qwen 3 Coder', tier: 'budget' },
-  { id: 'openai/gpt-oss-120b', name: 'GPT-OSS 120B', tier: 'budget' },
-  { id: 'qwen/qwen3-vl-32b-instruct', name: 'Qwen 3 VL 32B', tier: 'budget' },
-  { id: 'google/gemma-3-27b-it', name: 'Gemma 3 27B', tier: 'budget' },
-  { id: 'mistralai/mistral-small-3.2-24b-instruct', name: 'Mistral Small 3.2', tier: 'budget' },
+  { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', tier: 'budget' },
+  { id: 'google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash', tier: 'budget' },
   { id: 'deepseek/deepseek-chat-v3-0324', name: 'DeepSeek V3', tier: 'budget' },
+  { id: 'qwen/qwen3-vl-32b-instruct', name: 'Qwen 3 VL 32B', tier: 'budget' },
+  { id: 'openai/gpt-oss-120b', name: 'GPT-OSS 120B', tier: 'budget' },
   // Premium tier — uses quota/balance
-  { id: 'anthropic/claude-sonnet-4', name: 'Claude Sonnet 4', tier: 'premium' },
   { id: 'openai/gpt-4.1', name: 'GPT-4.1', tier: 'premium' },
+  { id: 'openai/o4-mini', name: 'o4 Mini', tier: 'premium' },
+  { id: 'anthropic/claude-sonnet-4', name: 'Claude Sonnet 4', tier: 'premium' },
   { id: 'google/gemini-2.5-pro-preview', name: 'Gemini 2.5 Pro', tier: 'premium' },
-  { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', tier: 'premium' },
-  { id: 'openai/o3-mini', name: 'o3-mini', tier: 'premium' },
   { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', tier: 'premium' },
+  { id: 'qwen/qwen3-235b-a22b', name: 'Qwen 3 235B', tier: 'premium' },
 ] as const;
 
 interface SettingsPanelProps {
