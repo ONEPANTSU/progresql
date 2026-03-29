@@ -11,6 +11,7 @@ import {
   CircularProgress,
   IconButton,
   Collapse,
+  Chip,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -19,6 +20,7 @@ import {
   LocalOffer as PromoIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
+  Check as CheckIcon,
 } from '@mui/icons-material';
 import { useTranslation } from '../contexts/LanguageContext';
 import { applyPromoCode, getAuthToken } from '../services/auth';
@@ -30,10 +32,29 @@ interface PaymentModalProps {
   onClose: () => void;
   currentPrice: number;
   originalPrice: number;
-  onSelectMethod: (method: 'card' | 'sbp') => void;
+  onSelectMethod: (method: 'card' | 'sbp', plan?: string) => void;
   paymentLoading: boolean;
   paymentError: string | null;
 }
+
+const PLAN_FEATURES = {
+  pro: {
+    budget: '5M',
+    premium: '200K',
+    requests: '60',
+    autocomplete: true,
+    balance: true,
+    markup: 50,
+  },
+  pro_plus: {
+    budget: '10M',
+    premium: '1.5M',
+    requests: '120',
+    autocomplete: true,
+    balance: true,
+    markup: 25,
+  },
+} as const;
 
 export default function PaymentModal({
   open,
@@ -44,39 +65,45 @@ export default function PaymentModal({
   paymentLoading,
   paymentError,
 }: PaymentModalProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { user, refreshUser } = useAuth();
 
+  const [selectedPlan, setSelectedPlan] = React.useState<'pro' | 'pro_plus'>('pro');
   const [promoOpen, setPromoOpen] = React.useState(false);
   const [promoCode, setPromoCode] = React.useState('');
   const [promoLoading, setPromoLoading] = React.useState(false);
   const [promoSuccess, setPromoSuccess] = React.useState<string | null>(null);
   const [promoError, setPromoError] = React.useState<string | null>(null);
   const [selectedMethod, setSelectedMethod] = React.useState<'card' | 'sbp' | null>(null);
-  const [localCurrentPrice, setLocalCurrentPrice] = React.useState(currentPrice);
-  const [localOriginalPrice, setLocalOriginalPrice] = React.useState(originalPrice);
+  const [proPrice, setProPrice] = React.useState(1999);
+  const [proPlusPrice, setProPlusPrice] = React.useState(5999);
 
+  // Fetch prices from API
   React.useEffect(() => {
-    setLocalCurrentPrice(currentPrice);
-    setLocalOriginalPrice(originalPrice);
-  }, [currentPrice, originalPrice]);
-
-  const refreshPrice = React.useCallback(async () => {
-    try {
-      const baseUrl = loadBackendUrl('https://progresql.com');
-      const token = getAuthToken() || '';
-      const resp = await fetch(`${baseUrl}/api/v1/payment/price`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        setLocalCurrentPrice(data.price ?? 20);
-        setLocalOriginalPrice(data.original_price ?? 20);
+    if (!open) return;
+    const fetchPrices = async () => {
+      try {
+        const baseUrl = loadBackendUrl('https://progresql.com');
+        const token = getAuthToken() || '';
+        const resp = await fetch(`${baseUrl}/api/v2/payment/prices`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          for (const plan of data.plans || []) {
+            if (plan.plan === 'pro') setProPrice(plan.price);
+            if (plan.plan === 'pro_plus') setProPlusPrice(plan.price);
+          }
+        }
+      } catch {
+        // keep default prices
       }
-    } catch {
-      // keep current prices
-    }
-  }, []);
+    };
+    fetchPrices();
+  }, [open]);
+
+  const currentPlanPrice = selectedPlan === 'pro' ? proPrice : proPlusPrice;
+  const features = PLAN_FEATURES[selectedPlan];
 
   const handleApplyPromoCode = async () => {
     if (!promoCode.trim()) return;
@@ -88,8 +115,7 @@ export default function PaymentModal({
       setPromoSuccess(t('settings.promoCodeSuccess'));
       setPromoCode('');
       await refreshUser();
-      await refreshPrice();
-      if (result.plan === 'pro') {
+      if (result.plan === 'pro' || result.plan === 'pro_plus') {
         setTimeout(() => onClose(), 1500);
       }
     } catch (err: unknown) {
@@ -103,7 +129,7 @@ export default function PaymentModal({
   const handleSelectMethod = (method: 'card' | 'sbp') => {
     if (paymentLoading) return;
     setSelectedMethod(method);
-    onSelectMethod(method);
+    onSelectMethod(method, selectedPlan);
   };
 
   const openLegalLink = (url: string) => {
@@ -114,13 +140,11 @@ export default function PaymentModal({
     }
   };
 
-  const hasDiscount = localCurrentPrice < localOriginalPrice;
-
   const methodSx = (method: 'card' | 'sbp') => ({
     display: 'flex',
     alignItems: 'center',
     gap: 2,
-    p: '12px 16px',
+    p: '10px 14px',
     borderRadius: 2,
     border: '1.5px solid',
     borderColor: (selectedMethod === method && paymentLoading) ? '#6366f1' : 'rgba(99,102,241,0.2)',
@@ -133,67 +157,123 @@ export default function PaymentModal({
     },
   });
 
+  const planCardSx = (plan: 'pro' | 'pro_plus') => ({
+    flex: 1,
+    p: 1.5,
+    borderRadius: 2,
+    border: '2px solid',
+    borderColor: selectedPlan === plan
+      ? (plan === 'pro_plus' ? '#f59e0b' : '#6366f1')
+      : 'divider',
+    cursor: 'pointer',
+    transition: 'all 0.18s ease',
+    position: 'relative' as const,
+    '&:hover': {
+      borderColor: plan === 'pro_plus' ? '#f59e0b' : '#6366f1',
+    },
+  });
+
   return (
     <Dialog
       open={open}
       onClose={paymentLoading ? undefined : onClose}
-      maxWidth="xs"
+      maxWidth="sm"
       fullWidth
       data-testid="payment-modal"
       PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
     >
       {/* Gradient top border */}
-      <Box sx={{ height: 4, background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #a78bfa)' }} />
+      <Box sx={{ height: 4, background: 'linear-gradient(90deg, #6366f1, #f59e0b, #f97316)' }} />
 
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 0.5, pt: 2 }}>
         <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          {t('settings.upgradeButton')}
+          {language === 'ru' ? 'Выберите план' : 'Choose a Plan'}
         </Typography>
         <IconButton size="small" onClick={onClose} disabled={paymentLoading}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ pt: 2, pb: 3 }}>
+      <DialogContent sx={{ pt: 1, pb: 3 }}>
 
-        {/* Price block */}
-        <Box sx={{ textAlign: 'center', mb: 3 }}>
-          <Box sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 1 }}>
-            <Typography sx={{ fontSize: '2.5rem', fontWeight: 800, color: '#10b981', lineHeight: 1 }}>
-              {localCurrentPrice} ₽
+        {/* Plan comparison cards */}
+        <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5 }}>
+          {/* Pro Card */}
+          <Box onClick={() => setSelectedPlan('pro')} sx={planCardSx('pro')}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Pro</Typography>
+            <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, color: '#6366f1', lineHeight: 1 }}>
+              {proPrice}₽
             </Typography>
-            <Typography sx={{ fontSize: '1rem', color: 'text.secondary' }}>/мес</Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {language === 'ru' ? '/мес' : '/month'}
+            </Typography>
+            <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+              <FeatureLine text={`${PLAN_FEATURES.pro.budget} ${language === 'ru' ? 'бюдж. токенов' : 'budget tokens'}`} />
+              <FeatureLine text={`${PLAN_FEATURES.pro.premium} ${language === 'ru' ? 'прем. токенов' : 'premium tokens'}`} />
+              <FeatureLine text={`${PLAN_FEATURES.pro.requests} ${language === 'ru' ? 'запр/мин' : 'req/min'}`} />
+              <FeatureLine text={`${language === 'ru' ? 'Наценка' : 'Markup'} ${PLAN_FEATURES.pro.markup}%`} />
+            </Box>
           </Box>
-          {hasDiscount && (
-            <Typography sx={{ fontSize: '0.85rem', textDecoration: 'line-through', color: 'text.disabled', mt: 0.25 }}>
-              {localOriginalPrice} ₽/мес
+
+          {/* Pro Plus Card */}
+          <Box onClick={() => setSelectedPlan('pro_plus')} sx={planCardSx('pro_plus')}>
+            {selectedPlan === 'pro_plus' && (
+              <Chip
+                label={language === 'ru' ? 'Рекомендуется' : 'Recommended'}
+                size="small"
+                sx={{
+                  position: 'absolute', top: -10, right: 8,
+                  fontSize: '0.6rem', height: 18, fontWeight: 700,
+                  background: 'linear-gradient(135deg, #f59e0b, #f97316)', color: '#fff',
+                }}
+              />
+            )}
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Pro Plus</Typography>
+            <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, color: '#f59e0b', lineHeight: 1 }}>
+              {proPlusPrice}₽
             </Typography>
-          )}
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {language === 'ru' ? '/мес' : '/month'}
+            </Typography>
+            <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+              <FeatureLine text={`${PLAN_FEATURES.pro_plus.budget} ${language === 'ru' ? 'бюдж. токенов' : 'budget tokens'}`} />
+              <FeatureLine text={`${PLAN_FEATURES.pro_plus.premium} ${language === 'ru' ? 'прем. токенов' : 'premium tokens'}`} highlight />
+              <FeatureLine text={`${PLAN_FEATURES.pro_plus.requests} ${language === 'ru' ? 'запр/мин' : 'req/min'}`} />
+              <FeatureLine text={`${language === 'ru' ? 'Наценка' : 'Markup'} ${PLAN_FEATURES.pro_plus.markup}%`} highlight />
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Selected plan price */}
+        <Box sx={{ textAlign: 'center', mb: 2 }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {selectedPlan === 'pro' ? 'Pro' : 'Pro Plus'} — {currentPlanPrice}₽{language === 'ru' ? '/мес' : '/month'}
+          </Typography>
         </Box>
 
         {/* Payment methods */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 2.5 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
           <Box onClick={() => handleSelectMethod('card')} sx={methodSx('card')} data-testid="payment-method-card">
             {paymentLoading && selectedMethod === 'card' ? (
-              <CircularProgress size={24} sx={{ color: '#6366f1', flexShrink: 0 }} />
+              <CircularProgress size={22} sx={{ color: '#6366f1', flexShrink: 0 }} />
             ) : (
-              <CreditCardIcon sx={{ fontSize: 24, color: '#6366f1', flexShrink: 0 }} />
+              <CreditCardIcon sx={{ fontSize: 22, color: '#6366f1', flexShrink: 0 }} />
             )}
-            <Typography sx={{ fontWeight: 600, fontSize: '0.95rem' }}>{t('payment.card')}</Typography>
+            <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>{t('payment.card')}</Typography>
           </Box>
 
           <Box onClick={() => handleSelectMethod('sbp')} sx={methodSx('sbp')} data-testid="payment-method-sbp">
             {paymentLoading && selectedMethod === 'sbp' ? (
-              <CircularProgress size={24} sx={{ color: '#6366f1', flexShrink: 0 }} />
+              <CircularProgress size={22} sx={{ color: '#6366f1', flexShrink: 0 }} />
             ) : (
-              <QrCodeIcon sx={{ fontSize: 24, color: '#6366f1', flexShrink: 0 }} />
+              <QrCodeIcon sx={{ fontSize: 22, color: '#6366f1', flexShrink: 0 }} />
             )}
-            <Typography sx={{ fontWeight: 600, fontSize: '0.95rem' }}>{t('payment.sbp')}</Typography>
+            <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>{t('payment.sbp')}</Typography>
           </Box>
         </Box>
 
         {/* Promo code collapsible */}
-        <Box sx={{ mb: 2 }}>
+        <Box sx={{ mb: 1.5 }}>
           <Box
             onClick={() => setPromoOpen(v => !v)}
             data-testid="promo-code-toggle"
@@ -277,5 +357,16 @@ export default function PaymentModal({
         </Typography>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function FeatureLine({ text, highlight }: { text: string; highlight?: boolean }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <CheckIcon sx={{ fontSize: 12, color: highlight ? '#f59e0b' : 'success.main' }} />
+      <Typography variant="caption" sx={{ color: highlight ? '#f59e0b' : 'text.secondary', fontWeight: highlight ? 600 : 400, fontSize: '0.7rem' }}>
+        {text}
+      </Typography>
+    </Box>
   );
 }

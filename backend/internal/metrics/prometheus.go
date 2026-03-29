@@ -72,6 +72,38 @@ var PaymentsAmountTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "Total payment amounts.",
 }, []string{"currency"})
 
+// --- Balance & Quota metrics ---
+
+var BalanceTopUpsTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "balance_topups_total",
+	Help: "Total number of balance top-ups.",
+})
+
+var BalanceTopUpsAmountTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "balance_topups_amount_total",
+	Help: "Total amount of balance top-ups in RUB.",
+})
+
+var BalanceChargesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "balance_charges_total",
+	Help: "Total number of balance charges.",
+}, []string{"charge_type"}) // "model_charge", "over_quota_charge"
+
+var QuotaExceededTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "quota_exceeded_total",
+	Help: "Total number of quota exceeded events.",
+}, []string{"plan", "tier"}) // tier: "budget", "premium"
+
+var ModelFallbackTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "model_fallback_total",
+	Help: "Total number of model fallback events (premium to budget).",
+}, []string{"from_model", "to_model"})
+
+var RevenueByPlanTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "revenue_by_plan_total",
+	Help: "Total revenue in RUB by plan.",
+}, []string{"plan"}) // "pro", "pro_plus", "balance_topup"
+
 // Init pre-initializes label combinations so CounterVec metrics are visible
 // in Prometheus even before any events occur (avoids "No data" in Grafana).
 func Init() {
@@ -80,10 +112,19 @@ func Init() {
 	PaymentsTotal.WithLabelValues("failed", "RUB")
 	PaymentsAmountTotal.WithLabelValues("RUB")
 	UserSubscriptionsActivatedTotal.WithLabelValues("pro")
+	UserSubscriptionsActivatedTotal.WithLabelValues("pro_plus")
 	UserSubscriptionsExpiredTotal.WithLabelValues("expired")
 	UserSubscriptionsExpiredTotal.WithLabelValues("trial_expired")
 	PromoCodesApplied.WithLabelValues("", "percent")
 	PromoCodesApplied.WithLabelValues("", "amount")
+	BalanceChargesTotal.WithLabelValues("model_charge")
+	BalanceChargesTotal.WithLabelValues("over_quota_charge")
+	QuotaExceededTotal.WithLabelValues("free", "budget")
+	QuotaExceededTotal.WithLabelValues("pro", "premium")
+	ModelFallbackTotal.WithLabelValues("", "")
+	RevenueByPlanTotal.WithLabelValues("pro")
+	RevenueByPlanTotal.WithLabelValues("pro_plus")
+	RevenueByPlanTotal.WithLabelValues("balance_topup")
 }
 
 // --- WebSocket metrics ---

@@ -71,13 +71,28 @@ export interface AgentResponsePayload {
   result: AgentResult;
   tool_calls_log?: ToolCallLogEntry[];
   model_used?: string;
+  model_tier?: 'budget' | 'premium';
   tokens_used?: number;
+  cost_rub?: number;
+  input_tokens?: number;
+  output_tokens?: number;
 }
 
 export interface AgentErrorPayload {
   code: string;
   message: string;
 }
+
+// ── Server push notification types ──
+
+export type NotificationType = 'quota.warning' | 'quota.exhausted' | 'model.fallback' | 'balance.low';
+
+export interface ServerNotification {
+  type: NotificationType;
+  payload: Record<string, unknown>;
+}
+
+export type NotificationCallback = (notification: ServerNotification) => void;
 
 // ── Tool call types (mirror backend tool.call / tool.result) ──
 
@@ -163,6 +178,9 @@ export class AgentService {
 
   // Tool call handler — set by the consumer (e.g. AgentContext)
   private toolCallHandler: ToolCallHandler | null = null;
+
+  // Server push notification callbacks
+  private notificationCallbacks: NotificationCallback[] = [];
 
   // Reconnect
   private reconnectAttempt = 0;
@@ -317,6 +335,17 @@ export class AgentService {
   }
 
   /**
+   * Register a listener for server push notifications
+   * (quota.warning, quota.exhausted, model.fallback, balance.low).
+   */
+  onNotification(cb: NotificationCallback): () => void {
+    this.notificationCallbacks.push(cb);
+    return () => {
+      this.notificationCallbacks = this.notificationCallbacks.filter(c => c !== cb);
+    };
+  }
+
+  /**
    * Register a listener for connection state changes.
    */
   onConnectionStateChange(cb: ConnectionStateCallback): () => void {
@@ -437,6 +466,19 @@ export class AgentService {
     // tool.call messages use call_id, not request_id for routing
     if (envelope.type === 'tool.call') {
       this.handleToolCall(envelope);
+      return;
+    }
+
+    // Server push notifications (no request_id)
+    const notificationTypes: NotificationType[] = ['quota.warning', 'quota.exhausted', 'model.fallback', 'balance.low'];
+    if (notificationTypes.includes(envelope.type as NotificationType)) {
+      const notification: ServerNotification = {
+        type: envelope.type as NotificationType,
+        payload: envelope.payload as Record<string, unknown>,
+      };
+      for (const cb of this.notificationCallbacks) {
+        try { cb(notification); } catch (e) { log.error('Notification callback error:', e); }
+      }
       return;
     }
 

@@ -25,6 +25,9 @@ jest.mock('../services/agent/AgentService', () => ({
     onConnectionStateChange: mockOnConnectionStateChange,
     setToolCallHandler: mockSetToolCallHandler,
     updateModel: mockUpdateModel,
+    sendAutocomplete: jest.fn(),
+    cancelAutocomplete: jest.fn(),
+    onNotification: jest.fn().mockReturnValue(jest.fn()),
   })),
 }));
 

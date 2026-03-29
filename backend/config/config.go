@@ -7,11 +7,18 @@ import (
 	"github.com/spf13/viper"
 )
 
+// AutocompleteModelID is the model used for inline code completions.
+const AutocompleteModelID = "openai/gpt-4o-mini"
+
 // ModelInfo describes an available LLM model.
 type ModelInfo struct {
-	ID       string `json:"id"        mapstructure:"id"`
-	Name     string `json:"name"      mapstructure:"name"`
-	Provider string `json:"provider"  mapstructure:"provider"`
+	ID              string  `json:"id"                        mapstructure:"id"`
+	Name            string  `json:"name"                      mapstructure:"name"`
+	Provider        string  `json:"provider"                  mapstructure:"provider"`
+	Tier            string  `json:"tier"                      mapstructure:"tier"`                           // "budget" or "premium"
+	InputPricePerM  float64 `json:"input_price_per_m"         mapstructure:"input_price_per_m"`              // USD per 1M tokens
+	OutputPricePerM float64 `json:"output_price_per_m"        mapstructure:"output_price_per_m"`             // USD per 1M tokens
+	IsDefault       bool    `json:"is_default,omitempty"       mapstructure:"is_default"`
 }
 
 // Config holds all application configuration.
@@ -111,8 +118,20 @@ func LoadConfig(configPath ...string) (*Config, error) {
 // DefaultModels returns the built-in list of available LLM models.
 func DefaultModels() []ModelInfo {
 	return []ModelInfo{
-		{ID: "qwen/qwen3-coder", Name: "Qwen 3 Coder", Provider: "openrouter"},
-		{ID: "openai/gpt-oss-120b", Name: "GPT-OSS 120B", Provider: "openrouter"},
-		{ID: "qwen/qwen3-vl-32b-instruct", Name: "Qwen 3 VL 32B", Provider: "openrouter"},
+		// --- Budget tier ---
+		{ID: "qwen/qwen3-coder", Name: "Qwen 3 Coder", Provider: "openrouter", Tier: "budget", InputPricePerM: 0.20, OutputPricePerM: 0.60},
+		{ID: "openai/gpt-4o-mini", Name: "GPT-4o Mini", Provider: "openrouter", Tier: "budget", InputPricePerM: 0.15, OutputPricePerM: 0.60},
+		{ID: "google/gemini-2.0-flash-001", Name: "Gemini 2.0 Flash", Provider: "openrouter", Tier: "budget", InputPricePerM: 0.10, OutputPricePerM: 0.40},
+		{ID: "deepseek/deepseek-chat-v3-0324", Name: "DeepSeek V3 0324", Provider: "openrouter", Tier: "budget", InputPricePerM: 0.20, OutputPricePerM: 0.60},
+		{ID: "qwen/qwen3-vl-32b-instruct", Name: "Qwen 3 VL 32B", Provider: "openrouter", Tier: "budget", InputPricePerM: 0.20, OutputPricePerM: 0.60},
+		{ID: "openai/gpt-oss-120b", Name: "GPT-OSS 120B", Provider: "openrouter", Tier: "budget", InputPricePerM: 0.20, OutputPricePerM: 0.60},
+
+		// --- Premium tier ---
+		{ID: "openai/gpt-4.1", Name: "GPT-4.1", Provider: "openrouter", Tier: "premium", InputPricePerM: 2.00, OutputPricePerM: 8.00},
+		{ID: "openai/o4-mini", Name: "o4 Mini", Provider: "openrouter", Tier: "premium", InputPricePerM: 1.10, OutputPricePerM: 4.40},
+		{ID: "anthropic/claude-sonnet-4", Name: "Claude Sonnet 4", Provider: "openrouter", Tier: "premium", InputPricePerM: 3.00, OutputPricePerM: 15.00},
+		{ID: "google/gemini-2.5-pro-preview", Name: "Gemini 2.5 Pro", Provider: "openrouter", Tier: "premium", InputPricePerM: 1.25, OutputPricePerM: 10.00},
+		{ID: "deepseek/deepseek-r1", Name: "DeepSeek R1", Provider: "openrouter", Tier: "premium", InputPricePerM: 0.55, OutputPricePerM: 2.19},
+		{ID: "qwen/qwen3-235b-a22b", Name: "Qwen 3 235B", Provider: "openrouter", Tier: "premium", InputPricePerM: 0.20, OutputPricePerM: 1.20},
 	}
 }

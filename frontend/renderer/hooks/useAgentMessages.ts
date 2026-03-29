@@ -222,6 +222,28 @@ export function useAgentMessages({
             y_label: viz.y_label,
             sql: viz.sql,
           } : undefined);
+          // Attach model metadata to the finalized message
+          if (response.model_used || response.model_tier || response.cost_rub) {
+            setChats(prev => prev.map(chat =>
+              chat.id === chatId
+                ? {
+                    ...chat,
+                    messages: chat.messages.map(m =>
+                      m.id === botMessageId
+                        ? {
+                            ...m,
+                            modelUsed: response.model_used,
+                            modelTier: response.model_tier,
+                            costRUB: response.cost_rub,
+                            inputTokens: response.input_tokens,
+                            outputTokens: response.output_tokens,
+                          }
+                        : m
+                    ),
+                  }
+                : chat
+            ));
+          }
           setIsTyping(false);
         },
         onError: (error) => {

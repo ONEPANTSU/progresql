@@ -9,9 +9,11 @@ import (
 	"github.com/onepantsu/progressql/backend/internal/agent"
 	"github.com/onepantsu/progressql/backend/internal/agent/steps"
 	"github.com/onepantsu/progressql/backend/internal/auth"
+	"github.com/onepantsu/progressql/backend/internal/balance"
 	"github.com/onepantsu/progressql/backend/internal/llm"
 	"github.com/onepantsu/progressql/backend/internal/metrics"
 	"github.com/onepantsu/progressql/backend/internal/payment"
+	"github.com/onepantsu/progressql/backend/internal/quota"
 	"github.com/onepantsu/progressql/backend/internal/ratelimit"
 	"github.com/onepantsu/progressql/backend/internal/tools"
 	"github.com/onepantsu/progressql/backend/internal/websocket"
@@ -37,6 +39,13 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	pipeline := agent.NewPipeline(llmClient, registry, log, cfg.HTTPModel)
 	pipeline.SetDB(db)
 	pipeline.SetMetrics(metricsCollector)
+
+	// Wire up quota and balance services for the AI pipeline.
+	quotaSvc := quota.NewService(db, log)
+	balanceSvc := balance.NewService(db, log)
+	pipeline.SetQuotaService(quotaSvc)
+	pipeline.SetBalanceService(balanceSvc)
+
 	if cfg.ToolCallTimeoutSec > 0 {
 		pipeline.SetToolCallTimeout(time.Duration(cfg.ToolCallTimeoutSec)*time.Second, 1)
 	}
@@ -94,10 +103,21 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	mux.Handle("GET /api/v1/payment/price", authMW(http.HandlerFunc(payment.PriceHandler(db))))
 	mux.HandleFunc("POST /api/v1/payments/webhook", payment.WebhookHandler(userStore, db, cfg.PlategaMerchantID, cfg.PlategaSecret))
 
-	// v2 — Platega payment routes.
+	// v2 — Platega payment routes (Pro/Pro Plus subscriptions + balance top-ups).
 	mux.Handle("POST /api/v2/payments/create-invoice", authMW(http.HandlerFunc(payment.CreateInvoiceHandlerV2(plategaClient, userStore, db))))
 	mux.Handle("GET /api/v2/payment/price", authMW(http.HandlerFunc(payment.PriceHandler(db))))
-	mux.HandleFunc("POST /api/v2/payments/webhook", payment.WebhookHandlerV2(userStore, db, cfg.PlategaMerchantID, cfg.PlategaSecret))
+	mux.Handle("GET /api/v2/payment/prices", authMW(http.HandlerFunc(payment.PriceHandlerV2(db))))
+	mux.HandleFunc("POST /api/v2/payments/webhook", payment.WebhookHandlerV2(userStore, balanceSvc, db, cfg.PlategaMerchantID, cfg.PlategaSecret))
+
+	// v2 — Balance endpoints (authenticated).
+	balanceHandler := balance.NewHandler(balanceSvc, log)
+	mux.Handle("GET /api/v2/balance", authMW(http.HandlerFunc(balanceHandler.GetBalanceHandler)))
+	mux.Handle("GET /api/v2/balance/history", authMW(http.HandlerFunc(balanceHandler.GetHistoryHandler)))
+
+	// v2 — Quota and usage endpoints (authenticated).
+	quotaHandler := quota.NewHandler(quotaSvc, log)
+	mux.Handle("GET /api/v2/usage", authMW(http.HandlerFunc(quotaHandler.GetUsageHandler)))
+	mux.Handle("GET /api/v2/quota", authMW(http.HandlerFunc(quotaHandler.GetQuotaHandler)))
 
 	// Admin analytics endpoints (JWT + admin user ID required).
 	if len(cfg.AdminUserIDs) > 0 {

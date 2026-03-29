@@ -66,16 +66,28 @@ function userFromResponse(data: AuthResponse): AuthUser {
   };
 }
 
-export async function createPaymentInvoice(paymentMethod: number = 11): Promise<{ payment_url: string }> {
+export async function createPaymentInvoice(
+  paymentMethod: number = 11,
+  options?: { plan?: string; paymentType?: string; amount?: number },
+): Promise<{ payment_url: string }> {
   const baseUrl = getBackendUrl();
   const token = getAuthToken();
+  const body: Record<string, unknown> = {
+    currency: 'RUB',
+    payment_method: paymentMethod,
+    payment_type: options?.paymentType ?? 'subscription',
+    plan: options?.plan ?? 'pro',
+  };
+  if (options?.paymentType === 'balance_topup' && options?.amount) {
+    body.amount = options.amount;
+  }
   const res = await fetch(`${baseUrl}/api/v2/payments/create-invoice`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ amount: 1999, currency: 'RUB', payment_method: paymentMethod }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -83,6 +95,59 @@ export async function createPaymentInvoice(paymentMethod: number = 11): Promise<
     throw new Error(body?.error || 'Failed to create payment invoice');
   }
 
+  return res.json();
+}
+
+export async function fetchPrices(): Promise<import('../types').PricesResponse> {
+  const baseUrl = getBackendUrl();
+  const token = getAuthToken();
+  const res = await fetch(`${baseUrl}/api/v2/payment/prices`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error('Failed to fetch prices');
+  return res.json();
+}
+
+export async function fetchBalance(): Promise<import('../types').BalanceInfo> {
+  const baseUrl = getBackendUrl();
+  const token = getAuthToken();
+  const res = await fetch(`${baseUrl}/api/v2/balance`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error('Failed to fetch balance');
+  return res.json();
+}
+
+export async function fetchBalanceHistory(
+  limit = 20,
+  offset = 0,
+): Promise<{ transactions: import('../types').BalanceTransaction[]; total: number }> {
+  const baseUrl = getBackendUrl();
+  const token = getAuthToken();
+  const res = await fetch(`${baseUrl}/api/v2/balance/history?limit=${limit}&offset=${offset}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error('Failed to fetch balance history');
+  return res.json();
+}
+
+export async function fetchUsage(): Promise<import('../types').UsageInfo> {
+  const baseUrl = getBackendUrl();
+  const token = getAuthToken();
+  const res = await fetch(`${baseUrl}/api/v2/usage`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error('Failed to fetch usage');
+  return res.json();
+}
+
+export async function fetchQuota(): Promise<import('../types').QuotaInfo> {
+  const baseUrl = getBackendUrl();
+  const token = getAuthToken();
+  const res = await fetch(`${baseUrl}/api/v2/quota`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error('Failed to fetch quota');
   return res.json();
 }
 

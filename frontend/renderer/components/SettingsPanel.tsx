@@ -33,6 +33,7 @@ import {
   AutoAwesome as AutoAwesomeIcon,
   Palette as PaletteIcon,
   Star as StarIcon,
+  AccountBalanceWallet as WalletIcon,
 } from '@mui/icons-material';
 import { useAgent } from '../contexts/AgentContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -41,6 +42,25 @@ import { useAuth } from '../providers/AuthProvider';
 import { authService, createPaymentInvoice, getAuthToken } from '../services/auth';
 import { loadBackendUrl } from '../utils/secureSettingsStorage';
 import PaymentModal from './PaymentModal';
+import BalanceTopUpModal from './BalanceTopUpModal';
+
+// Full model catalog matching backend config.DefaultModels().
+const ALL_MODELS = [
+  // Budget tier — included in subscription
+  { id: 'qwen/qwen3-coder', name: 'Qwen 3 Coder', tier: 'budget' },
+  { id: 'openai/gpt-oss-120b', name: 'GPT-OSS 120B', tier: 'budget' },
+  { id: 'qwen/qwen3-vl-32b-instruct', name: 'Qwen 3 VL 32B', tier: 'budget' },
+  { id: 'google/gemma-3-27b-it', name: 'Gemma 3 27B', tier: 'budget' },
+  { id: 'mistralai/mistral-small-3.2-24b-instruct', name: 'Mistral Small 3.2', tier: 'budget' },
+  { id: 'deepseek/deepseek-chat-v3-0324', name: 'DeepSeek V3', tier: 'budget' },
+  // Premium tier — uses quota/balance
+  { id: 'anthropic/claude-sonnet-4', name: 'Claude Sonnet 4', tier: 'premium' },
+  { id: 'openai/gpt-4.1', name: 'GPT-4.1', tier: 'premium' },
+  { id: 'google/gemini-2.5-pro-preview', name: 'Gemini 2.5 Pro', tier: 'premium' },
+  { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', tier: 'premium' },
+  { id: 'openai/o3-mini', name: 'o3-mini', tier: 'premium' },
+  { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', tier: 'premium' },
+] as const;
 
 interface SettingsPanelProps {
   open: boolean;
@@ -92,14 +112,15 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 
   // Payment modal state
   const [paymentModalOpen, setPaymentModalOpen] = React.useState(false);
+  const [balanceTopUpModalOpen, setBalanceTopUpModalOpen] = React.useState(false);
 
   // Dynamic price state
   const [currentPrice, setCurrentPrice] = React.useState<number>(1999);
   const [originalPrice, setOriginalPrice] = React.useState<number>(1999);
 
-  // Auto-close payment modal when user becomes Pro
+  // Auto-close payment modal when user becomes Pro or Pro Plus
   React.useEffect(() => {
-    if (user?.plan === 'pro' && paymentModalOpen) {
+    if ((user?.plan === 'pro' || user?.plan === 'pro_plus') && paymentModalOpen) {
       setPaymentModalOpen(false);
     }
   }, [user?.plan, paymentModalOpen]);
@@ -135,6 +156,8 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const trialDays = getTrialDaysRemaining(user?.trialEndsAt);
   const isTrialActive = trialDays > 0;
   const isPro = user?.plan === 'pro' && user?.planExpiresAt && new Date(user.planExpiresAt) > new Date();
+  const isProPlus = user?.plan === 'pro_plus' && user?.planExpiresAt && new Date(user.planExpiresAt) > new Date();
+  const isPaid = isPro || isProPlus;
 
   const openLegalLink = (url: string) => {
     if (window.electronAPI?.openExternal) {
@@ -144,7 +167,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     }
   };
 
-  const handleSelectPaymentMethod = async (method: 'card' | 'sbp') => {
+  const handleSelectPaymentMethod = async (method: 'card' | 'sbp', plan?: string) => {
     const paymentMethod = method === 'card' ? 11 : 2;
     setPaymentLoading(true);
     setPaymentError(null);
@@ -155,7 +178,10 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         authService.acceptLegal('privacy', '1.0'),
         authService.acceptLegal('refunds', '1.0'),
       ]);
-      const { payment_url } = await createPaymentInvoice(paymentMethod);
+      const { payment_url } = await createPaymentInvoice(paymentMethod, {
+        plan: plan || 'pro',
+        paymentType: 'subscription',
+      });
       // Open in external browser
       if (window.electronAPI?.openExternal) {
         window.electronAPI.openExternal(payment_url);
@@ -204,12 +230,19 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         {/* Subscription - compact with wrap */}
         {user && (
           <Box sx={{ ...sectionCardSx, pb: 1.25 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <PremiumIcon sx={{ fontSize: 16, color: isPro ? '#a78bfa' : isTrialActive ? '#a78bfa' : 'text.disabled' }} />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+              <PremiumIcon sx={{ fontSize: 16, color: isPaid ? '#a78bfa' : isTrialActive ? '#a78bfa' : 'text.disabled' }} />
               <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
                 {t('settings.subscription')}
               </Typography>
-              {isPro ? (
+              {isProPlus ? (
+                <>
+                  <Chip label="Pro Plus" size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20, background: 'linear-gradient(135deg, #f59e0b, #f97316)', color: '#fff' }} />
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
+                    {language === 'ru' ? 'до' : 'until'} {formatPlanExpiryCompact(user.planExpiresAt, language)}
+                  </Typography>
+                </>
+              ) : isPro ? (
                 <>
                   <Chip label={t('settings.planPro')} size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff' }} />
                   <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
@@ -227,7 +260,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 <Chip label={t('settings.planFree')} size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20, bgcolor: 'action.selected', color: 'text.secondary' }} />
               )}
             </Box>
-            {!isPro && (
+            {!isPaid && (
               <Button
                 variant="contained"
                 fullWidth
@@ -247,6 +280,25 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 {t('settings.upgradeButton')}
               </Button>
             )}
+            <Button
+              variant="outlined"
+              fullWidth
+              size="small"
+              onClick={() => setBalanceTopUpModalOpen(true)}
+              startIcon={<WalletIcon sx={{ fontSize: 14 }} />}
+              sx={{
+                mt: 1,
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                height: 32,
+                borderColor: 'rgba(99,102,241,0.3)',
+                color: '#6366f1',
+                '&:hover': { borderColor: '#6366f1', bgcolor: 'rgba(99,102,241,0.06)' },
+              }}
+            >
+              {t('balance.topUp')}
+            </Button>
           </Box>
         )}
 
@@ -263,10 +315,35 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               value={model}
               label={t('settings.modelLabel')}
               onChange={(e) => setModel(e.target.value as string)}
+              renderValue={(value) => {
+                const m = ALL_MODELS.find(m => m.id === value);
+                return m ? `${m.name}` : value;
+              }}
             >
-              <MenuItem value="qwen/qwen3-coder">Qwen 3 Coder</MenuItem>
-              <MenuItem value="openai/gpt-oss-120b">GPT-OSS 120B</MenuItem>
-              <MenuItem value="qwen/qwen3-vl-32b-instruct">Qwen 3 VL 32B</MenuItem>
+              {/* Budget Models */}
+              <MenuItem disabled sx={{ opacity: 1, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', py: 0.5, minHeight: 'auto', letterSpacing: '0.05em' }}>
+                {language === 'ru' ? 'Бюджетные модели' : 'Budget Models'} — {language === 'ru' ? 'включены в подписку' : 'included in plan'}
+              </MenuItem>
+              {ALL_MODELS.filter(m => m.tier === 'budget').map(m => (
+                <MenuItem key={m.id} value={m.id} sx={{ py: 0.75 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>{m.name}</Typography>
+                    <Chip label={language === 'ru' ? 'Бюдж.' : 'Budget'} size="small" sx={{ fontSize: '0.6rem', height: 16, bgcolor: 'rgba(34,197,94,0.12)', color: 'success.main' }} />
+                  </Box>
+                </MenuItem>
+              ))}
+              {/* Premium Models */}
+              <MenuItem disabled sx={{ opacity: 1, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', py: 0.5, mt: 1, minHeight: 'auto', letterSpacing: '0.05em' }}>
+                {language === 'ru' ? 'Премиум модели' : 'Premium Models'} — {language === 'ru' ? 'квота / баланс' : 'quota / balance'}
+              </MenuItem>
+              {ALL_MODELS.filter(m => m.tier === 'premium').map(m => (
+                <MenuItem key={m.id} value={m.id} sx={{ py: 0.75 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>{m.name}</Typography>
+                    <Chip label={language === 'ru' ? 'Прем.' : 'Premium'} size="small" sx={{ fontSize: '0.6rem', height: 16, bgcolor: 'rgba(245,158,11,0.12)', color: 'warning.main' }} />
+                  </Box>
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
         </Box>
@@ -486,9 +563,13 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       onClose={() => setPaymentModalOpen(false)}
       currentPrice={currentPrice}
       originalPrice={originalPrice}
-      onSelectMethod={handleSelectPaymentMethod}
+      onSelectMethod={(method, plan) => handleSelectPaymentMethod(method, plan)}
       paymentLoading={paymentLoading}
       paymentError={paymentError}
+    />
+    <BalanceTopUpModal
+      open={balanceTopUpModalOpen}
+      onClose={() => setBalanceTopUpModalOpen(false)}
     />
     </>
   );

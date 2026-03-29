@@ -52,7 +52,7 @@ ProgreSQL is an AI-powered PostgreSQL database management desktop application. I
 | Charts | Recharts + @xyflow/react (ERD) |
 | Backend | Go 1.25, stdlib net/http + gorilla/websocket |
 | Database | PostgreSQL 16 |
-| LLM Provider | OpenRouter API (Qwen 3 Coder, GPT-OSS 120B) |
+| LLM Provider | OpenRouter API (12 models: 6 budget + 6 premium) |
 | Payments | Platega (Card/SBP) |
 | Auth | JWT (HS256, 24h TTL) + bcrypt + SMTP verification |
 | Monitoring | Prometheus + Grafana 10.4 + Loki 2.9 + Promtail |
@@ -92,13 +92,26 @@ backend/
 │   │   ├── stream.go            # SSE streaming
 │   │   ├── retry.go             # Exponential backoff retry
 │   │   └── types.go             # Request/response types
+│   ├── balance/                 # Balance service (pay-as-you-go)
+│   │   ├── service.go           # Top-up, charge, get balance
+│   │   ├── store.go             # Row-level locking, transaction ledger
+│   │   └── handler.go           # REST endpoints (GET balance, GET history)
+│   ├── quota/                   # Quota service
+│   │   ├── service.go           # Token tracking, quota enforcement
+│   │   ├── store.go             # Period management, usage persistence
+│   │   └── handler.go           # REST endpoints (GET usage, GET quota)
+│   ├── models/                  # Model catalog
+│   │   └── catalog.go           # 12 models config, tier classification, pricing
+│   ├── notification/            # Notification system
+│   │   ├── email.go             # Email templates (quota warning, balance low, etc.)
+│   │   └── ws_push.go           # WebSocket push notifications
 │   ├── metrics/                 # Observability
 │   │   ├── prometheus.go        # Prometheus counters, histograms, gauges
 │   │   └── metrics.go           # Custom JSON metrics endpoint
 │   ├── payment/                 # Platega integration
 │   │   ├── platega.go           # API client
 │   │   ├── handler.go           # v1 endpoints
-│   │   ├── handler_v2.go        # v2 endpoints (RUB)
+│   │   ├── handler_v2.go        # v2 endpoints (subscription + balance top-up)
 │   │   └── discount.go          # Promo discount application
 │   ├── security/                # SQL validation
 │   │   └── sql_checker.go       # Whitelist/blacklist SQL commands per mode
@@ -216,6 +229,10 @@ Internet
 | `promo_codes` | Promo codes (pro_grant, trial_extension, discount) |
 | `promo_code_uses` | Promo code usage log |
 | `landing_events` | Landing page analytics (page_view, button_click, scroll_depth, video_play) |
+| `balances` | User balance (amount, currency), row-level locking for concurrency |
+| `balance_transactions` | Transaction ledger (top-up, model_charge, refund), with model/token details |
+| `quota_usage` | Per-period token usage (budget/premium tokens used, period_start/end) |
+| `models` | Model catalog (id, name, tier, pricing, enabled flag) |
 | `schema_migrations` | Migration version tracking |
 
 ### Key Relationships
@@ -225,10 +242,69 @@ users ─┬── payments (1:N)
        ├── token_usage (1:N)
        ├── legal_acceptances (1:N)
        ├── email_notifications (1:N)
-       └── promo_code_uses (1:N)
+       ├── promo_code_uses (1:N)
+       ├── balances (1:1)
+       ├── balance_transactions (1:N)
+       └── quota_usage (1:N)
 
 promo_codes ── promo_code_uses (1:N)
+models ── balance_transactions (1:N, via model_id)
 ```
+
+## Quota Service
+
+The quota service (`backend/internal/quota/`) enforces per-plan token limits on a rolling period basis.
+
+- **Token tracking** — Every AI request records input/output tokens against the user's current period usage (budget and premium tracked separately)
+- **Period management** — Periods are `daily` (Free plan) or `monthly` (Pro/Pro Plus). A new period is auto-created when the current one expires.
+- **Quota enforcement** — Before each LLM call, the pipeline checks remaining quota. If budget quota is exhausted, the system attempts to charge the user's balance. If premium quota is exhausted, mid-generation fallback triggers.
+- **Plan limits** — Configured per plan: Free (50K budget/day), Trial (500K budget/day), Pro (5M budget + 200K premium/month), Pro Plus (10M budget + 1.5M premium/month)
+
+## Balance Service
+
+The balance service (`backend/internal/balance/`) provides pay-as-you-go usage beyond quota limits.
+
+- **Row-level locking** — Balance updates use `SELECT ... FOR UPDATE` to prevent race conditions on concurrent AI requests
+- **Transaction ledger** — Every balance change is recorded in `balance_transactions` with type (`topup`, `model_charge`, `refund`), model details, and token counts
+- **Charge flow** — When quota is exhausted, the agent pipeline charges the balance at per-token rates with plan-dependent markup (Pro: 50%, Pro Plus: 25%)
+- **Top-up** — Users add funds via Platega (card/SBP), minimum 100 RUB, maximum 100,000 RUB. Balance persists across subscription changes.
+
+## Model Catalog
+
+The system supports 12 LLM models organized into two tiers:
+
+| Tier | Models | Access |
+|------|--------|--------|
+| **Budget** (included in plan) | Qwen 3 Coder, GPT-OSS 120B, Qwen 3 VL 32B, Gemma 3 27B, Mistral Small 3.2, DeepSeek V3 | All plans (within quota) |
+| **Premium** (quota + balance) | Claude Sonnet 4, GPT-4.1, Gemini 2.5 Pro, Claude 3.5 Sonnet, o3-mini, DeepSeek R1 | Pro and Pro Plus only |
+
+Model configuration (pricing, tier, enabled flag) is managed via `backend/internal/models/catalog.go`. The `/api/v1/models` endpoint returns the list filtered by the user's plan tier.
+
+## Payment Flow v2
+
+Payment v2 supports two payment types via Platega webhooks:
+
+1. **Subscription** — User selects a plan (Pro or Pro Plus), pays via card/SBP. On webhook confirmation, `plan` and `plan_expires_at` are updated.
+2. **Balance top-up** — User specifies an amount (100-100,000 RUB). On webhook confirmation, the balance service credits the user's balance and records a `topup` transaction.
+
+Both flows use a single v2 webhook handler that routes based on the `payment_type` field stored in the payment record.
+
+## Notification System
+
+- **Email templates** — Quota warning (80%/100% usage), balance low, subscription expiry, trial expiry. Sent via SMTP with deduplication via `email_notifications` table.
+- **WebSocket push notifications** — Real-time in-app alerts pushed to connected clients: quota warnings, balance charges, model fallback events. Delivered through the existing WebSocket hub.
+
+## Mid-Generation Fallback
+
+When a premium model request would exceed the user's quota or balance mid-generation:
+
+1. The agent pipeline detects quota/balance exhaustion during streaming
+2. The current generation is halted with a user-visible notification
+3. The system automatically retries the request with the default budget model (Qwen 3 Coder)
+4. A `ModelFallbackTotal` Prometheus counter is incremented
+5. The user receives a WebSocket notification explaining the fallback
+
+This ensures uninterrupted AI assistance even when premium resources are exhausted.
 
 ## Monitoring Architecture
 

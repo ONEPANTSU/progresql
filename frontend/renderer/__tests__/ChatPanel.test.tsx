@@ -22,6 +22,13 @@ const mockAgentValue: AgentContextValue = {
   setModel: jest.fn(),
   safeMode: true,
   setSafeMode: jest.fn(),
+  securityMode: 'safe' as const,
+  setSecurityMode: jest.fn(),
+  sendAutocomplete: jest.fn(),
+  cancelAutocomplete: jest.fn(),
+  usage: null,
+  refreshUsage: jest.fn(),
+  lastNotification: null,
 };
 
 jest.mock('../contexts/AgentContext', () => ({

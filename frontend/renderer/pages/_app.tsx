@@ -8,6 +8,7 @@ import { NotificationProvider } from '../contexts/NotificationContext';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import { AgentProvider } from '../contexts/AgentContext';
 import { LanguageProvider } from '../contexts/LanguageContext';
+import NotificationBridge from '../components/NotificationBridge';
 import '../styles/sidebar.css';
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -150,6 +151,7 @@ export default function App({ Component, pageProps }: AppProps) {
       <AuthProvider>
         <AgentProvider>
           <NotificationProvider>
+            <NotificationBridge />
             <Box sx={{ height: '100vh', overflow: 'hidden' }}>
               <Component {...pageProps} />
             </Box>

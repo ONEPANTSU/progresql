@@ -21,6 +21,12 @@ import { highlightSQL } from '../../utils/sqlHighlight';
 
 const log = createLogger('ChatMessage');
 
+/** Format model ID to short display name */
+function formatModelDisplay(modelId: string): string {
+  const parts = modelId.split('/');
+  return parts.length > 1 ? parts[1] : modelId;
+}
+
 interface ChatMessageProps {
   message: Message;
   isTyping?: boolean;
@@ -536,17 +542,36 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             )}
           </Box>
         )}
-        <Typography
-          variant="caption"
-          sx={{
-            display: 'block',
-            mt: 0.5,
-            opacity: 0.7,
-            fontSize: '0.65rem',
-          }}
-        >
-          {message.timestamp.toLocaleTimeString()}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              opacity: 0.7,
+              fontSize: '0.65rem',
+            }}
+          >
+            {message.timestamp.toLocaleTimeString()}
+          </Typography>
+          {!isUser && message.modelUsed && !isStreaming && (
+            <Typography
+              variant="caption"
+              sx={{
+                fontSize: '0.6rem',
+                opacity: 0.6,
+                color: message.modelTier === 'premium' ? '#f59e0b' : 'text.secondary',
+                fontWeight: message.modelTier === 'premium' ? 600 : 400,
+              }}
+            >
+              {formatModelDisplay(message.modelUsed)}
+              {message.inputTokens != null && message.outputTokens != null && (
+                <> · {message.inputTokens + message.outputTokens} tok</>
+              )}
+              {message.costRUB != null && message.costRUB > 0 && (
+                <> · {message.costRUB.toFixed(2)}₽</>
+              )}
+            </Typography>
+          )}
+        </Box>
       </Box>
     </ListItem>
   );

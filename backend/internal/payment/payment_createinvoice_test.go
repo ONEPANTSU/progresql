@@ -215,7 +215,7 @@ func TestWebhookHandler_ConfirmedEmptyCurrency(t *testing.T) {
 // ── WebhookHandlerV2 extra cases ──────────────────────────────────────────────
 
 func TestWebhookHandlerV2_CanceledStatus_NilDB(t *testing.T) {
-	handler := WebhookHandlerV2(&mockPlanUpdater{}, nil, "m", "s")
+	handler := WebhookHandlerV2(&mockPlanUpdater{}, nil, nil, "m", "s")
 
 	payload := plategaWebhookPayload{
 		ID:       "txn-v2-cancel",
@@ -242,7 +242,7 @@ func TestWebhookHandlerV2_CanceledStatus_NilDB(t *testing.T) {
 }
 
 func TestWebhookHandlerV2_CanceledStatus_EmptyCurrency(t *testing.T) {
-	handler := WebhookHandlerV2(&mockPlanUpdater{}, nil, "m", "s")
+	handler := WebhookHandlerV2(&mockPlanUpdater{}, nil, nil, "m", "s")
 
 	payload := plategaWebhookPayload{
 		ID:       "txn-v2-cancel-nocurr",
@@ -265,7 +265,7 @@ func TestWebhookHandlerV2_CanceledStatus_EmptyCurrency(t *testing.T) {
 
 func TestWebhookHandlerV2_ConfirmedEmptyCurrency(t *testing.T) {
 	mock := &mockPlanUpdater{}
-	handler := WebhookHandlerV2(mock, nil, "m", "s")
+	handler := WebhookHandlerV2(mock, nil, nil, "m", "s")
 
 	payload := plategaWebhookPayload{
 		ID:       "txn-v2-no-currency",
@@ -288,7 +288,7 @@ func TestWebhookHandlerV2_ConfirmedEmptyCurrency(t *testing.T) {
 
 func TestWebhookHandlerV2_SetPlanError(t *testing.T) {
 	mock := &mockPlanUpdater{err: fmt.Errorf("set plan failed")}
-	handler := WebhookHandlerV2(mock, nil, "m", "s")
+	handler := WebhookHandlerV2(mock, nil, nil, "m", "s")
 
 	payload := plategaWebhookPayload{
 		ID:      "txn-setplan-err",

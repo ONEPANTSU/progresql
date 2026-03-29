@@ -14,6 +14,12 @@ const (
 
 	TypeAutocompleteRequest  = "autocomplete.request"
 	TypeAutocompleteResponse = "autocomplete.response"
+
+	// Quota and billing notification types.
+	TypeQuotaWarning   = "quota.warning"
+	TypeQuotaExhausted = "quota.exhausted"
+	TypeModelFallback  = "model.fallback"
+	TypeBalanceLow     = "balance.low"
 )
 
 // Envelope is the common wrapper for all WebSocket messages.
@@ -83,6 +89,12 @@ type AgentResponsePayload struct {
 	ToolCallsLog []ToolCallLogEntry `json:"tool_calls_log,omitempty"`
 	ModelUsed    string            `json:"model_used,omitempty"`
 	TokensUsed   int               `json:"tokens_used,omitempty"`
+
+	// Cost/quota info (populated when quota system is active).
+	ModelTier    string  `json:"model_tier,omitempty"`
+	CostRUB      float64 `json:"cost_rub,omitempty"`
+	InputTokens  int     `json:"input_tokens,omitempty"`
+	OutputTokens int     `json:"output_tokens,omitempty"`
 }
 
 // AgentResult holds the outcome of an agent action.
@@ -138,7 +150,29 @@ const (
 	ErrCodeRateLimited      = "rate_limited"
 	ErrCodeDBNotConnected   = "db_not_connected"
 	ErrCodeCancelled        = "cancelled"
+	ErrCodeQuotaExhausted   = "quota_exhausted"
 )
+
+// QuotaWarningPayload notifies the client that a quota is running low.
+type QuotaWarningPayload struct {
+	QuotaType       string `json:"quota_type"`       // "budget" or "premium"
+	UsedTokens      int64  `json:"used_tokens"`
+	LimitTokens     int64  `json:"limit_tokens"`
+	RemainingTokens int64  `json:"remaining_tokens"`
+}
+
+// ModelFallbackPayload notifies the client that the model was switched.
+type ModelFallbackPayload struct {
+	FromModel string `json:"from_model"`
+	ToModel   string `json:"to_model"`
+	Reason    string `json:"reason"` // "quota_exhausted", "balance_depleted"
+}
+
+// BalanceLowPayload notifies the client that the balance is running low.
+type BalanceLowPayload struct {
+	Balance  float64 `json:"balance"`
+	Currency string  `json:"currency"` // "RUB"
+}
 
 // ParseEnvelope unmarshals raw JSON into an Envelope.
 func ParseEnvelope(data []byte) (*Envelope, error) {

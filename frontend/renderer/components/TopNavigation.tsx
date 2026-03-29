@@ -23,9 +23,11 @@ import {
 } from '@mui/icons-material';
 import { AuthUser } from '../types';
 import Logo from './Logo';
+import QuotaIndicator from './QuotaIndicator';
 import { createLogger } from '../utils/logger';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../contexts/LanguageContext';
+import { useAgent } from '../contexts/AgentContext';
 
 const log = createLogger('TopNavigation');
 
@@ -51,6 +53,7 @@ export default function TopNavigation({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const { actualTheme, setThemeMode } = useTheme();
   const { t } = useTranslation();
+  const agent = useAgent();
 
   const handleToggleTheme = () => {
     setThemeMode(actualTheme === 'dark' ? 'light' : 'dark');
@@ -123,6 +126,11 @@ export default function TopNavigation({
 
 
 
+
+          {/* Quota Indicator */}
+          {currentUser && agent.usage && (
+            <QuotaIndicator usage={agent.usage} compact />
+          )}
 
           {/* Theme Toggle */}
           <IconButton

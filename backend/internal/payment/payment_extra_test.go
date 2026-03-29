@@ -65,7 +65,7 @@ func TestWebhookHandlerV2_ValidPayment(t *testing.T) {
 	merchantID := "merchant-v2"
 	secret := "secret-v2"
 	mock := &mockPlanUpdater{}
-	handler := WebhookHandlerV2(mock, nil, merchantID, secret)
+	handler := WebhookHandlerV2(mock, nil, nil, merchantID, secret)
 
 	payload := plategaWebhookPayload{
 		ID:       "txn-v2-123",
@@ -97,7 +97,7 @@ func TestWebhookHandlerV2_ValidPayment(t *testing.T) {
 }
 
 func TestWebhookHandlerV2_InvalidCredentials(t *testing.T) {
-	handler := WebhookHandlerV2(&mockPlanUpdater{}, nil, "merchant", "secret")
+	handler := WebhookHandlerV2(&mockPlanUpdater{}, nil, nil, "merchant", "secret")
 
 	payload := plategaWebhookPayload{Status: "CONFIRMED", Payload: "user_123"}
 	body, _ := json.Marshal(payload)
@@ -115,7 +115,7 @@ func TestWebhookHandlerV2_InvalidCredentials(t *testing.T) {
 
 func TestWebhookHandlerV2_NotConfigured(t *testing.T) {
 	// Empty merchantID/secret → 500.
-	handler := WebhookHandlerV2(&mockPlanUpdater{}, nil, "", "")
+	handler := WebhookHandlerV2(&mockPlanUpdater{}, nil, nil, "", "")
 
 	req := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewBufferString("{}"))
 	w := httptest.NewRecorder()
@@ -127,7 +127,7 @@ func TestWebhookHandlerV2_NotConfigured(t *testing.T) {
 }
 
 func TestWebhookHandlerV2_PendingStatus(t *testing.T) {
-	handler := WebhookHandlerV2(&mockPlanUpdater{}, nil, "m", "s")
+	handler := WebhookHandlerV2(&mockPlanUpdater{}, nil, nil, "m", "s")
 
 	payload := plategaWebhookPayload{Status: "PENDING", Payload: "user_123"}
 	body, _ := json.Marshal(payload)
@@ -150,7 +150,7 @@ func TestWebhookHandlerV2_PendingStatus(t *testing.T) {
 }
 
 func TestWebhookHandlerV2_InvalidPayload(t *testing.T) {
-	handler := WebhookHandlerV2(&mockPlanUpdater{}, nil, "m", "s")
+	handler := WebhookHandlerV2(&mockPlanUpdater{}, nil, nil, "m", "s")
 
 	payload := plategaWebhookPayload{
 		Status:  "CONFIRMED",
@@ -170,7 +170,7 @@ func TestWebhookHandlerV2_InvalidPayload(t *testing.T) {
 }
 
 func TestWebhookHandlerV2_InvalidJSON(t *testing.T) {
-	handler := WebhookHandlerV2(&mockPlanUpdater{}, nil, "m", "s")
+	handler := WebhookHandlerV2(&mockPlanUpdater{}, nil, nil, "m", "s")
 
 	req := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewBufferString("not json"))
 	req.Header.Set("X-MerchantId", "m")
