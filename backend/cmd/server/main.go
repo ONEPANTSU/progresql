@@ -23,6 +23,7 @@ import (
 	"github.com/onepantsu/progressql/backend/internal/auth"
 	"github.com/onepantsu/progressql/backend/internal/database"
 	"github.com/onepantsu/progressql/backend/internal/logger"
+	"github.com/onepantsu/progressql/backend/internal/metrics"
 	"github.com/onepantsu/progressql/backend/internal/subscription"
 	"github.com/onepantsu/progressql/backend/internal/websocket"
 	"go.uber.org/zap"
@@ -41,6 +42,9 @@ func main() {
 		os.Exit(1)
 	}
 	defer logger.Sync()
+
+	// Pre-initialize Prometheus CounterVec metrics with zero values.
+	metrics.Init()
 
 	// Connect to PostgreSQL and run migrations.
 	ctx := context.Background()
