@@ -26,6 +26,7 @@ export interface Envelope {
 export interface AgentRequestPayload {
   action: 'generate_sql' | 'improve_sql' | 'explain_sql' | 'analyze_schema';
   user_message?: string;
+  model?: string; // per-request model override sent to backend
   context?: {
     selected_sql?: string;
     active_table?: string;
@@ -251,6 +252,10 @@ export class AgentService {
   /**
    * Send an agent.request and receive callbacks for stream / response / error.
    * Returns the generated request_id.
+   *
+   * The current model from config is injected into every request so the backend
+   * always uses the model the user selected in settings, even if it changed
+   * after the WebSocket session was created.
    */
   sendRequest(payload: AgentRequestPayload, callbacks: AgentRequestCallbacks): string {
     if (!this.ws || this.connectionState !== 'connected') {
@@ -262,10 +267,16 @@ export class AgentService {
 
     this.pendingRequests.set(requestId, callbacks);
 
+    // Inject current model into the payload so the backend uses the user's selection.
+    const payloadWithModel: AgentRequestPayload = {
+      ...payload,
+      model: payload.model || this.config.model || '',
+    };
+
     const envelope: Envelope = {
       type: 'agent.request',
       request_id: requestId,
-      payload,
+      payload: payloadWithModel,
     };
 
     this.ws.send(JSON.stringify(envelope));
@@ -294,7 +305,7 @@ export class AgentService {
   /**
    * Send an autocomplete request for SQL ghost text.
    */
-  sendAutocomplete(sql: string, cursorPos: number, schemaContext: string, callback: (completion: string) => void): void {
+  sendAutocomplete(sql: string, cursorPos: number, schemaContext: string, callback: (completion: string) => void, model?: string): void {
     if (!this.ws || this.connectionState !== 'connected') return;
 
     // Cancel previous autocomplete if pending
@@ -308,7 +319,7 @@ export class AgentService {
     const envelope: Envelope = {
       type: 'autocomplete.request',
       request_id: requestId,
-      payload: { sql, cursor_position: cursorPos, schema_context: schemaContext },
+      payload: { sql, cursor_position: cursorPos, schema_context: schemaContext, ...(model ? { model } : {}) },
     };
 
     this.ws.send(JSON.stringify(envelope));

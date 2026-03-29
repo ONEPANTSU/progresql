@@ -11,7 +11,6 @@ import {
   CircularProgress,
   IconButton,
   Collapse,
-  Chip,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -217,17 +216,6 @@ export default function PaymentModal({
 
           {/* Pro Plus Card */}
           <Box onClick={() => setSelectedPlan('pro_plus')} sx={planCardSx('pro_plus')}>
-            {selectedPlan === 'pro_plus' && (
-              <Chip
-                label={language === 'ru' ? 'Рекомендуется' : 'Recommended'}
-                size="small"
-                sx={{
-                  position: 'absolute', top: -10, right: 8,
-                  fontSize: '0.6rem', height: 18, fontWeight: 700,
-                  background: 'linear-gradient(135deg, #f59e0b, #f97316)', color: '#fff',
-                }}
-              />
-            )}
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Pro Plus</Typography>
             <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, color: '#f59e0b', lineHeight: 1 }}>
               {proPlusPrice}₽

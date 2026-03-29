@@ -415,11 +415,16 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
                 <Button
                   size="small"
                   variant="contained"
-                  color="success"
                   startIcon={<CheckIcon />}
                   onClick={handleCommitEdits}
                   disabled={isSavingEdits}
-                  sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                  sx={{
+                    textTransform: 'none',
+                    fontSize: '0.75rem',
+                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                    '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
+                    '&.Mui-disabled': { background: 'linear-gradient(135deg, #a5b4fc, #c4b5fd)', color: 'rgba(255,255,255,0.7)' },
+                  }}
                 >
                   {t('results.saveChanges')} ({pendingEdits.size})
                 </Button>

@@ -31,13 +31,14 @@ type Envelope struct {
 	Payload   json.RawMessage `json:"payload"`
 }
 
-// --- Client → Backend ---
+// --- Client -> Backend ---
 
 // AgentRequestPayload is sent by the client to request an agent action.
 type AgentRequestPayload struct {
-	Action      string              `json:"action"`
-	UserMessage string              `json:"user_message,omitempty"`
-	Context     *AgentRequestContext `json:"context,omitempty"`
+	Action      string               `json:"action"`
+	UserMessage string               `json:"user_message,omitempty"`
+	Model       string               `json:"model,omitempty"` // per-request model override from client
+	Context     *AgentRequestContext  `json:"context,omitempty"`
 }
 
 // AgentRequestContext provides optional context for an agent request.
@@ -45,9 +46,9 @@ type AgentRequestContext struct {
 	SelectedSQL      string  `json:"selected_sql,omitempty"`
 	ActiveTable      string  `json:"active_table,omitempty"`
 	UserDescriptions string  `json:"user_descriptions,omitempty"`
-	SafeMode         *bool   `json:"safe_mode,omitempty"`          // deprecated, kept for backward compat
-	SecurityMode     *string `json:"security_mode,omitempty"`      // "safe", "data", "execute"
-	Language         string  `json:"language,omitempty"`            // "ru" or "en"
+	SafeMode         *bool   `json:"safe_mode,omitempty"`     // deprecated, kept for backward compat
+	SecurityMode     *string `json:"security_mode,omitempty"` // "safe", "data", "execute"
+	Language         string  `json:"language,omitempty"`       // "ru" or "en"
 }
 
 // ToolResultPayload is the client's response to a tool.call.
@@ -62,6 +63,7 @@ type AutocompleteRequestPayload struct {
 	SQL           string `json:"sql"`
 	CursorPos     int    `json:"cursor_position"`
 	SchemaContext string `json:"schema_context"`
+	Model         string `json:"model,omitempty"` // optional: override autocomplete model (must be budget tier)
 }
 
 // AutocompleteResponsePayload carries the autocomplete suggestion back to the client.
@@ -69,7 +71,7 @@ type AutocompleteResponsePayload struct {
 	Completion string `json:"completion"`
 }
 
-// --- Backend → Client ---
+// --- Backend -> Client ---
 
 // ToolCallPayload requests the client to execute a tool.
 type ToolCallPayload struct {
@@ -84,11 +86,11 @@ type AgentStreamPayload struct {
 
 // AgentResponsePayload is the final response from the agent.
 type AgentResponsePayload struct {
-	Action       string            `json:"action"`
-	Result       AgentResult       `json:"result"`
+	Action       string             `json:"action"`
+	Result       AgentResult        `json:"result"`
 	ToolCallsLog []ToolCallLogEntry `json:"tool_calls_log,omitempty"`
-	ModelUsed    string            `json:"model_used,omitempty"`
-	TokensUsed   int               `json:"tokens_used,omitempty"`
+	ModelUsed    string             `json:"model_used,omitempty"`
+	TokensUsed   int                `json:"tokens_used,omitempty"`
 
 	// Cost/quota info (populated when quota system is active).
 	ModelTier    string  `json:"model_tier,omitempty"`
@@ -143,14 +145,14 @@ type AgentErrorPayload struct {
 
 // Error code constants.
 const (
-	ErrCodeToolTimeout      = "tool_timeout"
-	ErrCodeLLMError         = "llm_error"
-	ErrCodeInvalidRequest   = "invalid_request"
-	ErrCodeSQLBlocked       = "sql_blocked"
-	ErrCodeRateLimited      = "rate_limited"
-	ErrCodeDBNotConnected   = "db_not_connected"
-	ErrCodeCancelled        = "cancelled"
-	ErrCodeQuotaExhausted   = "quota_exhausted"
+	ErrCodeToolTimeout    = "tool_timeout"
+	ErrCodeLLMError       = "llm_error"
+	ErrCodeInvalidRequest = "invalid_request"
+	ErrCodeSQLBlocked     = "sql_blocked"
+	ErrCodeRateLimited    = "rate_limited"
+	ErrCodeDBNotConnected = "db_not_connected"
+	ErrCodeCancelled      = "cancelled"
+	ErrCodeQuotaExhausted = "quota_exhausted"
 )
 
 // QuotaWarningPayload notifies the client that a quota is running low.

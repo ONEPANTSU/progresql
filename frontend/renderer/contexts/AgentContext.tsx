@@ -17,6 +17,8 @@ import {
   saveBackendUrl,
   loadModel,
   saveModel,
+  loadAutocompleteModel,
+  saveAutocompleteModel,
   loadSecurityMode,
   saveSecurityMode,
   SecurityMode,
@@ -58,6 +60,10 @@ export interface AgentContextValue {
   model: string;
   /** Update LLM model (persisted) */
   setModel: (model: string) => void;
+  /** Configured autocomplete model (budget tier only) */
+  autocompleteModel: string;
+  /** Update autocomplete model (persisted) */
+  setAutocompleteModel: (model: string) => void;
   /** Current security mode: "safe" | "data" | "execute" */
   securityMode: SecurityMode;
   /** Update security mode (persisted) */
@@ -87,6 +93,7 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loadBackendUrl(DEFAULT_BACKEND_URL),
   );
   const [model, setModelState] = useState<string>(() => loadModel());
+  const [autocompleteModel, setAutocompleteModelState] = useState<string>(() => loadAutocompleteModel());
   const [securityMode, setSecurityModeState] = useState<SecurityMode>(() => loadSecurityMode());
 
   // Connection state
@@ -190,6 +197,11 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     saveModel(m);
   }, []);
 
+  const setAutocompleteModel = useCallback((m: string) => {
+    setAutocompleteModelState(m);
+    saveAutocompleteModel(m);
+  }, []);
+
   const setSecurityMode = useCallback((mode: SecurityMode) => {
     setSecurityModeState(mode);
     saveSecurityMode(mode);
@@ -253,17 +265,24 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   }, [userId]);
 
-  // Auto-fetch usage when connected + periodically (every 60s)
+  // Auto-fetch usage when user is logged in, periodically (every 60s).
+  // Usage is fetched via REST API with the login token, so it does not
+  // require the WebSocket connection to be established.
   useEffect(() => {
-    if (connectionState !== 'connected' || !userId) return;
+    if (!userId) return;
     refreshUsage();
     const interval = setInterval(refreshUsage, 60_000);
     return () => clearInterval(interval);
-  }, [connectionState, userId, refreshUsage]);
+  }, [userId, refreshUsage]);
 
-  // Autocomplete
+  // Autocomplete — pass autocompleteModel to service via ref for stable callback
+  const autocompleteModelRef = useRef(autocompleteModel);
+  useEffect(() => {
+    autocompleteModelRef.current = autocompleteModel;
+  }, [autocompleteModel]);
+
   const sendAutocomplete = useCallback((sql: string, cursorPos: number, schemaContext: string, callback: (completion: string) => void) => {
-    serviceRef.current?.sendAutocomplete(sql, cursorPos, schemaContext, callback);
+    serviceRef.current?.sendAutocomplete(sql, cursorPos, schemaContext, callback, autocompleteModelRef.current);
   }, []);
 
   const cancelAutocomplete = useCallback(() => {
@@ -285,6 +304,8 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setBackendUrl,
     model,
     setModel,
+    autocompleteModel,
+    setAutocompleteModel,
     securityMode,
     setSecurityMode,
     safeMode: securityMode === 'safe',
@@ -294,7 +315,7 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     usage,
     refreshUsage,
     lastNotification,
-  }), [connectionState, connectionPhase, isAuthError, connect, disconnect, sendRequest, cancelRequest, sessionId, error, backendUrl, setBackendUrl, model, setModel, securityMode, setSecurityMode, setSafeMode, sendAutocomplete, cancelAutocomplete, usage, refreshUsage, lastNotification]);
+  }), [connectionState, connectionPhase, isAuthError, connect, disconnect, sendRequest, cancelRequest, sessionId, error, backendUrl, setBackendUrl, model, setModel, autocompleteModel, setAutocompleteModel, securityMode, setSecurityMode, setSafeMode, sendAutocomplete, cancelAutocomplete, usage, refreshUsage, lastNotification]);
 
   return (
     <AgentContext.Provider value={value}>
