@@ -72,6 +72,20 @@ var PaymentsAmountTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "Total payment amounts.",
 }, []string{"currency"})
 
+// Init pre-initializes label combinations so CounterVec metrics are visible
+// in Prometheus even before any events occur (avoids "No data" in Grafana).
+func Init() {
+	PaymentsTotal.WithLabelValues("created", "RUB")
+	PaymentsTotal.WithLabelValues("confirmed", "RUB")
+	PaymentsTotal.WithLabelValues("failed", "RUB")
+	PaymentsAmountTotal.WithLabelValues("RUB")
+	UserSubscriptionsActivatedTotal.WithLabelValues("pro")
+	UserSubscriptionsExpiredTotal.WithLabelValues("expired")
+	UserSubscriptionsExpiredTotal.WithLabelValues("trial_expired")
+	PromoCodesApplied.WithLabelValues("", "percent")
+	PromoCodesApplied.WithLabelValues("", "amount")
+}
+
 // --- WebSocket metrics ---
 
 var WebSocketConnectionsTotal = promauto.NewCounter(prometheus.CounterOpts{

@@ -1,7 +1,7 @@
 {
   "name": "progresql",
   "productName": "ProgreSQL",
-  "version": "1.0.68",
+  "version": "1.0.69",
   "description": "PostgreSQL Client Application built with Nextron",
   "license": "ISC",
   "author": "ONEPANTSU",
@@ -94,6 +94,7 @@
       "icon": "public/assets/icon.icns",
       "iconSize": 100,
       "sign": false,
+      "format": "UDBZ",
       "window": {
         "width": 660,
         "height": 400
@@ -128,7 +129,12 @@
       "allowToChangeInstallationDirectory": true,
       "oneClick": false,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "installerIcon": "public/assets/icon.ico",
+      "uninstallerIcon": "public/assets/icon.ico",
+      "installerHeader": "public/assets/nsis/installerHeader.bmp",
+      "installerSidebar": "public/assets/nsis/installerSidebar.bmp",
+      "uninstallerSidebar": "public/assets/nsis/installerSidebar.bmp"
     },
     "win": {
       "target": "nsis",
