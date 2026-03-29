@@ -226,7 +226,7 @@ func TestWebhookHandler_ConfirmedPayment_BadDB(t *testing.T) {
 func TestWebhookHandlerV2_ConfirmedPayment_BadDB(t *testing.T) {
 	pool := badPaymentPool(t)
 	mock := &mockPlanUpdater{}
-	handler := WebhookHandlerV2(mock, pool, "merchant", "secret")
+	handler := WebhookHandlerV2(mock, nil, pool, "merchant", "secret")
 
 	payload := plategaWebhookPayload{
 		ID:       "txn-v2-webhook-db",

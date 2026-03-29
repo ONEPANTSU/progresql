@@ -93,15 +93,15 @@ const en = {
   'settings.safeMode': 'Safe Mode',
   'settings.safeModeOn': 'Read-only access',
   'settings.safeModeOff': 'Full access',
-  'settings.unsafeWarning': 'Execute Mode — AI can run INSERT, UPDATE, DELETE',
-  'settings.dataModeWarning': 'Data Mode — AI can read data (read-only)',
+  'settings.unsafeWarning': 'Execute Mode \u2014 AI can run INSERT, UPDATE, DELETE',
+  'settings.dataModeWarning': 'Data Mode \u2014 AI can read data (read-only)',
   'settings.securityMode': 'AI Access Mode',
-  'settings.securityModeSafeDesc': 'Schema only — no data access',
-  'settings.securityModeDataDesc': 'Read-only — SELECT queries only',
-  'settings.securityModeExecuteDesc': 'Full access — all SQL operations',
-  'settings.securityModeSafeInfo': '✔ Schema, functions, views, triggers\n✔ EXPLAIN query plans\n✘ No data access\n✘ No query execution\n✘ Analytics unavailable',
-  'settings.securityModeDataInfo': '✔ Everything in Safe Mode\n✔ SELECT queries (read-only)\n✔ EXPLAIN ANALYZE\n✔ Analytics & charts\n✘ No INSERT/UPDATE/DELETE\n✘ No schema changes',
-  'settings.securityModeExecuteInfo': '✔ Full database access\n✔ All SQL operations\n⚠ INSERT, UPDATE, DELETE allowed\n⚠ Schema changes allowed',
+  'settings.securityModeSafeDesc': 'Schema only \u2014 no data access',
+  'settings.securityModeDataDesc': 'Read-only \u2014 SELECT queries only',
+  'settings.securityModeExecuteDesc': 'Full access \u2014 all SQL operations',
+  'settings.securityModeSafeInfo': '\u2714 Schema, functions, views, triggers\n\u2714 EXPLAIN query plans\n\u2718 No data access\n\u2718 No query execution\n\u2718 Analytics unavailable',
+  'settings.securityModeDataInfo': '\u2714 Everything in Safe Mode\n\u2714 SELECT queries (read-only)\n\u2714 EXPLAIN ANALYZE\n\u2714 Analytics & charts\n\u2718 No INSERT/UPDATE/DELETE\n\u2718 No schema changes',
+  'settings.securityModeExecuteInfo': '\u2714 Full database access\n\u2714 All SQL operations\n\u26a0 INSERT, UPDATE, DELETE allowed\n\u26a0 Schema changes allowed',
   'settings.theme': 'Theme',
   'settings.themeLight': 'Light',
   'settings.themeDark': 'Dark',
@@ -138,7 +138,7 @@ const en = {
   'settings.promoCodeSuccess': 'Promo code applied! Your plan has been updated.',
   'settings.promoCodeError': 'Invalid or expired promo code',
 
-  // ── Payment Modal ──
+  // ── Payment Modal ─���
   'payment.selectMethod': 'Choose payment method',
   'payment.card': 'Card',
   'payment.sbp': 'SBP',
@@ -181,6 +181,7 @@ const en = {
   'editor.switchConnection': 'Switch database connection',
   'editor.noConnection': 'No connection',
   'editor.templates': 'SQL Templates',
+  'editor.autocompletePlanRequired': 'AI autocomplete is available on Pro, Pro Plus, and Team plans.',
 
   // ── Chat Input ──
   'chat.input.placeholder': 'Ask a question about your database\u2026',
@@ -204,7 +205,7 @@ const en = {
   'chat.dbPill.noConnection': 'No DB',
   'chat.dbPill.switchDb': 'Switch database',
 
-  // ── Chat Message ──
+  // ── Chat Message ���─
   'chat.copySql': 'Copy SQL',
   'chat.executeSql': 'Execute SQL',
   'chat.copy': 'Copy',
@@ -310,6 +311,12 @@ const en = {
   'notify.connectionDeleted': 'Connection "{name}" deleted',
   'notify.dbStructureErrorDetail': 'Failed to get database structure: {error}',
   'notify.updateError': 'Update error: {error}',
+
+  // ── WS Notification Toasts ──
+  'notify.ws.quotaWarning': 'Quota is running low ({percent}% used). Consider upgrading your plan.',
+  'notify.ws.quotaExhausted': 'Your quota has been exhausted. Top up your balance or upgrade your plan.',
+  'notify.ws.modelFallback': 'Model switched from {from_model} to {to_model} due to quota limits.',
+  'notify.ws.balanceLow': 'Low balance: {amount} RUB remaining. Top up to continue using AI.',
 
   // ── Subscription Warnings ──
   'subscription.expiringSoon': 'Your trial expires in {days} days. Upgrade to Pro to keep AI features.',
@@ -451,9 +458,73 @@ const en = {
   'details.dropSql': 'Generate DROP SQL',
 
   // -- Update Notification --
-  'update.available': 'New version available — ',
+  'update.available': 'New version available \u2014 ',
   'update.download': 'Update',
   'update.dismiss': 'Dismiss update notification',
+
+  // -- Quota & Balance --
+  'quota.budgetUsed': '{used} / {limit} tokens',
+  'quota.premiumUsed': '{used} / {limit} tokens',
+  'quota.budgetLabel': 'Budget models',
+  'quota.premiumLabel': 'Premium models',
+  'quota.periodDaily': 'Resets daily',
+  'quota.periodMonthly': 'Resets monthly',
+  'quota.exhausted': 'Quota exhausted',
+  'quota.balanceFallback': 'Using balance',
+  'quota.warning': 'Quota is running low ({percent}% used)',
+  'quota.modelFallback': 'Switched to {model} (quota limit)',
+
+  'balance.title': 'Balance',
+  'balance.topup': 'Top up',
+  'balance.topupTitle': 'Top Up Balance',
+  'balance.amount': 'Amount (RUB)',
+  'balance.minAmount': 'Minimum {amount} RUB',
+  'balance.maxAmount': 'Maximum {amount} RUB',
+  'balance.confirm': 'Top Up',
+  'balance.history': 'Transaction History',
+  'balance.noTransactions': 'No transactions yet',
+  'balance.txTopUp': 'Top-up',
+  'balance.txModelCharge': 'AI usage',
+  'balance.txOverQuota': 'Over-quota charge',
+  'balance.txRefund': 'Refund',
+  'balance.low': 'Low balance: {amount} RUB remaining',
+  'balance.depleted': 'Balance depleted',
+  'balance.markup': '{pct}% markup applied',
+  'balance.topUp': 'Top Up Balance',
+  'balance.currentBalance': 'Current balance',
+  'balance.selectAmount': 'Select amount',
+  'balance.customAmount': 'Custom amount',
+  'balance.topUpButton': 'Top up',
+  'balance.topUpSuccess': 'Balance top-up initiated',
+  'balance.topUpError': 'Failed to create top-up payment',
+
+  'plan.free': 'Free',
+  'plan.trial': 'Trial',
+  'plan.pro': 'Pro',
+  'plan.proPlus': 'Pro Plus',
+  'plan.proPlusUntil': 'Pro Plus until {date}',
+
+  'pricing.perMonth': '/month',
+  'pricing.budgetTokens': '{limit} budget tokens',
+  'pricing.premiumTokens': '{limit} premium tokens',
+  'pricing.autocomplete': 'AI autocomplete',
+  'pricing.balanceAccess': 'Balance access',
+  'pricing.balanceMarkup': '{pct}% markup on balance',
+  'pricing.requests': '{count} req/min',
+  'pricing.choosePlan': 'Choose Plan',
+  'pricing.currentPlan': 'Current Plan',
+  'pricing.recommended': 'Recommended',
+
+  'usage.title': 'Usage',
+  'usage.period': 'Period: {start} \u2014 {end}',
+  'usage.budgetProgress': 'Budget: {percent}%',
+  'usage.premiumProgress': 'Premium: {percent}%',
+
+  'model.budget': 'Budget',
+  'model.premium': 'Premium',
+  'model.tierBudget': 'Included in plan',
+  'model.tierPremium': 'Uses premium quota',
+  'model.costPerRequest': '~{cost} RUB/request',
 } as const;
 
 export type TranslationKey = keyof typeof en;

@@ -6,6 +6,7 @@ import {
   ConnectionState,
   ConnectionPhase,
   AgentServiceConfig,
+  ServerNotification,
 } from '../services/agent/AgentService';
 import { handleToolCall } from '../services/agent/toolHandler';
 import { createLogger } from '../utils/logger';
@@ -20,8 +21,9 @@ import {
   saveSecurityMode,
   SecurityMode,
 } from '../utils/secureSettingsStorage';
-import { isSubscriptionActive } from '../services/auth';
+import { isSubscriptionActive, fetchUsage } from '../services/auth';
 import { useAuth } from '../providers/AuthProvider';
+import { UsageInfo } from '../types';
 
 const DEFAULT_BACKEND_URL = 'https://progresql.com';
 
@@ -68,6 +70,12 @@ export interface AgentContextValue {
   sendAutocomplete: (sql: string, cursorPos: number, schemaContext: string, callback: (completion: string) => void) => void;
   /** Cancel pending autocomplete */
   cancelAutocomplete: () => void;
+  /** Current usage/quota info (periodically refreshed) */
+  usage: UsageInfo | null;
+  /** Refresh usage data from backend */
+  refreshUsage: () => void;
+  /** Last server notification (quota.warning, model.fallback, etc.) */
+  lastNotification: ServerNotification | null;
 }
 
 const AgentContext = createContext<AgentContextValue | undefined>(undefined);
@@ -90,6 +98,10 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const { user } = useAuth();
   const userId = user?.id;
+
+  // Usage/quota state
+  const [usage, setUsage] = useState<UsageInfo | null>(null);
+  const [lastNotification, setLastNotification] = useState<ServerNotification | null>(null);
 
   // AgentService ref (recreated when config changes)
   const serviceRef = useRef<AgentService | null>(null);
@@ -125,11 +137,18 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Register tool call handler so the backend can invoke database tools
     service.setToolCallHandler(handleToolCall);
 
+    // Subscribe to server push notifications
+    const unsubNotification = service.onNotification((notification) => {
+      log.info('Server notification:', notification.type, notification.payload);
+      setLastNotification(notification);
+    });
+
     serviceRef.current = service;
     unsubscribeRef.current = unsubscribe;
 
     return () => {
       unsubscribe();
+      unsubNotification();
       service.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -226,6 +245,22 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     serviceRef.current?.cancelRequest(requestId);
   }, []);
 
+  // Fetch usage data from backend
+  const refreshUsage = useCallback(() => {
+    if (!userId) return;
+    fetchUsage().then(setUsage).catch((err) => {
+      log.warn('Failed to fetch usage:', err);
+    });
+  }, [userId]);
+
+  // Auto-fetch usage when connected + periodically (every 60s)
+  useEffect(() => {
+    if (connectionState !== 'connected' || !userId) return;
+    refreshUsage();
+    const interval = setInterval(refreshUsage, 60_000);
+    return () => clearInterval(interval);
+  }, [connectionState, userId, refreshUsage]);
+
   // Autocomplete
   const sendAutocomplete = useCallback((sql: string, cursorPos: number, schemaContext: string, callback: (completion: string) => void) => {
     serviceRef.current?.sendAutocomplete(sql, cursorPos, schemaContext, callback);
@@ -256,7 +291,10 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSafeMode,
     sendAutocomplete,
     cancelAutocomplete,
-  }), [connectionState, connectionPhase, isAuthError, connect, disconnect, sendRequest, cancelRequest, sessionId, error, backendUrl, setBackendUrl, model, setModel, securityMode, setSecurityMode, setSafeMode, sendAutocomplete, cancelAutocomplete]);
+    usage,
+    refreshUsage,
+    lastNotification,
+  }), [connectionState, connectionPhase, isAuthError, connect, disconnect, sendRequest, cancelRequest, sessionId, error, backendUrl, setBackendUrl, model, setModel, securityMode, setSecurityMode, setSafeMode, sendAutocomplete, cancelAutocomplete, usage, refreshUsage, lastNotification]);
 
   return (
     <AgentContext.Provider value={value}>

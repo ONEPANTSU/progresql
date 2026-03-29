@@ -56,11 +56,30 @@
 
 ## Subscription & Plans
 
-| | Free (3-day trial) | Pro |
-|--|-------------------|-----|
-| AI requests | 10/min | 60/min |
-| Concurrent sessions | 1 | 5 |
-| Tokens per request | 4,096 | 16,384 |
+| | Free | Trial (3 days) | Pro (1,999₽/mo) | Pro Plus (5,999₽/mo) |
+|--|------|----------------|------------------|---------------------|
+| Budget AI models | 50K tokens/day | 500K tokens/day | 5M tokens/month | 10M tokens/month |
+| Premium AI models | — | — | 200K tokens/month | 1.5M tokens/month |
+| AI requests | 10/min | 10/min | 60/min | 120/min |
+| Tokens per request | 4,096 | 4,096 | 16,384 | 32,768 |
+| AI autocomplete | — | Yes | Yes | Yes |
+| Balance access | — | — | Yes (50% markup) | Yes (25% markup) |
+| Concurrent sessions | 1 | 1 | 5 | 5 |
+
+### Budget Models (included in plan)
+- Qwen 3 Coder, GPT-OSS 120B, Qwen 3 VL 32B
+- Gemma 3 27B, Mistral Small 3.2, DeepSeek V3
+
+### Premium Models (quota + balance)
+- Claude Sonnet 4, GPT-4.1, Gemini 2.5 Pro
+- Claude 3.5 Sonnet, o3-mini, DeepSeek R1
+
+### Balance System
+- Pay-as-you-go for usage beyond quota limits
+- Top-up via card or SBP (100₽ — 100,000₽)
+- Per-token pricing with plan-dependent markup (Pro: 50%, Pro Plus: 25%)
+- Balance persists through subscription changes
+- Transparent cost display per AI request
 
 - **Payment** — Card and SBP via Platega
 - **Promo codes** — Support for trial extension, pro grants, and discounts

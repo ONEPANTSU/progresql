@@ -57,9 +57,20 @@ interface ChatPanelProps {
 // Typing indicator removed — streaming messages already show content appearing in real-time
 
 const MODEL_DISPLAY_NAMES: Record<string, string> = {
+  // Budget models
   'qwen/qwen3-coder': 'Qwen 3 Coder',
   'openai/gpt-oss-120b': 'GPT-OSS 120B',
   'qwen/qwen3-vl-32b-instruct': 'Qwen 3 VL 32B',
+  'deepseek/deepseek-v3-0324': 'DeepSeek V3',
+  'google/gemma-3-27b-it': 'Gemma 3 27B',
+  'openai/gpt-4o-mini': 'GPT-4o Mini',
+  // Premium models
+  'anthropic/claude-sonnet-4': 'Claude Sonnet 4',
+  'openai/gpt-4.1': 'GPT-4.1',
+  'google/gemini-2.5-pro-preview': 'Gemini 2.5 Pro',
+  'anthropic/claude-3.5-sonnet': 'Claude 3.5 Sonnet',
+  'openai/o4-mini': 'o4-mini',
+  'google/gemini-2.5-flash-preview': 'Gemini 2.5 Flash',
 };
 
 function formatModelName(model: string): string {

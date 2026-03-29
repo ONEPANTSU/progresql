@@ -313,8 +313,32 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
             // Debounced AI autocomplete
             if (autocompleteTimer.current) clearTimeout(autocompleteTimer.current);
             agentRef.current.cancelAutocomplete();
-            if (agentRef.current.isConnected && newQuery.trim().length > 5) {
-              const cursorPos = update.state.selection.main.head;
+            // Autocomplete: 500ms debounce, min 3 chars after last space, skip strings/comments
+            const cursorPos = update.state.selection.main.head;
+            const textBeforeCursor = newQuery.slice(0, cursorPos);
+            const lastSpaceIdx = textBeforeCursor.lastIndexOf(' ');
+            const charsAfterSpace = lastSpaceIdx === -1 ? textBeforeCursor.length : textBeforeCursor.length - lastSpaceIdx - 1;
+            // Skip if cursor is inside a string or comment
+            const isInStringOrComment = (() => {
+              const before = textBeforeCursor;
+              const singleQuotes = (before.match(/'/g) || []).length;
+              if (singleQuotes % 2 !== 0) return true; // inside single-quoted string
+              const doubleQuotes = (before.match(/"/g) || []).length;
+              if (doubleQuotes % 2 !== 0) return true; // inside double-quoted identifier
+              // Check line comment (-- ...)
+              const lastNewline = before.lastIndexOf('\n');
+              const currentLine = lastNewline === -1 ? before : before.slice(lastNewline + 1);
+              if (currentLine.includes('--')) return true;
+              // Check block comment /* ... */
+              const lastBlockOpen = before.lastIndexOf('/*');
+              const lastBlockClose = before.lastIndexOf('*/');
+              if (lastBlockOpen > lastBlockClose) return true;
+              return false;
+            })();
+            // Autocomplete is only available for pro, pro_plus, and team plans
+            const plan = agentRef.current.usage?.plan;
+            const autocompleteAllowed = plan === 'pro' || plan === 'pro_plus' || plan === 'team';
+            if (agentRef.current.isConnected && autocompleteAllowed && charsAfterSpace >= 3 && !isInStringOrComment) {
               autocompleteTimer.current = setTimeout(() => {
                 if (!viewRef.current) return;
                 const currentPos = viewRef.current.state.selection.main.head;
@@ -336,7 +360,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
                     showGhostText(viewRef.current, completion, currentPos);
                   }
                 });
-              }, 400);
+              }, 500);
             }
           }
         });

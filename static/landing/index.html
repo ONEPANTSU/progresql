@@ -754,9 +754,9 @@ h2 {
 
 .pricing-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 28px;
-  max-width: 760px;
+  max-width: 1120px;
   margin: 0 auto;
 }
 
@@ -774,6 +774,41 @@ h2 {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 16px;
+}
+
+.pricing-card.pro-plus {
+  position: relative;
+  border: none;
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 16px;
+}
+
+.pricing-card.pro-plus::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 17px;
+  padding: 1px;
+  background: conic-gradient(from var(--conic-angle, 0deg), #f59e0b, #f97316, #ef4444, #f59e0b);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: conicSpin 3s linear infinite;
+}
+
+.pricing-badge-recommended {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 100px;
 }
 
 .pricing-card.pro::before {
@@ -913,8 +948,12 @@ h2 {
   line-height: 1.6;
 }
 
+@media (max-width: 900px) {
+  .pricing-grid { grid-template-columns: 1fr 1fr; max-width: 760px; }
+}
+
 @media (max-width: 640px) {
-  .pricing-grid { grid-template-columns: 1fr; max-width: 400px; }
+  .pricing-grid { grid-template-columns: 1fr; max-width: 420px; }
 }
 
 /* ========== FAQ ========== */
@@ -1388,6 +1427,7 @@ h2 {
       <h2 class="fade-in" data-en="Simple pricing" data-ru="Простые цены">Simple pricing</h2>
       <p class="section-subtitle fade-in" data-en="Start free, upgrade when you need more." data-ru="Начните бесплатно, обновитесь, когда понадобится больше.">Start free, upgrade when you need more.</p>
       <div class="pricing-grid">
+        <!-- Free -->
         <div class="glass-card pricing-card fade-in">
           <div class="pricing-title" data-en="Free" data-ru="Бесплатно">Free</div>
           <p class="pricing-positioning" data-en="For getting started with SQL" data-ru="Для начала работы с SQL">For getting started with SQL</p>
@@ -1395,14 +1435,15 @@ h2 {
             <span class="amount" data-en="$0" data-ru="0 ₽">0 ₽</span>
           </div>
           <ul class="pricing-features">
-            <li data-en="SQL editor with autocomplete" data-ru="SQL-редактор с автодополнением">SQL editor with autocomplete</li>
-            <li data-en="Visual schema explorer &amp; ER diagrams" data-ru="Визуальный обозреватель схемы и ER-диаграммы">Visual schema explorer &amp; ER diagrams</li>
-            <li data-en="Connect to any PostgreSQL" data-ru="Подключение к любому PostgreSQL">Connect to any PostgreSQL</li>
-            <li data-en="Multiple connections at once" data-ru="Несколько подключений одновременно">Multiple connections at once</li>
+            <li data-en="50K budget tokens/day" data-ru="50K бюджетных токенов/день">50K budget tokens/day</li>
+            <li data-en="3 budget AI models" data-ru="3 бюджетные AI-модели">3 budget AI models</li>
+            <li data-en="Basic SQL autocomplete" data-ru="Базовое автодополнение SQL">Basic SQL autocomplete</li>
+            <li data-en="SQL editor &amp; schema explorer" data-ru="SQL-редактор и обозреватель схемы">SQL editor &amp; schema explorer</li>
             <li data-en="Free forever" data-ru="Бесплатно навсегда">Free forever</li>
           </ul>
           <a href="#" class="btn-secondary download-link" style="justify-content:center;" data-en="Download free &rarr;" data-ru="Скачать бесплатно &rarr;">Download free &rarr;</a>
         </div>
+        <!-- Pro -->
         <div class="pricing-card pro fade-in">
           <div class="pricing-badge" data-en="Most popular" data-ru="Популярный">Most popular</div>
           <div class="pricing-title">Pro</div>
@@ -1411,10 +1452,28 @@ h2 {
             <span class="amount" data-en="$20" data-ru="1 999 ₽">1 999 ₽</span><span class="period" data-en="/month" data-ru="/мес">/мес</span>
           </div>
           <ul class="pricing-features">
-            <li data-en="Unlimited AI SQL generation" data-ru="Безлимитная AI-генерация SQL">Unlimited AI SQL generation</li>
-            <li data-en="Explain &amp; optimize queries" data-ru="Объяснение и оптимизация запросов">Explain &amp; optimize queries</li>
-            <li data-en="AI chat with your database" data-ru="AI-чат с вашей базой данных">AI chat with your database</li>
-            <li data-en="Analytics &amp; charts" data-ru="Аналитика и графики">Analytics &amp; charts</li>
+            <li data-en="5M budget + 200K premium tokens/month" data-ru="5M бюджетных + 200K премиум токенов/мес">5M budget + 200K premium tokens/month</li>
+            <li data-en="All 12 AI models" data-ru="Все 12 AI-моделей">All 12 AI models</li>
+            <li data-en="Smart SQL autocomplete" data-ru="Умное автодополнение SQL">Smart SQL autocomplete</li>
+            <li data-en="Balance top-up (50% markup)" data-ru="Пополнение баланса (наценка 50%)">Balance top-up (50% markup)</li>
+            <li data-en="AI chat, explain &amp; optimize" data-ru="AI-чат, объяснение и оптимизация">AI chat, explain &amp; optimize</li>
+          </ul>
+          <a href="#" class="btn-primary download-link" style="justify-content:center;" data-en="Download free &rarr;" data-ru="Скачать бесплатно &rarr;">Download free &rarr;</a>
+          <p class="pricing-pro-hint" data-en="3-day free trial included" data-ru="3 дня бесплатного пробного периода">3-day free trial included</p>
+        </div>
+        <!-- Pro Plus -->
+        <div class="pricing-card pro-plus fade-in">
+          <div class="pricing-badge-recommended" data-en="Recommended" data-ru="Рекомендуемый">Recommended</div>
+          <div class="pricing-title">Pro Plus</div>
+          <p class="pricing-positioning" data-en="For power users &amp; teams" data-ru="Для продвинутых пользователей и команд">For power users &amp; teams</p>
+          <div class="pricing-price">
+            <span class="amount" data-en="$60" data-ru="5 999 ₽">5 999 ₽</span><span class="period" data-en="/month" data-ru="/мес">/мес</span>
+          </div>
+          <ul class="pricing-features">
+            <li data-en="10M budget + 1.5M premium tokens/month" data-ru="10M бюджетных + 1.5M премиум токенов/мес">10M budget + 1.5M premium tokens/month</li>
+            <li data-en="All 12 AI models" data-ru="Все 12 AI-моделей">All 12 AI models</li>
+            <li data-en="Smart SQL autocomplete" data-ru="Умное автодополнение SQL">Smart SQL autocomplete</li>
+            <li data-en="Balance top-up (25% markup)" data-ru="Пополнение баланса (наценка 25%)">Balance top-up (25% markup)</li>
             <li data-en="Priority support via Telegram" data-ru="Приоритетная поддержка в Telegram">Priority support via Telegram</li>
           </ul>
           <a href="#" class="btn-primary download-link" style="justify-content:center;" data-en="Download free &rarr;" data-ru="Скачать бесплатно &rarr;">Download free &rarr;</a>
@@ -1426,7 +1485,7 @@ h2 {
         <div class="pricing-step-arrow">&rarr;</div>
         <div class="pricing-step"><span class="pricing-step-num">2</span><span data-en="Start free trial" data-ru="Начните пробный период">Start free trial</span></div>
         <div class="pricing-step-arrow">&rarr;</div>
-        <div class="pricing-step"><span class="pricing-step-num">3</span><span data-en="Upgrade to Pro in Settings" data-ru="Обновитесь до Pro в настройках">Upgrade to Pro in Settings</span></div>
+        <div class="pricing-step"><span class="pricing-step-num">3</span><span data-en="Upgrade to Pro or Pro Plus" data-ru="Обновитесь до Pro или Pro Plus">Upgrade to Pro or Pro Plus</span></div>
       </div>
       <p class="pricing-note fade-in" data-en="Pay by card (Visa, Mastercard) or SBP. License activates instantly." data-ru="Оплата картой (Мир, Visa, Mastercard) или через СБП. Лицензия активируется мгновенно.">Оплата картой (Мир, Visa, Mastercard) или через СБП. Лицензия активируется мгновенно.</p>
     </div>

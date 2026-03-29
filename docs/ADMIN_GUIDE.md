@@ -170,6 +170,133 @@ Runs automatically every 1 hour:
 - Auto-downgrades expired Pro users to Free
 - Only emails users with `marketing_consent = true`
 
+## Balance Monitoring
+
+### Check User Balance
+
+```sql
+SELECT u.email, b.amount, b.currency
+FROM balances b JOIN users u ON b.user_id = u.id
+WHERE u.email = 'user@example.com';
+```
+
+### View All Non-Zero Balances
+
+```sql
+SELECT u.email, b.amount, b.currency, u.plan
+FROM balances b JOIN users u ON b.user_id = u.id
+WHERE b.amount > 0
+ORDER BY b.amount DESC;
+```
+
+### Transaction History for a User
+
+```sql
+SELECT bt.id, bt.amount, bt.balance_after, bt.tx_type, bt.model_id,
+       bt.tokens_input, bt.tokens_output, bt.description, bt.created_at
+FROM balance_transactions bt
+JOIN users u ON bt.user_id = u.id
+WHERE u.email = 'user@example.com'
+ORDER BY bt.created_at DESC LIMIT 50;
+```
+
+### Manually Credit Balance
+
+If a refund is needed or a manual adjustment:
+
+```sql
+UPDATE balances SET amount = amount + 500.00
+WHERE user_id = (SELECT id FROM users WHERE email = 'user@example.com');
+
+INSERT INTO balance_transactions (user_id, amount, balance_after, tx_type, description)
+SELECT id, 500.00, (SELECT amount FROM balances WHERE user_id = u.id), 'topup', 'Manual admin credit'
+FROM users u WHERE u.email = 'user@example.com';
+```
+
+## Quota Configuration
+
+### Plan Limits
+
+| Plan | Budget Tokens | Premium Tokens | Period | Rate Limit | Max Tokens/Req |
+|------|--------------|----------------|--------|-----------|----------------|
+| Free | 50,000 | 0 | Daily | 10/min | 4,096 |
+| Trial | 500,000 | 0 | Daily | 10/min | 4,096 |
+| Pro | 5,000,000 | 200,000 | Monthly | 60/min | 16,384 |
+| Pro Plus | 10,000,000 | 1,500,000 | Monthly | 120/min | 32,768 |
+
+Plan limits are defined in `backend/internal/subscription/plan.go` and `backend/internal/quota/service.go`. To change limits, update the code and redeploy.
+
+### View Current Quota Usage
+
+```sql
+SELECT u.email, qu.budget_tokens_used, qu.premium_tokens_used,
+       qu.period_start, qu.period_end, qu.period_type
+FROM quota_usage qu JOIN users u ON qu.user_id = u.id
+WHERE u.email = 'user@example.com'
+AND qu.period_end > NOW()
+ORDER BY qu.period_start DESC LIMIT 1;
+```
+
+### View Users Near Quota Limit (Pro plan)
+
+```sql
+SELECT u.email, qu.budget_tokens_used, qu.premium_tokens_used
+FROM quota_usage qu JOIN users u ON qu.user_id = u.id
+WHERE u.plan = 'pro'
+AND qu.period_end > NOW()
+AND (qu.budget_tokens_used > 4000000 OR qu.premium_tokens_used > 160000)
+ORDER BY qu.budget_tokens_used DESC;
+```
+
+### Reset User Quota (emergency)
+
+```sql
+UPDATE quota_usage
+SET budget_tokens_used = 0, premium_tokens_used = 0
+WHERE user_id = (SELECT id FROM users WHERE email = 'user@example.com')
+AND period_end > NOW();
+```
+
+## Model Management
+
+### Available Models
+
+The model catalog is configured in `backend/internal/models/catalog.go`. Each model entry includes:
+- `id` — OpenRouter model identifier (e.g., `qwen/qwen3-coder`)
+- `name` — Display name
+- `tier` — `budget` or `premium`
+- `input_price` / `output_price` — Per-token pricing from OpenRouter
+- `is_default` — Whether it's the default model for its tier
+- `enabled` — Whether the model is available to users
+
+### Current Model List
+
+| Tier | Model ID | Display Name |
+|------|----------|-------------|
+| Budget | `qwen/qwen3-coder` | Qwen 3 Coder (default) |
+| Budget | `openai/gpt-oss-120b` | GPT-OSS 120B |
+| Budget | `qwen/qwen3-vl-32b` | Qwen 3 VL 32B |
+| Budget | `google/gemma-3-27b` | Gemma 3 27B |
+| Budget | `mistralai/mistral-small-3.2` | Mistral Small 3.2 |
+| Budget | `deepseek/deepseek-chat-v3` | DeepSeek V3 |
+| Premium | `anthropic/claude-sonnet-4` | Claude Sonnet 4 |
+| Premium | `openai/gpt-4.1` | GPT-4.1 |
+| Premium | `google/gemini-2.5-pro` | Gemini 2.5 Pro |
+| Premium | `anthropic/claude-3.5-sonnet` | Claude 3.5 Sonnet |
+| Premium | `openai/o3-mini` | o3-mini |
+| Premium | `deepseek/deepseek-r1` | DeepSeek R1 |
+
+### Adding a New Model
+
+1. Add the model entry in `backend/internal/models/catalog.go`
+2. Set the tier (`budget` or `premium`), pricing, and enabled flag
+3. Redeploy the backend (`deploy/deploy.sh`)
+4. The model will appear in the `/api/v1/models` endpoint and in the frontend model selector
+
+### Disabling a Model
+
+Set `enabled: false` in the catalog config and redeploy. Users currently using that model will fall back to the default model for that tier.
+
 ## Monitoring
 
 ### Grafana
@@ -187,6 +314,22 @@ Login: admin / zaq1@WSXcde3
 - **HTTP & WebSocket** — API latency, error rates, WS connections
 - **Infrastructure** — CPU, memory, disk
 - **Logs** — Searchable backend and nginx logs
+
+### New Prometheus Metrics (Balance, Quota, Models)
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `progresql_balance_topups_total` | Counter | Total balance top-ups (labels: `plan`) |
+| `progresql_balance_charges_total` | Counter | Total balance charges for model usage (labels: `plan`, `model`) |
+| `progresql_quota_exceeded_total` | Counter | Number of times quota was exceeded (labels: `plan`, `tier`) |
+| `progresql_model_fallback_total` | Counter | Premium-to-budget model fallback events (labels: `from_model`, `to_model`) |
+| `progresql_revenue_by_plan_total` | Counter | Revenue in RUB (labels: `plan`, `payment_type`) |
+
+These metrics are available on the **Business Metrics** and **AI Agent** Grafana dashboards. Use them to monitor:
+- Revenue breakdown between subscriptions and balance top-ups
+- Which models consume the most balance
+- How often users hit quota limits per plan
+- Fallback frequency (indicates premium model demand vs. quota allocation)
 
 ### Prometheus Metrics
 

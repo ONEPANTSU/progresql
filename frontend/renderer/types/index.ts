@@ -367,7 +367,7 @@ export interface AuthUser {
   email: string;
   name?: string;
   emailVerified?: boolean;
-  plan?: 'free' | 'pro' | 'team';
+  plan?: 'free' | 'trial' | 'pro' | 'pro_plus' | 'team';
   planExpiresAt?: string;
   trialEndsAt?: string;
   subscriptionWarning?: SubscriptionWarning;
@@ -423,6 +423,11 @@ export interface Message {
   timestamp: Date;
   isStreaming?: boolean;
   visualization?: MessageVisualization;
+  modelUsed?: string;
+  modelTier?: 'budget' | 'premium';
+  costRUB?: number;
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 // WebSocket message types
@@ -448,4 +453,61 @@ export interface ChatMessagePayload {
   chatId: string;
   message: string;
   schema?: DatabaseSchemaMessage;
+}
+
+// Quota & Balance types
+export interface QuotaInfo {
+  plan: string;
+  budget_tokens_limit: number;
+  premium_tokens_limit: number;
+  period_type: 'daily' | 'monthly';
+  autocomplete_enabled: boolean;
+  balance_markup_pct: number;
+  balance_enabled: boolean;
+  max_requests_per_min: number;
+  max_tokens_per_request: number;
+}
+
+export interface UsageInfo {
+  budget_tokens_used: number;
+  budget_tokens_limit: number;
+  premium_tokens_used: number;
+  premium_tokens_limit: number;
+  period_start: string;
+  period_end: string;
+  period_type: 'daily' | 'monthly';
+  balance: number;
+  balance_enabled: boolean;
+  plan: string;
+}
+
+export interface BalanceInfo {
+  balance: number;
+  currency: string;
+}
+
+export interface BalanceTransaction {
+  id: string;
+  amount: number;
+  balance_after: number;
+  tx_type: 'top_up' | 'model_charge' | 'over_quota_charge' | 'refund';
+  model_id: string;
+  tokens_input: number;
+  tokens_output: number;
+  description: string;
+  created_at: string;
+}
+
+export interface PlanPrice {
+  plan: string;
+  price: number;
+  original_price: number;
+  currency: string;
+  period: string;
+}
+
+export interface PricesResponse {
+  plans: PlanPrice[];
+  min_balance_topup: number;
+  max_balance_topup: number;
 }

@@ -37,6 +37,7 @@ jest.mock('../services/agent/AgentService', () => ({
     updateModel: mockUpdateModel,
     sendAutocomplete: mockSendAutocomplete,
     cancelAutocomplete: mockCancelAutocomplete,
+    onNotification: jest.fn().mockReturnValue(jest.fn()),
   })),
 }));
 

@@ -12,10 +12,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
+	"github.com/onepantsu/progressql/backend/config"
+	"github.com/onepantsu/progressql/backend/internal/balance"
 	"github.com/onepantsu/progressql/backend/internal/llm"
 	"github.com/onepantsu/progressql/backend/internal/metrics"
+	"github.com/onepantsu/progressql/backend/internal/quota"
 	"github.com/onepantsu/progressql/backend/internal/ratelimit"
 	"github.com/onepantsu/progressql/backend/internal/security"
+	"github.com/onepantsu/progressql/backend/internal/subscription"
 	"github.com/onepantsu/progressql/backend/internal/tools"
 	"github.com/onepantsu/progressql/backend/internal/websocket"
 )
@@ -64,6 +68,10 @@ type PipelineContext struct {
 	CompletionTokens int
 	ModelUsed        string
 	SkipRemaining    bool // When true, pipeline skips all subsequent steps.
+
+	// Quota tracking (populated when quota system is active).
+	QuotaResult *quota.QuotaCheckResult // result of pre-check
+	CostRUB     float64                 // accumulated cost in RUB
 
 	// Result fields (set by final step or intermediate steps).
 	Result websocket.AgentResult
@@ -177,6 +185,8 @@ type Pipeline struct {
 	rateLimiter        *ratelimit.Limiter
 	metrics            *metrics.Collector
 	db                 *pgxpool.Pool
+	quotaService       *quota.Service
+	balanceService     *balance.Service
 	defaultModel       string
 	toolCallTimeout    time.Duration
 	toolCallMaxRetries int
@@ -221,6 +231,16 @@ func (p *Pipeline) SetDB(db *pgxpool.Pool) {
 // When set, each agent.request records request count, tokens, errors, and duration.
 func (p *Pipeline) SetMetrics(m *metrics.Collector) {
 	p.metrics = m
+}
+
+// SetQuotaService configures the quota service for token quota checking and deduction.
+func (p *Pipeline) SetQuotaService(svc *quota.Service) {
+	p.quotaService = svc
+}
+
+// SetBalanceService configures the balance service for balance-related operations.
+func (p *Pipeline) SetBalanceService(svc *balance.Service) {
+	p.balanceService = svc
 }
 
 // RegisterAction maps an action name to a sequence of steps.
@@ -367,6 +387,19 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		pctx.Language = "en"
 	}
 
+	// --- Quota pre-check (only when quota service is configured and user is authenticated) ---
+	if p.quotaService != nil && userID != "" {
+		originalModel := model
+		quotaBlocked := p.checkQuotaBeforePipeline(session, pctx, requestID, originalModel)
+		if quotaBlocked {
+			// Quota exhausted with no fallback available. Response already sent.
+			p.recordMetricsEnd(startTime, 0, true)
+			metrics.AgentRequestsTotal.WithLabelValues(payload.Action, "error").Inc()
+			metrics.AgentRequestDuration.WithLabelValues(payload.Action).Observe(time.Since(startTime).Seconds())
+			return
+		}
+	}
+
 	// Execute steps sequentially with cancellable context.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -450,6 +483,10 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		ToolCallsLog: pctx.ToolCallsLog,
 		ModelUsed:    pctx.ModelUsed,
 		TokensUsed:   pctx.TokensUsed,
+		ModelTier:    getModelTier(pctx.ModelUsed),
+		CostRUB:      pctx.CostRUB,
+		InputTokens:  pctx.PromptTokens,
+		OutputTokens: pctx.CompletionTokens,
 	}
 
 	respEnv, err := websocket.NewEnvelopeWithID(websocket.TypeAgentResponse, requestID, "", resp)
@@ -476,11 +513,190 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 	p.recordMetricsEnd(startTime, pctx.TokensUsed, false)
 	p.recordTokenUsage(pctx)
 
+	// --- Quota deduction (after successful pipeline) ---
+	p.deductQuotaAfterPipeline(session, pctx, requestID)
+
 	// Prometheus: record success metrics.
 	duration := time.Since(startTime)
 	metrics.AgentRequestsTotal.WithLabelValues(payload.Action, "success").Inc()
 	metrics.AgentRequestDuration.WithLabelValues(payload.Action).Observe(duration.Seconds())
 	p.recordPrometheusTokens(pctx)
+}
+
+// checkQuotaBeforePipeline runs a pre-check against the quota system before executing pipeline steps.
+// Returns true if the request is blocked (quota exhausted with no fallback).
+func (p *Pipeline) checkQuotaBeforePipeline(session *websocket.Session, pctx *PipelineContext, requestID, originalModel string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	modelTier := getModelTier(originalModel)
+
+	quotaResult, err := p.quotaService.CheckQuota(ctx, pctx.UserID, modelTier, 0)
+	if err != nil {
+		// Quota check failed — log and allow the request to proceed (fail-open).
+		p.logger.Warn("quota pre-check failed, allowing request",
+			zap.String("user_id", pctx.UserID),
+			zap.Error(err),
+		)
+		return false
+	}
+
+	pctx.QuotaResult = quotaResult
+
+	if !quotaResult.Allowed && quotaResult.FallbackModelID == "" {
+		// Quota exhausted, no fallback possible.
+		p.sendQuotaExhausted(session, requestID, modelTier, quotaResult)
+		return true
+	}
+
+	if quotaResult.FallbackModelID != "" {
+		// Switch to fallback model.
+		pctx.Model = quotaResult.FallbackModelID
+		p.sendModelFallback(session, requestID, originalModel, quotaResult.FallbackModelID, "quota_exhausted")
+	}
+
+	return false
+}
+
+// deductQuotaAfterPipeline deducts tokens from the quota system after a successful pipeline run
+// and sends quota/balance warning notifications if thresholds are crossed.
+func (p *Pipeline) deductQuotaAfterPipeline(session *websocket.Session, pctx *PipelineContext, requestID string) {
+	if p.quotaService == nil || pctx.UserID == "" || pctx.TokensUsed == 0 {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	modelUsed := pctx.ModelUsed
+	if modelUsed == "" {
+		modelUsed = pctx.Model
+	}
+	modelTier := getModelTier(modelUsed)
+
+	if err := p.quotaService.DeductTokens(ctx, pctx.UserID, modelUsed, modelTier, pctx.PromptTokens, pctx.CompletionTokens); err != nil {
+		p.logger.Error("quota token deduction failed",
+			zap.String("user_id", pctx.UserID),
+			zap.Error(err),
+		)
+		// Non-fatal: the request already succeeded.
+		return
+	}
+
+	// Check for quota/balance warning thresholds.
+	p.sendQuotaWarnings(session, pctx, requestID)
+}
+
+// sendQuotaWarnings checks usage after deduction and sends warning notifications
+// when remaining quota or balance drops below threshold.
+func (p *Pipeline) sendQuotaWarnings(session *websocket.Session, pctx *PipelineContext, requestID string) {
+	if p.quotaService == nil || pctx.UserID == "" {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	usage, err := p.quotaService.GetUsage(ctx, pctx.UserID)
+	if err != nil {
+		p.logger.Debug("failed to fetch usage for quota warning check", zap.Error(err))
+		return
+	}
+
+	// Check budget quota warning (< 20% remaining).
+	if usage.BudgetTokensLimit > 0 {
+		remaining := usage.BudgetTokensLimit - usage.BudgetTokensUsed
+		if remaining > 0 && remaining < usage.BudgetTokensLimit/5 {
+			env, err := websocket.NewEnvelopeWithID(websocket.TypeQuotaWarning, requestID, "", websocket.QuotaWarningPayload{
+				QuotaType:       "budget",
+				UsedTokens:      usage.BudgetTokensUsed,
+				LimitTokens:     usage.BudgetTokensLimit,
+				RemainingTokens: remaining,
+			})
+			if err == nil {
+				_ = session.SendEnvelope(env)
+			}
+		}
+	}
+
+	// Check premium quota warning (< 20% remaining).
+	if usage.PremiumTokensLimit > 0 {
+		remaining := usage.PremiumTokensLimit - usage.PremiumTokensUsed
+		if remaining > 0 && remaining < usage.PremiumTokensLimit/5 {
+			env, err := websocket.NewEnvelopeWithID(websocket.TypeQuotaWarning, requestID, "", websocket.QuotaWarningPayload{
+				QuotaType:       "premium",
+				UsedTokens:      usage.PremiumTokensUsed,
+				LimitTokens:     usage.PremiumTokensLimit,
+				RemainingTokens: remaining,
+			})
+			if err == nil {
+				_ = session.SendEnvelope(env)
+			}
+		}
+	}
+
+	// Check balance warning (< 100 RUB).
+	if usage.Balance > 0 && usage.Balance < 100 {
+		env, err := websocket.NewEnvelopeWithID(websocket.TypeBalanceLow, requestID, "", websocket.BalanceLowPayload{
+			Balance:  usage.Balance,
+			Currency: "RUB",
+		})
+		if err == nil {
+			_ = session.SendEnvelope(env)
+		}
+	}
+}
+
+// sendQuotaExhausted sends a quota.exhausted message to the client.
+func (p *Pipeline) sendQuotaExhausted(session *websocket.Session, requestID, modelTier string, result *quota.QuotaCheckResult) {
+	var used, limit int64
+	if modelTier == "premium" {
+		limit = result.RemainingPremium // already 0
+		used = limit                    // fully used
+	} else {
+		limit = result.RemainingBudget
+		used = limit
+	}
+
+	env, err := websocket.NewEnvelopeWithID(websocket.TypeQuotaExhausted, requestID, "", websocket.QuotaWarningPayload{
+		QuotaType:       modelTier,
+		UsedTokens:      used,
+		LimitTokens:     limit,
+		RemainingTokens: 0,
+	})
+	if err != nil {
+		p.logger.Error("failed to marshal quota.exhausted", zap.Error(err))
+		return
+	}
+	_ = session.SendEnvelope(env)
+
+	// Also send a standard agent.error so the client knows the request was not processed.
+	p.sendError(session, requestID, websocket.ErrCodeQuotaExhausted, result.Reason)
+}
+
+// sendModelFallback sends a model.fallback notification to the client.
+func (p *Pipeline) sendModelFallback(session *websocket.Session, requestID, fromModel, toModel, reason string) {
+	env, err := websocket.NewEnvelopeWithID(websocket.TypeModelFallback, requestID, "", websocket.ModelFallbackPayload{
+		FromModel: fromModel,
+		ToModel:   toModel,
+		Reason:    reason,
+	})
+	if err != nil {
+		p.logger.Error("failed to marshal model.fallback", zap.Error(err))
+		return
+	}
+	_ = session.SendEnvelope(env)
+}
+
+// getModelTier returns the tier ("budget" or "premium") for the given model ID.
+// Returns "budget" as default if the model is not found in the config.
+func getModelTier(modelID string) string {
+	for _, m := range config.DefaultModels() {
+		if m.ID == modelID {
+			return m.Tier
+		}
+	}
+	return "budget"
 }
 
 // recordPrometheusTokens emits Prometheus LLM token counters from the pipeline context.
@@ -509,6 +725,16 @@ func (p *Pipeline) handleAutocomplete(session *websocket.Session, env *websocket
 
 	if payload.SQL == "" {
 		return
+	}
+
+	// --- Autocomplete gating: check if the user's plan allows autocomplete ---
+	userID := session.UserID()
+	if p.quotaService != nil && userID != "" {
+		allowed := p.isAutocompleteAllowed(userID)
+		if !allowed {
+			// Plan does not include autocomplete. Send empty response.
+			return
+		}
 	}
 
 	// Split SQL at cursor position.
@@ -551,10 +777,8 @@ func (p *Pipeline) handleAutocomplete(session *websocket.Session, env *websocket
 	}
 	userPrompt := fmt.Sprintf("%sSQL before cursor: %s%s", schemaSection, sqlBefore, afterPart)
 
-	model := session.Model()
-	if model == "" {
-		model = p.defaultModel
-	}
+	// Override model to the dedicated autocomplete model.
+	model := config.AutocompleteModelID
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -630,6 +854,33 @@ func (p *Pipeline) handleAutocomplete(session *websocket.Session, env *websocket
 	if err := session.SendEnvelope(respEnv); err != nil {
 		p.logger.Error("failed to send autocomplete.response", zap.Error(err))
 	}
+}
+
+// isAutocompleteAllowed checks if the user's plan permits autocomplete requests.
+func (p *Pipeline) isAutocompleteAllowed(userID string) bool {
+	if p.quotaService == nil {
+		return true // no quota system — allow by default
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	// Fetch user plan to check autocomplete access.
+	var planStr string
+	if p.db != nil {
+		err := p.db.QueryRow(ctx,
+			`SELECT COALESCE(plan, 'free') FROM users WHERE id = $1`, userID).Scan(&planStr)
+		if err != nil {
+			p.logger.Debug("failed to fetch user plan for autocomplete check", zap.Error(err))
+			return true // fail-open
+		}
+	} else {
+		return true // no DB — allow
+	}
+
+	plan := subscription.Plan(planStr)
+	quotaLimits := subscription.QuotaLimitsForPlan(plan)
+	return quotaLimits.AutocompleteEnabled
 }
 
 // handleDBNotConnected streams a friendly LLM response telling the user to connect a database.

@@ -10,8 +10,10 @@ type Plan string
 
 const (
 	PlanFree    Plan = "free"
+	PlanTrial   Plan = "trial"
 	PlanPro     Plan = "pro"
-	PlanTeam    Plan = "team"
+	PlanProPlus Plan = "pro_plus"
+	PlanTeam    Plan = "team" // keep for backward compat
 )
 
 // PlanLimits defines resource limits for a subscription plan.
@@ -33,16 +35,80 @@ var DefaultLimits = map[Plan]PlanLimits{
 		MaxSessionsConcurrent: 1,
 		MaxTokensPerRequest:   4096,
 	},
+	PlanTrial: {
+		MaxRequestsPerMin:     10,
+		MaxSessionsConcurrent: 1,
+		MaxTokensPerRequest:   4096,
+	},
 	PlanPro: {
 		MaxRequestsPerMin:     60,
 		MaxSessionsConcurrent: 5,
 		MaxTokensPerRequest:   16384,
+	},
+	PlanProPlus: {
+		MaxRequestsPerMin:     120,
+		MaxSessionsConcurrent: 5,
+		MaxTokensPerRequest:   32768,
 	},
 	PlanTeam: {
 		MaxRequestsPerMin:     120,
 		MaxSessionsConcurrent: 20,
 		MaxTokensPerRequest:   32768,
 	},
+}
+
+// QuotaLimits defines token-quota constraints for a subscription plan.
+type QuotaLimits struct {
+	BudgetTokensLimit   int64  // max budget tokens per period
+	PremiumTokensLimit  int64  // max premium tokens per period (included free)
+	PeriodType          string // "daily" or "monthly"
+	AutocompleteEnabled bool
+	BalanceMarkupPct    int  // 0 = no balance access, 50 = Pro, 25 = ProPlus
+	BalanceEnabled      bool // whether user can use balance at all
+}
+
+var defaultQuotaLimits = map[Plan]QuotaLimits{
+	PlanFree: {
+		BudgetTokensLimit:   50_000,
+		PremiumTokensLimit:  0,
+		PeriodType:          "daily",
+		AutocompleteEnabled: false,
+		BalanceMarkupPct:    0,
+		BalanceEnabled:      false,
+	},
+	PlanTrial: {
+		BudgetTokensLimit:   500_000,
+		PremiumTokensLimit:  0,
+		PeriodType:          "daily",
+		AutocompleteEnabled: true,
+		BalanceMarkupPct:    0,
+		BalanceEnabled:      false,
+	},
+	PlanPro: {
+		BudgetTokensLimit:   5_000_000,
+		PremiumTokensLimit:  200_000,
+		PeriodType:          "monthly",
+		AutocompleteEnabled: true,
+		BalanceMarkupPct:    50,
+		BalanceEnabled:      true,
+	},
+	PlanProPlus: {
+		BudgetTokensLimit:   10_000_000,
+		PremiumTokensLimit:  1_500_000,
+		PeriodType:          "monthly",
+		AutocompleteEnabled: true,
+		BalanceMarkupPct:    25,
+		BalanceEnabled:      true,
+	},
+}
+
+// QuotaLimitsForPlan returns the token-quota limits for the given plan.
+// Falls back to PlanFree quota if the plan is unknown.
+func QuotaLimitsForPlan(p Plan) QuotaLimits {
+	if q, ok := defaultQuotaLimits[p]; ok {
+		return q
+	}
+	return defaultQuotaLimits[PlanFree]
 }
 
 // UserSubscription holds a user's subscription state.
@@ -87,7 +153,7 @@ func LimitsForPlan(p Plan) PlanLimits {
 // ValidPlan checks if a plan string is a recognized plan.
 func ValidPlan(p Plan) bool {
 	switch p {
-	case PlanFree, PlanPro, PlanTeam:
+	case PlanFree, PlanTrial, PlanPro, PlanProPlus, PlanTeam:
 		return true
 	}
 	return false
