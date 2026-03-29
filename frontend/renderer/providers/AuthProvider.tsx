@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { AuthContextValue, AuthUser } from '../types';
-import { authService } from '../services/auth';
+import { authService, getAuthToken } from '../services/auth';
 import { migrateToUserStorage } from '../utils/userStorage';
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -11,16 +11,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    const token = getAuthToken();
     const existing = authService.getCurrentUser();
-    if (existing) {
+
+    // If token is missing but user data exists, clear stale user data
+    if (!token && existing) {
+      authService.logout();
+      setIsReady(true);
+      return;
+    }
+
+    if (existing && token) {
       setUser(existing);
       migrateToUserStorage();
       // Fetch fresh profile from server on startup
       authService.refreshUser().then(updated => {
-        if (updated) setUser(updated);
+        if (updated) {
+          setUser(updated);
+        } else {
+          // Backend rejected the token — force logout
+          authService.logout();
+          setUser(null);
+        }
       }).catch(() => {});
+      setIsReady(true);
+    } else if (token && !existing) {
+      // Token exists but user data is missing (e.g. partially cleared localStorage)
+      // Try to restore user from backend
+      authService.refreshUser().then(updated => {
+        if (updated) {
+          setUser(updated);
+          migrateToUserStorage();
+        } else {
+          // Token is invalid — clear it
+          authService.logout();
+        }
+        setIsReady(true);
+      }).catch(() => {
+        authService.logout();
+        setIsReady(true);
+      });
+    } else {
+      setIsReady(true);
     }
-    setIsReady(true);
+  }, []);
+
+  // Listen for localStorage changes (e.g. token cleared externally or in another tab)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'progresql-auth-token' && !e.newValue) {
+        // Token was removed — force logout
+        setUser(null);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   // Periodically refresh user profile (every 5 minutes)

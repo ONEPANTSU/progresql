@@ -36,6 +36,10 @@ function setItem(key: string, value: string): void {
 // ── Public API ──
 
 export function loadBackendUrl(defaultUrl: string): string {
+  // E2E test override via injected global (set by Playwright addInitScript)
+  if (typeof window !== 'undefined' && (window as any).__E2E_BACKEND_URL__) {
+    return (window as any).__E2E_BACKEND_URL__;
+  }
   // Clear any stale localhost URL from previous dev sessions
   const saved = getItem(STORAGE_KEY_BACKEND_URL);
   if (saved && saved.includes('localhost')) {

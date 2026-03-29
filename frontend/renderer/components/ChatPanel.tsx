@@ -37,6 +37,8 @@ export interface ChatPanelHandle {
   focusInput: () => void;
   setInputText: (text: string) => void;
   attachSQL: (sql: string) => void;
+  /** Switch the active chat's connection to a specific connectionId (e.g. from Fix in Chat) */
+  switchChatConnection: (connectionId: string, database?: string) => void;
 }
 
 interface ChatPanelProps {
@@ -155,6 +157,9 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
     attachSQL(sql: string) {
       setAttachedSQL(sql);
       chatInputRef.current?.focus();
+    },
+    switchChatConnection(connectionId: string, database?: string) {
+      handleChatSwitchConnection(connectionId, database);
     },
   }));
 

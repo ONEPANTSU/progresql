@@ -11,7 +11,7 @@ async function runAxe(page: Page, tags: string[], disabledRules: string[] = []) 
   } catch (err) {
     if (String(err).includes('Not supported') || String(err).includes('createTarget')) {
       console.log('[axe] Skipping — axe-core not supported in Electron context');
-      return { violations: [] };
+      return { violations: [], passes: [], incomplete: [], inapplicable: [] };
     }
     throw err;
   }

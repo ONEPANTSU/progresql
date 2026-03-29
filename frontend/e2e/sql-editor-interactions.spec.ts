@@ -107,7 +107,7 @@ test.describe.serial('SQL Editor Interactions', () => {
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, 'sql-01-db-connected.png') });
 
     // Verify the main page is visible
-    await expect(page.getByRole('heading', { name: /ProgreSQL/i }).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: /Connections|AI Assistant/i }).first()).toBeVisible({ timeout: 10_000 });
 
     // Check no critical connection error is displayed
     const errorAlert = page.locator('[role="alert"]').filter({ hasText: /ошибка|error|failed|connection refused/i });

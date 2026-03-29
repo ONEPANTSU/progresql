@@ -248,9 +248,9 @@ test.describe('ProgreSQL UX Audit — all screens and states', () => {
     await page.waitForTimeout(2000);
     await screenshot(page, '04-dashboard-no-db');
 
-    // Verify the three-panel layout is visible
-    const databasePanel = page.locator('[class*="panel"], [class*="Panel"]').first();
-    await expect(databasePanel).toBeVisible({ timeout: 10_000 });
+    // Verify the main dashboard layout is visible
+    const connectionsHeading = page.getByRole('heading', { name: /Connections/i }).first();
+    await expect(connectionsHeading).toBeVisible({ timeout: 10_000 });
 
     allIssues.push(...(await checkLayout(page, 'dashboard-no-db')));
     allIssues.push(...(await checkInteractiveElements(page, 'dashboard-no-db')));

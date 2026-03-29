@@ -560,6 +560,9 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
         keywordCase: 'upper',
         tabWidth: 2,
         useTabs: false,
+        linesBetweenQueries: 2,
+        denseOperators: false,
+        newlineBeforeSemicolon: false,
       });
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: formatted },

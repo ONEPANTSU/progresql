@@ -139,6 +139,7 @@ export default function PaymentModal({
       onClose={paymentLoading ? undefined : onClose}
       maxWidth="xs"
       fullWidth
+      data-testid="payment-modal"
       PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
     >
       {/* Gradient top border */}
@@ -172,7 +173,7 @@ export default function PaymentModal({
 
         {/* Payment methods */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 2.5 }}>
-          <Box onClick={() => handleSelectMethod('card')} sx={methodSx('card')}>
+          <Box onClick={() => handleSelectMethod('card')} sx={methodSx('card')} data-testid="payment-method-card">
             {paymentLoading && selectedMethod === 'card' ? (
               <CircularProgress size={24} sx={{ color: '#6366f1', flexShrink: 0 }} />
             ) : (
@@ -181,7 +182,7 @@ export default function PaymentModal({
             <Typography sx={{ fontWeight: 600, fontSize: '0.95rem' }}>{t('payment.card')}</Typography>
           </Box>
 
-          <Box onClick={() => handleSelectMethod('sbp')} sx={methodSx('sbp')}>
+          <Box onClick={() => handleSelectMethod('sbp')} sx={methodSx('sbp')} data-testid="payment-method-sbp">
             {paymentLoading && selectedMethod === 'sbp' ? (
               <CircularProgress size={24} sx={{ color: '#6366f1', flexShrink: 0 }} />
             ) : (
@@ -195,6 +196,7 @@ export default function PaymentModal({
         <Box sx={{ mb: 2 }}>
           <Box
             onClick={() => setPromoOpen(v => !v)}
+            data-testid="promo-code-toggle"
             sx={{
               display: 'flex',
               alignItems: 'center',
@@ -222,7 +224,7 @@ export default function PaymentModal({
                 onKeyDown={(e) => { if (e.key === 'Enter') handleApplyPromoCode(); }}
                 disabled={promoLoading}
                 sx={{ flex: 1 }}
-                inputProps={{ style: { fontSize: '0.85rem' } }}
+                inputProps={{ style: { fontSize: '0.85rem' }, 'data-testid': 'promo-code-input' }}
               />
               <Button
                 variant="contained"

@@ -103,6 +103,7 @@ interface DatabasePanelProps {
   onRefreshData?: () => void;
   onOpenERDiagram?: (connectionId: string) => void;
   onSwitchDatabase?: (connectionId: string, database: string) => void;
+  onSelectConnection?: (connectionId: string) => void;
   isRestoringConnections?: boolean;
   connectingId?: string | null;
   connectionErrors?: Record<string, string>;
@@ -221,6 +222,7 @@ export default function DatabasePanel({
   onRefreshData,
   onOpenERDiagram,
   onSwitchDatabase,
+  onSelectConnection,
   isRestoringConnections = false,
   connectingId = null,
   connectionErrors = {},
@@ -324,12 +326,12 @@ export default function DatabasePanel({
 
   const toggleConnectionExpansion = (connectionId: string) => {
     const newExpanded = new Set(expandedConnections);
+    const conn = connections.find(c => c.id === connectionId);
     if (newExpanded.has(connectionId)) {
       newExpanded.delete(connectionId);
     } else {
       newExpanded.add(connectionId);
       // Auto-connect when expanding an inactive connection
-      const conn = connections.find(c => c.id === connectionId);
       if (conn && !conn.isActive) {
         onConnect(connectionId);
       }
@@ -341,6 +343,9 @@ export default function DatabasePanel({
       }
     }
     setExpandedConnections(newExpanded);
+
+    // Switch editor connection to the clicked connection
+    onSelectConnection?.(connectionId);
   };
 
   const toggleDatabaseExpansion = (connectionId: string, dbName: string) => {
@@ -1417,7 +1422,7 @@ export default function DatabasePanel({
                                           />
                                         </ListItemButton>
                                       </ListItem>
-                                    , connection.id))}
+                                    ))}
                                   </List>
                                 </AccordionDetails>
                               </Accordion>
