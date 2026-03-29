@@ -11,6 +11,10 @@ function modelKey(): string {
   return userKey('agent-model');
 }
 
+function autocompleteModelKey(): string {
+  return userKey('agent-autocomplete-model');
+}
+
 function securityModeKey(): string {
   return userKey('agent-security-mode');
 }
@@ -61,6 +65,14 @@ export function loadModel(): string {
 
 export function saveModel(model: string): void {
   setItem(modelKey(), model);
+}
+
+export function loadAutocompleteModel(): string {
+  return getItem(autocompleteModelKey()) || 'openai/gpt-4o-mini';
+}
+
+export function saveAutocompleteModel(model: string): void {
+  setItem(autocompleteModelKey(), model);
 }
 
 export function loadSecurityMode(): SecurityMode {

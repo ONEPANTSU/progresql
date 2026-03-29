@@ -355,8 +355,11 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 	}
 
 	// Build pipeline context.
-	// Model priority: session-level model > pipeline default model (from config).
-	model := session.Model()
+	// Model priority: per-request model > session-level model > pipeline default model.
+	model := payload.Model
+	if model == "" {
+		model = session.Model()
+	}
 	if model == "" {
 		model = p.defaultModel
 	}
@@ -777,8 +780,11 @@ func (p *Pipeline) handleAutocomplete(session *websocket.Session, env *websocket
 	}
 	userPrompt := fmt.Sprintf("%sSQL before cursor: %s%s", schemaSection, sqlBefore, afterPart)
 
-	// Override model to the dedicated autocomplete model.
-	model := config.AutocompleteModelID
+	// Use client-provided autocomplete model if it is a valid budget-tier model.
+	model := config.DefaultAutocompleteModelID
+	if payload.Model != "" && getModelTier(payload.Model) == "budget" {
+		model = payload.Model
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

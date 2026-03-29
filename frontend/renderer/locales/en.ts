@@ -89,6 +89,8 @@ const en = {
   'settings.close': 'Close settings',
   'settings.llmModel': 'LLM Model',
   'settings.modelLabel': 'Model',
+  'settings.autocompleteModelLabel': 'Autocomplete Model',
+  'settings.autocompleteModelHint': 'Budget model used for inline SQL suggestions in the editor',
   'settings.security': 'Security',
   'settings.safeMode': 'Safe Mode',
   'settings.safeModeOn': 'Read-only access',

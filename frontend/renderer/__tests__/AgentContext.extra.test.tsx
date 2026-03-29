@@ -417,7 +417,7 @@ describe('AgentContext (extended coverage)', () => {
       act(() => {
         getCaptured().sendAutocomplete('SELECT', 6, 'schema ctx', cb);
       });
-      expect(mockSendAutocomplete).toHaveBeenCalledWith('SELECT', 6, 'schema ctx', cb);
+      expect(mockSendAutocomplete).toHaveBeenCalledWith('SELECT', 6, 'schema ctx', cb, 'openai/gpt-4o-mini');
     });
 
     it('cancelAutocomplete delegates to service', () => {

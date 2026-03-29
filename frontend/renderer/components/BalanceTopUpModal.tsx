@@ -10,6 +10,7 @@ import {
   CircularProgress,
   IconButton,
   Alert,
+  Link,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -310,6 +311,26 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
             {error}
           </Alert>
         )}
+
+        {/* Legal text */}
+        <Typography variant="caption" sx={{ color: 'text.disabled', lineHeight: 1.5, display: 'block' }}>
+          {(() => {
+            const template = t('settings.legalConsentContinue');
+            const parts = template.split(/(\{offer\}|\{refunds\})/);
+            const openLink = (url: string) => {
+              if (window.electronAPI?.openExternal) {
+                window.electronAPI.openExternal(url);
+              } else {
+                window.open(url, '_blank');
+              }
+            };
+            return parts.map((part, i) => {
+              if (part === '{offer}') return <Link key={i} component="button" variant="caption" sx={{ color: 'text.secondary' }} onClick={() => openLink('https://progresql.com/legal/offer.html')}>{t('settings.legalOffer')}</Link>;
+              if (part === '{refunds}') return <Link key={i} component="button" variant="caption" sx={{ color: 'text.secondary' }} onClick={() => openLink('https://progresql.com/legal/refunds.html')}>{t('settings.legalRefunds')}</Link>;
+              return <React.Fragment key={i}>{part}</React.Fragment>;
+            });
+          })()}
+        </Typography>
       </DialogContent>
     </Dialog>
   );

@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// AutocompleteModelID is the model used for inline code completions.
-const AutocompleteModelID = "openai/gpt-4o-mini"
+// DefaultAutocompleteModelID is the default model used for inline code completions.
+const DefaultAutocompleteModelID = "openai/gpt-4o-mini"
 
 // ModelInfo describes an available LLM model.
 type ModelInfo struct {
@@ -130,6 +130,7 @@ func DefaultModels() []ModelInfo {
 		{ID: "openai/gpt-4.1", Name: "GPT-4.1", Provider: "openrouter", Tier: "premium", InputPricePerM: 2.00, OutputPricePerM: 8.00},
 		{ID: "openai/o4-mini", Name: "o4 Mini", Provider: "openrouter", Tier: "premium", InputPricePerM: 1.10, OutputPricePerM: 4.40},
 		{ID: "anthropic/claude-sonnet-4", Name: "Claude Sonnet 4", Provider: "openrouter", Tier: "premium", InputPricePerM: 3.00, OutputPricePerM: 15.00},
+		{ID: "anthropic/claude-opus-4", Name: "Claude Opus 4", Provider: "openrouter", Tier: "premium", InputPricePerM: 15.00, OutputPricePerM: 75.00},
 		{ID: "google/gemini-2.5-pro-preview", Name: "Gemini 2.5 Pro", Provider: "openrouter", Tier: "premium", InputPricePerM: 1.25, OutputPricePerM: 10.00},
 		{ID: "deepseek/deepseek-r1", Name: "DeepSeek R1", Provider: "openrouter", Tier: "premium", InputPricePerM: 0.55, OutputPricePerM: 2.19},
 		{ID: "qwen/qwen3-235b-a22b", Name: "Qwen 3 235B", Provider: "openrouter", Tier: "premium", InputPricePerM: 0.20, OutputPricePerM: 1.20},

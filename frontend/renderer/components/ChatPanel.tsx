@@ -68,6 +68,7 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'openai/gpt-4.1': 'GPT-4.1',
   'openai/o4-mini': 'o4 Mini',
   'anthropic/claude-sonnet-4': 'Claude Sonnet 4',
+  'anthropic/claude-opus-4': 'Claude Opus 4',
   'google/gemini-2.5-pro-preview': 'Gemini 2.5 Pro',
   'deepseek/deepseek-r1': 'DeepSeek R1',
   'qwen/qwen3-235b-a22b': 'Qwen 3 235B',

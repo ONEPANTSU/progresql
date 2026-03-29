@@ -29,6 +29,8 @@ const mockAgentValue: AgentContextValue = {
   setBackendUrl: jest.fn(),
   model: 'qwen/qwen3-coder',
   setModel: jest.fn(),
+  autocompleteModel: 'openai/gpt-4o-mini',
+  setAutocompleteModel: jest.fn(),
   securityMode: 'safe',
   setSecurityMode: jest.fn(),
   safeMode: true,

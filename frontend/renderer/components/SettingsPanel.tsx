@@ -57,10 +57,13 @@ const ALL_MODELS = [
   { id: 'openai/gpt-4.1', name: 'GPT-4.1', tier: 'premium' },
   { id: 'openai/o4-mini', name: 'o4 Mini', tier: 'premium' },
   { id: 'anthropic/claude-sonnet-4', name: 'Claude Sonnet 4', tier: 'premium' },
+  { id: 'anthropic/claude-opus-4', name: 'Claude Opus 4', tier: 'premium' },
   { id: 'google/gemini-2.5-pro-preview', name: 'Gemini 2.5 Pro', tier: 'premium' },
   { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', tier: 'premium' },
   { id: 'qwen/qwen3-235b-a22b', name: 'Qwen 3 235B', tier: 'premium' },
 ] as const;
+
+const BUDGET_MODELS = ALL_MODELS.filter(m => m.tier === 'budget');
 
 interface SettingsPanelProps {
   open: boolean;
@@ -101,7 +104,7 @@ function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }
 }
 
 export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
-  const { model, setModel, securityMode, setSecurityMode } = useAgent();
+  const { model, setModel, autocompleteModel, setAutocompleteModel, securityMode, setSecurityMode } = useAgent();
   const [showUnsafeWarning, setShowUnsafeWarning] = React.useState(false);
   const { themeMode, setThemeMode } = useTheme();
   const { t, language, setLanguage } = useTranslation();
@@ -346,6 +349,30 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               ))}
             </Select>
           </FormControl>
+
+          {/* Autocomplete Model */}
+          <FormControl fullWidth size="small" sx={{ mt: 1.5 }}>
+            <InputLabel id="settings-autocomplete-model-label">{t('settings.autocompleteModelLabel')}</InputLabel>
+            <Select
+              labelId="settings-autocomplete-model-label"
+              value={autocompleteModel}
+              label={t('settings.autocompleteModelLabel')}
+              onChange={(e) => setAutocompleteModel(e.target.value as string)}
+              renderValue={(value) => {
+                const m = BUDGET_MODELS.find(m => m.id === value);
+                return m ? m.name : value;
+              }}
+            >
+              {BUDGET_MODELS.map(m => (
+                <MenuItem key={m.id} value={m.id} sx={{ py: 0.75 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>{m.name}</Typography>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+            {t('settings.autocompleteModelHint')}
+          </Typography>
         </Box>
 
         {/* Security Mode */}
