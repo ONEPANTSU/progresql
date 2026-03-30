@@ -547,10 +547,10 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
     setSelected(new Set());
 
     try {
-      const [sourceResult, targetResult] = await Promise.all([
-        window.electronAPI.getDatabaseStructure(sourceId, sourceDatabase || undefined),
-        window.electronAPI.getDatabaseStructure(targetId, targetDatabase || undefined),
-      ]);
+      // Sequential calls to avoid race condition when both use the same connection.
+      // pg.Client is not safe for concurrent queries on the same connection.
+      const sourceResult = await window.electronAPI.getDatabaseStructure(sourceId, sourceDatabase || undefined);
+      const targetResult = await window.electronAPI.getDatabaseStructure(targetId, targetDatabase || undefined);
 
       if (!sourceResult.success || !sourceResult.databases?.length) {
         throw new Error('Failed to fetch Source schema. Ensure the connection is active and has a database.');

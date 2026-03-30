@@ -303,11 +303,14 @@ func profileHandler(userStore *auth.UserStore, db *pgxpool.Pool) http.HandlerFun
 			if user, err := userStore.GetByID(claims.UserID); err == nil {
 				// If paid plan is expired, downgrade to free in DB.
 				if user.Plan != "free" && user.Plan != "trial" && user.Plan != "" && user.PlanExpiresAt != nil {
-					if t, err := time.Parse(time.RFC3339, *user.PlanExpiresAt); err == nil && time.Now().After(t) {
+					t, parseErr := time.Parse(time.RFC3339, *user.PlanExpiresAt)
+					if parseErr == nil && time.Now().After(t) {
 						if db != nil {
-							_, _ = db.Exec(r.Context(),
+							tag, dbErr := db.Exec(r.Context(),
 								`UPDATE users SET plan = 'free' WHERE id = $1 AND plan NOT IN ('free','trial')`,
 								user.ID)
+							_ = tag
+							_ = dbErr
 						}
 						user.Plan = "free"
 					}
