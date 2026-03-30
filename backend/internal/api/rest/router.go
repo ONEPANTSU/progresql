@@ -12,6 +12,7 @@ import (
 	"github.com/onepantsu/progressql/backend/internal/balance"
 	"github.com/onepantsu/progressql/backend/internal/llm"
 	"github.com/onepantsu/progressql/backend/internal/metrics"
+	"github.com/onepantsu/progressql/backend/internal/models"
 	"github.com/onepantsu/progressql/backend/internal/payment"
 	"github.com/onepantsu/progressql/backend/internal/quota"
 	"github.com/onepantsu/progressql/backend/internal/ratelimit"
@@ -46,6 +47,10 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	pipeline.SetQuotaService(quotaSvc)
 	pipeline.SetBalanceService(balanceSvc)
 
+	// Wire up database-driven model catalog service.
+	modelsSvc := models.NewService(db, log)
+	pipeline.SetModelsService(modelsSvc)
+
 	if cfg.ToolCallTimeoutSec > 0 {
 		pipeline.SetToolCallTimeout(time.Duration(cfg.ToolCallTimeoutSec)*time.Second, 1)
 	}
@@ -67,7 +72,7 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	)
 
 	mux.HandleFunc("GET /api/v1/health", healthHandler(cfg.Version))
-	mux.HandleFunc("GET /api/v1/models", modelsHandler(cfg.AvailableModels, cfg.HTTPModel))
+	mux.HandleFunc("GET /api/v1/models", modelsHandlerV2(modelsSvc, cfg.HTTPModel))
 	mux.HandleFunc("GET /api/v1/metrics", metricsCollector.Handler())
 
 	// Prometheus metrics endpoint (no auth required).
@@ -115,7 +120,7 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	mux.Handle("GET /api/v2/balance/history", authMW(http.HandlerFunc(balanceHandler.GetHistoryHandler)))
 
 	// v2 — Quota and usage endpoints (authenticated).
-	quotaHandler := quota.NewHandler(quotaSvc, log)
+	quotaHandler := quota.NewHandler(quotaSvc, log, modelsSvc)
 	mux.Handle("GET /api/v2/usage", authMW(http.HandlerFunc(quotaHandler.GetUsageHandler)))
 	mux.Handle("GET /api/v2/quota", authMW(http.HandlerFunc(quotaHandler.GetQuotaHandler)))
 	mux.Handle("GET /api/v2/usage/history", authMW(http.HandlerFunc(quotaHandler.GetUsageHistoryHandler)))

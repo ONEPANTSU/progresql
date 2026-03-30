@@ -26,8 +26,9 @@ import {
   Functions as FunctionsIcon,
 } from '@mui/icons-material';
 import { useTranslation } from '../contexts/LanguageContext';
-import { fetchUsageHistory, fetchModelPricing, fetchUsage } from '../services/auth';
-import { UsageHistoryResponse, ModelPricingResponse, UsageInfo } from '../types';
+import { fetchUsageHistory, fetchUsage } from '../services/auth';
+import { UsageHistoryResponse, UsageInfo } from '../types';
+import { useModels, formatModelName } from '../hooks/useModels';
 import QuotaIndicator from './QuotaIndicator';
 
 interface UsageDashboardProps {
@@ -35,52 +36,7 @@ interface UsageDashboardProps {
   onClose: () => void;
 }
 
-// Format model ID to short name
-const MODEL_NAMES: Record<string, string> = {
-  'qwen/qwen3-coder': 'Qwen 3 Coder',
-  'openai/gpt-4o-mini': 'GPT-4o Mini',
-  'google/gemini-2.0-flash-001': 'Gemini 2.0 Flash',
-  'deepseek/deepseek-chat-v3-0324': 'DeepSeek V3',
-  'qwen/qwen3-vl-32b-instruct': 'Qwen 3 VL 32B',
-  'openai/gpt-oss-120b': 'GPT-OSS 120B',
-  'openai/gpt-4.1': 'GPT-4.1',
-  'openai/o4-mini': 'o4 Mini',
-  'anthropic/claude-sonnet-4': 'Claude Sonnet 4',
-  'anthropic/claude-opus-4': 'Claude Opus 4',
-  'google/gemini-2.5-pro-preview': 'Gemini 2.5 Pro',
-  'deepseek/deepseek-r1': 'DeepSeek R1',
-  'qwen/qwen3-235b-a22b': 'Qwen 3 235B',
-};
-
-// Fuzzy keywords to match aliased OpenRouter model IDs
-const MODEL_KEYWORDS: { keywords: string[]; name: string }[] = [
-  { keywords: ['claude', 'opus'], name: 'Claude Opus 4' },
-  { keywords: ['claude', 'sonnet'], name: 'Claude Sonnet 4' },
-  { keywords: ['gpt-4.1'], name: 'GPT-4.1' },
-  { keywords: ['o4-mini'], name: 'o4 Mini' },
-  { keywords: ['gpt-4o-mini'], name: 'GPT-4o Mini' },
-  { keywords: ['gpt-oss'], name: 'GPT-OSS 120B' },
-  { keywords: ['gemini-2.5-pro'], name: 'Gemini 2.5 Pro' },
-  { keywords: ['gemini-2.0-flash'], name: 'Gemini 2.0 Flash' },
-  { keywords: ['deepseek-r1'], name: 'DeepSeek R1' },
-  { keywords: ['deepseek-chat'], name: 'DeepSeek V3' },
-  { keywords: ['qwen3-coder'], name: 'Qwen 3 Coder' },
-  { keywords: ['qwen3-vl'], name: 'Qwen 3 VL 32B' },
-  { keywords: ['qwen3-235b'], name: 'Qwen 3 235B' },
-];
-
-function formatModelName(modelId: string): string {
-  // Exact match first
-  if (MODEL_NAMES[modelId]) return MODEL_NAMES[modelId];
-  // Fuzzy: check if all keywords present in the ID
-  const lower = modelId.toLowerCase();
-  for (const { keywords, name } of MODEL_KEYWORDS) {
-    if (keywords.every(kw => lower.includes(kw))) return name;
-  }
-  // Fallback: take part after last slash, clean up version suffixes
-  const short = modelId.split('/').pop() || modelId;
-  return short.replace(/-\d{8,}$/, '');
-}
+const USD_TO_RUB = 90;
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -128,22 +84,21 @@ export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
   const { t, language } = useTranslation();
   const [loading, setLoading] = React.useState(true);
   const [history, setHistory] = React.useState<UsageHistoryResponse | null>(null);
-  const [pricing, setPricing] = React.useState<ModelPricingResponse | null>(null);
   const [usage, setUsage] = React.useState<UsageInfo | null>(null);
   const [page, setPage] = React.useState(1);
   const pageSize = 15;
+
+  const { models: allModels } = useModels();
 
   const fetchData = React.useCallback(async (pageNum: number) => {
     setLoading(true);
     try {
       const offset = (pageNum - 1) * pageSize;
-      const [historyData, pricingData, usageData] = await Promise.all([
+      const [historyData, usageData] = await Promise.all([
         fetchUsageHistory(pageSize, offset),
-        fetchModelPricing(),
         fetchUsage(),
       ]);
       setHistory(historyData);
-      setPricing(pricingData);
       setUsage(usageData);
     } catch (err) {
       console.error('Failed to fetch usage data:', err);
@@ -159,7 +114,6 @@ export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
   }, [open, page, fetchData]);
 
   const totalPages = history ? Math.ceil(history.total / pageSize) : 0;
-  const usdToRub = pricing?.usd_to_rub || 90;
 
   return (
     <Dialog
@@ -217,13 +171,13 @@ export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
                   icon={<MoneyIcon sx={{ fontSize: 16, color: '#10b981' }} />}
                   label={language === 'ru' ? 'Стоимость' : 'Cost'}
                   value={`$${history.stats.total_cost_usd.toFixed(4)}`}
-                  sub={`~${(history.stats.total_cost_usd * usdToRub).toFixed(1)}₽ | ~$${history.stats.avg_cost_per_request_usd.toFixed(4)}/${language === 'ru' ? 'запрос' : 'req'}`}
+                  sub={`~${(history.stats.total_cost_usd * USD_TO_RUB).toFixed(1)}₽ | ~$${history.stats.avg_cost_per_request_usd.toFixed(4)}/${language === 'ru' ? 'запрос' : 'req'}`}
                 />
               </Box>
             )}
 
             {/* Model pricing table */}
-            {pricing && pricing.models.length > 0 && (
+            {allModels.length > 0 && (
               <Box sx={{ mb: 3 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
                   {language === 'ru' ? 'Цены моделей (за 1M токенов)' : 'Model Pricing (per 1M tokens)'}
@@ -253,7 +207,7 @@ export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {pricing.models.map((m) => (
+                      {allModels.map((m) => (
                         <TableRow key={m.id} hover>
                           <TableCell sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
                             {m.name}
@@ -280,10 +234,10 @@ export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
                             ${m.output_price_per_m.toFixed(2)}
                           </TableCell>
                           <TableCell align="right" sx={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>
-                            {(m.input_price_per_m * usdToRub).toFixed(0)}₽
+                            {(m.input_price_per_m * USD_TO_RUB).toFixed(0)}₽
                           </TableCell>
                           <TableCell align="right" sx={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>
-                            {(m.output_price_per_m * usdToRub).toFixed(0)}₽
+                            {(m.output_price_per_m * USD_TO_RUB).toFixed(0)}₽
                           </TableCell>
                         </TableRow>
                       ))}
@@ -329,7 +283,7 @@ export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
                               {formatDate(r.created_at, language)}
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
-                              {formatModelName(r.model)}
+                              {formatModelName(r.model, allModels)}
                             </TableCell>
                             <TableCell>
                               <Chip

@@ -16,6 +16,7 @@ import (
 	"github.com/onepantsu/progressql/backend/internal/balance"
 	"github.com/onepantsu/progressql/backend/internal/llm"
 	"github.com/onepantsu/progressql/backend/internal/metrics"
+	"github.com/onepantsu/progressql/backend/internal/models"
 	"github.com/onepantsu/progressql/backend/internal/quota"
 	"github.com/onepantsu/progressql/backend/internal/ratelimit"
 	"github.com/onepantsu/progressql/backend/internal/security"
@@ -191,6 +192,7 @@ type Pipeline struct {
 	toolCallTimeout    time.Duration
 	toolCallMaxRetries int
 	mu                 sync.RWMutex
+	modelsSvc          *models.Service
 }
 
 // NewPipeline creates a new Pipeline with the given dependencies.
@@ -241,6 +243,11 @@ func (p *Pipeline) SetQuotaService(svc *quota.Service) {
 // SetBalanceService configures the balance service for balance-related operations.
 func (p *Pipeline) SetBalanceService(svc *balance.Service) {
 	p.balanceService = svc
+}
+
+// SetModelsService configures the database-driven model catalog service.
+func (p *Pipeline) SetModelsService(svc *models.Service) {
+	p.modelsSvc = svc
 }
 
 // RegisterAction maps an action name to a sequence of steps.
@@ -575,7 +582,7 @@ func (p *Pipeline) deductQuotaAfterPipeline(session *websocket.Session, pctx *Pi
 	if modelUsed == "" {
 		modelUsed = pctx.Model
 	}
-	modelTier := getModelTier(modelUsed)
+	modelTier := p.getModelTierFromDB(modelUsed)
 
 	// Most pipeline steps only call AddTokens (total), not AddTokensDetailed
 	// (prompt+completion). If detailed counts are missing, split total as
@@ -726,6 +733,15 @@ func getModelTier(modelID string) string {
 		}
 	}
 	return "budget"
+}
+
+// getModelTierFromDB returns the tier using the database-driven model service.
+// Falls back to the config-based getModelTier if the service is not available.
+func (p *Pipeline) getModelTierFromDB(modelID string) string {
+	if p.modelsSvc != nil {
+		return p.modelsSvc.GetTier(context.Background(), modelID)
+	}
+	return getModelTier(modelID)
 }
 
 // recordPrometheusTokens emits Prometheus LLM token counters from the pipeline context.
@@ -1070,6 +1086,15 @@ func findModelFuzzy(modelID string) *config.ModelInfo {
 	}
 	return nil
 }
+// calcCostUSDFromDB estimates cost using the database-driven model service.
+// Falls back to the config-based calcCostUSD if the service is not available.
+func (p *Pipeline) calcCostUSDFromDB(modelID string, totalTokens int) float64 {
+	if p.modelsSvc != nil {
+		return p.modelsSvc.CalcCostUSDTotal(context.Background(), modelID, totalTokens)
+	}
+	return calcCostUSD(modelID, totalTokens)
+}
+
 
 // recordTokenUsage inserts a row into the token_usage table after a successful pipeline run.
 // Skips silently if DB is nil, user_id is empty, or no tokens were used.
@@ -1078,7 +1103,7 @@ func (p *Pipeline) recordTokenUsage(pctx *PipelineContext) {
 		return
 	}
 
-	costUSD := calcCostUSD(pctx.ModelUsed, pctx.TokensUsed)
+	costUSD := p.calcCostUSDFromDB(pctx.ModelUsed, pctx.TokensUsed)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
