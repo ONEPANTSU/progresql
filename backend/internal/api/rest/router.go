@@ -118,6 +118,8 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	quotaHandler := quota.NewHandler(quotaSvc, log)
 	mux.Handle("GET /api/v2/usage", authMW(http.HandlerFunc(quotaHandler.GetUsageHandler)))
 	mux.Handle("GET /api/v2/quota", authMW(http.HandlerFunc(quotaHandler.GetQuotaHandler)))
+	mux.Handle("GET /api/v2/usage/history", authMW(http.HandlerFunc(quotaHandler.GetUsageHistoryHandler)))
+	mux.Handle("GET /api/v2/models/pricing", http.HandlerFunc(quotaHandler.GetModelPricingHandler))
 
 	// Admin analytics endpoints (JWT + admin user ID required).
 	if len(cfg.AdminUserIDs) > 0 {

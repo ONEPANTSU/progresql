@@ -164,7 +164,7 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
       <Box
         sx={{
           height: 4,
-          background: 'linear-gradient(90deg, #6366f1, #f59e0b, #f97316)',
+          background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #a78bfa)',
         }}
       />
 

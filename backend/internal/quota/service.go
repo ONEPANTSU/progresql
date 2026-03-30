@@ -17,8 +17,8 @@ const (
 	// must be downgraded to budget tier.
 	DefaultBudgetFallbackModel = "qwen/qwen3-coder"
 
-	// usdToRUB is a fixed conversion rate used for balance cost calculations.
-	usdToRUB = 90.0
+	// UsdToRUB is a fixed conversion rate used for balance cost calculations.
+	UsdToRUB = 90.0
 )
 
 // QuotaCheckResult tells the caller what to do with the incoming request.
@@ -41,6 +41,27 @@ type UsageInfo struct {
 	PeriodStart        time.Time `json:"period_start"`
 	PeriodEnd          time.Time `json:"period_end"`
 	Balance            float64   `json:"balance"`
+}
+
+// UsageRecord represents a single token usage entry.
+type UsageRecord struct {
+	ID               string    `json:"id"`
+	Model            string    `json:"model"`
+	PromptTokens     int       `json:"prompt_tokens"`
+	CompletionTokens int       `json:"completion_tokens"`
+	TotalTokens      int       `json:"total_tokens"`
+	CostUSD          float64   `json:"cost_usd"`
+	Action           string    `json:"action"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
+// UsageStats provides aggregate statistics.
+type UsageStats struct {
+	TotalRequests    int     `json:"total_requests"`
+	TotalTokens      int64   `json:"total_tokens"`
+	TotalCostUSD     float64 `json:"total_cost_usd"`
+	AvgTokensPerReq  int64   `json:"avg_tokens_per_request"`
+	AvgCostPerReqUSD float64 `json:"avg_cost_per_request_usd"`
 }
 
 // quotaPeriod represents a row in the token_quotas table.
@@ -240,6 +261,81 @@ func (s *Service) GetUsage(ctx context.Context, userID string) (*UsageInfo, erro
 	}, nil
 }
 
+// GetUsageHistory returns paginated token usage history with aggregate statistics.
+// Queries the token_usage table for the given user. Returns the page of records,
+// aggregate stats, total count, and any error.
+func (s *Service) GetUsageHistory(ctx context.Context, userID string, limit, offset int) ([]UsageRecord, *UsageStats, int, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	// Get total count.
+	var total int
+	err := s.db.QueryRow(ctx,
+		`SELECT COUNT(*) FROM token_usage WHERE user_id = $1`, userID,
+	).Scan(&total)
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("quota: count usage records for user %s: %w", userID, err)
+	}
+
+	if total == 0 {
+		return []UsageRecord{}, &UsageStats{}, 0, nil
+	}
+
+	// Get aggregate stats.
+	var stats UsageStats
+	err = s.db.QueryRow(ctx,
+		`SELECT COUNT(*), COALESCE(SUM(total_tokens), 0), COALESCE(SUM(cost_usd), 0)
+		 FROM token_usage WHERE user_id = $1`, userID,
+	).Scan(&stats.TotalRequests, &stats.TotalTokens, &stats.TotalCostUSD)
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("quota: stats for user %s: %w", userID, err)
+	}
+
+	// Calculate averages (avoid division by zero).
+	if stats.TotalRequests > 0 {
+		stats.AvgTokensPerReq = stats.TotalTokens / int64(stats.TotalRequests)
+		stats.AvgCostPerReqUSD = stats.TotalCostUSD / float64(stats.TotalRequests)
+	}
+
+	// Fetch page.
+	rows, err := s.db.Query(ctx,
+		`SELECT id, model, prompt_tokens, completion_tokens, total_tokens, cost_usd, action, created_at
+		   FROM token_usage
+		  WHERE user_id = $1
+		  ORDER BY created_at DESC
+		  LIMIT $2 OFFSET $3`,
+		userID, limit, offset,
+	)
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("quota: query usage records for user %s: %w", userID, err)
+	}
+	defer rows.Close()
+
+	var records []UsageRecord
+	for rows.Next() {
+		var r UsageRecord
+		if err := rows.Scan(
+			&r.ID, &r.Model, &r.PromptTokens, &r.CompletionTokens,
+			&r.TotalTokens, &r.CostUSD, &r.Action, &r.CreatedAt,
+		); err != nil {
+			return nil, nil, 0, fmt.Errorf("quota: scan usage record row: %w", err)
+		}
+		records = append(records, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, 0, fmt.Errorf("quota: iterate usage record rows: %w", err)
+	}
+
+	return records, &stats, total, nil
+}
+
 // getOrCreateQuotaPeriod finds the current active quota period or creates one.
 // For daily plans: period is the current UTC day.
 // For monthly plans: period is a 30-day window from subscription start.
@@ -385,7 +481,7 @@ func calculateCostRUB(modelID string, inputTokens, outputTokens int, markupPct i
 	outputPricePerToken := model.OutputPricePerM / 1_000_000.0
 
 	costUSD := float64(inputTokens)*inputPricePerToken + float64(outputTokens)*outputPricePerToken
-	costRUB := costUSD * usdToRUB
+	costRUB := costUSD * UsdToRUB
 
 	if markupPct > 0 {
 		costRUB *= 1.0 + float64(markupPct)/100.0
