@@ -745,7 +745,7 @@ export default function Home() {
     }
     // If it's already a full SQL statement (DDL/DML), use as-is
     const isDDL = /^\s*(CREATE|DROP|ALTER|INSERT|UPDATE|DELETE|TRUNCATE|GRANT|REVOKE)\s/i.test(tableName);
-    const query = isDDL ? tableName : `SELECT * FROM ${tableName}\n  LIMIT 100;`;
+    const query = isDDL ? tableName : `SELECT * FROM ${tableName}\nLIMIT 100;`;
     sqlEditorRef.current?.replaceSelection(query);
   };
 

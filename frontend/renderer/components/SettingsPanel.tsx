@@ -277,13 +277,14 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 fullWidth
                 size="small"
                 onClick={() => setPaymentModalOpen(true)}
-                startIcon={<StarIcon sx={{ fontSize: 14 }} />}
+                startIcon={<StarIcon sx={{ fontSize: 14, color: '#fff' }} />}
                 sx={{
                   mt: 1,
                   textTransform: 'none',
                   fontWeight: 700,
                   fontSize: '0.8rem',
                   height: 32,
+                  color: '#fff',
                   background: isExpired
                     ? 'linear-gradient(135deg, #f59e0b, #f97316)'
                     : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
