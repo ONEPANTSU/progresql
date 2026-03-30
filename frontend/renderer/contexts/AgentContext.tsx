@@ -19,6 +19,8 @@ import {
   saveModel,
   loadAutocompleteModel,
   saveAutocompleteModel,
+  loadAutocompleteEnabled,
+  saveAutocompleteEnabled,
   loadSecurityMode,
   saveSecurityMode,
   SecurityMode,
@@ -64,6 +66,10 @@ export interface AgentContextValue {
   autocompleteModel: string;
   /** Update autocomplete model (persisted) */
   setAutocompleteModel: (model: string) => void;
+  /** Whether autocomplete is enabled */
+  autocompleteEnabled: boolean;
+  /** Toggle autocomplete on/off (persisted) */
+  setAutocompleteEnabled: (enabled: boolean) => void;
   /** Current security mode: "safe" | "data" | "execute" */
   securityMode: SecurityMode;
   /** Update security mode (persisted) */
@@ -94,6 +100,7 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
   const [model, setModelState] = useState<string>(() => loadModel());
   const [autocompleteModel, setAutocompleteModelState] = useState<string>(() => loadAutocompleteModel());
+  const [autocompleteEnabled, setAutocompleteEnabledState] = useState<boolean>(() => loadAutocompleteEnabled());
   const [securityMode, setSecurityModeState] = useState<SecurityMode>(() => loadSecurityMode());
 
   // Connection state
@@ -202,6 +209,11 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     saveAutocompleteModel(m);
   }, []);
 
+  const setAutocompleteEnabled = useCallback((enabled: boolean) => {
+    setAutocompleteEnabledState(enabled);
+    saveAutocompleteEnabled(enabled);
+  }, []);
+
   const setSecurityMode = useCallback((mode: SecurityMode) => {
     setSecurityModeState(mode);
     saveSecurityMode(mode);
@@ -277,11 +289,16 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Autocomplete — pass autocompleteModel to service via ref for stable callback
   const autocompleteModelRef = useRef(autocompleteModel);
+  const autocompleteEnabledRef = useRef(autocompleteEnabled);
   useEffect(() => {
     autocompleteModelRef.current = autocompleteModel;
   }, [autocompleteModel]);
+  useEffect(() => {
+    autocompleteEnabledRef.current = autocompleteEnabled;
+  }, [autocompleteEnabled]);
 
   const sendAutocomplete = useCallback((sql: string, cursorPos: number, schemaContext: string, callback: (completion: string) => void) => {
+    if (!autocompleteEnabledRef.current) return;
     serviceRef.current?.sendAutocomplete(sql, cursorPos, schemaContext, callback, autocompleteModelRef.current);
   }, []);
 
@@ -306,6 +323,8 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setModel,
     autocompleteModel,
     setAutocompleteModel,
+    autocompleteEnabled,
+    setAutocompleteEnabled,
     securityMode,
     setSecurityMode,
     safeMode: securityMode === 'safe',
@@ -315,7 +334,7 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     usage,
     refreshUsage,
     lastNotification,
-  }), [connectionState, connectionPhase, isAuthError, connect, disconnect, sendRequest, cancelRequest, sessionId, error, backendUrl, setBackendUrl, model, setModel, autocompleteModel, setAutocompleteModel, securityMode, setSecurityMode, setSafeMode, sendAutocomplete, cancelAutocomplete, usage, refreshUsage, lastNotification]);
+  }), [connectionState, connectionPhase, isAuthError, connect, disconnect, sendRequest, cancelRequest, sessionId, error, backendUrl, setBackendUrl, model, setModel, autocompleteModel, setAutocompleteModel, autocompleteEnabled, setAutocompleteEnabled, securityMode, setSecurityMode, setSafeMode, sendAutocomplete, cancelAutocomplete, usage, refreshUsage, lastNotification]);
 
   return (
     <AgentContext.Provider value={value}>
