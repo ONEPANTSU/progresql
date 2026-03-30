@@ -754,17 +754,19 @@ h2 {
 
 .pricing-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 28px;
+  grid-template-columns: 1fr 1.08fr 1fr;
+  gap: 24px;
   max-width: 1120px;
   margin: 0 auto;
+  align-items: center;
 }
 
 .pricing-card {
-  padding: 40px 32px;
+  padding: 36px 28px;
   display: flex;
   flex-direction: column;
   position: relative;
+  transition: transform 0.3s ease;
 }
 
 .pricing-card.pro {
@@ -774,6 +776,9 @@ h2 {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 16px;
+  padding: 48px 36px;
+  box-shadow: 0 0 40px rgba(99, 102, 241, 0.12), 0 8px 32px rgba(0, 0, 0, 0.2);
+  z-index: 2;
 }
 
 .pricing-card.pro-plus {
@@ -949,11 +954,14 @@ h2 {
 }
 
 @media (max-width: 900px) {
-  .pricing-grid { grid-template-columns: 1fr 1fr; max-width: 760px; }
+  .pricing-grid { grid-template-columns: 1fr 1fr; max-width: 760px; align-items: start; }
+  .pricing-card.pro { padding: 40px 32px; }
 }
 
 @media (max-width: 640px) {
   .pricing-grid { grid-template-columns: 1fr; max-width: 420px; }
+  .pricing-card { padding: 36px 28px; }
+  .pricing-card.pro { padding: 40px 32px; box-shadow: 0 0 30px rgba(99, 102, 241, 0.1); }
 }
 
 /* ========== FAQ ========== */

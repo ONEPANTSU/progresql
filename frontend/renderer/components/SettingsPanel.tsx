@@ -287,7 +287,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               </Button>
             )}
             <Button
-              variant="outlined"
+              variant="contained"
               fullWidth
               size="small"
               onClick={() => setBalanceTopUpModalOpen(true)}
@@ -295,12 +295,12 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               sx={{
                 mt: 1,
                 textTransform: 'none',
-                fontWeight: 600,
+                fontWeight: 700,
                 fontSize: '0.8rem',
                 height: 32,
-                borderColor: 'rgba(99,102,241,0.3)',
-                color: '#6366f1',
-                '&:hover': { borderColor: '#6366f1', bgcolor: 'rgba(99,102,241,0.06)' },
+                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                color: '#fff',
+                '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
               }}
             >
               {t('balance.topUp')}
