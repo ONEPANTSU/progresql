@@ -418,16 +418,12 @@ const HighlightedSQLPre: React.FC<{ sql: string }> = ({ sql }) => {
 };
 
 /**
- * Lightweight plain-text renderer used during streaming.
- * Skips expensive markdown parsing — just renders text with a blinking cursor.
+ * Streaming renderer — renders markdown in real-time with a blinking cursor.
+ * Uses the same RenderMarkdown component as completed messages for consistent styling.
  */
 const StreamingText: React.FC<{ text: string }> = ({ text }) => (
-  <Typography
-    variant="body2"
+  <Box
     sx={{
-      whiteSpace: 'pre-wrap',
-      wordBreak: 'break-word',
-      lineHeight: 1.6,
       '&::after': {
         content: '"\\2588"',
         animation: 'blink 1s step-end infinite',
@@ -438,8 +434,8 @@ const StreamingText: React.FC<{ text: string }> = ({ text }) => (
       },
     }}
   >
-    {text}
-  </Typography>
+    <RenderMarkdown text={text} />
+  </Box>
 );
 
 const ChatMessage: React.FC<ChatMessageProps> = ({

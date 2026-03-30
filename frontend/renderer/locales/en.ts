@@ -90,7 +90,7 @@ const en = {
   'settings.llmModel': 'LLM Model',
   'settings.modelLabel': 'Model',
   'settings.autocompleteModelLabel': 'Autocomplete Model',
-  'settings.autocompleteModelHint': 'Budget model used for inline SQL suggestions in the editor',
+  'settings.autocompleteModelHint': 'For SQL autocomplete in editor',
   'settings.security': 'Security',
   'settings.safeMode': 'Safe Mode',
   'settings.safeModeOn': 'Read-only access',

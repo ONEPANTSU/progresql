@@ -577,7 +577,17 @@ func (p *Pipeline) deductQuotaAfterPipeline(session *websocket.Session, pctx *Pi
 	}
 	modelTier := getModelTier(modelUsed)
 
-	if err := p.quotaService.DeductTokens(ctx, pctx.UserID, modelUsed, modelTier, pctx.PromptTokens, pctx.CompletionTokens); err != nil {
+	// Most pipeline steps only call AddTokens (total), not AddTokensDetailed
+	// (prompt+completion). If detailed counts are missing, split total as
+	// approximate 25% input / 75% output so DeductTokens receives non-zero values.
+	inputTokens := pctx.PromptTokens
+	outputTokens := pctx.CompletionTokens
+	if inputTokens == 0 && outputTokens == 0 && pctx.TokensUsed > 0 {
+		inputTokens = pctx.TokensUsed / 4
+		outputTokens = pctx.TokensUsed - inputTokens
+	}
+
+	if err := p.quotaService.DeductTokens(ctx, pctx.UserID, modelUsed, modelTier, inputTokens, outputTokens); err != nil {
 		p.logger.Error("quota token deduction failed",
 			zap.String("user_id", pctx.UserID),
 			zap.Error(err),
@@ -1040,14 +1050,22 @@ func (p *Pipeline) recordTokenUsage(pctx *PipelineContext) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// If detailed counts are missing, approximate from total
+	promptTokens := pctx.PromptTokens
+	completionTokens := pctx.CompletionTokens
+	if promptTokens == 0 && completionTokens == 0 && pctx.TokensUsed > 0 {
+		promptTokens = pctx.TokensUsed / 4
+		completionTokens = pctx.TokensUsed - promptTokens
+	}
+
 	_, err := p.db.Exec(ctx,
 		`INSERT INTO token_usage (id, user_id, session_id, model, prompt_tokens, completion_tokens, total_tokens, cost_usd, action)
 		 VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8)`,
 		pctx.UserID,
 		pctx.Session.SessionID(),
 		pctx.ModelUsed,
-		pctx.PromptTokens,
-		pctx.CompletionTokens,
+		promptTokens,
+		completionTokens,
 		pctx.TokensUsed,
 		costUSD,
 		pctx.Action,

@@ -222,7 +222,9 @@ func (n *Notifier) sendNotification(u expiringUser, notifType string, daysLeft i
 		n.log.Error("notifier: failed to send expiry email",
 			zap.String("user_id", u.ID), zap.String("email", u.Email),
 			zap.Int("days_left", daysLeft), zap.Error(err))
-		n.store.RemoveNotification(u.ID, notifType, daysLeft)
+		// Do NOT remove the notification record on failure — otherwise the
+		// notifier retries every cycle, flooding the SMTP server and getting
+		// blocked as spam.  The record stays so we won't attempt again.
 	} else {
 		n.log.Info("notifier: sent expiry email",
 			zap.String("user_id", u.ID), zap.Int("days_left", daysLeft))

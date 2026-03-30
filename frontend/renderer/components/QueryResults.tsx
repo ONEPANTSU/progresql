@@ -248,6 +248,26 @@ export default function QueryResults({ result, executedQuery, onExecuteQuery, on
     const row = sortedRows[editingCell.rowIndex];
     if (!row) return;
 
+    // Compare with original value — skip if nothing actually changed
+    const originalRaw = row[editingCell.fieldName];
+    let originalStr: string;
+    if (originalRaw === null || originalRaw === undefined) {
+      originalStr = '';
+    } else if (originalRaw instanceof Date) {
+      originalStr = originalRaw.toISOString();
+    } else if (typeof originalRaw === 'object') {
+      originalStr = JSON.stringify(originalRaw);
+    } else {
+      originalStr = String(originalRaw);
+    }
+
+    if (editValue === originalStr) {
+      // Value unchanged — just cancel editing without marking as pending
+      setEditingCell(null);
+      setEditValue('');
+      return;
+    }
+
     const key = `${editingCell.rowIndex}:${editingCell.fieldName}`;
     setPendingEdits(prev => {
       const next = new Map(prev);
