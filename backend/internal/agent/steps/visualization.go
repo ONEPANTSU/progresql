@@ -41,18 +41,45 @@ func (s *VisualizationStep) Execute(ctx context.Context, pctx *agent.PipelineCon
 		return nil
 	}
 
-	// Only generate visualization if user explicitly asks for analytics/charts/visualization.
+	// Decide if visualization should be attempted.
+	// Three signals: (1) user keywords, (2) SQL contains GROUP BY, (3) multi-row numeric results.
 	msg := strings.ToLower(pctx.UserMessage)
 	wantsViz := false
-	vizKeywords := []string{"аналитик", "график", "диаграмм", "визуализ", "chart", "plot", "graph", "analytics", "visualiz", "distribution", "breakdown", "trend", "статистик", "распределен"}
+
+	// Signal 1: explicit keywords in user message.
+	vizKeywords := []string{"аналитик", "график", "диаграмм", "визуализ", "chart", "plot", "graph",
+		"analytics", "visualiz", "distribution", "breakdown", "trend", "статистик", "распределен",
+		"покаж", "сколько", "сравн", "топ", "top", "count", "sum", "avg", "report", "отчет",
+		"динамик", "по датам", "по дням", "по месяц", "by date", "by day", "by month"}
 	for _, kw := range vizKeywords {
 		if strings.Contains(msg, kw) {
 			wantsViz = true
 			break
 		}
 	}
+
+	// Signal 2: SQL contains GROUP BY — almost always means aggregated data suitable for charts.
+	if !wantsViz && pctx.Result.SQL != "" {
+		sqlLower := strings.ToLower(pctx.Result.SQL)
+		if strings.Contains(sqlLower, "group by") {
+			wantsViz = true
+		}
+	}
+
+	// Signal 3: multi-row result (2+ rows) with at least one numeric column.
+	if !wantsViz && len(queryData.Rows) >= 2 {
+		for _, row := range queryData.Rows[:1] {
+			for _, v := range row {
+				switch v.(type) {
+				case float64, json.Number:
+					wantsViz = true
+				}
+			}
+		}
+	}
+
 	if !wantsViz {
-		pctx.Logger.Info("visualization skipped: user didn't request analytics")
+		pctx.Logger.Info("visualization skipped: no analytics signal detected")
 		return nil
 	}
 
