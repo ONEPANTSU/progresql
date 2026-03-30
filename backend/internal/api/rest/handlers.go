@@ -287,7 +287,7 @@ func loginHandler(jwtSvc *auth.JWTService, userStore *auth.UserStore) http.Handl
 // @Success      200  {object}  userInfo
 // @Failure      401  {object}  errorResponse
 // @Router       /api/v1/auth/profile [get]
-func profileHandler(userStore *auth.UserStore) http.HandlerFunc {
+func profileHandler(userStore *auth.UserStore, db *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -301,6 +301,17 @@ func profileHandler(userStore *auth.UserStore) http.HandlerFunc {
 		// Try to fetch fresh data from store (for email_verified status).
 		if claims.UserID != "" {
 			if user, err := userStore.GetByID(claims.UserID); err == nil {
+				// If paid plan is expired, downgrade to free in DB.
+				if user.Plan != "free" && user.Plan != "trial" && user.Plan != "" && user.PlanExpiresAt != nil {
+					if t, err := time.Parse(time.RFC3339, *user.PlanExpiresAt); err == nil && time.Now().After(t) {
+						if db != nil {
+							_, _ = db.Exec(r.Context(),
+								`UPDATE users SET plan = 'free' WHERE id = $1 AND plan NOT IN ('free','trial')`,
+								user.ID)
+						}
+						user.Plan = "free"
+					}
+				}
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(userInfoFromUser(user))
 				return
