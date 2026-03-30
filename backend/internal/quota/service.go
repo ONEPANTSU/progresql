@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/onepantsu/progressql/backend/config"
+	"github.com/onepantsu/progressql/backend/internal/models"
 	"github.com/onepantsu/progressql/backend/internal/subscription"
 )
 
@@ -76,16 +77,17 @@ type quotaPeriod struct {
 
 // Service handles quota checking and token deduction.
 type Service struct {
-	db     *pgxpool.Pool
-	logger *zap.Logger
+	db        *pgxpool.Pool
+	logger    *zap.Logger
+	modelsSvc *models.Service
 }
 
 // NewService creates a new quota Service.
-func NewService(db *pgxpool.Pool, logger *zap.Logger) *Service {
+func NewService(db *pgxpool.Pool, logger *zap.Logger, modelsSvc *models.Service) *Service {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	return &Service{db: db, logger: logger}
+	return &Service{db: db, logger: logger, modelsSvc: modelsSvc}
 }
 
 // CheckQuota checks if a user can make a request with the given model tier.
@@ -189,7 +191,7 @@ func (s *Service) DeductTokens(ctx context.Context, userID string, modelID strin
 			chargeableOutput = int(float64(outputTokens) * ratio)
 		}
 
-		costRUB := calculateCostRUB(modelID, chargeableInput, chargeableOutput, quotaLimits.BalanceMarkupPct)
+		costRUB := s.calculateCostRUB(ctx, modelID, chargeableInput, chargeableOutput, quotaLimits.BalanceMarkupPct)
 		if costRUB > 0 {
 			// Deduct from balance using SELECT ... FOR UPDATE to prevent races.
 			var currentBalance float64
@@ -478,14 +480,30 @@ func determineQuotaAction(
 // calculateCostRUB calculates the cost in RUB for given tokens on a model, with markup.
 // Formula: (inputTokens * inputPricePerToken + outputTokens * outputPricePerToken) * USD_TO_RUB * (1 + markup/100)
 // Returns 0 if the model is unknown.
-func calculateCostRUB(modelID string, inputTokens, outputTokens int, markupPct int) float64 {
-	model := findModel(modelID)
-	if model == nil {
-		return 0
+func (s *Service) calculateCostRUB(ctx context.Context, modelID string, inputTokens, outputTokens int, markupPct int) float64 {
+	var inputPricePerM, outputPricePerM float64
+
+	// Try DB-driven model lookup first (handles aliased OpenRouter IDs).
+	if s.modelsSvc != nil {
+		m := s.modelsSvc.FindByID(ctx, modelID)
+		if m != nil {
+			inputPricePerM = m.InputPricePerM
+			outputPricePerM = m.OutputPricePerM
+		}
 	}
 
-	inputPricePerToken := model.InputPricePerM / 1_000_000.0
-	outputPricePerToken := model.OutputPricePerM / 1_000_000.0
+	// Fallback to config if DB lookup failed.
+	if inputPricePerM == 0 && outputPricePerM == 0 {
+		cm := findModel(modelID)
+		if cm == nil {
+			return 0
+		}
+		inputPricePerM = cm.InputPricePerM
+		outputPricePerM = cm.OutputPricePerM
+	}
+
+	inputPricePerToken := inputPricePerM / 1_000_000.0
+	outputPricePerToken := outputPricePerM / 1_000_000.0
 
 	costUSD := float64(inputTokens)*inputPricePerToken + float64(outputTokens)*outputPricePerToken
 	costRUB := costUSD * UsdToRUB
@@ -497,7 +515,7 @@ func calculateCostRUB(modelID string, inputTokens, outputTokens int, markupPct i
 	return costRUB
 }
 
-// findModel looks up a model by ID from the default model list.
+// findModel looks up a model by ID from the default model list (exact match only).
 func findModel(modelID string) *config.ModelInfo {
 	for _, m := range config.DefaultModels() {
 		if m.ID == modelID {

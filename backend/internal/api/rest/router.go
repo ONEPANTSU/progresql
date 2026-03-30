@@ -41,15 +41,15 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	pipeline.SetDB(db)
 	pipeline.SetMetrics(metricsCollector)
 
-	// Wire up quota and balance services for the AI pipeline.
-	quotaSvc := quota.NewService(db, log)
-	balanceSvc := balance.NewService(db, log)
-	pipeline.SetQuotaService(quotaSvc)
-	pipeline.SetBalanceService(balanceSvc)
-
 	// Wire up database-driven model catalog service.
 	modelsSvc := models.NewService(db, log)
 	pipeline.SetModelsService(modelsSvc)
+
+	// Wire up quota and balance services for the AI pipeline.
+	quotaSvc := quota.NewService(db, log, modelsSvc)
+	balanceSvc := balance.NewService(db, log)
+	pipeline.SetQuotaService(quotaSvc)
+	pipeline.SetBalanceService(balanceSvc)
 
 	if cfg.ToolCallTimeoutSec > 0 {
 		pipeline.SetToolCallTimeout(time.Duration(cfg.ToolCallTimeoutSec)*time.Second, 1)
