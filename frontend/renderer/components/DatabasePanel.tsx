@@ -243,6 +243,7 @@ export default function DatabasePanel({
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedElement, setSelectedElement] = useState<any>(null);
   const [selectedElementType, setSelectedElementType] = useState<string>('');
+  const [selectedElementConnectionId, setSelectedElementConnectionId] = useState<string>('');
   const [schemaSyncOpen, setSchemaSyncOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [connectionToDelete, setConnectionToDelete] = useState<DatabaseServer | null>(null);
@@ -256,6 +257,8 @@ export default function DatabasePanel({
     const schemaName = selectedElement.table_schema || 'public';
     if (!tableName) return;
     for (const conn of connections) {
+      // Only search within the same connection to avoid cross-connection mismatches
+      if (selectedElementConnectionId && conn.id !== selectedElementConnectionId) continue;
       if (!conn.databases) continue;
       for (const db of conn.databases) {
         const table = db.tables?.find(
@@ -267,7 +270,7 @@ export default function DatabasePanel({
         }
       }
     }
-  }, [connections, detailsModalOpen, selectedElementType]);
+  }, [connections, detailsModalOpen, selectedElementType, selectedElementConnectionId]);
 
   const handleAddConnection = (connectionData: any) => {
     const newConnection: Omit<DatabaseServer, 'id' | 'databases' | 'isActive'> = {
@@ -428,15 +431,17 @@ export default function DatabasePanel({
     setExpandedTypes(newExpanded);
   };
 
-  const handleShowDetails = (element: any, elementType: string) => {
+  const handleShowDetails = (element: any, elementType: string, connectionId?: string) => {
     log.debug('Showing details for element:', {
       elementType,
+      connectionId,
       has_routine_definition: !!element.routine_definition,
       has_procedure_definition: !!element.procedure_definition,
       has_view_definition: !!element.view_definition
     });
     setSelectedElement(element);
     setSelectedElementType(elementType);
+    setSelectedElementConnectionId(connectionId || '');
     setDetailsModalOpen(true);
   };
 
@@ -444,6 +449,7 @@ export default function DatabasePanel({
     setDetailsModalOpen(false);
     setSelectedElement(null);
     setSelectedElementType('');
+    setSelectedElementConnectionId('');
   };
 
   // --- Object context menu state ---
@@ -515,7 +521,7 @@ export default function DatabasePanel({
 
     switch (action) {
       case 'view_info':
-        handleShowDetails(element, type);
+        handleShowDetails(element, type, connectionId);
         break;
       case 'query_tool':
         if (onQueryTable) {
@@ -535,7 +541,7 @@ export default function DatabasePanel({
       case 'view_source': {
         const definition = getObjectDefinition(element, type);
         if (definition) {
-          handleShowDetails(element, type);
+          handleShowDetails(element, type, connectionId);
         }
         break;
       }
