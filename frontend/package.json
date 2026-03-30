@@ -1,7 +1,7 @@
 {
   "name": "progresql",
   "productName": "ProgreSQL",
-  "version": "1.0.76",
+  "version": "1.0.77",
   "description": "PostgreSQL Client Application built with Nextron",
   "license": "ISC",
   "author": "ONEPANTSU",

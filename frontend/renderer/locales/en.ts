@@ -291,6 +291,7 @@ const en = {
   'agentError.connectionLost': 'Lost connection to backend. Check connection settings.',
   'agentError.notInitialized': 'AI assistant service not initialized. Check backend settings.',
   'agentError.subscriptionExpired': 'Your trial has expired. Upgrade to Pro to continue using AI features.',
+  'agentError.quotaExhausted': 'Token quota exhausted. Top up your balance or wait for the next period.',
   'agentError.unknown': 'An unexpected error occurred. Please try again.',
   'agentError.queryExecution': 'Query execution error. Check SQL syntax.',
   'agentError.sendFailed': 'Failed to send message. Check backend connection.',
