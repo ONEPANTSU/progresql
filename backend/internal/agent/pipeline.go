@@ -521,10 +521,12 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 
 	p.emitAuditLog(session, requestID, payload.Action, startTime, len(pctx.ToolCallsLog), pctx.ModelUsed, pctx.TokensUsed, pctx.ToolCallsLog, nil)
 	p.recordMetricsEnd(startTime, pctx.TokensUsed, false)
-	p.recordTokenUsage(pctx)
 
-	// --- Quota deduction (after successful pipeline) ---
-	p.deductQuotaAfterPipeline(session, pctx, requestID)
+	// --- Quota deduction first (to get actual charged cost) ---
+	chargedCostUSD := p.deductQuotaAfterPipeline(session, pctx, requestID)
+
+	// Record token usage with actual charged cost (0 if covered by quota).
+	p.recordTokenUsage(pctx, chargedCostUSD)
 
 	// Prometheus: record success metrics.
 	duration := time.Since(startTime)
@@ -570,9 +572,10 @@ func (p *Pipeline) checkQuotaBeforePipeline(session *websocket.Session, pctx *Pi
 
 // deductQuotaAfterPipeline deducts tokens from the quota system after a successful pipeline run
 // and sends quota/balance warning notifications if thresholds are crossed.
-func (p *Pipeline) deductQuotaAfterPipeline(session *websocket.Session, pctx *PipelineContext, requestID string) {
+// Returns the actual cost in USD charged to the user (0 if covered by quota).
+func (p *Pipeline) deductQuotaAfterPipeline(session *websocket.Session, pctx *PipelineContext, requestID string) float64 {
 	if p.quotaService == nil || pctx.UserID == "" || pctx.TokensUsed == 0 {
-		return
+		return 0
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -594,17 +597,19 @@ func (p *Pipeline) deductQuotaAfterPipeline(session *websocket.Session, pctx *Pi
 		outputTokens = pctx.TokensUsed - inputTokens
 	}
 
-	if err := p.quotaService.DeductTokens(ctx, pctx.UserID, modelUsed, modelTier, inputTokens, outputTokens); err != nil {
+	chargedCostUSD, err := p.quotaService.DeductTokens(ctx, pctx.UserID, modelUsed, modelTier, inputTokens, outputTokens)
+	if err != nil {
 		p.logger.Error("quota token deduction failed",
 			zap.String("user_id", pctx.UserID),
 			zap.Error(err),
 		)
 		// Non-fatal: the request already succeeded.
-		return
+		return 0
 	}
 
 	// Check for quota/balance warning thresholds.
 	p.sendQuotaWarnings(session, pctx, requestID)
+	return chargedCostUSD
 }
 
 // sendQuotaWarnings checks usage after deduction and sends warning notifications
@@ -1097,13 +1102,11 @@ func (p *Pipeline) calcCostUSDFromDB(modelID string, totalTokens int) float64 {
 
 
 // recordTokenUsage inserts a row into the token_usage table after a successful pipeline run.
-// Skips silently if DB is nil, user_id is empty, or no tokens were used.
-func (p *Pipeline) recordTokenUsage(pctx *PipelineContext) {
+// costUSD is the actual amount charged (0 if covered by quota).
+func (p *Pipeline) recordTokenUsage(pctx *PipelineContext, costUSD float64) {
 	if p.db == nil || pctx.UserID == "" || pctx.TokensUsed == 0 {
 		return
 	}
-
-	costUSD := p.calcCostUSDFromDB(pctx.ModelUsed, pctx.TokensUsed)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

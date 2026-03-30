@@ -128,7 +128,8 @@ func (s *Service) CheckQuota(ctx context.Context, userID string, modelTier strin
 
 // DeductTokens records token usage and deducts from quota or balance.
 // Called AFTER a successful LLM call with actual token counts.
-func (s *Service) DeductTokens(ctx context.Context, userID string, modelID string, modelTier string, inputTokens int, outputTokens int) error {
+// Returns the actual cost in USD charged to the user (0 if covered by quota).
+func (s *Service) DeductTokens(ctx context.Context, userID string, modelID string, modelTier string, inputTokens int, outputTokens int) (float64, error) {
 	totalTokens := inputTokens + outputTokens
 
 	// Get user plan for markup rate.
@@ -136,7 +137,7 @@ func (s *Service) DeductTokens(ctx context.Context, userID string, modelID strin
 	err := s.db.QueryRow(ctx,
 		`SELECT COALESCE(plan, 'free') FROM users WHERE id = $1`, userID).Scan(&planStr)
 	if err != nil {
-		return fmt.Errorf("quota: deduct fetch plan: %w", err)
+		return 0, fmt.Errorf("quota: deduct fetch plan: %w", err)
 	}
 
 	plan := subscription.Plan(planStr)
@@ -145,13 +146,13 @@ func (s *Service) DeductTokens(ctx context.Context, userID string, modelID strin
 	// Get current period.
 	period, err := s.getOrCreateQuotaPeriod(ctx, userID, plan)
 	if err != nil {
-		return fmt.Errorf("quota: deduct get period: %w", err)
+		return 0, fmt.Errorf("quota: deduct get period: %w", err)
 	}
 
 	// Begin transaction for atomic update.
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("quota: begin tx: %w", err)
+		return 0, fmt.Errorf("quota: begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
@@ -174,10 +175,11 @@ func (s *Service) DeductTokens(ctx context.Context, userID string, modelID strin
 		totalTokens, period.ID,
 	)
 	if err != nil {
-		return fmt.Errorf("quota: update tokens: %w", err)
+		return 0, fmt.Errorf("quota: update tokens: %w", err)
 	}
 
 	// If over quota, charge from balance.
+	var chargedCostUSD float64
 	overQuotaTokens := (currentUsed + int64(totalTokens)) - limit
 	if overQuotaTokens > 0 && quotaLimits.BalanceEnabled {
 		// Only charge for the tokens that exceed the quota.
@@ -192,12 +194,17 @@ func (s *Service) DeductTokens(ctx context.Context, userID string, modelID strin
 
 		costRUB := s.calculateCostRUB(ctx, modelID, chargeableInput, chargeableOutput, quotaLimits.BalanceMarkupPct)
 		if costRUB > 0 {
+			rate := s.rateSvc.GetUSDToRUB()
+			if rate > 0 {
+				chargedCostUSD = costRUB / rate
+			}
+
 			// Deduct from balance using SELECT ... FOR UPDATE to prevent races.
 			var currentBalance float64
 			err = tx.QueryRow(ctx,
 				`SELECT balance FROM users WHERE id = $1 FOR UPDATE`, userID).Scan(&currentBalance)
 			if err != nil {
-				return fmt.Errorf("quota: lock balance: %w", err)
+				return 0, fmt.Errorf("quota: lock balance: %w", err)
 			}
 
 			newBalance := currentBalance - costRUB
@@ -208,7 +215,7 @@ func (s *Service) DeductTokens(ctx context.Context, userID string, modelID strin
 			_, err = tx.Exec(ctx,
 				`UPDATE users SET balance = $1 WHERE id = $2`, newBalance, userID)
 			if err != nil {
-				return fmt.Errorf("quota: update balance: %w", err)
+				return 0, fmt.Errorf("quota: update balance: %w", err)
 			}
 
 			// Record balance transaction.
@@ -226,10 +233,10 @@ func (s *Service) DeductTokens(ctx context.Context, userID string, modelID strin
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("quota: commit tx: %w", err)
+		return 0, fmt.Errorf("quota: commit tx: %w", err)
 	}
 
-	return nil
+	return chargedCostUSD, nil
 }
 
 // GetUsage returns current usage info for the user dashboard.
