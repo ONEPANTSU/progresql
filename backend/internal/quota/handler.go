@@ -9,20 +9,23 @@ import (
 
 	"github.com/onepantsu/progressql/backend/config"
 	"github.com/onepantsu/progressql/backend/internal/auth"
+	"github.com/onepantsu/progressql/backend/internal/models"
 	"github.com/onepantsu/progressql/backend/internal/subscription"
 )
 
 // Handler provides HTTP handlers for quota-related API endpoints.
 type Handler struct {
-	service *Service
-	logger  *zap.Logger
+	service   *Service
+	logger    *zap.Logger
+	modelsSvc *models.Service
 }
 
 // NewHandler creates a new quota Handler.
-func NewHandler(service *Service, logger *zap.Logger) *Handler {
+func NewHandler(service *Service, logger *zap.Logger, modelsSvc *models.Service) *Handler {
 	return &Handler{
-		service: service,
-		logger:  logger,
+		service:   service,
+		logger:    logger,
+		modelsSvc: modelsSvc,
 	}
 }
 
@@ -244,6 +247,7 @@ func (h *Handler) GetUsageHistoryHandler(w http.ResponseWriter, r *http.Request)
 }
 
 // GetModelPricingHandler returns model pricing information. No authentication required.
+// Uses the database-driven model catalog service with fallback to config.DefaultModels().
 //
 // @Summary      Get model pricing
 // @Description  Returns pricing information for all available models.
@@ -254,21 +258,40 @@ func (h *Handler) GetUsageHistoryHandler(w http.ResponseWriter, r *http.Request)
 func (h *Handler) GetModelPricingHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	models := config.DefaultModels()
-	pricing := make([]modelPricingInfo, 0, len(models))
-	for _, m := range models {
-		pricing = append(pricing, modelPricingInfo{
-			ID:              m.ID,
-			Name:            m.Name,
-			Tier:            m.Tier,
-			InputPricePerM:  m.InputPricePerM,
-			OutputPricePerM: m.OutputPricePerM,
-		})
+	var pricingModels []modelPricingInfo
+
+	// Try loading from database-driven model catalog first.
+	if h.modelsSvc != nil {
+		allModels, err := h.modelsSvc.All(r.Context())
+		if err == nil && len(allModels) > 0 {
+			for _, m := range allModels {
+				pricingModels = append(pricingModels, modelPricingInfo{
+					ID:              m.ID,
+					Name:            m.DisplayName,
+					Tier:            m.Tier,
+					InputPricePerM:  m.InputPricePerM,
+					OutputPricePerM: m.OutputPricePerM,
+				})
+			}
+		}
+	}
+
+	// Fallback to config if DB models are empty or unavailable.
+	if len(pricingModels) == 0 {
+		for _, m := range config.DefaultModels() {
+			pricingModels = append(pricingModels, modelPricingInfo{
+				ID:              m.ID,
+				Name:            m.Name,
+				Tier:            m.Tier,
+				InputPricePerM:  m.InputPricePerM,
+				OutputPricePerM: m.OutputPricePerM,
+			})
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(modelPricingResponse{
-		Models:   pricing,
+		Models:   pricingModels,
 		UsdToRub: UsdToRUB,
 	})
 }

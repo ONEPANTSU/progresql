@@ -552,3 +552,13 @@ export interface ModelPricingResponse {
   models: ModelPricing[];
   usd_to_rub: number;
 }
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+  provider: string;
+  tier: 'budget' | 'premium';
+  input_price_per_m: number;
+  output_price_per_m: number;
+  is_default: boolean;
+}

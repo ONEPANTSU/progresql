@@ -42,30 +42,10 @@ import { useTranslation } from '../contexts/LanguageContext';
 import { useAuth } from '../providers/AuthProvider';
 import { authService, createPaymentInvoice, getAuthToken } from '../services/auth';
 import { loadBackendUrl } from '../utils/secureSettingsStorage';
+import { useModels } from '../hooks/useModels';
 import PaymentModal from './PaymentModal';
 import BalanceTopUpModal from './BalanceTopUpModal';
 import UsageDashboard from './UsageDashboard';
-
-// Full model catalog matching backend config.DefaultModels().
-const ALL_MODELS = [
-  // Budget tier — included in subscription
-  { id: 'qwen/qwen3-coder', name: 'Qwen 3 Coder', tier: 'budget' },
-  { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', tier: 'budget' },
-  { id: 'google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash', tier: 'budget' },
-  { id: 'deepseek/deepseek-chat-v3-0324', name: 'DeepSeek V3', tier: 'budget' },
-  { id: 'qwen/qwen3-vl-32b-instruct', name: 'Qwen 3 VL 32B', tier: 'budget' },
-  { id: 'openai/gpt-oss-120b', name: 'GPT-OSS 120B', tier: 'budget' },
-  // Premium tier — uses quota/balance
-  { id: 'openai/gpt-4.1', name: 'GPT-4.1', tier: 'premium' },
-  { id: 'openai/o4-mini', name: 'o4 Mini', tier: 'premium' },
-  { id: 'anthropic/claude-sonnet-4', name: 'Claude Sonnet 4', tier: 'premium' },
-  { id: 'anthropic/claude-opus-4', name: 'Claude Opus 4', tier: 'premium' },
-  { id: 'google/gemini-2.5-pro-preview', name: 'Gemini 2.5 Pro', tier: 'premium' },
-  { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', tier: 'premium' },
-  { id: 'qwen/qwen3-235b-a22b', name: 'Qwen 3 235B', tier: 'premium' },
-] as const;
-
-const BUDGET_MODELS = ALL_MODELS.filter(m => m.tier === 'budget');
 
 interface SettingsPanelProps {
   open: boolean;
@@ -114,6 +94,8 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [paymentLoading, setPaymentLoading] = React.useState(false);
   const [paymentError, setPaymentError] = React.useState<string | null>(null);
   const [appVersion, setAppVersion] = React.useState<string>('');
+
+  const { models: allModels, budgetModels, premiumModels } = useModels();
 
   // Payment modal state
   const [paymentModalOpen, setPaymentModalOpen] = React.useState(false);
@@ -341,7 +323,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               label={t('settings.modelLabel')}
               onChange={(e) => setModel(e.target.value as string)}
               renderValue={(value) => {
-                const m = ALL_MODELS.find(m => m.id === value);
+                const m = allModels.find(m => m.id === value);
                 return m ? `${m.name}` : value;
               }}
             >
@@ -349,7 +331,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               <MenuItem disabled sx={{ opacity: 1, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', py: 0.5, minHeight: 'auto', letterSpacing: '0.05em' }}>
                 {language === 'ru' ? 'Бюджетные модели' : 'Budget Models'} — {language === 'ru' ? 'включены в подписку' : 'included in plan'}
               </MenuItem>
-              {ALL_MODELS.filter(m => m.tier === 'budget').map(m => (
+              {budgetModels.map(m => (
                 <MenuItem key={m.id} value={m.id} sx={{ py: 0.75 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
                     <Typography variant="body2" sx={{ fontWeight: 500 }}>{m.name}</Typography>
@@ -361,7 +343,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               <MenuItem disabled sx={{ opacity: 1, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', py: 0.5, mt: 1, minHeight: 'auto', letterSpacing: '0.05em' }}>
                 {language === 'ru' ? 'Премиум модели' : 'Premium Models'} — {language === 'ru' ? 'квота / баланс' : 'quota / balance'}
               </MenuItem>
-              {ALL_MODELS.filter(m => m.tier === 'premium').map(m => (
+              {premiumModels.map(m => (
                 <MenuItem key={m.id} value={m.id} sx={{ py: 0.75 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
                     <Typography variant="body2" sx={{ fontWeight: 500 }}>{m.name}</Typography>
@@ -381,11 +363,11 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               label={t('settings.autocompleteModelLabel')}
               onChange={(e) => setAutocompleteModel(e.target.value as string)}
               renderValue={(value) => {
-                const m = BUDGET_MODELS.find(m => m.id === value);
+                const m = budgetModels.find(m => m.id === value);
                 return m ? m.name : value;
               }}
             >
-              {BUDGET_MODELS.map(m => (
+              {budgetModels.map(m => (
                 <MenuItem key={m.id} value={m.id} sx={{ py: 0.75 }}>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>{m.name}</Typography>
                 </MenuItem>

@@ -171,6 +171,13 @@ export async function fetchModelPricing(): Promise<import('../types').ModelPrici
   return res.json();
 }
 
+export async function fetchModels(): Promise<{ models: import('../types').ModelInfo[] }> {
+  const baseUrl = getBackendUrl();
+  const res = await fetch(`${baseUrl}/api/v1/models`);
+  if (!res.ok) throw new Error('Failed to fetch models');
+  return res.json();
+}
+
 export async function applyPromoCode(code: string): Promise<{ success: boolean; plan: string; expires_at: string }> {
   const baseUrl = getBackendUrl();
   const token = getAuthToken();

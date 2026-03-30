@@ -14,6 +14,7 @@ import (
 	"github.com/onepantsu/progressql/backend/config"
 	"github.com/onepantsu/progressql/backend/internal/auth"
 	"github.com/onepantsu/progressql/backend/internal/metrics"
+	"github.com/onepantsu/progressql/backend/internal/models"
 	"github.com/onepantsu/progressql/backend/internal/subscription"
 	"github.com/onepantsu/progressql/backend/internal/websocket"
 )
@@ -698,6 +699,74 @@ func modelsHandler(models []config.ModelInfo, defaultModel string) http.HandlerF
 				Provider:  m.Provider,
 				IsDefault: m.ID == defaultModel,
 			})
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(resp)
+	}
+}
+
+// --- Database-driven model catalog types and handler ---
+
+type modelResponseV2 struct {
+	ID              string  `json:"id"`
+	Name            string  `json:"name"`
+	Provider        string  `json:"provider"`
+	Tier            string  `json:"tier"`
+	InputPricePerM  float64 `json:"input_price_per_m"`
+	OutputPricePerM float64 `json:"output_price_per_m"`
+	IsDefault       bool    `json:"is_default"`
+}
+
+type modelsListResponseV2 struct {
+	Models []modelResponseV2 `json:"models"`
+}
+
+// modelsHandlerV2 returns models from the database-driven model service.
+//
+// @Summary      List available LLM models (v2, DB-driven)
+// @Description  Returns the list of available LLM models from the model catalog database table
+// @Tags         models
+// @Produce      json
+// @Success      200  {object}  modelsListResponseV2
+// @Router       /api/v1/models [get]
+func modelsHandlerV2(modelsSvc *models.Service, defaultModel string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		resp := modelsListResponseV2{
+			Models: make([]modelResponseV2, 0),
+		}
+
+		// Try loading from DB-driven model catalog.
+		allModels, err := modelsSvc.All(r.Context())
+		if err == nil && len(allModels) > 0 {
+			for _, m := range allModels {
+				resp.Models = append(resp.Models, modelResponseV2{
+					ID:              m.ID,
+					Name:            m.DisplayName,
+					Provider:        m.Provider,
+					Tier:            m.Tier,
+					InputPricePerM:  m.InputPricePerM,
+					OutputPricePerM: m.OutputPricePerM,
+					IsDefault:       m.ID == defaultModel,
+				})
+			}
+		}
+
+		// Fallback to config if DB models are empty or unavailable.
+		if len(resp.Models) == 0 {
+			for _, m := range config.DefaultModels() {
+				resp.Models = append(resp.Models, modelResponseV2{
+					ID:              m.ID,
+					Name:            m.Name,
+					Provider:        m.Provider,
+					Tier:            m.Tier,
+					InputPricePerM:  m.InputPricePerM,
+					OutputPricePerM: m.OutputPricePerM,
+					IsDefault:       m.ID == defaultModel,
+				})
+			}
 		}
 
 		w.WriteHeader(http.StatusOK)
