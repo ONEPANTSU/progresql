@@ -256,7 +256,7 @@ func (s *Service) getOrCreateQuotaPeriod(ctx context.Context, userID string, pla
 		// Look for the user's subscription start date, default to start of current month.
 		var subStart time.Time
 		err := s.db.QueryRow(ctx,
-			`SELECT COALESCE(subscription_started_at, created_at)
+			`SELECT COALESCE(created_at, NOW())
 			 FROM users WHERE id = $1`, userID).Scan(&subStart)
 		if err != nil {
 			// Fallback to start of current month.
@@ -287,7 +287,7 @@ func (s *Service) getOrCreateQuotaPeriod(ctx context.Context, userID string, pla
 	err = s.db.QueryRow(ctx,
 		`INSERT INTO token_quotas (id, user_id, period_start, period_end, budget_tokens_used, premium_tokens_used)
 		 VALUES (gen_random_uuid(), $1, $2, $3, 0, 0)
-		 ON CONFLICT (user_id, period_start, period_end) DO NOTHING
+		 ON CONFLICT (user_id, period_start) DO UPDATE SET period_end = EXCLUDED.period_end
 		 RETURNING id, user_id, period_start, period_end, budget_tokens_used, premium_tokens_used`,
 		userID, periodStart, periodEnd,
 	).Scan(&p.ID, &p.UserID, &p.PeriodStart, &p.PeriodEnd, &p.BudgetTokensUsed, &p.PremiumTokensUsed)
