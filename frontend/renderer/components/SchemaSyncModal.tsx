@@ -844,7 +844,7 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
           </Alert>
         )}
 
-        {activeConnections.length < 2 && (
+        {activeConnections.length < 2 && !activeConnections.some(c => c.availableDatabases && c.availableDatabases.length >= 2) && (
           <Alert severity="info" sx={{ mb: 1 }}>
             {t('schemaSync.minConnections')}
           </Alert>

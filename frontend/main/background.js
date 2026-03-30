@@ -439,21 +439,34 @@ ipcMain.handle('get-database-structure', async (event, connectionId, database) =
     if (database) {
       const currentDbResult = await client.query('SELECT current_database() as name');
       const currentDb = currentDbResult.rows[0].name;
+      log.info(`getDatabaseStructure: requested="${database}", currentDb="${currentDb}", needTemp=${currentDb !== database}`);
       if (currentDb !== database) {
-        const { Client } = require('pg');
-        const state = dbHealth.getConnectionState ? dbHealth.getConnectionState(connectionId) : null;
-        const cfg = state && state.config ? state.config : {};
-        tempClient = new Client({
-          host: cfg.host || 'localhost',
-          port: cfg.port || 5432,
-          user: cfg.username || cfg.user || 'postgres',
-          password: cfg.password || '',
+        const { Client: PgClient } = require('pg');
+        // Get connection params directly from the existing pg.Client instance
+        const tempHost = client.host || 'localhost';
+        const tempPort = client.port || 5432;
+        const tempUser = client.user || 'postgres';
+        const tempPass = client.password || '';
+        const tempSsl = client.connectionParameters ? client.connectionParameters.ssl : false;
+        log.info(`getDatabaseStructure: creating tempClient to db="${database}" host=${tempHost}:${tempPort} user=${tempUser} ssl=${!!tempSsl}`);
+        tempClient = new PgClient({
+          host: tempHost,
+          port: tempPort,
+          user: tempUser,
+          password: tempPass,
           database: database,
+          ssl: tempSsl,
           connectionTimeoutMillis: 10000,
         });
         await tempClient.connect();
+        const verifyResult = await tempClient.query('SELECT current_database() as name');
+        const verifiedDb = verifyResult.rows[0].name;
+        log.info(`getDatabaseStructure: tempClient connected, verified db="${verifiedDb}"`);
+        if (verifiedDb !== database) {
+          log.error(`getDatabaseStructure: MISMATCH! requested="${database}" but connected to "${verifiedDb}"`);
+          throw new Error(`Failed to connect to database "${database}": connected to "${verifiedDb}" instead`);
+        }
         client = tempClient;
-        log.debug(`Connected to temp database: ${database}`);
       }
     }
 
@@ -778,9 +791,13 @@ ipcMain.handle('get-database-structure', async (event, connectionId, database) =
       constraints: constraintsResult.rows
     };
 
-    log.debug('Database structure retrieved:', {
+    const finalDbResult = await client.query('SELECT current_database() as name');
+    log.info('Database structure retrieved:', {
+      requestedDb: database,
+      actualDb: finalDbResult.rows[0].name,
       tables: tablesResult.rows.length,
-      constraints: constraintsResult.rows.length,
+      schemas: schemasResult.rows.length,
+      tableNames: tablesResult.rows.slice(0, 5).map(r => r.table_name),
     });
     if (constraintsResult.rows.length > 0) {
       log.debug('PK count:', constraintsResult.rows.filter(c => c.constraint_type === 'PRIMARY KEY').length);

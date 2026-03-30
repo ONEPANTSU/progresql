@@ -447,14 +447,14 @@ ipcMain.handle('reconnect-database', async (event, connectionId) => {
   }
 });
 
-ipcMain.handle('get-database-structure', async (event, connectionId) => {
+ipcMain.handle('get-database-structure', async (event, connectionId, database) => {
+  let tempClient = null;
   try {
     let client;
     if (connectionId && global.dbClients && global.dbClients.has(connectionId)) {
       client = global.dbClients.get(connectionId);
     } else if (global.dbClients && global.dbClients.size > 0) {
       client = global.dbClients.values().next().value;
-      // Re-sync global.dbClient if it was nulled
       if (!global.dbClient) {
         global.dbClient = client;
         log.info('Re-synced global.dbClient from dbClients Map in get-database-structure');
@@ -471,7 +471,6 @@ ipcMain.handle('get-database-structure', async (event, connectionId) => {
     } catch (connError) {
       log.warn(`Connection check failed in get-database-structure [${connectionId}]:`, connError.message);
       if (connectionId && global.dbClients) global.dbClients.delete(connectionId);
-      // Try auto-reconnect before giving up
       const reconnected = await dbHealth.tryImmediateReconnect(connectionId);
       if (reconnected) {
         client = global.dbClients.get(connectionId) || global.dbClient;
@@ -479,6 +478,39 @@ ipcMain.handle('get-database-structure', async (event, connectionId) => {
         log.info('Auto-reconnected on refresh');
       } else {
         throw new Error('Database connection lost. Please reconnect.');
+      }
+    }
+
+    // If a specific database is requested, create a temporary client to that database
+    if (database) {
+      const currentDbResult = await client.query('SELECT current_database() as name');
+      const currentDb = currentDbResult.rows[0].name;
+      log.info(`getDatabaseStructure: requested="${database}", currentDb="${currentDb}", needTemp=${currentDb !== database}`);
+      if (currentDb !== database) {
+        const { Client: PgClient } = require('pg');
+        const tempHost = client.host || 'localhost';
+        const tempPort = client.port || 5432;
+        const tempUser = client.user || 'postgres';
+        const tempPass = client.password || '';
+        const tempSsl = client.connectionParameters ? client.connectionParameters.ssl : false;
+        log.info(`getDatabaseStructure: creating tempClient to db="${database}" host=${tempHost}:${tempPort} user=${tempUser}`);
+        tempClient = new PgClient({
+          host: tempHost,
+          port: tempPort,
+          user: tempUser,
+          password: tempPass,
+          database: database,
+          ssl: tempSsl,
+          connectionTimeoutMillis: 10000,
+        });
+        await tempClient.connect();
+        const verifyResult = await tempClient.query('SELECT current_database() as name');
+        const verifiedDb = verifyResult.rows[0].name;
+        log.info(`getDatabaseStructure: tempClient verified db="${verifiedDb}"`);
+        if (verifiedDb !== database) {
+          throw new Error(`Failed to connect to database "${database}": connected to "${verifiedDb}" instead`);
+        }
+        client = tempClient;
       }
     }
 
@@ -820,6 +852,10 @@ ipcMain.handle('get-database-structure', async (event, connectionId) => {
   } catch (error) {
     log.error('Error getting database structure:', error.message);
     return { success: false, message: error.message };
+  } finally {
+    if (tempClient) {
+      try { await tempClient.end(); } catch (_) { /* ignore */ }
+    }
   }
 });
 
