@@ -367,7 +367,7 @@ export interface AuthUser {
   email: string;
   name?: string;
   emailVerified?: boolean;
-  plan?: 'free' | 'trial' | 'pro' | 'pro_plus' | 'team';
+  plan?: 'free' | 'trial' | 'pro' | 'pro_plus';
   planExpiresAt?: string;
   trialEndsAt?: string;
   subscriptionWarning?: SubscriptionWarning;
