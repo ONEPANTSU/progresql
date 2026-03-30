@@ -12,7 +12,7 @@ import { ServerNotification } from '../services/agent/AgentService';
  * Must be rendered inside both AgentProvider and NotificationProvider.
  */
 export default function NotificationBridge() {
-  const { lastNotification } = useAgent();
+  const { lastNotification, setModel } = useAgent();
   const { showWarning, showError, showInfo } = useNotifications();
   const { t } = useTranslation();
 
@@ -41,6 +41,10 @@ export default function NotificationBridge() {
         const from_model = String(payload.from_model ?? '');
         const to_model = String(payload.to_model ?? '');
         showInfo(t('notify.ws.modelFallback', { from_model, to_model }));
+        // Update selected model in UI to reflect the fallback
+        if (to_model) {
+          setModel(to_model);
+        }
         break;
       }
       case 'balance.low': {
@@ -51,7 +55,7 @@ export default function NotificationBridge() {
       default:
         break;
     }
-  }, [lastNotification, showWarning, showError, showInfo, t]);
+  }, [lastNotification, showWarning, showError, showInfo, setModel, t]);
 
   return null;
 }
