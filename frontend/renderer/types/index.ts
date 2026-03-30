@@ -511,3 +511,44 @@ export interface PricesResponse {
   min_balance_topup: number;
   max_balance_topup: number;
 }
+
+// Usage history types
+export interface UsageRecord {
+  id: string;
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  cost_usd: number;
+  action: string;
+  created_at: string;
+}
+
+export interface UsageStats {
+  total_requests: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  avg_tokens_per_request: number;
+  avg_cost_per_request_usd: number;
+}
+
+export interface UsageHistoryResponse {
+  records: UsageRecord[];
+  stats: UsageStats;
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ModelPricing {
+  id: string;
+  name: string;
+  tier: string;
+  input_price_per_m: number;
+  output_price_per_m: number;
+}
+
+export interface ModelPricingResponse {
+  models: ModelPricing[];
+  usd_to_rub: number;
+}

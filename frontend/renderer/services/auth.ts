@@ -151,6 +151,26 @@ export async function fetchQuota(): Promise<import('../types').QuotaInfo> {
   return res.json();
 }
 
+export async function fetchUsageHistory(
+  limit = 20,
+  offset = 0,
+): Promise<import('../types').UsageHistoryResponse> {
+  const baseUrl = getBackendUrl();
+  const token = getAuthToken();
+  const res = await fetch(`${baseUrl}/api/v2/usage/history?limit=${limit}&offset=${offset}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error('Failed to fetch usage history');
+  return res.json();
+}
+
+export async function fetchModelPricing(): Promise<import('../types').ModelPricingResponse> {
+  const baseUrl = getBackendUrl();
+  const res = await fetch(`${baseUrl}/api/v2/models/pricing`);
+  if (!res.ok) throw new Error('Failed to fetch model pricing');
+  return res.json();
+}
+
 export async function applyPromoCode(code: string): Promise<{ success: boolean; plan: string; expires_at: string }> {
   const baseUrl = getBackendUrl();
   const token = getAuthToken();

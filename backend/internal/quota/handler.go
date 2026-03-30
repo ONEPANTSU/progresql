@@ -3,9 +3,11 @@ package quota
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"go.uber.org/zap"
 
+	"github.com/onepantsu/progressql/backend/config"
 	"github.com/onepantsu/progressql/backend/internal/auth"
 	"github.com/onepantsu/progressql/backend/internal/subscription"
 )
@@ -53,6 +55,30 @@ type quotaResponse struct {
 	BalanceEnabled      bool   `json:"balance_enabled"`
 	MaxRequestsPerMin   int    `json:"max_requests_per_min"`
 	MaxTokensPerRequest int    `json:"max_tokens_per_request"`
+}
+
+// usageHistoryResponse is the JSON shape for GET /api/v2/usage/history.
+type usageHistoryResponse struct {
+	Records []UsageRecord `json:"records"`
+	Stats   *UsageStats   `json:"stats"`
+	Total   int           `json:"total"`
+	Limit   int           `json:"limit"`
+	Offset  int           `json:"offset"`
+}
+
+// modelPricingInfo describes pricing for a single model.
+type modelPricingInfo struct {
+	ID              string  `json:"id"`
+	Name            string  `json:"name"`
+	Tier            string  `json:"tier"`
+	InputPricePerM  float64 `json:"input_price_per_m"`
+	OutputPricePerM float64 `json:"output_price_per_m"`
+}
+
+// modelPricingResponse is the JSON shape for GET /api/v2/models/pricing.
+type modelPricingResponse struct {
+	Models   []modelPricingInfo `json:"models"`
+	UsdToRub float64            `json:"usd_to_rub"`
 }
 
 // GetUsageHandler returns current token usage for the authenticated user.
@@ -158,5 +184,91 @@ func (h *Handler) GetQuotaHandler(w http.ResponseWriter, r *http.Request) {
 		BalanceEnabled:      ql.BalanceEnabled,
 		MaxRequestsPerMin:   pl.MaxRequestsPerMin,
 		MaxTokensPerRequest: pl.MaxTokensPerRequest,
+	})
+}
+
+// GetUsageHistoryHandler returns paginated token usage history with aggregate stats.
+//
+// @Summary      Get token usage history
+// @Description  Returns paginated token usage history and aggregate statistics for the authenticated user.
+// @Tags         quota
+// @Produce      json
+// @Security     BearerAuth
+// @Param        limit   query     int  false  "Number of records per page (default 20, max 100)"
+// @Param        offset  query     int  false  "Offset for pagination (default 0)"
+// @Success      200     {object}  usageHistoryResponse
+// @Failure      401     {object}  errorResp
+// @Failure      500     {object}  errorResp
+// @Router       /api/v2/usage/history [get]
+func (h *Handler) GetUsageHistoryHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	userID := auth.UserIDFromContext(r.Context())
+	if userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(errorResp{Error: "missing authentication"})
+		return
+	}
+
+	limit := 20
+	offset := 0
+
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+	if v := r.URL.Query().Get("offset"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+
+	records, stats, total, err := h.service.GetUsageHistory(r.Context(), userID, limit, offset)
+	if err != nil {
+		h.logger.Error("failed to get usage history",
+			zap.String("user_id", userID), zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(errorResp{Error: "failed to get usage history"})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(usageHistoryResponse{
+		Records: records,
+		Stats:   stats,
+		Total:   total,
+		Limit:   limit,
+		Offset:  offset,
+	})
+}
+
+// GetModelPricingHandler returns model pricing information. No authentication required.
+//
+// @Summary      Get model pricing
+// @Description  Returns pricing information for all available models.
+// @Tags         quota
+// @Produce      json
+// @Success      200  {object}  modelPricingResponse
+// @Router       /api/v2/models/pricing [get]
+func (h *Handler) GetModelPricingHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	models := config.DefaultModels()
+	pricing := make([]modelPricingInfo, 0, len(models))
+	for _, m := range models {
+		pricing = append(pricing, modelPricingInfo{
+			ID:              m.ID,
+			Name:            m.Name,
+			Tier:            m.Tier,
+			InputPricePerM:  m.InputPricePerM,
+			OutputPricePerM: m.OutputPricePerM,
+		})
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(modelPricingResponse{
+		Models:   pricing,
+		UsdToRub: UsdToRUB,
 	})
 }

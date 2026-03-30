@@ -34,6 +34,7 @@ import {
   Palette as PaletteIcon,
   Star as StarIcon,
   AccountBalanceWallet as WalletIcon,
+  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
 import { useAgent } from '../contexts/AgentContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -43,6 +44,7 @@ import { authService, createPaymentInvoice, getAuthToken } from '../services/aut
 import { loadBackendUrl } from '../utils/secureSettingsStorage';
 import PaymentModal from './PaymentModal';
 import BalanceTopUpModal from './BalanceTopUpModal';
+import UsageDashboard from './UsageDashboard';
 
 // Full model catalog matching backend config.DefaultModels().
 const ALL_MODELS = [
@@ -116,6 +118,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   // Payment modal state
   const [paymentModalOpen, setPaymentModalOpen] = React.useState(false);
   const [balanceTopUpModalOpen, setBalanceTopUpModalOpen] = React.useState(false);
+  const [usageDashboardOpen, setUsageDashboardOpen] = React.useState(false);
 
   // Dynamic price state
   const [currentPrice, setCurrentPrice] = React.useState<number>(1999);
@@ -240,7 +243,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               </Typography>
               {isProPlus ? (
                 <>
-                  <Chip label="Pro Plus" size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20, background: 'linear-gradient(135deg, #f59e0b, #f97316)', color: '#fff' }} />
+                  <Chip label="Pro Plus" size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff' }} />
                   <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
                     {language === 'ru' ? 'до' : 'until'} {formatPlanExpiryCompact(user.planExpiresAt, language)}
                   </Typography>
@@ -301,6 +304,25 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               }}
             >
               {t('balance.topUp')}
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              size="small"
+              onClick={() => setUsageDashboardOpen(true)}
+              startIcon={<TrendingUpIcon sx={{ fontSize: 14 }} />}
+              sx={{
+                mt: 0.75,
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                height: 32,
+                borderColor: 'rgba(99,102,241,0.3)',
+                color: '#6366f1',
+                '&:hover': { borderColor: '#6366f1', bgcolor: 'rgba(99,102,241,0.06)' },
+              }}
+            >
+              {language === 'ru' ? 'Использование и расходы' : 'Usage & Spending'}
             </Button>
           </Box>
         )}
@@ -597,6 +619,10 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     <BalanceTopUpModal
       open={balanceTopUpModalOpen}
       onClose={() => setBalanceTopUpModalOpen(false)}
+    />
+    <UsageDashboard
+      open={usageDashboardOpen}
+      onClose={() => setUsageDashboardOpen(false)}
     />
     </>
   );

@@ -53,7 +53,7 @@ export default function QuotaIndicator({ usage, compact = false }: QuotaIndicato
     free: '#94a3b8',
     trial: '#6366f1',
     pro: '#6366f1',
-    pro_plus: '#f59e0b',
+    pro_plus: '#8b5cf6',
     team: '#10b981',
   };
 

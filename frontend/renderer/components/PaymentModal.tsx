@@ -162,13 +162,13 @@ export default function PaymentModal({
     borderRadius: 2,
     border: '2px solid',
     borderColor: selectedPlan === plan
-      ? (plan === 'pro_plus' ? '#f59e0b' : '#6366f1')
+      ? '#6366f1'
       : 'divider',
     cursor: 'pointer',
     transition: 'all 0.18s ease',
     position: 'relative' as const,
     '&:hover': {
-      borderColor: plan === 'pro_plus' ? '#f59e0b' : '#6366f1',
+      borderColor: '#6366f1',
     },
   });
 
@@ -182,7 +182,7 @@ export default function PaymentModal({
       PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
     >
       {/* Gradient top border */}
-      <Box sx={{ height: 4, background: 'linear-gradient(90deg, #6366f1, #f59e0b, #f97316)' }} />
+      <Box sx={{ height: 4, background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #a78bfa)' }} />
 
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 0.5, pt: 2 }}>
         <Typography variant="h6" sx={{ fontWeight: 700 }}>
@@ -217,7 +217,7 @@ export default function PaymentModal({
           {/* Pro Plus Card */}
           <Box onClick={() => setSelectedPlan('pro_plus')} sx={planCardSx('pro_plus')}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Pro Plus</Typography>
-            <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, color: '#f59e0b', lineHeight: 1 }}>
+            <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, color: '#8b5cf6', lineHeight: 1 }}>
               {proPlusPrice}₽
             </Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
@@ -351,8 +351,8 @@ export default function PaymentModal({
 function FeatureLine({ text, highlight }: { text: string; highlight?: boolean }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      <CheckIcon sx={{ fontSize: 12, color: highlight ? '#f59e0b' : 'success.main' }} />
-      <Typography variant="caption" sx={{ color: highlight ? '#f59e0b' : 'text.secondary', fontWeight: highlight ? 600 : 400, fontSize: '0.7rem' }}>
+      <CheckIcon sx={{ fontSize: 12, color: highlight ? '#8b5cf6' : 'success.main' }} />
+      <Typography variant="caption" sx={{ color: highlight ? '#8b5cf6' : 'text.secondary', fontWeight: highlight ? 600 : 400, fontSize: '0.7rem' }}>
         {text}
       </Typography>
     </Box>
