@@ -39,6 +39,8 @@ function getUserFriendlyError(error: { code: string; message: string }, t: TFunc
       return t('agentError.notInitialized');
     case 'subscription_expired':
       return t('agentError.subscriptionExpired');
+    case 'quota_exhausted':
+      return t('agentError.quotaExhausted');
     default:
       log.warn('Unknown agent error code:', error.code, error.message);
       return t('agentError.unknown');
