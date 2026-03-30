@@ -219,7 +219,7 @@ export function getSubscriptionWarning(user: AuthUser | null): SubscriptionWarni
   const now = Date.now();
   const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
-  const isPaidPlan = user.plan === 'pro' || user.plan === 'pro_plus';
+  const isPaidPlan = user.plan === 'pro' || user.plan === 'pro_plus' || user.plan === 'team';
 
   // Check paid plan expiry FIRST (takes priority over trial)
   if (isPaidPlan && user.planExpiresAt) {
