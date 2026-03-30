@@ -64,12 +64,13 @@ function coerceNumericData(data: Record<string, unknown>[], numericKeys: string[
 function getDataKeys(data: Record<string, unknown>[]): { xKey: string; yKeys: string[] } {
   if (!data || data.length === 0) return { xKey: '', yKeys: [] };
   const keys = Object.keys(data[0]);
-  // First key is typically the label/x-axis, rest are numeric values
-  const xKey = keys[0] || '';
-  const yKeys = keys.slice(1).filter(k => {
-    return data.some(row => isNumericValue(row[k]));
-  });
-  return { xKey, yKeys: yKeys.length > 0 ? yKeys : keys.slice(1) };
+
+  // Find the best x-axis key: prefer a non-numeric (label) column, fall back to first key.
+  const nonNumericKey = keys.find(k => !data.every(row => isNumericValue(row[k])));
+  const xKey = nonNumericKey || keys[0] || '';
+
+  const yKeys = keys.filter(k => k !== xKey && data.some(row => isNumericValue(row[k])));
+  return { xKey, yKeys: yKeys.length > 0 ? yKeys : keys.filter(k => k !== xKey) };
 }
 
 /** Format a tooltip value for display. */
@@ -381,7 +382,9 @@ const PieChartView: React.FC<{ data: Record<string, unknown>[] }> = ({ data }) =
     const coerced = coerceNumericData(data, keys.yKeys);
     return { ...keys, coercedData: coerced };
   }, [data]);
-  const valueKey = yKeys[0] || '';
+  // For pie charts, prefer a "share/percentage/count" column if available.
+  const piePreferred = ['percentage', 'percent', 'share', 'count', 'total', 'value', 'amount', 'quantity'];
+  const valueKey = yKeys.find(k => piePreferred.some(p => k.toLowerCase().includes(p))) || yKeys[0] || '';
 
   if (!coercedData || coercedData.length === 0 || !valueKey) {
     return (
