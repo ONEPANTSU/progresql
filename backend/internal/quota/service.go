@@ -218,16 +218,20 @@ func (s *Service) DeductTokens(ctx context.Context, userID string, modelID strin
 				return 0, fmt.Errorf("quota: update balance: %w", err)
 			}
 
-			// Record balance transaction.
-			_, err = tx.Exec(ctx,
-				`INSERT INTO balance_transactions (id, user_id, amount, type, description)
-				 VALUES (gen_random_uuid(), $1, $2, 'deduction', $3)`,
-				userID, -costRUB,
+			// Record balance transaction (use savepoint so a failure here
+			// doesn't abort the main balance-deduction transaction).
+			_, _ = tx.Exec(ctx, "SAVEPOINT bt_insert")
+			_, btErr := tx.Exec(ctx,
+				`INSERT INTO balance_transactions (id, user_id, amount, balance_after, tx_type, model_id, tokens_input, tokens_output, description)
+				 VALUES (gen_random_uuid(), $1, $2, $3, 'over_quota_charge', $4, $5, $6, $7)`,
+				userID, -costRUB, newBalance, modelID, chargeableInput, chargeableOutput,
 				fmt.Sprintf("Token usage: %s, %d input + %d output tokens", modelID, chargeableInput, chargeableOutput),
 			)
-			if err != nil {
-				s.logger.Warn("failed to record balance transaction", zap.Error(err))
-				// Non-fatal: continue with commit.
+			if btErr != nil {
+				s.logger.Warn("failed to record balance transaction", zap.Error(btErr))
+				_, _ = tx.Exec(ctx, "ROLLBACK TO SAVEPOINT bt_insert")
+			} else {
+				_, _ = tx.Exec(ctx, "RELEASE SAVEPOINT bt_insert")
 			}
 		}
 	}
