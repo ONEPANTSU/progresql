@@ -371,13 +371,13 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               ))}
               {/* Premium Models */}
               <MenuItem disabled sx={{ opacity: 1, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', py: 0.5, mt: 1, minHeight: 'auto', letterSpacing: '0.05em' }}>
-                {language === 'ru' ? 'Премиум модели' : 'Premium Models'} — {language === 'ru' ? 'квота / баланс' : 'quota / balance'}
+                {language === 'ru' ? 'Премиум модели' : 'Premium Models'} — {(isPro || isProPlus) ? (language === 'ru' ? 'квота / баланс' : 'quota / balance') : (language === 'ru' ? 'только Pro' : 'Pro only')}
               </MenuItem>
               {premiumModels.map(m => (
-                <MenuItem key={m.id} value={m.id} sx={{ py: 0.75 }}>
+                <MenuItem key={m.id} value={m.id} disabled={!isPro && !isProPlus} sx={{ py: 0.75, opacity: (!isPro && !isProPlus) ? 0.5 : 1 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
                     <Typography variant="body2" sx={{ fontWeight: 500 }}>{m.name}</Typography>
-                    <Chip label={language === 'ru' ? 'Прем.' : 'Premium'} size="small" sx={{ fontSize: '0.6rem', height: 16, bgcolor: 'rgba(245,158,11,0.12)', color: 'warning.main' }} />
+                    <Chip label={(!isPro && !isProPlus) ? (language === 'ru' ? 'Pro' : 'Pro') : (language === 'ru' ? 'Прем.' : 'Premium')} size="small" sx={{ fontSize: '0.6rem', height: 16, bgcolor: (!isPro && !isProPlus) ? 'rgba(99,102,241,0.12)' : 'rgba(245,158,11,0.12)', color: (!isPro && !isProPlus) ? '#6366f1' : 'warning.main' }} />
                   </Box>
                 </MenuItem>
               ))}
