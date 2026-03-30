@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/onepantsu/progressql/backend/internal/agent/steps"
 	"github.com/onepantsu/progressql/backend/internal/auth"
 	"github.com/onepantsu/progressql/backend/internal/balance"
+	"github.com/onepantsu/progressql/backend/internal/exchange"
 	"github.com/onepantsu/progressql/backend/internal/llm"
 	"github.com/onepantsu/progressql/backend/internal/metrics"
 	"github.com/onepantsu/progressql/backend/internal/models"
@@ -29,6 +31,9 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	jwtSvc := auth.NewJWTService(cfg.JWTSecret)
 	authMW := auth.AuthMiddleware(jwtSvc)
 
+	// Exchange rate service (cached, auto-refreshing).
+	rateSvc := exchange.NewRateService(log)
+
 	// LLM client and tool registry for the agent pipeline.
 	llmOpts := []llm.Option{llm.WithLogger(log)}
 	if cfg.HTTPBaseURL != "" {
@@ -46,7 +51,7 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	pipeline.SetModelsService(modelsSvc)
 
 	// Wire up quota and balance services for the AI pipeline.
-	quotaSvc := quota.NewService(db, log, modelsSvc)
+	quotaSvc := quota.NewService(db, log, modelsSvc, rateSvc)
 	balanceSvc := balance.NewService(db, log)
 	pipeline.SetQuotaService(quotaSvc)
 	pipeline.SetBalanceService(balanceSvc)
@@ -74,6 +79,9 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	mux.HandleFunc("GET /api/v1/health", healthHandler(cfg.Version))
 	mux.HandleFunc("GET /api/v1/models", modelsHandlerV2(modelsSvc, cfg.HTTPModel))
 	mux.HandleFunc("GET /api/v1/metrics", metricsCollector.Handler())
+
+	// Public exchange rate endpoint.
+	mux.HandleFunc("GET /api/v1/exchange-rate", exchangeRateHandler(rateSvc))
 
 	// Prometheus metrics endpoint (no auth required).
 	mux.Handle("GET /metrics", promhttp.Handler())
@@ -120,7 +128,7 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	mux.Handle("GET /api/v2/balance/history", authMW(http.HandlerFunc(balanceHandler.GetHistoryHandler)))
 
 	// v2 — Quota and usage endpoints (authenticated).
-	quotaHandler := quota.NewHandler(quotaSvc, log, modelsSvc)
+	quotaHandler := quota.NewHandler(quotaSvc, log, modelsSvc, rateSvc)
 	mux.Handle("GET /api/v2/usage", authMW(http.HandlerFunc(quotaHandler.GetUsageHandler)))
 	mux.Handle("GET /api/v2/quota", authMW(http.HandlerFunc(quotaHandler.GetQuotaHandler)))
 	mux.Handle("GET /api/v2/usage/history", authMW(http.HandlerFunc(quotaHandler.GetUsageHistoryHandler)))
@@ -146,4 +154,18 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 
 	// Middleware chain (outermost first): Metrics -> Logging -> CORS -> mux
 	return MetricsMiddleware(LoggingMiddleware(log)(CORSMiddleware(mux)))
+}
+
+// exchangeRateHandler returns the current USD/RUB exchange rate.
+func exchangeRateHandler(rateSvc *exchange.RateService) func(http.ResponseWriter, *http.Request) {
+	type response struct {
+		UsdToRub float64 `json:"usd_to_rub"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response{
+			UsdToRub: rateSvc.GetUSDToRUB(),
+		})
+	}
 }

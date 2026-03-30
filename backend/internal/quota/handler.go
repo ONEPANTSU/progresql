@@ -9,6 +9,7 @@ import (
 
 	"github.com/onepantsu/progressql/backend/config"
 	"github.com/onepantsu/progressql/backend/internal/auth"
+	"github.com/onepantsu/progressql/backend/internal/exchange"
 	"github.com/onepantsu/progressql/backend/internal/models"
 	"github.com/onepantsu/progressql/backend/internal/subscription"
 )
@@ -18,14 +19,16 @@ type Handler struct {
 	service   *Service
 	logger    *zap.Logger
 	modelsSvc *models.Service
+	rateSvc   *exchange.RateService
 }
 
 // NewHandler creates a new quota Handler.
-func NewHandler(service *Service, logger *zap.Logger, modelsSvc *models.Service) *Handler {
+func NewHandler(service *Service, logger *zap.Logger, modelsSvc *models.Service, rateSvc *exchange.RateService) *Handler {
 	return &Handler{
 		service:   service,
 		logger:    logger,
 		modelsSvc: modelsSvc,
+		rateSvc:   rateSvc,
 	}
 }
 
@@ -292,6 +295,6 @@ func (h *Handler) GetModelPricingHandler(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(modelPricingResponse{
 		Models:   pricingModels,
-		UsdToRub: UsdToRUB,
+		UsdToRub: h.rateSvc.GetUSDToRUB(),
 	})
 }
