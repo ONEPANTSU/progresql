@@ -89,6 +89,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
   const { t } = useTranslation();
   const subscriptionWarning = getSubscriptionWarning(user);
   const isSubscriptionExpired = subscriptionWarning === 'expired';
+  const isPaidPlan = user?.plan === 'pro' || user?.plan === 'pro_plus';
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [attachedSQL, setAttachedSQL] = useState<string | null>(null);
@@ -320,41 +321,31 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
       {agent.connectionState === 'disconnected' && (<Alert severity="error" icon={<WarningIcon />} sx={{ mx: 1, mt: 1, flexShrink: 0 }}>{t('chat.backendUnavailable')}</Alert>)}
       {agent.isConnected && !isDatabaseConnected && (<Alert severity="info" sx={{ mx: 1, mt: 1, flexShrink: 0 }}>{t('chat.dbNotConnected')}</Alert>)}
       {!trialBannerDismissed && subscriptionWarning === 'expiring_soon' && (() => {
-        const expiryDate = user?.trialEndsAt || user?.planExpiresAt;
+        const expiryDate = isPaidPlan ? user?.planExpiresAt : user?.trialEndsAt;
         const days = expiryDate ? Math.max(0, Math.ceil((new Date(expiryDate).getTime() - Date.now()) / (24 * 60 * 60 * 1000))) : 0;
         return (
           <Alert severity="warning" icon={<WarningIcon />} sx={{ mx: 1, mt: 1, flexShrink: 0 }}
             action={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                {onOpenSettings && <Button color="warning" size="small" onClick={onOpenSettings}>{t('subscription.upgradeButton')}</Button>}
+                {onOpenSettings && <Button color="warning" size="small" onClick={onOpenSettings}>{isPaidPlan ? t('subscription.renewButton') : t('subscription.upgradeButton')}</Button>}
                 <IconButton size="small" color="warning" onClick={() => setTrialBannerDismissed(true)}>
                   <CloseIcon fontSize="small" />
                 </IconButton>
               </Box>
             }
-          >{t('subscription.expiringSoon', { days })}</Alert>
+          >{isPaidPlan ? t('subscription.subscriptionExpiringSoon', { days }) : t('subscription.expiringSoon', { days })}</Alert>
         );
       })()}
       {isSubscriptionExpired && !trialBannerDismissed && (
         <Alert severity="error" icon={<UpgradeIcon />} sx={{ mx: 1, mt: 1, flexShrink: 0 }}
           onClose={() => setTrialBannerDismissed(true)}
-          action={onOpenSettings && <Button color="error" size="small" variant="outlined" onClick={onOpenSettings}>{t('subscription.upgradeButton')}</Button>}
-        >{t('subscription.expired')}</Alert>
+          action={onOpenSettings && <Button color="error" size="small" variant="outlined" onClick={onOpenSettings}>{isPaidPlan ? t('subscription.renewButton') : t('subscription.upgradeButton')}</Button>}
+        >{isPaidPlan ? t('subscription.subscriptionExpired') : t('subscription.expired')}</Alert>
       )}
 
       {/* Messages */}
       <Box sx={{ flexGrow: 1, overflow: 'auto', p: 0.75, display: 'flex', flexDirection: 'column', gap: 1, minHeight: 0 }}>
-        {isSubscriptionExpired && !trialBannerDismissed ? (
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 3 }}>
-            <UpgradeIcon sx={{ fontSize: 36, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>{t('subscription.chatBlocked')}</Typography>
-            {onOpenSettings && (
-              <Button variant="contained" color="primary" size="small" startIcon={<UpgradeIcon />} onClick={onOpenSettings}>
-                {t('subscription.upgradeButton')}
-              </Button>
-            )}
-          </Box>
-        ) : messages.length === 0 ? (
+        {messages.length === 0 ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 3 }}>
             <BotIcon sx={{ fontSize: 36, fill: 'url(#botIconGradient)', mb: 2 }} />
             <Typography variant="body2" color="text.secondary" align="center">{t('chat.emptyState')}</Typography>
@@ -371,9 +362,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
       </Box>
 
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
-      {(!isSubscriptionExpired || trialBannerDismissed) && (
-        <ChatInput ref={chatInputRef} inputValue={inputValue} setInputValue={setInputValue} isTyping={isTyping} isConnected={agent.isConnected} onSendMessage={agentMessages.handleSendMessage} onStopGeneration={agentMessages.stopGeneration} attachedSQL={attachedSQL} onRemoveAttachment={() => setAttachedSQL(null)} activeConnection={activeConnection} connections={connections} connectionErrors={connectionErrors} onSwitchConnection={handleChatSwitchConnection} chatConnectionId={chat.activeChat?.connectionId ?? null} chatDatabase={chat.activeChat?.database ?? null} hasSentFirstMessage={chat.activeChat?.hasSentFirstMessage ?? false} />
-      )}
+      <ChatInput ref={chatInputRef} inputValue={inputValue} setInputValue={setInputValue} isTyping={isTyping} isConnected={agent.isConnected} onSendMessage={agentMessages.handleSendMessage} onStopGeneration={agentMessages.stopGeneration} attachedSQL={attachedSQL} onRemoveAttachment={() => setAttachedSQL(null)} activeConnection={activeConnection} connections={connections} connectionErrors={connectionErrors} onSwitchConnection={handleChatSwitchConnection} chatConnectionId={chat.activeChat?.connectionId ?? null} chatDatabase={chat.activeChat?.database ?? null} hasSentFirstMessage={chat.activeChat?.hasSentFirstMessage ?? false} />
     </Paper>
   );
 });

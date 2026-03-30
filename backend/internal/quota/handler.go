@@ -120,7 +120,7 @@ func (h *Handler) GetUsageHandler(w http.ResponseWriter, r *http.Request) {
 	// Get plan name for response.
 	var planStr string
 	err = h.service.db.QueryRow(r.Context(),
-		`SELECT COALESCE(plan, 'free') FROM users WHERE id = $1`, userID).Scan(&planStr)
+		`SELECT CASE WHEN COALESCE(plan,'free') NOT IN ('free','trial') AND plan_expires_at IS NOT NULL AND plan_expires_at < NOW() THEN 'free' ELSE COALESCE(plan,'free') END FROM users WHERE id = $1`, userID).Scan(&planStr)
 	if err != nil {
 		planStr = "free"
 	}
@@ -166,7 +166,7 @@ func (h *Handler) GetQuotaHandler(w http.ResponseWriter, r *http.Request) {
 
 	var planStr string
 	err := h.service.db.QueryRow(r.Context(),
-		`SELECT COALESCE(plan, 'free') FROM users WHERE id = $1`, userID).Scan(&planStr)
+		`SELECT CASE WHEN COALESCE(plan,'free') NOT IN ('free','trial') AND plan_expires_at IS NOT NULL AND plan_expires_at < NOW() THEN 'free' ELSE COALESCE(plan,'free') END FROM users WHERE id = $1`, userID).Scan(&planStr)
 	if err != nil {
 		h.logger.Error("failed to get user plan",
 			zap.String("user_id", userID), zap.Error(err))

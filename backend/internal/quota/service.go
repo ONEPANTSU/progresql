@@ -135,7 +135,7 @@ func (s *Service) DeductTokens(ctx context.Context, userID string, modelID strin
 	// Get user plan for markup rate.
 	var planStr string
 	err := s.db.QueryRow(ctx,
-		`SELECT COALESCE(plan, 'free') FROM users WHERE id = $1`, userID).Scan(&planStr)
+		`SELECT CASE WHEN COALESCE(plan,'free') NOT IN ('free','trial') AND plan_expires_at IS NOT NULL AND plan_expires_at < NOW() THEN 'free' ELSE COALESCE(plan,'free') END FROM users WHERE id = $1`, userID).Scan(&planStr)
 	if err != nil {
 		return 0, fmt.Errorf("quota: deduct fetch plan: %w", err)
 	}
@@ -248,7 +248,7 @@ func (s *Service) GetUsage(ctx context.Context, userID string) (*UsageInfo, erro
 	var planStr string
 	var balance float64
 	err := s.db.QueryRow(ctx,
-		`SELECT COALESCE(plan, 'free'), COALESCE(balance, 0)
+		`SELECT CASE WHEN COALESCE(plan,'free') NOT IN ('free','trial') AND plan_expires_at IS NOT NULL AND plan_expires_at < NOW() THEN 'free' ELSE COALESCE(plan,'free') END, COALESCE(balance, 0)
 		 FROM users WHERE id = $1`, userID).Scan(&planStr, &balance)
 	if err != nil {
 		return nil, fmt.Errorf("quota: usage fetch plan: %w", err)

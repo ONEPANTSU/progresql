@@ -69,8 +69,11 @@ jest.mock('../contexts/LanguageContext', () => ({
         'settings.unsafeWarning': 'Unsafe mode: execute',
         'settings.dataModeWarning': 'Data mode active',
         'subscription.upgradeButton': 'Upgrade',
+        'subscription.renewButton': 'Renew',
         'subscription.expiringSoon': `Expires in ${params?.days ?? 0} days`,
         'subscription.expired': 'Your subscription has expired.',
+        'subscription.subscriptionExpiringSoon': `Subscription expires in ${params?.days ?? 0} days`,
+        'subscription.subscriptionExpired': 'Your subscription has expired. Renew to continue.',
         'subscription.chatBlocked': 'Chat is blocked. Please upgrade.',
       };
       return translations[key] || key;
@@ -427,10 +430,10 @@ describe('ChatPanel (extended coverage)', () => {
         planExpiresAt: pastDate(1),
       };
       render(<ChatPanel {...defaultProps} />);
-      expect(screen.getByText('Your subscription has expired.')).toBeInTheDocument();
+      expect(screen.getByText('Your subscription has expired. Renew to continue.')).toBeInTheDocument();
     });
 
-    it('shows chat blocked state when subscription is expired', () => {
+    it('shows renew button in expired state for paid plan', () => {
       mockUser = {
         id: 'u1',
         email: 'test@example.com',
@@ -438,10 +441,11 @@ describe('ChatPanel (extended coverage)', () => {
         planExpiresAt: pastDate(1),
       };
       render(<ChatPanel {...defaultProps} />);
-      expect(screen.getByText('Chat is blocked. Please upgrade.')).toBeInTheDocument();
+      const renewBtns = screen.getAllByText('Renew');
+      expect(renewBtns.length).toBeGreaterThan(0);
     });
 
-    it('shows upgrade button in expired state when onOpenSettings is provided', () => {
+    it('does not block chat when subscription is expired (backend controls access)', () => {
       mockUser = {
         id: 'u1',
         email: 'test@example.com',
@@ -449,28 +453,7 @@ describe('ChatPanel (extended coverage)', () => {
         planExpiresAt: pastDate(1),
       };
       render(<ChatPanel {...defaultProps} />);
-      const upgradeBtns = screen.getAllByText('Upgrade');
-      expect(upgradeBtns.length).toBeGreaterThan(0);
-    });
-
-    it('expired state upgrade button calls onOpenSettings', () => {
-      const onOpenSettings = jest.fn();
-      mockUser = {
-        id: 'u1',
-        email: 'test@example.com',
-        plan: 'pro',
-        planExpiresAt: pastDate(1),
-      };
-      render(<ChatPanel {...defaultProps} onOpenSettings={onOpenSettings} />);
-      // Find the upgrade button inside the chat-blocked area
-      const upgradeBtns = screen.getAllByRole('button').filter(btn =>
-        btn.textContent?.includes('Upgrade')
-      );
-      // Click last upgrade button (the one in the blocked-chat area, not the alert)
-      if (upgradeBtns.length > 0) {
-        fireEvent.click(upgradeBtns[upgradeBtns.length - 1]);
-        expect(onOpenSettings).toHaveBeenCalled();
-      }
+      expect(screen.queryByText('Chat is blocked. Please upgrade.')).not.toBeInTheDocument();
     });
 
     it('expired banner is shown when subscription is expired', () => {
@@ -481,9 +464,7 @@ describe('ChatPanel (extended coverage)', () => {
         planExpiresAt: pastDate(1),
       };
       render(<ChatPanel {...defaultProps} />);
-      // Banner and blocked state are shown
-      expect(screen.getByText('Your subscription has expired.')).toBeInTheDocument();
-      expect(screen.getByText('Chat is blocked. Please upgrade.')).toBeInTheDocument();
+      expect(screen.getByText('Your subscription has expired. Renew to continue.')).toBeInTheDocument();
     });
 
     it('shows expiring soon banner for trial expiring in 1 day', () => {
