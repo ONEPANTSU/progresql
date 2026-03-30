@@ -96,7 +96,7 @@ interface DatabasePanelProps {
   onSelectFunction: (functionName: string) => void;
   onSelectProcedure: (procedureName: string) => void;
   onAnalyzeSchema?: () => void;
-  onExplainObject?: (objectName: string, objectType: string, definition?: string) => void;
+  onExplainObject?: (objectName: string, objectType: string, definition?: string, connectionId?: string) => void;
   onQueryTable?: (tableName: string, connectionId?: string) => void;
   onApplySQL?: (sql: string) => void;
   onExecuteSQL?: (sql: string) => Promise<{ success: boolean; message?: string }>;
@@ -248,7 +248,9 @@ export default function DatabasePanel({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [connectionToDelete, setConnectionToDelete] = useState<DatabaseServer | null>(null);
 
-  // Re-sync selectedElement with fresh data from connections after refresh
+  // Re-sync selectedElement with fresh data from connections after refresh.
+  // IMPORTANT: We must filter by selectedElementConnectionId to avoid showing
+  // data from the wrong connection when multiple connections have same-named tables.
   useEffect(() => {
     if (!detailsModalOpen || !selectedElement || !selectedElementType) return;
     // Only refresh table elements (they have columns that can change)
@@ -256,18 +258,18 @@ export default function DatabasePanel({
     const tableName = selectedElement.table_name;
     const schemaName = selectedElement.table_schema || 'public';
     if (!tableName) return;
-    for (const conn of connections) {
-      // Only search within the same connection to avoid cross-connection mismatches
-      if (selectedElementConnectionId && conn.id !== selectedElementConnectionId) continue;
-      if (!conn.databases) continue;
-      for (const db of conn.databases) {
-        const table = db.tables?.find(
-          (t: any) => t.table_name === tableName && (t.table_schema || 'public') === schemaName
-        );
-        if (table) {
-          setSelectedElement(table);
-          return;
-        }
+    // Without a connectionId we cannot safely identify the correct table —
+    // skip re-sync entirely rather than risk showing data from a wrong connection.
+    if (!selectedElementConnectionId) return;
+    const conn = connections.find((c) => c.id === selectedElementConnectionId);
+    if (!conn?.databases) return;
+    for (const db of conn.databases) {
+      const table = db.tables?.find(
+        (t: any) => t.table_name === tableName && (t.table_schema || 'public') === schemaName
+      );
+      if (table) {
+        setSelectedElement(table);
+        return;
       }
     }
   }, [connections, detailsModalOpen, selectedElementType, selectedElementConnectionId]);
@@ -506,6 +508,19 @@ export default function DatabasePanel({
 
   const getObjectDefinition = (obj: any, type: string): string | undefined => {
     switch (type) {
+      case 'table': {
+        if (!obj.columns?.length) return undefined;
+        const cols = (obj.columns || [])
+          .map((c: any) => `  ${c.column_name} ${c.data_type}${c.is_nullable === 'NO' ? ' NOT NULL' : ''}${c.column_default ? ` DEFAULT ${c.column_default}` : ''}`)
+          .join(',\n');
+        const indexes = (obj.indexes || [])
+          .map((i: any) => `-- INDEX: ${i.index_name}${i.is_unique ? ' (UNIQUE)' : ''}`)
+          .join('\n');
+        const constraints = (obj.constraints || [])
+          .map((c: any) => `-- CONSTRAINT: ${c.constraint_name} (${c.constraint_type}) on ${c.column_name || 'N/A'}`)
+          .join('\n');
+        return `-- Table: ${obj.table_schema || 'public'}.${obj.table_name}\nCREATE TABLE ${obj.table_name} (\n${cols}\n);\n${indexes}\n${constraints}`.trim();
+      }
       case 'view': return obj.view_definition;
       case 'function': return obj.routine_definition;
       case 'procedure': return obj.procedure_definition;
@@ -548,7 +563,7 @@ export default function DatabasePanel({
       case 'explain_ai':
         if (onExplainObject) {
           const definition = getObjectDefinition(element, type);
-          onExplainObject(name, type, definition);
+          onExplainObject(name, type, definition, connectionId);
         }
         break;
       case 'refresh':
@@ -2167,7 +2182,7 @@ export default function DatabasePanel({
         onApplySQL={onApplySQL}
         onExecuteSQL={onExecuteSQL}
         onRefreshData={onRefreshData}
-        onExplainInChat={onExplainObject}
+        onExplainInChat={onExplainObject ? (name, type, def) => onExplainObject(name, type, def, selectedElementConnectionId) : undefined}
       />
 
       {/* Schema Sync Modal */}

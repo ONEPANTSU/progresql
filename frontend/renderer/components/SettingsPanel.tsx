@@ -108,12 +108,14 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [currentPrice, setCurrentPrice] = React.useState<number>(1999);
   const [originalPrice, setOriginalPrice] = React.useState<number>(1999);
 
-  // Auto-close payment modal when user becomes Pro or Pro Plus
+  // Auto-close payment modal when user becomes Pro or Pro Plus (with active subscription)
   React.useEffect(() => {
-    if ((user?.plan === 'pro' || user?.plan === 'pro_plus') && paymentModalOpen) {
+    const hasActivePlan = (user?.plan === 'pro' || user?.plan === 'pro_plus')
+      && user?.planExpiresAt && new Date(user.planExpiresAt) > new Date();
+    if (hasActivePlan && paymentModalOpen) {
       setPaymentModalOpen(false);
     }
-  }, [user?.plan, paymentModalOpen]);
+  }, [user?.plan, user?.planExpiresAt, paymentModalOpen]);
 
   React.useEffect(() => {
     if (window.electronAPI?.getAppVersion) {
@@ -148,6 +150,11 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const isPro = user?.plan === 'pro' && user?.planExpiresAt && new Date(user.planExpiresAt) > new Date();
   const isProPlus = user?.plan === 'pro_plus' && user?.planExpiresAt && new Date(user.planExpiresAt) > new Date();
   const isPaid = isPro || isProPlus;
+
+  // Expired plan detection
+  const isExpiredPro = user?.plan === 'pro' && user?.planExpiresAt && new Date(user.planExpiresAt) <= new Date();
+  const isExpiredProPlus = user?.plan === 'pro_plus' && user?.planExpiresAt && new Date(user.planExpiresAt) <= new Date();
+  const isExpired = isExpiredPro || isExpiredProPlus;
 
   const openLegalLink = (url: string) => {
     if (window.electronAPI?.openExternal) {
@@ -221,7 +228,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         {user && (
           <Box sx={{ ...sectionCardSx, pb: 1.25 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-              <PremiumIcon sx={{ fontSize: 16, color: isPaid ? '#a78bfa' : isTrialActive ? '#a78bfa' : 'text.disabled' }} />
+              <PremiumIcon sx={{ fontSize: 16, color: isPaid ? '#a78bfa' : isTrialActive ? '#a78bfa' : isExpired ? 'warning.main' : 'text.disabled' }} />
               <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
                 {t('settings.subscription')}
               </Typography>
@@ -237,6 +244,20 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   <Chip label={t('settings.planPro')} size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff' }} />
                   <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
                     {language === 'ru' ? 'до' : 'until'} {formatPlanExpiryCompact(user.planExpiresAt, language)}
+                  </Typography>
+                </>
+              ) : isExpiredProPlus ? (
+                <>
+                  <Chip label={`Pro Plus ${t('settings.planExpired')}`} size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20, bgcolor: 'rgba(245,158,11,0.15)', color: 'warning.main' }} />
+                  <Typography variant="caption" sx={{ color: 'warning.main', fontSize: '0.7rem' }}>
+                    {language === 'ru' ? 'истекла' : 'expired'} {formatPlanExpiryCompact(user.planExpiresAt, language)}
+                  </Typography>
+                </>
+              ) : isExpiredPro ? (
+                <>
+                  <Chip label={`Pro ${t('settings.planExpired')}`} size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20, bgcolor: 'rgba(245,158,11,0.15)', color: 'warning.main' }} />
+                  <Typography variant="caption" sx={{ color: 'warning.main', fontSize: '0.7rem' }}>
+                    {language === 'ru' ? 'истекла' : 'expired'} {formatPlanExpiryCompact(user.planExpiresAt, language)}
                   </Typography>
                 </>
               ) : isTrialActive ? (
@@ -263,11 +284,17 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   fontWeight: 700,
                   fontSize: '0.8rem',
                   height: 32,
-                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                  '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
+                  background: isExpired
+                    ? 'linear-gradient(135deg, #f59e0b, #f97316)'
+                    : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  '&:hover': {
+                    background: isExpired
+                      ? 'linear-gradient(135deg, #d97706, #ea580c)'
+                      : 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                  },
                 }}
               >
-                {t('settings.upgradeButton')}
+                {isExpired ? t('settings.renewButton') : t('settings.upgradeButton')}
               </Button>
             )}
             <Button

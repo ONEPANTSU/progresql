@@ -117,6 +117,8 @@ const en = {
   'settings.daysRemaining': '{count} day(s) remaining',
   'settings.upgradePrompt': 'Upgrade to unlock AI features',
   'settings.upgradeButton': 'Upgrade to Pro',
+  'settings.renewButton': 'Renew subscription',
+  'settings.planExpired': '(expired)',
   'settings.upgradeWaiting': 'Waiting for payment\u2026',
   'settings.legalConsent': 'I have read and accept the {offer} and {refunds}',
   'settings.legalConsentContinue': 'By continuing, you accept the {offer} and {refunds}.',

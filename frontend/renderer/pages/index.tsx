@@ -714,15 +714,20 @@ export default function Home() {
     chatPanelRef.current?.sendAnalyzeSchema();
   };
 
-  const handleExplainObject = (objectName: string, objectType: string, definition?: string) => {
+  const handleExplainObject = (objectName: string, objectType: string, definition?: string, connectionId?: string) => {
     if (!isChatOpen) {
       setIsChatOpen(true);
     }
+    // Switch chat connection to match the source object's connection
+    const targetConnId = connectionId ?? editorConnectionId ?? activeConnection?.id;
+    if (targetConnId) {
+      chatPanelRef.current?.switchChatConnection(targetConnId);
+    }
     if (definition) {
-      // Has SQL definition (view, function, etc.) — explain SQL with name context passed separately
+      // Has SQL definition (view, function, table DDL, etc.) — explain SQL with name context passed separately
       setTimeout(() => chatPanelRef.current?.sendExplainSQL(definition, `${objectType} "${objectName}"`), 50);
     } else {
-      // No definition (table, sequence, etc.) — send as text message (not SQL)
+      // No definition (sequence, etc.) — send as text message (not SQL)
       const prompt = `Explain the ${objectType} "${objectName}" — what is it for, what columns/structure does it have?`;
       setTimeout(() => chatPanelRef.current?.sendTextMessage(prompt, `Explain ${objectType} "${objectName}"`), 50);
     }
