@@ -178,6 +178,18 @@ export async function fetchModels(): Promise<{ models: import('../types').ModelI
   return res.json();
 }
 
+export async function fetchExchangeRate(): Promise<number> {
+  const baseUrl = getBackendUrl();
+  try {
+    const res = await fetch(`${baseUrl}/api/v1/exchange-rate`);
+    if (!res.ok) return 90;
+    const data = await res.json();
+    return data.usd_to_rub || 90;
+  } catch {
+    return 90;
+  }
+}
+
 export async function applyPromoCode(code: string): Promise<{ success: boolean; plan: string; expires_at: string }> {
   const baseUrl = getBackendUrl();
   const token = getAuthToken();

@@ -26,7 +26,7 @@ import {
   Functions as FunctionsIcon,
 } from '@mui/icons-material';
 import { useTranslation } from '../contexts/LanguageContext';
-import { fetchUsageHistory, fetchUsage } from '../services/auth';
+import { fetchUsageHistory, fetchUsage, fetchExchangeRate } from '../services/auth';
 import { UsageHistoryResponse, UsageInfo } from '../types';
 import { useModels, formatModelName } from '../hooks/useModels';
 import QuotaIndicator from './QuotaIndicator';
@@ -36,7 +36,7 @@ interface UsageDashboardProps {
   onClose: () => void;
 }
 
-const USD_TO_RUB = 90;
+const DEFAULT_USD_TO_RUB = 90;
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -86,6 +86,7 @@ export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
   const [history, setHistory] = React.useState<UsageHistoryResponse | null>(null);
   const [usage, setUsage] = React.useState<UsageInfo | null>(null);
   const [page, setPage] = React.useState(1);
+  const [usdToRub, setUsdToRub] = React.useState(DEFAULT_USD_TO_RUB);
   const pageSize = 15;
 
   const { models: allModels } = useModels();
@@ -94,12 +95,14 @@ export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
     setLoading(true);
     try {
       const offset = (pageNum - 1) * pageSize;
-      const [historyData, usageData] = await Promise.all([
+      const [historyData, usageData, rate] = await Promise.all([
         fetchUsageHistory(pageSize, offset),
         fetchUsage(),
+        fetchExchangeRate(),
       ]);
       setHistory(historyData);
       setUsage(usageData);
+      setUsdToRub(rate);
     } catch (err) {
       console.error('Failed to fetch usage data:', err);
     } finally {
@@ -171,7 +174,7 @@ export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
                   icon={<MoneyIcon sx={{ fontSize: 16, color: '#10b981' }} />}
                   label={language === 'ru' ? 'Стоимость' : 'Cost'}
                   value={`$${history.stats.total_cost_usd.toFixed(4)}`}
-                  sub={`~${(history.stats.total_cost_usd * USD_TO_RUB).toFixed(1)}₽ | ~$${history.stats.avg_cost_per_request_usd.toFixed(4)}/${language === 'ru' ? 'запрос' : 'req'}`}
+                  sub={`~${(history.stats.total_cost_usd * usdToRub).toFixed(1)}₽ | ~$${history.stats.avg_cost_per_request_usd.toFixed(4)}/${language === 'ru' ? 'запрос' : 'req'}`}
                 />
               </Box>
             )}
@@ -234,10 +237,10 @@ export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
                             ${m.output_price_per_m.toFixed(2)}
                           </TableCell>
                           <TableCell align="right" sx={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>
-                            {(m.input_price_per_m * USD_TO_RUB).toFixed(0)}₽
+                            {(m.input_price_per_m * usdToRub).toFixed(0)}₽
                           </TableCell>
                           <TableCell align="right" sx={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>
-                            {(m.output_price_per_m * USD_TO_RUB).toFixed(0)}₽
+                            {(m.output_price_per_m * usdToRub).toFixed(0)}₽
                           </TableCell>
                         </TableRow>
                       ))}
