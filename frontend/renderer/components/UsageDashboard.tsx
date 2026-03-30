@@ -191,7 +191,7 @@ export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
                   icon={<MoneyIcon sx={{ fontSize: 16, color: '#10b981' }} />}
                   label={language === 'ru' ? 'Стоимость' : 'Cost'}
                   value={`$${history.stats.total_cost_usd.toFixed(4)}`}
-                  sub={`~${(history.stats.total_cost_usd * usdToRub).toFixed(1)}\u20BD | ~$${history.stats.avg_cost_per_request_usd.toFixed(4)}/${language === 'ru' ? 'запрос' : 'req'}`}
+                  sub={`~${(history.stats.total_cost_usd * usdToRub).toFixed(1)}₽ | ~$${history.stats.avg_cost_per_request_usd.toFixed(4)}/${language === 'ru' ? 'запрос' : 'req'}`}
                 />
               </Box>
             )}
@@ -219,10 +219,10 @@ export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
                           Output ($/1M)
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem' }}>
-                          Input (\u20BD/1M)
+                          Input (₽/1M)
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem' }}>
-                          Output (\u20BD/1M)
+                          Output (₽/1M)
                         </TableCell>
                       </TableRow>
                     </TableHead>
@@ -254,21 +254,16 @@ export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
                             ${m.output_price_per_m.toFixed(2)}
                           </TableCell>
                           <TableCell align="right" sx={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>
-                            {(m.input_price_per_m * usdToRub).toFixed(0)}\u20BD
+                            {(m.input_price_per_m * usdToRub).toFixed(0)}₽
                           </TableCell>
                           <TableCell align="right" sx={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>
-                            {(m.output_price_per_m * usdToRub).toFixed(0)}\u20BD
+                            {(m.output_price_per_m * usdToRub).toFixed(0)}₽
                           </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </TableContainer>
-                <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.65rem' }}>
-                  {language === 'ru'
-                    ? `Курс: 1 USD = ${usdToRub}\u20BD. Бюджетные модели включены в подписку. Премиум \u2014 расходуют квоту или баланс.`
-                    : `Rate: 1 USD = ${usdToRub}\u20BD. Budget models included in plan. Premium uses quota or balance.`}
-                </Typography>
               </Box>
             )}
 
