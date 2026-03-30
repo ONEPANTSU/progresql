@@ -15,6 +15,10 @@ function autocompleteModelKey(): string {
   return userKey('agent-autocomplete-model');
 }
 
+function autocompleteEnabledKey(): string {
+  return userKey('agent-autocomplete-enabled');
+}
+
 function securityModeKey(): string {
   return userKey('agent-security-mode');
 }
@@ -73,6 +77,15 @@ export function loadAutocompleteModel(): string {
 
 export function saveAutocompleteModel(model: string): void {
   setItem(autocompleteModelKey(), model);
+}
+
+export function loadAutocompleteEnabled(): boolean {
+  const val = getItem(autocompleteEnabledKey());
+  return val !== 'false'; // default true
+}
+
+export function saveAutocompleteEnabled(enabled: boolean): void {
+  setItem(autocompleteEnabledKey(), String(enabled));
 }
 
 export function loadSecurityMode(): SecurityMode {

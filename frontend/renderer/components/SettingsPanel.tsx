@@ -16,6 +16,8 @@ import {
   Snackbar,
   Chip,
   Link,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -86,7 +88,7 @@ function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }
 }
 
 export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
-  const { model, setModel, autocompleteModel, setAutocompleteModel, securityMode, setSecurityMode } = useAgent();
+  const { model, setModel, autocompleteModel, setAutocompleteModel, autocompleteEnabled, setAutocompleteEnabled, securityMode, setSecurityMode } = useAgent();
   const [showUnsafeWarning, setShowUnsafeWarning] = React.useState(false);
   const { themeMode, setThemeMode } = useTheme();
   const { t, language, setLanguage } = useTranslation();
@@ -354,28 +356,42 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
             </Select>
           </FormControl>
 
-          {/* Autocomplete Model */}
-          <FormControl fullWidth size="small" sx={{ mt: 1.5 }}>
-            <InputLabel id="settings-autocomplete-model-label">{t('settings.autocompleteModelLabel')}</InputLabel>
-            <Select
-              labelId="settings-autocomplete-model-label"
-              value={autocompleteModel}
-              label={t('settings.autocompleteModelLabel')}
-              onChange={(e) => setAutocompleteModel(e.target.value as string)}
-              renderValue={(value) => {
-                const m = budgetModels.find(m => m.id === value);
-                return m ? m.name : value;
-              }}
-            >
-              {budgetModels.map(m => (
-                <MenuItem key={m.id} value={m.id} sx={{ py: 0.75 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>{m.name}</Typography>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          {/* Autocomplete Toggle + Model */}
+          <FormControlLabel
+            control={
+              <Switch
+                checked={autocompleteEnabled}
+                onChange={(e) => setAutocompleteEnabled(e.target.checked)}
+                size="small"
+                sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: '#6366f1' }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#6366f1' } }}
+              />
+            }
+            label={<Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8rem' }}>{language === 'ru' ? 'AI-автодополнение' : 'AI Autocomplete'}</Typography>}
+            sx={{ mt: 1, ml: 0 }}
+          />
+          {autocompleteEnabled && (
+            <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+              <InputLabel id="settings-autocomplete-model-label">{t('settings.autocompleteModelLabel')}</InputLabel>
+              <Select
+                labelId="settings-autocomplete-model-label"
+                value={autocompleteModel}
+                label={t('settings.autocompleteModelLabel')}
+                onChange={(e) => setAutocompleteModel(e.target.value as string)}
+                renderValue={(value) => {
+                  const m = budgetModels.find(m => m.id === value);
+                  return m ? m.name : value;
+                }}
+              >
+                {budgetModels.map(m => (
+                  <MenuItem key={m.id} value={m.id} sx={{ py: 0.75 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>{m.name}</Typography>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
           <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-            {t('settings.autocompleteModelHint')}
+            {autocompleteEnabled ? t('settings.autocompleteModelHint') : (language === 'ru' ? 'Отключено для экономии токенов' : 'Disabled to save tokens')}
           </Typography>
         </Box>
 
