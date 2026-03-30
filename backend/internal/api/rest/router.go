@@ -95,7 +95,7 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	mux.HandleFunc("POST /api/v1/auth/token", authTokenHandler(jwtSvc))
 	mux.HandleFunc("POST /api/v1/auth/register", registerHandler(jwtSvc, userStore, emailSvc))
 	mux.HandleFunc("POST /api/v1/auth/login", loginHandler(jwtSvc, userStore))
-	mux.Handle("GET /api/v1/auth/profile", authMW(http.HandlerFunc(profileHandler(userStore))))
+	mux.Handle("GET /api/v1/auth/profile", authMW(http.HandlerFunc(profileHandler(userStore, db))))
 	mux.Handle("POST /api/v1/auth/send-verification", authMW(http.HandlerFunc(sendVerificationHandler(jwtSvc, userStore, emailSvc))))
 	mux.Handle("POST /api/v1/auth/verify-code", authMW(http.HandlerFunc(verifyCodeHandler(userStore, emailSvc))))
 	mux.HandleFunc("POST /api/v1/auth/forgot-password", forgotPasswordHandler(userStore, emailSvc))
