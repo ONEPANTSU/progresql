@@ -1636,7 +1636,7 @@ export default function DatabasePanel({
                 </IconButton>
               </Tooltip>
             )}
-            {connections.filter((c) => c.isActive).length >= 2 && (
+            {(connections.filter((c) => c.isActive).length >= 2 || connections.some((c) => c.isActive && c.availableDatabases && c.availableDatabases.length >= 2)) && (
               <Tooltip title={t('db.schemaSync')}>
                 <IconButton
                   onClick={() => setSchemaSyncOpen(true)}
