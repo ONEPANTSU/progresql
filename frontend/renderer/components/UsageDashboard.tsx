@@ -52,8 +52,34 @@ const MODEL_NAMES: Record<string, string> = {
   'qwen/qwen3-235b-a22b': 'Qwen 3 235B',
 };
 
+// Fuzzy keywords to match aliased OpenRouter model IDs
+const MODEL_KEYWORDS: { keywords: string[]; name: string }[] = [
+  { keywords: ['claude', 'opus'], name: 'Claude Opus 4' },
+  { keywords: ['claude', 'sonnet'], name: 'Claude Sonnet 4' },
+  { keywords: ['gpt-4.1'], name: 'GPT-4.1' },
+  { keywords: ['o4-mini'], name: 'o4 Mini' },
+  { keywords: ['gpt-4o-mini'], name: 'GPT-4o Mini' },
+  { keywords: ['gpt-oss'], name: 'GPT-OSS 120B' },
+  { keywords: ['gemini-2.5-pro'], name: 'Gemini 2.5 Pro' },
+  { keywords: ['gemini-2.0-flash'], name: 'Gemini 2.0 Flash' },
+  { keywords: ['deepseek-r1'], name: 'DeepSeek R1' },
+  { keywords: ['deepseek-chat'], name: 'DeepSeek V3' },
+  { keywords: ['qwen3-coder'], name: 'Qwen 3 Coder' },
+  { keywords: ['qwen3-vl'], name: 'Qwen 3 VL 32B' },
+  { keywords: ['qwen3-235b'], name: 'Qwen 3 235B' },
+];
+
 function formatModelName(modelId: string): string {
-  return MODEL_NAMES[modelId] || modelId.split('/').pop() || modelId;
+  // Exact match first
+  if (MODEL_NAMES[modelId]) return MODEL_NAMES[modelId];
+  // Fuzzy: check if all keywords present in the ID
+  const lower = modelId.toLowerCase();
+  for (const { keywords, name } of MODEL_KEYWORDS) {
+    if (keywords.every(kw => lower.includes(kw))) return name;
+  }
+  // Fallback: take part after last slash, clean up version suffixes
+  const short = modelId.split('/').pop() || modelId;
+  return short.replace(/-\d{8,}$/, '');
 }
 
 function formatTokens(n: number): string {

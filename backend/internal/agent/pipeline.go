@@ -1037,21 +1037,38 @@ func buildAssistantHistoryMessage(pctx *PipelineContext) string {
 	return strings.Join(parts, "\n\n")
 }
 
-// modelPricePerToken maps model IDs to their per-token cost in USD.
-// Prices are per 1 token (not per 1K or 1M). Source: OpenRouter pricing.
-var modelPricePerToken = map[string]float64{
-	"qwen/qwen3-coder":           0.0000003,  // $0.30/M tokens
-	"openai/gpt-oss-120b":        0.0000001,  // $0.10/M tokens
-	"qwen/qwen3-vl-32b-instruct": 0.00000025, // $0.25/M tokens
-}
-
 // calcCostUSD estimates the cost in USD for the given model and total tokens.
-func calcCostUSD(model string, totalTokens int) float64 {
-	price, ok := modelPricePerToken[model]
-	if !ok {
+// Uses config.DefaultModels() prices with fuzzy matching for aliased OpenRouter IDs.
+// Approximates using average of input/output price when detailed breakdown is unavailable.
+func calcCostUSD(modelID string, totalTokens int) float64 {
+	m := findModelFuzzy(modelID)
+	if m == nil {
 		return 0
 	}
-	return price * float64(totalTokens)
+	// Average of input and output price per token as approximation
+	avgPricePerToken := (m.InputPricePerM + m.OutputPricePerM) / 2.0 / 1_000_000.0
+	return avgPricePerToken * float64(totalTokens)
+}
+
+// findModelFuzzy finds a model from config by exact match or fuzzy substring matching.
+func findModelFuzzy(modelID string) *config.ModelInfo {
+	// Exact match first
+	for _, m := range config.DefaultModels() {
+		if m.ID == modelID {
+			return &m
+		}
+	}
+	// Fuzzy match for aliased OpenRouter IDs
+	for _, m := range config.DefaultModels() {
+		if strings.Contains(modelID, strings.TrimPrefix(m.ID, "anthropic/")) ||
+			strings.Contains(modelID, strings.TrimPrefix(m.ID, "openai/")) ||
+			strings.Contains(modelID, strings.TrimPrefix(m.ID, "google/")) ||
+			strings.Contains(modelID, strings.TrimPrefix(m.ID, "deepseek/")) ||
+			strings.Contains(modelID, strings.TrimPrefix(m.ID, "qwen/")) {
+			return &m
+		}
+	}
+	return nil
 }
 
 // recordTokenUsage inserts a row into the token_usage table after a successful pipeline run.
