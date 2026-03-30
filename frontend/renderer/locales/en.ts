@@ -327,6 +327,9 @@ const en = {
   'subscription.expiringSoon': 'Your trial expires in {days} days. Upgrade to Pro to keep AI features.',
   'subscription.expired': 'Your trial has expired. Upgrade to Pro to continue using AI features.',
   'subscription.upgradeButton': 'Upgrade to Pro',
+  'subscription.renewButton': 'Renew',
+  'subscription.subscriptionExpiringSoon': 'Your subscription expires in {days} days. Renew to keep AI features.',
+  'subscription.subscriptionExpired': 'Your subscription has expired. Renew to continue using AI features.',
   'subscription.chatBlocked': 'AI chat is unavailable. Upgrade to Pro to continue.',
   'subscription.improveBlocked': 'AI features are unavailable. Upgrade to Pro.',
 

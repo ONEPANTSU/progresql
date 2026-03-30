@@ -132,14 +132,22 @@ func userInfoFromUser(user *auth.User) userInfo {
 			trialEnd = &t
 		}
 	}
-	warning := subscription.CheckWarning(plan, planExp, trialEnd)
+
+	// Normalize expired paid plans: if plan is paid but plan_expires_at is in the past,
+	// treat as "free" so the client sees the correct effective plan.
+	effectivePlan := plan
+	if plan != "free" && plan != "trial" && planExp != nil && time.Now().After(*planExp) {
+		effectivePlan = "free"
+	}
+
+	warning := subscription.CheckWarning(effectivePlan, planExp, trialEnd)
 
 	return userInfo{
 		ID:                  user.ID,
 		Email:               user.Email,
 		Name:                user.Name,
 		EmailVerified:       user.EmailVerified,
-		Plan:                plan,
+		Plan:                effectivePlan,
 		PlanExpiresAt:       user.PlanExpiresAt,
 		TrialEndsAt:         user.TrialEndsAt,
 		SubscriptionWarning: string(warning),

@@ -922,7 +922,7 @@ func (p *Pipeline) isAutocompleteAllowed(userID string) bool {
 	var planStr string
 	if p.db != nil {
 		err := p.db.QueryRow(ctx,
-			`SELECT COALESCE(plan, 'free') FROM users WHERE id = $1`, userID).Scan(&planStr)
+			`SELECT CASE WHEN COALESCE(plan,'free') NOT IN ('free','trial') AND plan_expires_at IS NOT NULL AND plan_expires_at < NOW() THEN 'free' ELSE COALESCE(plan,'free') END FROM users WHERE id = $1`, userID).Scan(&planStr)
 		if err != nil {
 			p.logger.Debug("failed to fetch user plan for autocomplete check", zap.Error(err))
 			return true // fail-open
