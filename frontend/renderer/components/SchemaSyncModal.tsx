@@ -766,9 +766,12 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
                 <IconButton
                   size="small"
                   onClick={() => {
-                    const tmp = sourceId;
+                    const tmpId = sourceId;
+                    const tmpDb = sourceDatabase;
                     setSourceId(targetId);
-                    setTargetId(tmp);
+                    setSourceDatabase(targetDatabase);
+                    setTargetId(tmpId);
+                    setTargetDatabase(tmpDb);
                     setDiff(null);
                   }}
                   disabled={!sourceId && !targetId}
