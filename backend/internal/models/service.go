@@ -114,19 +114,16 @@ func (s *Service) FindByID(ctx context.Context, modelID string) *Model {
 		}
 	}
 
-	// Fuzzy match for aliased OpenRouter IDs
-	// (e.g. "anthropic/claude-4-opus-20250522" -> "anthropic/claude-opus-4").
+	// Fuzzy match for aliased OpenRouter IDs.
+	// OpenRouter may return versioned IDs like "anthropic/claude-4-sonnet-20250522"
+	// for our catalog entry "anthropic/claude-sonnet-4". We normalize both sides
+	// by extracting word tokens (ignoring date suffixes and provider prefixes)
+	// and checking if all catalog tokens appear in the aliased ID.
+	queryNorm := normalizeModelID(modelID)
 	for i := range models {
-		id := models[i].ID
-		// Try removing each known provider prefix
-		for _, prefix := range []string{"anthropic/", "openai/", "google/", "deepseek/", "qwen/", "x-ai/"} {
-			if strings.HasPrefix(id, prefix) {
-				shortName := strings.TrimPrefix(id, prefix)
-				if strings.Contains(modelID, shortName) {
-					return &models[i]
-				}
-				break
-			}
+		catalogNorm := normalizeModelID(models[i].ID)
+		if fuzzyTokenMatch(catalogNorm, queryNorm) {
+			return &models[i]
 		}
 	}
 
@@ -180,4 +177,54 @@ func (s *Service) Invalidate() {
 	s.mu.Lock()
 	s.models = nil
 	s.mu.Unlock()
+}
+
+// normalizeModelID strips provider prefix and date suffixes, returning lowercase tokens.
+// "anthropic/claude-4-sonnet-20250522" -> ["claude", "4", "sonnet"]
+// "anthropic/claude-sonnet-4"          -> ["claude", "sonnet", "4"]
+func normalizeModelID(id string) []string {
+	// Strip provider prefix.
+	if idx := strings.LastIndex(id, "/"); idx >= 0 {
+		id = id[idx+1:]
+	}
+	id = strings.ToLower(id)
+
+	parts := strings.FieldsFunc(id, func(r rune) bool { return r == '-' || r == '_' || r == '.' })
+
+	// Remove date-like suffixes (8+ digit tokens like "20250522").
+	var tokens []string
+	for _, p := range parts {
+		if len(p) >= 8 && isAllDigits(p) {
+			continue
+		}
+		tokens = append(tokens, p)
+	}
+	return tokens
+}
+
+func isAllDigits(s string) bool {
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return len(s) > 0
+}
+
+// fuzzyTokenMatch returns true if all tokens from catalog appear in query tokens.
+// E.g., catalog=["claude","sonnet","4"] matches query=["claude","4","sonnet"].
+func fuzzyTokenMatch(catalog, query []string) bool {
+	if len(catalog) == 0 {
+		return false
+	}
+	qSet := make(map[string]bool, len(query))
+	for _, t := range query {
+		qSet[t] = true
+	}
+	for _, t := range catalog {
+		if !qSet[t] {
+			return false
+		}
+	}
+	return true
 }
