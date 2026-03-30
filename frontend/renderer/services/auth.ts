@@ -207,13 +207,8 @@ export function isSubscriptionActive(user: AuthUser | null): boolean {
   if (!user) return false;
   const now = new Date();
 
-  // Pro plan with valid expiry
-  if (user.plan === 'pro' && user.planExpiresAt) {
-    if (new Date(user.planExpiresAt) > now) return true;
-  }
-
-  // Team plan with valid expiry
-  if (user.plan === 'team' && user.planExpiresAt) {
+  // Paid plan with valid expiry (pro, pro_plus, team)
+  if (['pro', 'pro_plus', 'team'].includes(user.plan || '') && user.planExpiresAt) {
     if (new Date(user.planExpiresAt) > now) return true;
   }
 

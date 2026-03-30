@@ -81,7 +81,7 @@ const ru: Record<TranslationKey, string> = {
   'settings.llmModel': '\u041c\u043e\u0434\u0435\u043b\u044c LLM',
   'settings.modelLabel': '\u041c\u043e\u0434\u0435\u043b\u044c',
   'settings.autocompleteModelLabel': 'Модель автодополнения',
-  'settings.autocompleteModelHint': 'Бюджетная модель для подсказок SQL в редакторе',
+  'settings.autocompleteModelHint': 'Для подсказок SQL в редакторе',
   'settings.security': '\u0411\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u043e\u0441\u0442\u044c',
   'settings.safeMode': '\u0411\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u044b\u0439 \u0440\u0435\u0436\u0438\u043c',
   'settings.safeModeOn': '\u0422\u043e\u043b\u044c\u043a\u043e \u0447\u0442\u0435\u043d\u0438\u0435',

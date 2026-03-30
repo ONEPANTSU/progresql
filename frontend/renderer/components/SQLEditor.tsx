@@ -335,9 +335,9 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
               if (lastBlockOpen > lastBlockClose) return true;
               return false;
             })();
-            // Autocomplete is only available for pro, pro_plus, and team plans
+            // Autocomplete is available for trial and paid plans (not free after trial expiry)
             const plan = agentRef.current.usage?.plan;
-            const autocompleteAllowed = plan === 'pro' || plan === 'pro_plus' || plan === 'team';
+            const autocompleteAllowed = plan && plan !== 'free';
             if (agentRef.current.isConnected && autocompleteAllowed && charsAfterSpace >= 3 && !isInStringOrComment) {
               autocompleteTimer.current = setTimeout(() => {
                 if (!viewRef.current) return;
