@@ -385,6 +385,18 @@ export class AgentService {
   // ── Auth ──
 
   private async obtainJWT(): Promise<void> {
+    // Prefer the user's login JWT (contains user_id for quota tracking).
+    // Fall back to anonymous /auth/token only if no login token exists.
+    const { getAuthToken } = await import('../../services/auth');
+    const loginToken = getAuthToken();
+
+    if (loginToken) {
+      this.jwt = loginToken;
+      // Login JWTs have 24h TTL; schedule refresh well before that.
+      this.jwtExpiresAt = new Date(Date.now() + 23 * 60 * 60 * 1000);
+      return;
+    }
+
     const url = `${this.config.backendUrl}/api/v1/auth/token`;
     const res = await fetch(url, {
       method: 'POST',
