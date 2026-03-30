@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/onepantsu/progressql/backend/config"
+	"github.com/onepantsu/progressql/backend/internal/exchange"
 	"github.com/onepantsu/progressql/backend/internal/models"
 	"github.com/onepantsu/progressql/backend/internal/subscription"
 )
@@ -17,9 +18,6 @@ const (
 	// DefaultBudgetFallbackModel is the model used when a premium request
 	// must be downgraded to budget tier.
 	DefaultBudgetFallbackModel = "qwen/qwen3-coder"
-
-	// UsdToRUB is a fixed conversion rate used for balance cost calculations.
-	UsdToRUB = 90.0
 )
 
 // QuotaCheckResult tells the caller what to do with the incoming request.
@@ -80,14 +78,15 @@ type Service struct {
 	db        *pgxpool.Pool
 	logger    *zap.Logger
 	modelsSvc *models.Service
+	rateSvc   *exchange.RateService
 }
 
 // NewService creates a new quota Service.
-func NewService(db *pgxpool.Pool, logger *zap.Logger, modelsSvc *models.Service) *Service {
+func NewService(db *pgxpool.Pool, logger *zap.Logger, modelsSvc *models.Service, rateSvc *exchange.RateService) *Service {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	return &Service{db: db, logger: logger, modelsSvc: modelsSvc}
+	return &Service{db: db, logger: logger, modelsSvc: modelsSvc, rateSvc: rateSvc}
 }
 
 // CheckQuota checks if a user can make a request with the given model tier.
@@ -506,7 +505,7 @@ func (s *Service) calculateCostRUB(ctx context.Context, modelID string, inputTok
 	outputPricePerToken := outputPricePerM / 1_000_000.0
 
 	costUSD := float64(inputTokens)*inputPricePerToken + float64(outputTokens)*outputPricePerToken
-	costRUB := costUSD * UsdToRUB
+	costRUB := costUSD * s.rateSvc.GetUSDToRUB()
 
 	if markupPct > 0 {
 		costRUB *= 1.0 + float64(markupPct)/100.0
