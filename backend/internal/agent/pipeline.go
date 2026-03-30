@@ -702,10 +702,26 @@ func (p *Pipeline) sendModelFallback(session *websocket.Session, requestID, from
 }
 
 // getModelTier returns the tier ("budget" or "premium") for the given model ID.
-// Returns "budget" as default if the model is not found in the config.
+// Handles OpenRouter model ID aliasing (e.g. "anthropic/claude-4-opus-20250522"
+// returned by the API vs "anthropic/claude-opus-4" in our config).
+// Returns "budget" as default if the model is not found.
 func getModelTier(modelID string) string {
 	for _, m := range config.DefaultModels() {
 		if m.ID == modelID {
+			return m.Tier
+		}
+	}
+	// Fuzzy match: OpenRouter may return versioned model IDs
+	// (e.g. "anthropic/claude-4-opus-20250522" for "anthropic/claude-opus-4").
+	// Extract provider prefix and check if any config model name is a substring.
+	for _, m := range config.DefaultModels() {
+		// Match if either the config ID is contained in the response model ID,
+		// or vice versa (after removing date suffixes).
+		if strings.Contains(modelID, strings.TrimPrefix(m.ID, "anthropic/")) ||
+			strings.Contains(modelID, strings.TrimPrefix(m.ID, "openai/")) ||
+			strings.Contains(modelID, strings.TrimPrefix(m.ID, "google/")) ||
+			strings.Contains(modelID, strings.TrimPrefix(m.ID, "deepseek/")) ||
+			strings.Contains(modelID, strings.TrimPrefix(m.ID, "qwen/")) {
 			return m.Tier
 		}
 	}
