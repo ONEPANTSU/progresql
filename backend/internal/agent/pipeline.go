@@ -539,7 +539,7 @@ func (p *Pipeline) checkQuotaBeforePipeline(session *websocket.Session, pctx *Pi
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	modelTier := getModelTier(originalModel)
+	modelTier := p.getModelTierFromDB(originalModel)
 
 	quotaResult, err := p.quotaService.CheckQuota(ctx, pctx.UserID, modelTier, 0)
 	if err != nil {

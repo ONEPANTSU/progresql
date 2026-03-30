@@ -443,10 +443,17 @@ func determineQuotaAction(
 			return result
 		}
 
-		// No balance available. Fallback to budget model.
+		// No balance available. Try fallback to budget model if budget quota remains.
+		if budgetUsed < budgetLimit {
+			result.Allowed = false
+			result.FallbackModelID = DefaultBudgetFallbackModel
+			result.Reason = "Premium quota exhausted"
+			return result
+		}
+
+		// Both premium and budget quotas exhausted, no balance.
 		result.Allowed = false
-		result.FallbackModelID = DefaultBudgetFallbackModel
-		result.Reason = "Premium quota exhausted"
+		result.Reason = "All quotas exhausted"
 		return result
 	}
 
