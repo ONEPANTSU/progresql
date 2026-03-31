@@ -106,58 +106,48 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
     borderColor: '#8b5cf6',
     boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.25)',
   },
-  // Nav buttons (next/prev)
-  '.cm-panel.cm-search button[name=next], .cm-panel.cm-search button[name=prev]': {
-    backgroundColor: 'transparent',
-    color: '#c9d1d9',
-    border: '1px solid #444',
-    borderRadius: '6px',
-    padding: '4px 8px',
-    fontSize: '12px',
+  // All search buttons (override .cm-button defaults)
+  '.cm-panel.cm-search .cm-button': {
+    backgroundColor: '#2a2a3e !important',
+    color: '#c9d1d9 !important',
+    border: '1px solid rgba(139,92,246,0.3) !important',
+    borderRadius: '6px !important',
+    padding: '4px 10px !important',
+    fontSize: '12px !important',
     cursor: 'pointer',
     transition: 'all 0.15s ease',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important',
     lineHeight: '1.4',
+    backgroundImage: 'none !important',
+    whiteSpace: 'nowrap',
   },
-  '.cm-panel.cm-search button[name=next]:hover, .cm-panel.cm-search button[name=prev]:hover': {
-    backgroundColor: '#8b5cf6',
-    borderColor: '#8b5cf6',
-    color: '#ffffff',
+  '.cm-panel.cm-search .cm-button:hover': {
+    backgroundColor: '#8b5cf6 !important',
+    borderColor: '#8b5cf6 !important',
+    color: '#ffffff !important',
   },
-  // Close button
+  '.cm-panel.cm-search .cm-button:active': {
+    backgroundColor: '#7c3aed !important',
+    borderColor: '#7c3aed !important',
+  },
+  // Close button — minimal
   '.cm-panel.cm-search button[name=close]': {
-    backgroundColor: 'transparent',
-    color: '#8b949e',
-    border: 'none',
-    borderRadius: '4px',
-    padding: '2px 6px',
-    fontSize: '16px',
+    backgroundColor: 'transparent !important',
+    color: '#8b949e !important',
+    border: 'none !important',
+    borderRadius: '4px !important',
+    padding: '2px 6px !important',
+    fontSize: '16px !important',
     cursor: 'pointer',
     lineHeight: '1',
   },
   '.cm-panel.cm-search button[name=close]:hover': {
-    backgroundColor: '#3a3a4e',
-    color: '#e6edf3',
+    backgroundColor: '#3a3a4e !important',
+    color: '#e6edf3 !important',
   },
   // Hide useless: "all" button, checkboxes
-  '.cm-panel.cm-search button[name=select]': { display: 'none' },
-  '.cm-panel.cm-search label': { display: 'none' },
-  // Replace buttons
-  '.cm-panel.cm-search button[name=replace], .cm-panel.cm-search button[name=replaceAll]': {
-    backgroundColor: 'transparent',
-    color: '#c9d1d9',
-    border: '1px solid #444',
-    borderRadius: '6px',
-    padding: '4px 8px',
-    fontSize: '12px',
-    cursor: 'pointer',
-    transition: 'all 0.15s ease',
-    lineHeight: '1.4',
-  },
-  '.cm-panel.cm-search button[name=replace]:hover, .cm-panel.cm-search button[name=replaceAll]:hover': {
-    backgroundColor: '#8b5cf6',
-    borderColor: '#8b5cf6',
-    color: '#ffffff',
-  },
+  '.cm-panel.cm-search button[name=select]': { display: 'none !important' },
+  '.cm-panel.cm-search label': { display: 'none !important' },
   '.cm-panel.cm-search br': { display: 'none' },
   '.cm-searchMatch': {
     backgroundColor: '#e2c08d55',

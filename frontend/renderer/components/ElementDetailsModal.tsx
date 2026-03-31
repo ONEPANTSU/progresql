@@ -1609,30 +1609,17 @@ export default function ElementDetailsModal({
                   variant="contained"
                   disabled={savingFunction}
                   onClick={async () => {
-                    const schema = element.routine_schema || 'public';
-                    const name = element.routine_name;
-                    const returnType = element.data_type || 'void';
-                    const lang = element.external_language || 'plpgsql';
-                    const security = element.security_type === 'DEFINER' ? 'SECURITY DEFINER' : 'SECURITY INVOKER';
-                    const strictness = element.is_null_call ? '' : 'STRICT';
-
-                    const fullSQL = [
-                      `CREATE OR REPLACE FUNCTION ${schema !== 'public' ? escapeIdent(schema) + '.' : ''}${escapeIdent(name)}()`,
-                      `RETURNS ${returnType}`,
-                      `LANGUAGE ${lang}`,
-                      strictness,
-                      security,
-                      `AS $$`,
-                      functionBodyDraft,
-                      `$$;`,
-                    ].filter(Boolean).join('\n');
+                    // routine_definition from pg_get_functiondef already contains full CREATE OR REPLACE
+                    const sqlToExecute = functionBodyDraft.trim().endsWith(';')
+                      ? functionBodyDraft.trim()
+                      : functionBodyDraft.trim() + ';';
 
                     if (onExecuteSQL) {
                       setSavingFunction(true);
                       setSaveFunctionError(null);
                       setSaveFunctionSuccess(false);
                       try {
-                        const result = await onExecuteSQL(fullSQL);
+                        const result = await onExecuteSQL(sqlToExecute);
                         if (result.success) {
                           setSaveFunctionSuccess(true);
                           setEditingFunctionBody(false);
@@ -1646,7 +1633,7 @@ export default function ElementDetailsModal({
                         setSavingFunction(false);
                       }
                     } else if (onApplySQL) {
-                      onApplySQL(fullSQL);
+                      onApplySQL(sqlToExecute);
                       onClose();
                     }
                   }}
