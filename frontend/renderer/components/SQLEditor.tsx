@@ -30,6 +30,7 @@ import { sql, PostgreSQL } from '@codemirror/lang-sql';
 import { HighlightStyle, syntaxHighlighting, indentUnit } from '@codemirror/language';
 import { indentWithTab } from '@codemirror/commands';
 import { keymap } from '@codemirror/view';
+import { openSearchPanel } from '@codemirror/search';
 import { tags } from '@lezer/highlight';
 import { EditorView as EditorViewTheme, Decoration, GutterMarker, gutter } from '@codemirror/view';
 import { useTheme } from '../contexts/ThemeContext';
@@ -44,7 +45,7 @@ const log = createLogger('SQLEditor');
 
 // Custom dark theme matching chat SQL colors
 const progreSQLDarkTheme = EditorViewTheme.theme({
-  '&': { backgroundColor: '#1a1d23', color: '#e6edf3' },
+  '&': { backgroundColor: '#1a1d23', color: '#e6edf3', position: 'relative' },
   '.cm-content': { caretColor: '#58a6ff' },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#58a6ff' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': { backgroundColor: '#3a6fbf' },
@@ -68,18 +69,28 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
   '.cm-completionIcon': { opacity: 0.7 },
   '.cm-completionDetail': { color: '#8b949e', fontStyle: 'italic', marginLeft: '8px' },
 
-  // Search panel (Ctrl+F / Cmd+F) styling
+  // Search panel — floating top-right, compact
+  '.cm-panels.cm-panels-top': {
+    border: 'none',
+    backgroundColor: 'transparent',
+    position: 'absolute',
+    top: '4px',
+    right: '4px',
+    left: 'auto',
+    zIndex: 10,
+  },
   '.cm-panel.cm-search': {
     backgroundColor: '#1e1e2e',
-    borderRadius: '0 0 8px 8px',
-    padding: '8px 12px',
-    borderTop: '1px solid #30363d',
+    borderRadius: '8px',
+    padding: '6px 8px',
+    border: '1px solid #30363d',
     display: 'flex',
-    flexWrap: 'wrap',
-    gap: '6px',
+    gap: '4px',
     alignItems: 'center',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     fontSize: '13px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+    flexWrap: 'wrap',
   },
   '.cm-panel.cm-search input[type="text"], .cm-panel.cm-search .cm-textfield': {
     backgroundColor: '#2a2a3e',
@@ -90,49 +101,31 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
     fontSize: '13px',
     outline: 'none',
     fontFamily: 'monospace',
-    minWidth: '120px',
+    width: '180px',
   },
   '.cm-panel.cm-search input[type="text"]:focus, .cm-panel.cm-search .cm-textfield:focus': {
     borderColor: '#8b5cf6',
     boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.25)',
   },
-  '.cm-panel.cm-search button': {
-    backgroundColor: '#2a2a3e',
+  // Nav buttons (next/prev)
+  '.cm-panel.cm-search button[name=next], .cm-panel.cm-search button[name=prev]': {
+    backgroundColor: 'transparent',
     color: '#c9d1d9',
     border: '1px solid #444',
     borderRadius: '6px',
-    padding: '4px 10px',
+    padding: '4px 8px',
     fontSize: '12px',
     cursor: 'pointer',
     transition: 'all 0.15s ease',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     lineHeight: '1.4',
   },
-  '.cm-panel.cm-search button:hover': {
+  '.cm-panel.cm-search button[name=next]:hover, .cm-panel.cm-search button[name=prev]:hover': {
     backgroundColor: '#8b5cf6',
     borderColor: '#8b5cf6',
     color: '#ffffff',
   },
-  '.cm-panel.cm-search button:active': {
-    backgroundColor: '#7c3aed',
-    borderColor: '#7c3aed',
-  },
-  '.cm-panel.cm-search label': {
-    color: '#8b949e',
-    fontSize: '12px',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '4px',
-    cursor: 'pointer',
-    userSelect: 'none',
-  },
-  '.cm-panel.cm-search label:hover': {
-    color: '#c9d1d9',
-  },
-  '.cm-panel.cm-search input[type="checkbox"]': {
-    accentColor: '#8b5cf6',
-  },
-  '.cm-panel.cm-search [name=close]': {
+  // Close button
+  '.cm-panel.cm-search button[name=close]': {
     backgroundColor: 'transparent',
     color: '#8b949e',
     border: 'none',
@@ -141,16 +134,32 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
     fontSize: '16px',
     cursor: 'pointer',
     lineHeight: '1',
-    position: 'relative',
-    top: '-1px',
   },
-  '.cm-panel.cm-search [name=close]:hover': {
+  '.cm-panel.cm-search button[name=close]:hover': {
     backgroundColor: '#3a3a4e',
     color: '#e6edf3',
   },
-  '.cm-panel.cm-search br': {
-    display: 'none',
+  // Hide useless: "all" button, checkboxes
+  '.cm-panel.cm-search button[name=select]': { display: 'none' },
+  '.cm-panel.cm-search label': { display: 'none' },
+  // Replace buttons
+  '.cm-panel.cm-search button[name=replace], .cm-panel.cm-search button[name=replaceAll]': {
+    backgroundColor: 'transparent',
+    color: '#c9d1d9',
+    border: '1px solid #444',
+    borderRadius: '6px',
+    padding: '4px 8px',
+    fontSize: '12px',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+    lineHeight: '1.4',
   },
+  '.cm-panel.cm-search button[name=replace]:hover, .cm-panel.cm-search button[name=replaceAll]:hover': {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+    color: '#ffffff',
+  },
+  '.cm-panel.cm-search br': { display: 'none' },
   '.cm-searchMatch': {
     backgroundColor: '#e2c08d55',
     outline: '1px solid #c8a97180',
@@ -461,7 +470,10 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
         const extensions = [
           ghostTextExtension(), // Must be before indentWithTab so Tab accepts ghost text first
           basicSetup,
-          keymap.of([indentWithTab]),
+          keymap.of([
+            indentWithTab,
+            { key: 'Mod-r', run: openSearchPanel },
+          ]),
           indentUnit.of('  '),
           sqlCompartment.current.of(sql({
             dialect: PostgreSQL,
