@@ -35,6 +35,7 @@ jest.mock('../services/auth', () => ({
     verifyCode: (...args: unknown[]) => mockVerifyCode(...args),
   },
   getAuthToken: (...args: unknown[]) => mockGetAuthToken(...args),
+  loadPersistedAuth: jest.fn().mockImplementation(() => Promise.resolve()),
 }));
 
 jest.mock('../utils/userStorage', () => ({
@@ -142,8 +143,10 @@ describe('AuthProvider', () => {
 
   describe('isEmailVerified', () => {
     it('is true when user has emailVerified = true', async () => {
+      const user = makeUser({ emailVerified: true });
       mockGetAuthToken.mockReturnValue('fake-jwt-token');
-      mockGetCurrentUser.mockReturnValue(makeUser({ emailVerified: true }));
+      mockGetCurrentUser.mockReturnValue(user);
+      mockRefreshUser.mockResolvedValue(user);
 
       renderWithProvider();
 
@@ -200,8 +203,10 @@ describe('AuthProvider', () => {
 
   describe('logout', () => {
     it('clears user after logout', async () => {
+      const user = makeUser();
       mockGetAuthToken.mockReturnValue('fake-jwt-token');
-      mockGetCurrentUser.mockReturnValue(makeUser());
+      mockGetCurrentUser.mockReturnValue(user);
+      mockRefreshUser.mockResolvedValue(user);
 
       renderWithProvider();
 
@@ -287,9 +292,9 @@ describe('AuthProvider', () => {
       const refreshed = makeUser({ name: 'Refreshed' });
       mockGetAuthToken.mockReturnValue('fake-jwt-token');
       mockGetCurrentUser.mockReturnValue(initial);
-      // First call (on mount) returns null, second call (manual) returns refreshed
+      // First call (on mount) returns initial, second call (manual) returns refreshed
       mockRefreshUser
-        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(initial)
         .mockResolvedValueOnce(refreshed);
 
       let captured: ReturnType<typeof useAuth> | null = null;
