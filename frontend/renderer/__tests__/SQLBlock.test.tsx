@@ -27,6 +27,7 @@ jest.mock('../contexts/LanguageContext', () => ({
         'sqlBlock.verifying': 'Verifying...',
         'sqlBlock.verified': 'Valid SQL',
         'sqlBlock.verifyInvalid': 'Invalid SQL',
+        'sqlBlock.executionFailed': 'Execution failed',
       };
       return map[key] ?? key;
     },
@@ -200,8 +201,12 @@ describe('SQLBlock', () => {
       expect(onApply).toHaveBeenCalledWith('UPDATE users SET active = true');
     });
 
-    it('calls onExecute with the SQL string when Execute is clicked', () => {
+    it('calls onExecute with the SQL string when Execute is clicked', async () => {
       const onExecute = jest.fn();
+      (window as any).electronAPI.executeQuery = jest
+        .fn()
+        .mockResolvedValue({ success: true });
+
       render(
         <SQLBlock
           {...defaultProps}
@@ -209,7 +214,11 @@ describe('SQLBlock', () => {
           sql="DELETE FROM logs WHERE created_at < now()"
         />
       );
-      fireEvent.click(screen.getByLabelText('Execute SQL'));
+
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText('Execute SQL'));
+      });
+
       expect(onExecute).toHaveBeenCalledWith('DELETE FROM logs WHERE created_at < now()');
     });
 
@@ -347,6 +356,124 @@ describe('SQLBlock', () => {
       await waitFor(() => {
         expect(screen.getByText('Invalid SQL')).toBeInTheDocument();
       });
+    });
+  });
+
+  // ── Execution failure overrides verification ──────────────────────────────
+
+  describe('execution failure', () => {
+    it('shows "Execution failed" when verified SQL fails at runtime', async () => {
+      const onExecute = jest.fn();
+      const mockExecuteQuery = jest.fn((_connId: string, query: string) => {
+        if (query.startsWith('EXPLAIN ')) {
+          return Promise.resolve({ success: true });
+        }
+        return Promise.resolve({ success: false, message: 'array_agg is an aggregate function' });
+      });
+      (window as any).electronAPI.executeQuery = mockExecuteQuery;
+
+      render(
+        <SQLBlock
+          {...defaultProps}
+          isDatabaseConnected={true}
+          isTyping={false}
+          sql="SELECT array_agg(id) FROM users"
+          onExecute={onExecute}
+          connectionId="conn-1"
+        />
+      );
+
+      // Wait for verification (EXPLAIN) to complete
+      await waitFor(() => {
+        expect(screen.getByText('Valid SQL')).toBeInTheDocument();
+      });
+
+      // Click Execute and wait for async state updates
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText('Execute SQL'));
+        // Allow microtasks from the async handleExecute to complete
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // Badge should now show execution failure
+      await waitFor(() => {
+        expect(screen.getByText('Execution failed')).toBeInTheDocument();
+      });
+
+      // The "Valid SQL" badge should be gone
+      expect(screen.queryByText('Valid SQL')).not.toBeInTheDocument();
+    });
+
+    it('shows "Execution failed" when execution throws an error', async () => {
+      const onExecute = jest.fn();
+      const mockExecuteQuery = jest.fn((_connId: string, query: string) => {
+        if (query.startsWith('EXPLAIN ')) {
+          return Promise.resolve({ success: true });
+        }
+        return Promise.reject(new Error('connection lost'));
+      });
+      (window as any).electronAPI.executeQuery = mockExecuteQuery;
+
+      render(
+        <SQLBlock
+          {...defaultProps}
+          isDatabaseConnected={true}
+          isTyping={false}
+          sql="SELECT 1"
+          onExecute={onExecute}
+          connectionId="conn-1"
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Valid SQL')).toBeInTheDocument();
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText('Execute SQL'));
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Execution failed')).toBeInTheDocument();
+      });
+    });
+
+    it('does not change badge when execution succeeds', async () => {
+      const onExecute = jest.fn();
+      (window as any).electronAPI.executeQuery = jest
+        .fn()
+        .mockResolvedValue({ success: true }); // both EXPLAIN and execution succeed
+
+      render(
+        <SQLBlock
+          {...defaultProps}
+          isDatabaseConnected={true}
+          isTyping={false}
+          sql="SELECT 1"
+          onExecute={onExecute}
+          connectionId="conn-1"
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Valid SQL')).toBeInTheDocument();
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText('Execute SQL'));
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // Badge should still show verified
+      expect(screen.getByText('Valid SQL')).toBeInTheDocument();
+      expect(screen.queryByText('Execution failed')).not.toBeInTheDocument();
     });
   });
 

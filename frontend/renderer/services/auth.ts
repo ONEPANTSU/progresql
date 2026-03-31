@@ -38,6 +38,53 @@ function clearCurrentUser() {
   }
 }
 
+/** Persist auth token + user to disk via IPC so the session survives app restarts. */
+function persistAuthToDisk(token: string, user: AuthUser) {
+  try {
+    if (typeof window !== 'undefined' && window.electronAPI?.saveAuthData) {
+      window.electronAPI.saveAuthData({ token, user });
+    }
+  } catch {
+    // Non-critical — localStorage is the primary runtime store
+  }
+}
+
+/** Clear persisted auth data from disk. */
+function clearAuthFromDisk() {
+  try {
+    if (typeof window !== 'undefined' && window.electronAPI?.clearAuthData) {
+      window.electronAPI.clearAuthData();
+    }
+  } catch {
+    // Non-critical
+  }
+}
+
+/**
+ * Restore auth session from disk into localStorage.
+ * Called once on app startup before checking localStorage.
+ * Returns true if data was restored.
+ */
+export async function loadPersistedAuth(): Promise<boolean> {
+  try {
+    if (typeof window === 'undefined' || !window.electronAPI?.loadAuthData) {
+      return false;
+    }
+    const data = await window.electronAPI.loadAuthData();
+    if (!data || !data.token || !data.user) return false;
+
+    // Only restore if localStorage is missing the token (i.e. it was lost)
+    const existingToken = localStorage.getItem(TOKEN_KEY);
+    if (existingToken) return false;
+
+    localStorage.setItem(TOKEN_KEY, data.token);
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 interface AuthResponse {
   token: string;
   expires_at: string;
@@ -302,6 +349,7 @@ export const authService = {
 
     const user = userFromResponse(data);
     saveCurrentUser(user);
+    persistAuthToDisk(data.token, user);
     return user;
   },
 
@@ -323,6 +371,7 @@ export const authService = {
 
     const user = userFromResponse(data);
     saveCurrentUser(user);
+    persistAuthToDisk(data.token, user);
     return user;
   },
 
@@ -442,11 +491,13 @@ export const authService = {
       trialEndsAt: data.user?.trial_ends_at ?? data.trial_ends_at,
     };
     saveCurrentUser(user);
+    persistAuthToDisk(token, user);
     return user;
   },
 
   logout() {
     clearToken();
     clearCurrentUser();
+    clearAuthFromDisk();
   },
 };

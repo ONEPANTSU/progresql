@@ -224,6 +224,7 @@ const en = {
   'sqlBlock.verifying': 'Verifying\u2026',
   'sqlBlock.verified': 'Verified',
   'sqlBlock.verifyInvalid': 'Invalid SQL',
+  'sqlBlock.executionFailed': 'Execution failed',
 
   // ── Error Boundary ──
   'error.crashed': '{panel} crashed',
