@@ -50,7 +50,6 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#58a6ff' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': { backgroundColor: '#3a6fbf' },
   '.cm-panels': { backgroundColor: '#161b22', color: '#e6edf3' },
-  '.cm-panels.cm-panels-top': { borderBottom: '2px solid #30363d' },
   '.cm-panels.cm-panels-bottom': { borderTop: '2px solid #30363d' },
   '.cm-activeLine': { backgroundColor: '#161b2280' },
   '.cm-selectionMatch': { backgroundColor: '#e2c08d66' },
