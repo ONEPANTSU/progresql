@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { AuthContextValue, AuthUser } from '../types';
-import { authService, getAuthToken } from '../services/auth';
+import { authService, getAuthToken, loadPersistedAuth } from '../services/auth';
 import { migrateToUserStorage } from '../utils/userStorage';
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -11,49 +11,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const token = getAuthToken();
-    const existing = authService.getCurrentUser();
+    async function initAuth() {
+      // Restore auth from disk if localStorage was cleared (e.g. after reboot)
+      await loadPersistedAuth();
 
-    // If token is missing but user data exists, clear stale user data
-    if (!token && existing) {
-      authService.logout();
-      setIsReady(true);
-      return;
-    }
+      const token = getAuthToken();
+      const existing = authService.getCurrentUser();
 
-    if (existing && token) {
-      setUser(existing);
-      migrateToUserStorage();
-      // Fetch fresh profile from server on startup
-      authService.refreshUser().then(updated => {
-        if (updated) {
-          setUser(updated);
-        } else {
-          // Backend rejected the token — force logout
-          authService.logout();
-          setUser(null);
-        }
-      }).catch(() => {});
-      setIsReady(true);
-    } else if (token && !existing) {
-      // Token exists but user data is missing (e.g. partially cleared localStorage)
-      // Try to restore user from backend
-      authService.refreshUser().then(updated => {
-        if (updated) {
-          setUser(updated);
-          migrateToUserStorage();
-        } else {
-          // Token is invalid — clear it
-          authService.logout();
-        }
-        setIsReady(true);
-      }).catch(() => {
+      // If token is missing but user data exists, clear stale user data
+      if (!token && existing) {
         authService.logout();
         setIsReady(true);
-      });
-    } else {
-      setIsReady(true);
+        return;
+      }
+
+      if (existing && token) {
+        setUser(existing);
+        migrateToUserStorage();
+        // Fetch fresh profile from server on startup
+        authService.refreshUser().then(updated => {
+          if (updated) {
+            setUser(updated);
+          } else {
+            // Backend rejected the token — force logout
+            authService.logout();
+            setUser(null);
+          }
+        }).catch(() => {});
+        setIsReady(true);
+      } else if (token && !existing) {
+        // Token exists but user data is missing (e.g. partially cleared localStorage)
+        // Try to restore user from backend
+        authService.refreshUser().then(updated => {
+          if (updated) {
+            setUser(updated);
+            migrateToUserStorage();
+          } else {
+            // Token is invalid — clear it
+            authService.logout();
+          }
+          setIsReady(true);
+        }).catch(() => {
+          authService.logout();
+          setIsReady(true);
+        });
+      } else {
+        setIsReady(true);
+      }
     }
+
+    initAuth();
   }, []);
 
   // Listen for localStorage changes (e.g. token cleared externally or in another tab)

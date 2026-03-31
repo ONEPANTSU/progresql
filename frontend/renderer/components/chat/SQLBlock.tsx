@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import {
   ContentCopy as CopyIcon,
@@ -16,7 +16,7 @@ import { useTranslation } from '../../contexts/LanguageContext';
 
 const log = createLogger('SQLBlock');
 
-type VerificationStatus = 'idle' | 'verifying' | 'verified' | 'invalid' | 'skipped';
+type VerificationStatus = 'idle' | 'verifying' | 'verified' | 'invalid' | 'skipped' | 'execution_failed';
 
 /** Returns true for DML/DDL statements that should not be verified in safe mode. */
 function stripSQLComments(sql: string): string {
@@ -74,6 +74,12 @@ const SQLBlock: React.FC<SQLBlockProps> = ({
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>('idle');
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const verifiedSqlRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     if (isTyping) return;
@@ -124,6 +130,34 @@ const SQLBlock: React.FC<SQLBlockProps> = ({
       log.error('Failed to copy text:', error);
     }
   };
+
+  // Execute and then verify the result; updates verification badge on failure.
+  // Uses .then()/.catch() instead of async/await so the click handler stays synchronous,
+  // which integrates better with React's batching and test utilities.
+  const handleExecute = useCallback(() => {
+    if (!onExecute) return;
+    // Trigger the parent's execution handler (updates QueryResults panel)
+    onExecute(sql);
+    // Also run the query directly to detect runtime errors that EXPLAIN missed.
+    // On failure, override the "Verified" badge with "Execution failed".
+    // Note: verifiedSqlRef is NOT reset — this prevents the verification useEffect
+    // from re-running and overwriting the execution_failed status.
+    window.electronAPI.executeQuery(connectionId || '', sql).then(
+      (result) => {
+        if (!mountedRef.current) return;
+        if (!result.success) {
+          setVerificationStatus('execution_failed');
+          setVerificationError(result.message || t('sqlBlock.executionFailed'));
+        }
+      },
+      (err: unknown) => {
+        if (!mountedRef.current) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setVerificationStatus('execution_failed');
+        setVerificationError(msg);
+      },
+    );
+  }, [onExecute, sql, connectionId, t]);
 
   return (
     <Box sx={{ my: 1, position: 'relative' }}>
@@ -201,6 +235,14 @@ const SQLBlock: React.FC<SQLBlockProps> = ({
               </Box>
             </Tooltip>
           )}
+          {verificationStatus === 'execution_failed' && (
+            <Tooltip title={verificationError || ''}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'default' }}>
+                <InvalidIcon sx={{ fontSize: 16, color: 'error.main' }} />
+                <Typography variant="caption" sx={{ color: 'error.main' }}>{t('sqlBlock.executionFailed')}</Typography>
+              </Box>
+            </Tooltip>
+          )}
         </Box>
       )}
       {/* Action buttons — bottom row */}
@@ -234,7 +276,7 @@ const SQLBlock: React.FC<SQLBlockProps> = ({
           <Tooltip title={t('sqlBlock.executeSql')}>
             <IconButton
               size="small"
-              onClick={() => onExecute(sql)}
+              onClick={handleExecute}
               aria-label={t('sqlBlock.executeSql')}
               sx={actionButtonSx}
             >

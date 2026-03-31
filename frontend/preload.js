@@ -248,4 +248,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAssetPath: (filename) => {
     return 'file://' + path.join(ASSETS_DIR, filename);
   },
+  // Auth session persistence — save/load auth data to disk
+  saveAuthData: async (data) => {
+    try {
+      return await ipcRenderer.invoke('save-auth-data', data);
+    } catch (error) {
+      log.error('saveAuthData error:', error);
+      return { success: false };
+    }
+  },
+  loadAuthData: async () => {
+    try {
+      return await ipcRenderer.invoke('load-auth-data');
+    } catch (error) {
+      log.error('loadAuthData error:', error);
+      return null;
+    }
+  },
+  clearAuthData: async () => {
+    try {
+      return await ipcRenderer.invoke('clear-auth-data');
+    } catch (error) {
+      log.error('clearAuthData error:', error);
+      return { success: false };
+    }
+  },
 });

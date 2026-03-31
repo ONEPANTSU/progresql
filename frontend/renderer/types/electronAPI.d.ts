@@ -1,4 +1,4 @@
-import type { DatabaseStructureResponse, QueryResult } from './index';
+import type { AuthUser, DatabaseStructureResponse, QueryResult } from './index';
 
 /** Generic wrapper for IPC responses that use ok/result/error pattern. */
 export interface ElectronAPIResponse<T = unknown> {
@@ -59,6 +59,12 @@ export interface UpdateCheckResult {
   downloadUrl: string;
 }
 
+/** Auth data persisted to disk for session survival across restarts. */
+export interface PersistedAuthData {
+  token: string;
+  user: AuthUser;
+}
+
 declare global {
   interface Window {
     electronAPI: {
@@ -94,6 +100,10 @@ declare global {
       getAppVersion: () => Promise<string>;
       // Update check
       checkForUpdates: () => Promise<UpdateCheckResult>;
+      // Auth session persistence
+      saveAuthData: (data: PersistedAuthData) => Promise<{ success: boolean }>;
+      loadAuthData: () => Promise<PersistedAuthData | null>;
+      clearAuthData: () => Promise<{ success: boolean }>;
     };
   }
 }

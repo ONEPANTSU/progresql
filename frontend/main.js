@@ -1613,6 +1613,66 @@ ipcMain.handle('is-encryption-available', async () => {
   return safeStorage.isEncryptionAvailable();
 });
 
+
+// Auth session persistence — save/load auth data to disk so sessions survive restarts
+const AUTH_FILE = path.join(app.getPath('userData'), 'auth.json');
+
+ipcMain.handle('save-auth-data', async (_event, data) => {
+  const fs = require('fs');
+  try {
+    const payload = { user: data.user };
+    // Encrypt token with safeStorage if available
+    if (data.token && safeStorage.isEncryptionAvailable()) {
+      const encrypted = safeStorage.encryptString(data.token);
+      payload.token = encrypted.toString('base64');
+      payload.tokenEncrypted = true;
+    } else {
+      payload.token = data.token || null;
+      payload.tokenEncrypted = false;
+    }
+    fs.writeFileSync(AUTH_FILE, JSON.stringify(payload, null, 2), 'utf-8');
+    log.debug('Auth data saved to disk');
+    return { success: true };
+  } catch (error) {
+    log.error('save-auth-data error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('load-auth-data', async () => {
+  const fs = require('fs');
+  try {
+    if (!fs.existsSync(AUTH_FILE)) return null;
+    const raw = fs.readFileSync(AUTH_FILE, 'utf-8');
+    const payload = JSON.parse(raw);
+    // Decrypt token if it was encrypted
+    if (payload.tokenEncrypted && payload.token && safeStorage.isEncryptionAvailable()) {
+      const buffer = Buffer.from(payload.token, 'base64');
+      payload.token = safeStorage.decryptString(buffer);
+    }
+    delete payload.tokenEncrypted;
+    log.debug('Auth data loaded from disk');
+    return payload;
+  } catch (error) {
+    log.error('load-auth-data error:', error);
+    return null;
+  }
+});
+
+ipcMain.handle('clear-auth-data', async () => {
+  const fs = require('fs');
+  try {
+    if (fs.existsSync(AUTH_FILE)) {
+      fs.unlinkSync(AUTH_FILE);
+      log.debug('Auth data cleared from disk');
+    }
+    return { success: true };
+  } catch (error) {
+    log.error('clear-auth-data error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // Open URL in external browser
 ipcMain.handle('open-external', async (_event, url) => {
   if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {

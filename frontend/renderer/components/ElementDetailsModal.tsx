@@ -94,7 +94,6 @@ const log = createLogger('ElementDetailsModal');
 import {
   Close as CloseIcon,
   Info as InfoIcon,
-  Key as KeyIcon,
   Speed as SpeedIcon,
   Security as SecurityIcon,
   FlashOn as FlashIcon,
@@ -105,6 +104,8 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
+  Functions as FunctionsIcon,
+  Code as CodeIcon,
   Check as CheckIcon,
 } from '@mui/icons-material';
 
@@ -542,8 +543,9 @@ export default function ElementDetailsModal({
       case 'trigger':
         return <FlashIcon sx={{ ...iconSx, color: '#a78bfa' }} />;
       case 'function':
+        return <FunctionsIcon sx={{ ...iconSx, color: '#8b5cf6' }} />;
       case 'procedure':
-        return <KeyIcon sx={{ ...iconSx, color: '#8b5cf6' }} />;
+        return <CodeIcon sx={{ ...iconSx, color: '#8b5cf6' }} />;
       case 'type':
         return <InfoIcon sx={{ ...iconSx, color: '#06b6d4' }} />;
       default:
@@ -1122,9 +1124,92 @@ export default function ElementDetailsModal({
                   />
                 </TableCell>
               </TableRow>
+              {element.columns && element.columns.length > 0 && (
+                <TableRow sx={dataRowHoverSx}>
+                  <TableCell sx={labelCellSx}>Columns</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {element.columns.map((col: string, idx: number) => (
+                        <Chip
+                          key={idx}
+                          label={col}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            color: '#818cf8',
+                            borderColor: 'rgba(99,102,241,0.3)',
+                            fontSize: '0.75rem',
+                            height: 24,
+                            fontFamily: 'monospace',
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>
+
+        {element.index_definition && (
+          <Box>
+            <SectionHeader icon={<CodeIcon sx={{ fontSize: '1rem', color: '#a78bfa' }} />}>
+              Index Definition
+            </SectionHeader>
+            <Box sx={{ position: 'relative' }}>
+              <Box sx={{
+                maxHeight: 300,
+                overflow: 'auto',
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'rgba(99,102,241,0.2)',
+                p: 2,
+                borderRadius: 2,
+                fontFamily: 'monospace',
+                fontSize: '0.875rem',
+                lineHeight: 1.5,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                mb: 2,
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                  height: '8px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  bgcolor: 'grey.100',
+                  borderRadius: '4px',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  bgcolor: 'grey.400',
+                  borderRadius: '4px',
+                  '&:hover': {
+                    bgcolor: 'grey.500',
+                  },
+                },
+              }}>
+                {highlightSQL(element.index_definition)}
+              </Box>
+              <Tooltip title="Copy definition">
+                <IconButton
+                  size="small"
+                  onClick={() => copyToClipboard(element.index_definition)}
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    bgcolor: 'background.paper',
+                    '&:hover': {
+                      bgcolor: 'action.hover',
+                    }
+                  }}
+                >
+                  <CopyIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+        )}
       </Box>
     );
   };
@@ -1172,9 +1257,84 @@ export default function ElementDetailsModal({
                 <TableCell sx={labelCellSx}>Referenced Column</TableCell>
                 <TableCell>{element.referenced_column_name || '-'}</TableCell>
               </TableRow>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Deferrable</TableCell>
+                <TableCell>
+                  <Chip
+                    label={element.deferrable ? 'Deferrable' : 'Not Deferrable'}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      color: element.deferrable ? '#34d399' : 'text.secondary',
+                      borderColor: element.deferrable ? 'rgba(52,211,153,0.3)' : 'rgba(99,102,241,0.2)',
+                      fontSize: '0.7rem',
+                      height: 22,
+                    }}
+                  />
+                </TableCell>
+              </TableRow>
             </TableBody>
           </Table>
         </TableContainer>
+
+        {element.check_condition && (getConstraintTypeLabel(element.constraint_type).toLowerCase() === 'check') && (
+          <Box>
+            <SectionHeader icon={<SecurityIcon sx={{ fontSize: '1rem', color: '#c084fc' }} />}>
+              CHECK Expression
+            </SectionHeader>
+            <Box sx={{ position: 'relative' }}>
+              <Box sx={{
+                maxHeight: 300,
+                overflow: 'auto',
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'rgba(192,132,252,0.2)',
+                p: 2,
+                borderRadius: 2,
+                fontFamily: 'monospace',
+                fontSize: '0.875rem',
+                lineHeight: 1.5,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                mb: 2,
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                  height: '8px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  bgcolor: 'grey.100',
+                  borderRadius: '4px',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  bgcolor: 'grey.400',
+                  borderRadius: '4px',
+                  '&:hover': {
+                    bgcolor: 'grey.500',
+                  },
+                },
+              }}>
+                {highlightSQL(element.check_condition)}
+              </Box>
+              <Tooltip title="Copy expression">
+                <IconButton
+                  size="small"
+                  onClick={() => copyToClipboard(element.check_condition)}
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    bgcolor: 'background.paper',
+                    '&:hover': {
+                      bgcolor: 'action.hover',
+                    }
+                  }}
+                >
+                  <CopyIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+        )}
       </Box>
     );
   };
@@ -1218,9 +1378,94 @@ export default function ElementDetailsModal({
                 <TableCell sx={labelCellSx}>Table</TableCell>
                 <TableCell>{element.event_object_table}</TableCell>
               </TableRow>
+              <TableRow sx={dataRowHoverSx}>
+                <TableCell sx={labelCellSx}>Orientation</TableCell>
+                <TableCell>
+                  <Chip
+                    label={element.action_orientation || 'STATEMENT'}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      color: '#a78bfa',
+                      borderColor: 'rgba(167,139,250,0.3)',
+                      fontSize: '0.7rem',
+                      height: 22,
+                    }}
+                  />
+                </TableCell>
+              </TableRow>
+              {element.action_condition && (
+                <TableRow sx={dataRowHoverSx}>
+                  <TableCell sx={labelCellSx}>Condition</TableCell>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#c3e88d' }}>
+                      {element.action_condition}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>
+
+        {element.action_statement && (
+          <Box>
+            <SectionHeader icon={<CodeIcon sx={{ fontSize: '1rem', color: '#a78bfa' }} />}>
+              Trigger Function Code
+            </SectionHeader>
+            <Box sx={{ position: 'relative' }}>
+              <Box sx={{
+                maxHeight: 400,
+                overflow: 'auto',
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'rgba(99,102,241,0.2)',
+                p: 2,
+                borderRadius: 2,
+                fontFamily: 'monospace',
+                fontSize: '0.875rem',
+                lineHeight: 1.5,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                mb: 2,
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                  height: '8px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  bgcolor: 'grey.100',
+                  borderRadius: '4px',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  bgcolor: 'grey.400',
+                  borderRadius: '4px',
+                  '&:hover': {
+                    bgcolor: 'grey.500',
+                  },
+                },
+              }}>
+                {highlightSQL(element.action_statement)}
+              </Box>
+              <Tooltip title="Copy code">
+                <IconButton
+                  size="small"
+                  onClick={() => copyToClipboard(element.action_statement)}
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    bgcolor: 'background.paper',
+                    '&:hover': {
+                      bgcolor: 'action.hover',
+                    }
+                  }}
+                >
+                  <CopyIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+        )}
       </Box>
     );
   };
@@ -1230,7 +1475,7 @@ export default function ElementDetailsModal({
 
     return (
       <Box>
-        <SectionHeader icon={<KeyIcon sx={{ fontSize: '1rem', color: '#8b5cf6' }} />}>
+        <SectionHeader icon={<FunctionsIcon sx={{ fontSize: '1rem', color: '#8b5cf6' }} />}>
           Function Information
         </SectionHeader>
         <TableContainer component={Paper} variant="outlined" sx={styledTableContainerSx}>
@@ -1310,6 +1555,52 @@ export default function ElementDetailsModal({
             </TableBody>
           </Table>
         </TableContainer>
+
+        {element.routine_definition && onApplySQL && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<EditIcon />}
+              onClick={() => {
+                const schema = element.routine_schema || 'public';
+                const name = element.routine_name;
+                const returnType = element.data_type || 'void';
+                const lang = element.external_language || 'plpgsql';
+                const volatility = element.sql_data_access === 'CONTAINS SQL' ? 'VOLATILE' : 'VOLATILE';
+                const security = element.security_type === 'DEFINER' ? 'SECURITY DEFINER' : 'SECURITY INVOKER';
+                const strictness = element.is_null_call ? '' : 'STRICT';
+                const body = element.routine_definition;
+
+                const fullSQL = [
+                  `CREATE OR REPLACE FUNCTION ${schema !== 'public' ? escapeIdent(schema) + '.' : ''}${escapeIdent(name)}()`,
+                  `RETURNS ${returnType}`,
+                  `LANGUAGE ${lang}`,
+                  strictness,
+                  security,
+                  `AS $$`,
+                  body,
+                  `$$;`,
+                ].filter(Boolean).join('\n');
+
+                onApplySQL(fullSQL);
+                onClose();
+              }}
+              sx={{
+                borderColor: 'rgba(99,102,241,0.3)',
+                color: '#8b5cf6',
+                textTransform: 'none',
+                fontWeight: 500,
+                '&:hover': {
+                  borderColor: 'rgba(99,102,241,0.5)',
+                  backgroundColor: 'rgba(99,102,241,0.05)',
+                },
+              }}
+            >
+              Edit in SQL Editor
+            </Button>
+          </Box>
+        )}
       </Box>
     );
   };
@@ -1402,7 +1693,7 @@ export default function ElementDetailsModal({
 
     return (
       <Box>
-        <SectionHeader icon={<KeyIcon sx={{ fontSize: '1rem', color: '#8b5cf6' }} />}>
+        <SectionHeader icon={<CodeIcon sx={{ fontSize: '1rem', color: '#8b5cf6' }} />}>
           Procedure Information
         </SectionHeader>
         <TableContainer component={Paper} variant="outlined" sx={styledTableContainerSx}>

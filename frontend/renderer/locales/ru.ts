@@ -201,6 +201,7 @@ const ru: Record<TranslationKey, string> = {
   'sqlBlock.verifying': '\u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430\u2026',
   'sqlBlock.verified': '\u041f\u0440\u043e\u0432\u0435\u0440\u0435\u043d\u043e',
   'sqlBlock.verifyInvalid': '\u041d\u0435\u0432\u0430\u043b\u0438\u0434\u043d\u044b\u0439 SQL',
+  'sqlBlock.executionFailed': 'Ошибка выполнения',
   'error.crashed': '{panel} \u0443\u043f\u0430\u043b',
   'error.somethingWrong': '\u0427\u0442\u043e-\u0442\u043e \u043f\u043e\u0448\u043b\u043e \u043d\u0435 \u0442\u0430\u043a',
   'error.unexpected': '\u041f\u0440\u043e\u0438\u0437\u043e\u0448\u043b\u0430 \u043d\u0435\u043f\u0440\u0435\u0434\u0432\u0438\u0434\u0435\u043d\u043d\u0430\u044f \u043e\u0448\u0438\u0431\u043a\u0430',
