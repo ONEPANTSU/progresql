@@ -646,7 +646,10 @@ ipcMain.handle('get-database-structure', async (event, connectionId, database) =
           END as constraint_type,
           a.attname as column_name,
           ref_c.relname as referenced_table,
-          ref_a.attname as referenced_column
+          ref_a.attname as referenced_column,
+          pg_get_constraintdef(co.oid) as check_condition,
+          co.condeferrable as deferrable,
+          co.condeferred as initially_deferred
         FROM pg_constraint co
         JOIN pg_class c ON co.conrelid = c.oid
         JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(co.conkey)

@@ -228,6 +228,13 @@ export default function ElementDetailsModal({
   const [executingSQL, setExecutingSQL] = useState(false);
   const [sqlError, setSqlError] = useState<string | null>(null);
 
+  // Function inline editing state
+  const [editingFunctionBody, setEditingFunctionBody] = useState(false);
+  const [functionBodyDraft, setFunctionBodyDraft] = useState('');
+  const [savingFunction, setSavingFunction] = useState(false);
+  const [saveFunctionError, setSaveFunctionError] = useState<string | null>(null);
+  const [saveFunctionSuccess, setSaveFunctionSuccess] = useState(false);
+
   // Enum values for type details
   const [enumValues, setEnumValues] = useState<string[]>([]);
   const [enumLoading, setEnumLoading] = useState(false);
@@ -1499,38 +1506,50 @@ export default function ElementDetailsModal({
                 <TableCell sx={labelCellSx}>Function Code</TableCell>
                 <TableCell>
                   <Box sx={{ position: 'relative' }}>
-                    <Box sx={{
-                      maxHeight: 500,
-                      overflow: 'auto',
-                      bgcolor: 'background.paper',
-                      border: '1px solid',
-                      borderColor: 'rgba(99,102,241,0.2)',
-                      p: 2,
-                      borderRadius: 2,
-                      fontFamily: 'monospace',
-                      fontSize: '0.875rem',
-                      lineHeight: 1.5,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      '&::-webkit-scrollbar': {
-                        width: '8px',
-                        height: '8px',
-                      },
-                      '&::-webkit-scrollbar-track': {
-                        bgcolor: 'grey.100',
-                        borderRadius: '4px',
-                      },
-                      '&::-webkit-scrollbar-thumb': {
-                        bgcolor: 'grey.400',
-                        borderRadius: '4px',
-                        '&:hover': {
-                          bgcolor: 'grey.500',
-                        },
-                      },
-                    }}>
-                      {element.routine_definition ? highlightSQL(element.routine_definition) : 'No function code available'}
-                    </Box>
-                    {element.routine_definition && (
+                    {editingFunctionBody ? (
+                      <TextField
+                        multiline
+                        fullWidth
+                        minRows={6}
+                        maxRows={20}
+                        value={functionBodyDraft}
+                        onChange={(e) => setFunctionBodyDraft(e.target.value)}
+                        variant="outlined"
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            fontFamily: 'monospace',
+                            fontSize: '0.875rem',
+                            lineHeight: 1.5,
+                            bgcolor: 'background.paper',
+                            '& fieldset': { borderColor: 'rgba(139,92,246,0.4)' },
+                            '&:hover fieldset': { borderColor: 'rgba(139,92,246,0.6)' },
+                            '&.Mui-focused fieldset': { borderColor: '#8b5cf6' },
+                          },
+                          '& .MuiInputBase-input': { color: '#e6edf3' },
+                        }}
+                      />
+                    ) : (
+                      <Box sx={{
+                        maxHeight: 500,
+                        overflow: 'auto',
+                        bgcolor: 'background.paper',
+                        border: '1px solid',
+                        borderColor: 'rgba(99,102,241,0.2)',
+                        p: 2,
+                        borderRadius: 2,
+                        fontFamily: 'monospace',
+                        fontSize: '0.875rem',
+                        lineHeight: 1.5,
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        '&::-webkit-scrollbar': { width: '8px', height: '8px' },
+                        '&::-webkit-scrollbar-track': { bgcolor: 'grey.100', borderRadius: '4px' },
+                        '&::-webkit-scrollbar-thumb': { bgcolor: 'grey.400', borderRadius: '4px', '&:hover': { bgcolor: 'grey.500' } },
+                      }}>
+                        {element.routine_definition ? highlightSQL(element.routine_definition) : 'No function code available'}
+                      </Box>
+                    )}
+                    {!editingFunctionBody && element.routine_definition && (
                       <Tooltip title={t('details.copyCode')}>
                         <IconButton
                           size="small"
@@ -1540,9 +1559,7 @@ export default function ElementDetailsModal({
                             top: 8,
                             right: 8,
                             bgcolor: 'background.paper',
-                            '&:hover': {
-                              bgcolor: 'action.hover',
-                            }
+                            '&:hover': { bgcolor: 'action.hover' },
                           }}
                         >
                           <CopyIcon fontSize="small" />
@@ -1556,49 +1573,118 @@ export default function ElementDetailsModal({
           </Table>
         </TableContainer>
 
-        {element.routine_definition && onApplySQL && (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<EditIcon />}
-              onClick={() => {
-                const schema = element.routine_schema || 'public';
-                const name = element.routine_name;
-                const returnType = element.data_type || 'void';
-                const lang = element.external_language || 'plpgsql';
-                const volatility = element.sql_data_access === 'CONTAINS SQL' ? 'VOLATILE' : 'VOLATILE';
-                const security = element.security_type === 'DEFINER' ? 'SECURITY DEFINER' : 'SECURITY INVOKER';
-                const strictness = element.is_null_call ? '' : 'STRICT';
-                const body = element.routine_definition;
+        {saveFunctionError && (
+          <Alert severity="error" sx={{ mb: 1 }} onClose={() => setSaveFunctionError(null)}>
+            {saveFunctionError}
+          </Alert>
+        )}
+        {saveFunctionSuccess && (
+          <Alert severity="success" sx={{ mb: 1 }} onClose={() => setSaveFunctionSuccess(false)}>
+            Function saved successfully
+          </Alert>
+        )}
 
-                const fullSQL = [
-                  `CREATE OR REPLACE FUNCTION ${schema !== 'public' ? escapeIdent(schema) + '.' : ''}${escapeIdent(name)}()`,
-                  `RETURNS ${returnType}`,
-                  `LANGUAGE ${lang}`,
-                  strictness,
-                  security,
-                  `AS $$`,
-                  body,
-                  `$$;`,
-                ].filter(Boolean).join('\n');
+        {element.routine_definition && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 2 }}>
+            {editingFunctionBody ? (
+              <>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    setEditingFunctionBody(false);
+                    setSaveFunctionError(null);
+                  }}
+                  sx={{
+                    borderColor: 'rgba(99,102,241,0.3)',
+                    color: '#8b949e',
+                    textTransform: 'none',
+                    '&:hover': { borderColor: 'rgba(99,102,241,0.5)' },
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  disabled={savingFunction}
+                  onClick={async () => {
+                    const schema = element.routine_schema || 'public';
+                    const name = element.routine_name;
+                    const returnType = element.data_type || 'void';
+                    const lang = element.external_language || 'plpgsql';
+                    const security = element.security_type === 'DEFINER' ? 'SECURITY DEFINER' : 'SECURITY INVOKER';
+                    const strictness = element.is_null_call ? '' : 'STRICT';
 
-                onApplySQL(fullSQL);
-                onClose();
-              }}
-              sx={{
-                borderColor: 'rgba(99,102,241,0.3)',
-                color: '#8b5cf6',
-                textTransform: 'none',
-                fontWeight: 500,
-                '&:hover': {
-                  borderColor: 'rgba(99,102,241,0.5)',
-                  backgroundColor: 'rgba(99,102,241,0.05)',
-                },
-              }}
-            >
-              Edit in SQL Editor
-            </Button>
+                    const fullSQL = [
+                      `CREATE OR REPLACE FUNCTION ${schema !== 'public' ? escapeIdent(schema) + '.' : ''}${escapeIdent(name)}()`,
+                      `RETURNS ${returnType}`,
+                      `LANGUAGE ${lang}`,
+                      strictness,
+                      security,
+                      `AS $$`,
+                      functionBodyDraft,
+                      `$$;`,
+                    ].filter(Boolean).join('\n');
+
+                    if (onExecuteSQL) {
+                      setSavingFunction(true);
+                      setSaveFunctionError(null);
+                      setSaveFunctionSuccess(false);
+                      try {
+                        const result = await onExecuteSQL(fullSQL);
+                        if (result.success) {
+                          setSaveFunctionSuccess(true);
+                          setEditingFunctionBody(false);
+                          onRefreshData?.();
+                        } else {
+                          setSaveFunctionError(result.message || 'Failed to save function');
+                        }
+                      } catch (err: any) {
+                        setSaveFunctionError(err.message || 'Failed to save function');
+                      } finally {
+                        setSavingFunction(false);
+                      }
+                    } else if (onApplySQL) {
+                      onApplySQL(fullSQL);
+                      onClose();
+                    }
+                  }}
+                  sx={{
+                    bgcolor: '#8b5cf6',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    '&:hover': { bgcolor: '#7c3aed' },
+                  }}
+                >
+                  {savingFunction ? 'Saving...' : 'Save'}
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<EditIcon />}
+                onClick={() => {
+                  setFunctionBodyDraft(element.routine_definition || '');
+                  setEditingFunctionBody(true);
+                  setSaveFunctionError(null);
+                  setSaveFunctionSuccess(false);
+                }}
+                sx={{
+                  borderColor: 'rgba(99,102,241,0.3)',
+                  color: '#8b5cf6',
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  '&:hover': {
+                    borderColor: 'rgba(99,102,241,0.5)',
+                    backgroundColor: 'rgba(99,102,241,0.05)',
+                  },
+                }}
+              >
+                Edit Function
+              </Button>
+            )}
           </Box>
         )}
       </Box>
