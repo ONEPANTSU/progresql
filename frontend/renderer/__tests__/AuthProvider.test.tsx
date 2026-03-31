@@ -255,6 +255,9 @@ describe('AuthProvider', () => {
         expect(captured?.user).not.toBeNull();
       });
 
+      // Flush the pending refreshUser promise from initAuth (fire-and-forget)
+      await act(async () => {});
+
       await act(async () => {
         await captured?.verifyCode('123456');
       });
