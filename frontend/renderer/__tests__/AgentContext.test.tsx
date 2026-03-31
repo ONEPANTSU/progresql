@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import { AgentProvider, useAgent, AgentContextValue } from '../contexts/AgentContext';
 import { AuthProvider } from '../providers/AuthProvider';
 
@@ -14,6 +14,21 @@ const mockOnConnectionStateChange = jest.fn().mockReturnValue(jest.fn());
 const mockSetToolCallHandler = jest.fn();
 
 const mockUpdateModel = jest.fn();
+
+jest.mock('../services/auth', () => ({
+  authService: {
+    getCurrentUser: jest.fn().mockReturnValue(null),
+    login: jest.fn(),
+    register: jest.fn(),
+    logout: jest.fn(),
+    refreshUser: jest.fn().mockResolvedValue(null),
+    sendVerificationCode: jest.fn(),
+    verifyCode: jest.fn(),
+  },
+  getAuthToken: jest.fn().mockReturnValue(null),
+  loadPersistedAuth: jest.fn().mockImplementation(() => Promise.resolve()),
+  isSubscriptionActive: jest.fn().mockReturnValue(false),
+}));
 
 jest.mock('../services/agent/AgentService', () => ({
   AgentService: jest.fn().mockImplementation(() => ({
@@ -73,14 +88,19 @@ function TestConsumer({ onValue }: { onValue: (v: AgentContextValue) => void }) 
 describe('AgentContext', () => {
   let capturedValue: AgentContextValue;
 
-  const renderWithProvider = () => {
-    return render(
+  const renderWithProvider = async () => {
+    const result = render(
       <AuthProvider>
         <AgentProvider>
           <TestConsumer onValue={(v) => { capturedValue = v; }} />
         </AgentProvider>
       </AuthProvider>
     );
+    // Wait for async AuthProvider initAuth to complete
+    await waitFor(() => {
+      expect(screen.getByTestId('state')).toBeTruthy();
+    });
+    return result;
   };
 
   beforeEach(() => {
@@ -89,23 +109,23 @@ describe('AgentContext', () => {
     localStorage.clear();
   });
 
-  it('provides default values', () => {
-    renderWithProvider();
+  it('provides default values', async () => {
+    await renderWithProvider();
 
     expect(screen.getByTestId('backend-url').textContent).toBe('https://progresql.com');
     expect(screen.getByTestId('model').textContent).toBe('qwen/qwen3-coder');
   });
 
-  it('starts in disconnected state', () => {
-    renderWithProvider();
+  it('starts in disconnected state', async () => {
+    await renderWithProvider();
 
     expect(screen.getByTestId('state').textContent).toBe('disconnected');
     expect(screen.getByTestId('connected').textContent).toBe('false');
   });
 
-  it('creates AgentService on mount', () => {
+  it('creates AgentService on mount', async () => {
     const { AgentService } = require('../services/agent/AgentService');
-    renderWithProvider();
+    await renderWithProvider();
 
     expect(AgentService).toHaveBeenCalledWith({
       backendUrl: 'https://progresql.com',
@@ -113,24 +133,24 @@ describe('AgentContext', () => {
     });
   });
 
-  it('does not auto-connect when no user is logged in', () => {
+  it('does not auto-connect when no user is logged in', async () => {
     // Without a logged-in user, connect should NOT be called.
-    renderWithProvider();
+    await renderWithProvider();
     expect(mockConnect).not.toHaveBeenCalled();
   });
 
-  it('registers tool call handler', () => {
-    renderWithProvider();
+  it('registers tool call handler', async () => {
+    await renderWithProvider();
     expect(mockSetToolCallHandler).toHaveBeenCalled();
   });
 
-  it('subscribes to connection state changes', () => {
-    renderWithProvider();
+  it('subscribes to connection state changes', async () => {
+    await renderWithProvider();
     expect(mockOnConnectionStateChange).toHaveBeenCalled();
   });
 
-  it('transitions to connected state when service reports connected', () => {
-    renderWithProvider();
+  it('transitions to connected state when service reports connected', async () => {
+    await renderWithProvider();
 
     const stateCallback = mockOnConnectionStateChange.mock.calls[0][0];
 
@@ -143,8 +163,8 @@ describe('AgentContext', () => {
     expect(screen.getByTestId('session').textContent).toBe('session-abc');
   });
 
-  it('clears session on disconnect', () => {
-    renderWithProvider();
+  it('clears session on disconnect', async () => {
+    await renderWithProvider();
 
     const stateCallback = mockOnConnectionStateChange.mock.calls[0][0];
 
@@ -159,8 +179,8 @@ describe('AgentContext', () => {
     expect(screen.getByTestId('session').textContent).toBe('none');
   });
 
-  it('persists backendUrl to localStorage', () => {
-    renderWithProvider();
+  it('persists backendUrl to localStorage', async () => {
+    await renderWithProvider();
 
     act(() => {
       capturedValue.setBackendUrl('http://example.com:9090');
@@ -169,8 +189,8 @@ describe('AgentContext', () => {
     expect(localStorage.getItem('progresql-agent-backend-url')).toBe('http://example.com:9090');
   });
 
-  it('persists model to localStorage', () => {
-    renderWithProvider();
+  it('persists model to localStorage', async () => {
+    await renderWithProvider();
 
     act(() => {
       capturedValue.setModel('anthropic/claude-3');
@@ -180,8 +200,8 @@ describe('AgentContext', () => {
     expect(localStorage.getItem('user_agent-model')).toBe('anthropic/claude-3');
   });
 
-  it('calls disconnect on service when disconnect is called', () => {
-    renderWithProvider();
+  it('calls disconnect on service when disconnect is called', async () => {
+    await renderWithProvider();
 
     act(() => {
       capturedValue.disconnect();
@@ -190,8 +210,8 @@ describe('AgentContext', () => {
     expect(mockDisconnect).toHaveBeenCalled();
   });
 
-  it('sendRequest delegates to AgentService', () => {
-    renderWithProvider();
+  it('sendRequest delegates to AgentService', async () => {
+    await renderWithProvider();
 
     const callbacks = {
       onStream: jest.fn(),
@@ -222,18 +242,14 @@ describe('AgentContext', () => {
     const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     expect(() => {
-      render(
-        <AuthProvider>
-          <TestConsumer onValue={jest.fn()} />
-        </AuthProvider>
-      );
+      render(<TestConsumer onValue={jest.fn()} />);
     }).toThrow('useAgent must be used within AgentProvider');
 
     spy.mockRestore();
   });
 
-  it('cleans up on unmount', () => {
-    const { unmount } = renderWithProvider();
+  it('cleans up on unmount', async () => {
+    const { unmount } = await renderWithProvider();
 
     const unsubscribe = mockOnConnectionStateChange.mock.results[0].value;
 
