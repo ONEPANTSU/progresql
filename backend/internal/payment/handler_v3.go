@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -648,10 +649,16 @@ type refundRequest struct {
 	PaymentID string `json:"payment_id"`
 }
 
+// ExchangeRateProvider returns the current USD→RUB exchange rate.
+type ExchangeRateProvider interface {
+	GetUSDToRUB() float64
+}
+
 // RefundHandlerV3 returns an HTTP handler that processes payment refund requests.
 // It verifies ownership, checks refundability, reverses side effects (balance or
 // subscription), calls T-Bank Cancel API, and marks the payment as refunded.
-func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund BalanceRefundHandler, db *pgxpool.Pool) http.HandlerFunc {
+// For subscriptions, the refund amount is reduced by actual AI token costs incurred.
+func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund BalanceRefundHandler, db *pgxpool.Pool, rateSvc ExchangeRateProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -724,6 +731,9 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 			return
 		}
 
+		// Calculate refund amount.
+		refundAmount := amount // full refund by default (balance_topup)
+
 		// Reverse side effects based on payment type.
 		switch paymentType {
 		case "balance_topup":
@@ -737,6 +747,49 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 			log.Info("balance reversed for refund", zap.Float64("amount", amount))
 
 		case "subscription":
+			// Per Article 32 of Russian Consumer Protection Law: deduct actual expenses
+			// (cost of AI tokens used during the subscription period).
+			var tokenCostUSD float64
+			err := db.QueryRow(ctx,
+				`SELECT COALESCE(SUM(cost_usd), 0)
+				   FROM token_usage
+				  WHERE user_id = $1 AND created_at >= $2`,
+				userID, *paidAt,
+			).Scan(&tokenCostUSD)
+			if err != nil {
+				log.Error("failed to calculate token costs", zap.Error(err))
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(errorResponse{Error: "failed to calculate refund amount"})
+				return
+			}
+
+			// Convert USD costs to RUB.
+			usdToRub := rateSvc.GetUSDToRUB()
+			tokenCostRUB := tokenCostUSD * usdToRub
+
+			// Round up to kopecks (ceil).
+			tokenCostRUB = math.Ceil(tokenCostRUB*100) / 100
+
+			refundAmount = amount - tokenCostRUB
+			if refundAmount < 0 {
+				refundAmount = 0
+			}
+
+			log.Info("subscription refund calculated",
+				zap.Float64("payment_amount", amount),
+				zap.Float64("token_cost_usd", tokenCostUSD),
+				zap.Float64("usd_to_rub", usdToRub),
+				zap.Float64("token_cost_rub", tokenCostRUB),
+				zap.Float64("refund_amount", refundAmount))
+
+			if refundAmount == 0 {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				json.NewEncoder(w).Encode(errorResponse{
+					Error: fmt.Sprintf("token usage costs (%.2f₽) exceed payment amount (%.2f₽), no refund available", tokenCostRUB, amount),
+				})
+				return
+			}
+
 			if err := planUpdater.SetPlan(userID, "free", nil); err != nil {
 				log.Error("failed to downgrade plan for refund", zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
@@ -746,16 +799,25 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 			log.Info("subscription downgraded to free for refund", zap.String("previous_plan", plan))
 		}
 
-		// Call T-Bank Cancel API (full refund: amount=0).
+		// Call T-Bank Cancel API.
+		// For partial refund (subscription with deductions): pass amount in kopecks.
+		// For full refund (balance_topup): pass 0 (T-Bank refunds full amount).
 		if invoiceID != "" {
-			_, err := client.Cancel(ctx, invoiceID, 0)
+			refundKopecks := int64(0) // full refund
+			if paymentType == "subscription" && refundAmount < amount {
+				refundKopecks = int64(refundAmount * 100)
+			}
+			_, err := client.Cancel(ctx, invoiceID, refundKopecks)
 			if err != nil {
-				log.Error("TBank Cancel API failed", zap.Error(err), zap.String("invoice_id", invoiceID))
+				log.Error("TBank Cancel API failed", zap.Error(err),
+					zap.String("invoice_id", invoiceID),
+					zap.Int64("refund_kopecks", refundKopecks))
 				w.WriteHeader(http.StatusInternalServerError)
 				json.NewEncoder(w).Encode(errorResponse{Error: "failed to process refund with payment provider"})
 				return
 			}
-			log.Info("TBank payment cancelled", zap.String("invoice_id", invoiceID))
+			log.Info("TBank payment refunded", zap.String("invoice_id", invoiceID),
+				zap.Float64("refund_amount", refundAmount))
 		}
 
 		// Update payment status to refunded.
@@ -765,10 +827,13 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 		)
 		if err != nil {
 			log.Error("failed to update payment status to refunded", zap.Error(err))
-			// The refund was already processed at T-Bank, so we log but don't fail.
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "refunded"})
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":        "refunded",
+			"refund_amount": refundAmount,
+			"deducted":      amount - refundAmount,
+		})
 	}
 }

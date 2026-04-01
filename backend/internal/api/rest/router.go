@@ -129,7 +129,7 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	mux.HandleFunc("POST /api/v3/payments/webhook", payment.WebhookHandlerV3(tbankClient, userStore, balanceSvc, db))
 	mux.Handle("GET /api/v3/payments/status/{payment_id}", authMW(http.HandlerFunc(payment.GetPaymentStatusHandlerV3(tbankClient))))
 	mux.Handle("GET /api/v3/payments/history", authMW(http.HandlerFunc(payment.PaymentHistoryHandlerV3(db))))
-	mux.Handle("POST /api/v3/payments/refund", authMW(http.HandlerFunc(payment.RefundHandlerV3(tbankClient, userStore, balanceSvc, db))))
+	mux.Handle("POST /api/v3/payments/refund", authMW(http.HandlerFunc(payment.RefundHandlerV3(tbankClient, userStore, balanceSvc, db, rateSvc))))
 
 	// v2 — Balance endpoints (authenticated).
 	balanceHandler := balance.NewHandler(balanceSvc, log)
