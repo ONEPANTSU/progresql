@@ -123,7 +123,8 @@ func (c *TBankClient) VerifyNotificationToken(params map[string]string, received
 
 // Init creates a payment and returns PaymentId + PaymentURL.
 func (c *TBankClient) Init(ctx context.Context, req TBankInitRequest) (*TBankInitResponse, error) {
-	params := map[string]string{
+	// String params for token generation.
+	tokenParams := map[string]string{
 		"TerminalKey": c.terminalKey,
 		"Amount":      strconv.FormatInt(req.Amount, 10),
 		"OrderId":     req.OrderId,
@@ -131,24 +132,49 @@ func (c *TBankClient) Init(ctx context.Context, req TBankInitRequest) (*TBankIni
 		"PayType":     req.PayType,
 	}
 	if req.CustomerKey != "" {
-		params["CustomerKey"] = req.CustomerKey
+		tokenParams["CustomerKey"] = req.CustomerKey
 	}
 	if req.NotificationURL != "" {
-		params["NotificationURL"] = req.NotificationURL
+		tokenParams["NotificationURL"] = req.NotificationURL
 	}
 	if req.SuccessURL != "" {
-		params["SuccessURL"] = req.SuccessURL
+		tokenParams["SuccessURL"] = req.SuccessURL
 	}
 	if req.FailURL != "" {
-		params["FailURL"] = req.FailURL
+		tokenParams["FailURL"] = req.FailURL
 	}
 	if req.Language != "" {
-		params["Language"] = req.Language
+		tokenParams["Language"] = req.Language
 	}
 
-	params["Token"] = c.GenerateToken(params)
+	token := c.GenerateToken(tokenParams)
 
-	body, err := json.Marshal(params)
+	// Build the actual request body with proper types (Amount as number).
+	reqBody := map[string]interface{}{
+		"TerminalKey": c.terminalKey,
+		"Amount":      req.Amount,
+		"OrderId":     req.OrderId,
+		"Description": req.Description,
+		"PayType":     req.PayType,
+		"Token":       token,
+	}
+	if req.CustomerKey != "" {
+		reqBody["CustomerKey"] = req.CustomerKey
+	}
+	if req.NotificationURL != "" {
+		reqBody["NotificationURL"] = req.NotificationURL
+	}
+	if req.SuccessURL != "" {
+		reqBody["SuccessURL"] = req.SuccessURL
+	}
+	if req.FailURL != "" {
+		reqBody["FailURL"] = req.FailURL
+	}
+	if req.Language != "" {
+		reqBody["Language"] = req.Language
+	}
+
+	body, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("marshalling TBank Init request: %w", err)
 	}
