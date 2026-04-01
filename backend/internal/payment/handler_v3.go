@@ -17,6 +17,14 @@ import (
 	"github.com/onepantsu/progressql/backend/internal/metrics"
 )
 
+// BalanceRefundHandler abstracts the balance deduction for payment refunds.
+type BalanceRefundHandler interface {
+	DeductForRefund(ctx context.Context, userID string, amount float64, description string) error
+}
+
+// refundPolicyDays is the number of days after payment within which a refund is allowed.
+const refundPolicyDays = 14
+
 // stripTimestampSuffix removes the trailing _<unix_timestamp> suffix from an
 // order ID so that it can be parsed by parseOrderPayload.
 // Example: "sub_pro_abc123_1711929600" -> "sub_pro_abc123"
@@ -422,5 +430,345 @@ func GetPaymentStatusHandlerV3(client *TBankClient) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(result)
+	}
+}
+
+// paymentHistoryItem represents a single payment in the history response.
+type paymentHistoryItem struct {
+	ID           string  `json:"id"`
+	InvoiceID    string  `json:"invoice_id"`
+	OrderID      string  `json:"order_id"`
+	Amount       float64 `json:"amount"`
+	Currency     string  `json:"currency"`
+	Status       string  `json:"status"`
+	Plan         string  `json:"plan"`
+	PaymentType  string  `json:"payment_type"`
+	CreatedAt    string  `json:"created_at"`
+	PaidAt       string  `json:"paid_at"`
+	Refundable   bool    `json:"refundable"`
+	RefundReason string  `json:"refund_reason"`
+}
+
+// paymentHistoryResponse is the JSON response for the payment history endpoint.
+type paymentHistoryResponse struct {
+	Payments []paymentHistoryItem `json:"payments"`
+	Total    int                  `json:"total"`
+}
+
+// PaymentHistoryHandlerV3 returns an HTTP handler that lists the authenticated
+// user's payment history with pagination and computed refundability.
+func PaymentHistoryHandlerV3(db *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		claims := auth.ClaimsFromContext(r.Context())
+		if claims == nil || claims.UserID == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
+			return
+		}
+		userID := claims.UserID
+
+		// Parse pagination params.
+		limit := 20
+		offset := 0
+		if v := r.URL.Query().Get("limit"); v != "" {
+			if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+				limit = parsed
+			}
+		}
+		if limit > 100 {
+			limit = 100
+		}
+		if v := r.URL.Query().Get("offset"); v != "" {
+			if parsed, err := strconv.Atoi(v); err == nil && parsed >= 0 {
+				offset = parsed
+			}
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+
+		// Get total count.
+		var total int
+		err := db.QueryRow(ctx,
+			`SELECT COUNT(*) FROM payments WHERE user_id = $1`, userID,
+		).Scan(&total)
+		if err != nil {
+			zap.L().Error("v3/payments/history: count error", zap.Error(err))
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(errorResponse{Error: "failed to fetch payment history"})
+			return
+		}
+
+		if total == 0 {
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(paymentHistoryResponse{
+				Payments: []paymentHistoryItem{},
+				Total:    0,
+			})
+			return
+		}
+
+		// Fetch payments page.
+		rows, err := db.Query(ctx,
+			`SELECT id, COALESCE(invoice_id, ''), COALESCE(order_id, ''),
+			        amount, COALESCE(currency, 'RUB'), status,
+			        COALESCE(plan, 'none'), COALESCE(payment_type, 'subscription'),
+			        created_at, paid_at
+			   FROM payments
+			  WHERE user_id = $1
+			  ORDER BY created_at DESC
+			  LIMIT $2 OFFSET $3`,
+			userID, limit, offset,
+		)
+		if err != nil {
+			zap.L().Error("v3/payments/history: query error", zap.Error(err))
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(errorResponse{Error: "failed to fetch payment history"})
+			return
+		}
+		defer rows.Close()
+
+		now := time.Now().UTC()
+		refundDeadline := now.Add(-refundPolicyDays * 24 * time.Hour)
+
+		var payments []paymentHistoryItem
+		for rows.Next() {
+			var (
+				id, invoiceID, orderID, currency, status, plan, paymentType string
+				amount                                                      float64
+				createdAt                                                   time.Time
+				paidAt                                                      *time.Time
+			)
+			if err := rows.Scan(&id, &invoiceID, &orderID, &amount, &currency,
+				&status, &plan, &paymentType, &createdAt, &paidAt); err != nil {
+				zap.L().Error("v3/payments/history: scan error", zap.Error(err))
+				continue
+			}
+
+			paidAtStr := ""
+			if paidAt != nil {
+				paidAtStr = paidAt.UTC().Format(time.RFC3339)
+			}
+
+			item := paymentHistoryItem{
+				ID:          id,
+				InvoiceID:   invoiceID,
+				OrderID:     orderID,
+				Amount:      amount,
+				Currency:    currency,
+				Status:      status,
+				Plan:        plan,
+				PaymentType: paymentType,
+				CreatedAt:   createdAt.UTC().Format(time.RFC3339),
+				PaidAt:      paidAtStr,
+			}
+
+			// Compute refundability.
+			item.Refundable, item.RefundReason = computeRefundability(
+				ctx, db, userID, status, paymentType, paidAt, refundDeadline,
+			)
+
+			payments = append(payments, item)
+		}
+		if err := rows.Err(); err != nil {
+			zap.L().Error("v3/payments/history: rows iteration error", zap.Error(err))
+		}
+
+		if payments == nil {
+			payments = []paymentHistoryItem{}
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(paymentHistoryResponse{
+			Payments: payments,
+			Total:    total,
+		})
+	}
+}
+
+// computeRefundability checks whether a payment can be refunded according to the
+// refund policy. Returns (refundable, reason) where reason explains why it's NOT
+// refundable (empty string if it is refundable).
+func computeRefundability(
+	ctx context.Context, db *pgxpool.Pool,
+	userID, status, paymentType string,
+	paidAt *time.Time, refundDeadline time.Time,
+) (bool, string) {
+	// Only confirmed payments can be refunded.
+	if status != StatusConfirmed {
+		return false, fmt.Sprintf("payment status is '%s', only confirmed payments can be refunded", status)
+	}
+
+	// Must have a paid_at timestamp.
+	if paidAt == nil {
+		return false, "payment has no paid_at timestamp"
+	}
+
+	// Must be within the 14-day refund window.
+	if paidAt.Before(refundDeadline) {
+		return false, fmt.Sprintf("refund period expired (paid %d days ago, limit is %d days)",
+			int(time.Since(*paidAt).Hours()/24), refundPolicyDays)
+	}
+
+	switch paymentType {
+	case "subscription":
+		// Subscription: refundable within 14 days, no extra conditions.
+		return true, ""
+
+	case "balance_topup":
+		// Balance top-up: refundable only if no charges (model_charge, over_quota_charge)
+		// happened after the payment's paid_at timestamp.
+		var chargeCount int
+		err := db.QueryRow(ctx,
+			`SELECT COUNT(*) FROM balance_transactions
+			  WHERE user_id = $1
+			    AND tx_type IN ('model_charge', 'over_quota_charge')
+			    AND created_at > $2`,
+			userID, *paidAt,
+		).Scan(&chargeCount)
+		if err != nil {
+			zap.L().Error("computeRefundability: failed to check balance charges",
+				zap.Error(err), zap.String("user_id", userID))
+			return false, "failed to verify refund eligibility"
+		}
+		if chargeCount > 0 {
+			return false, "balance has been used after this top-up (charges exist)"
+		}
+		return true, ""
+
+	default:
+		return false, fmt.Sprintf("unsupported payment type '%s'", paymentType)
+	}
+}
+
+// refundRequest is the JSON request body for the refund endpoint.
+type refundRequest struct {
+	PaymentID string `json:"payment_id"`
+}
+
+// RefundHandlerV3 returns an HTTP handler that processes payment refund requests.
+// It verifies ownership, checks refundability, reverses side effects (balance or
+// subscription), calls T-Bank Cancel API, and marks the payment as refunded.
+func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund BalanceRefundHandler, db *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		claims := auth.ClaimsFromContext(r.Context())
+		if claims == nil || claims.UserID == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
+			return
+		}
+		userID := claims.UserID
+
+		var reqBody refundRequest
+		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+			return
+		}
+		if reqBody.PaymentID == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errorResponse{Error: "payment_id is required"})
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+		defer cancel()
+
+		log := zap.L().With(
+			zap.String("handler", "v3/refund"),
+			zap.String("user_id", userID),
+			zap.String("payment_id", reqBody.PaymentID),
+		)
+
+		// Look up payment by ID.
+		var (
+			paymentUserID, invoiceID, status, paymentType, plan string
+			amount                                               float64
+			paidAt                                               *time.Time
+		)
+		err := db.QueryRow(ctx,
+			`SELECT user_id, COALESCE(invoice_id, ''), status,
+			        COALESCE(payment_type, 'subscription'), COALESCE(plan, 'none'),
+			        amount, paid_at
+			   FROM payments WHERE id = $1`,
+			reqBody.PaymentID,
+		).Scan(&paymentUserID, &invoiceID, &status, &paymentType, &plan, &amount, &paidAt)
+		if err != nil {
+			log.Error("payment not found", zap.Error(err))
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(errorResponse{Error: "payment not found"})
+			return
+		}
+
+		// Verify ownership.
+		if paymentUserID != userID {
+			log.Warn("payment does not belong to user",
+				zap.String("payment_owner", paymentUserID))
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(errorResponse{Error: "payment not found"})
+			return
+		}
+
+		// Check refundability.
+		now := time.Now().UTC()
+		refundDeadline := now.Add(-refundPolicyDays * 24 * time.Hour)
+		refundable, reason := computeRefundability(ctx, db, userID, status, paymentType, paidAt, refundDeadline)
+		if !refundable {
+			log.Info("refund denied", zap.String("reason", reason))
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			json.NewEncoder(w).Encode(errorResponse{Error: reason})
+			return
+		}
+
+		// Reverse side effects based on payment type.
+		switch paymentType {
+		case "balance_topup":
+			description := fmt.Sprintf("Refund for payment %s", reqBody.PaymentID)
+			if err := balanceRefund.DeductForRefund(ctx, userID, amount, description); err != nil {
+				log.Error("failed to deduct balance for refund", zap.Error(err))
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(errorResponse{Error: "failed to reverse balance: " + err.Error()})
+				return
+			}
+			log.Info("balance reversed for refund", zap.Float64("amount", amount))
+
+		case "subscription":
+			if err := planUpdater.SetPlan(userID, "free", nil); err != nil {
+				log.Error("failed to downgrade plan for refund", zap.Error(err))
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(errorResponse{Error: "failed to downgrade subscription"})
+				return
+			}
+			log.Info("subscription downgraded to free for refund", zap.String("previous_plan", plan))
+		}
+
+		// Call T-Bank Cancel API (full refund: amount=0).
+		if invoiceID != "" {
+			_, err := client.Cancel(ctx, invoiceID, 0)
+			if err != nil {
+				log.Error("TBank Cancel API failed", zap.Error(err), zap.String("invoice_id", invoiceID))
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(errorResponse{Error: "failed to process refund with payment provider"})
+				return
+			}
+			log.Info("TBank payment cancelled", zap.String("invoice_id", invoiceID))
+		}
+
+		// Update payment status to refunded.
+		_, err = db.Exec(ctx,
+			`UPDATE payments SET status = $1, updated_at = NOW() WHERE id = $2`,
+			StatusRefunded, reqBody.PaymentID,
+		)
+		if err != nil {
+			log.Error("failed to update payment status to refunded", zap.Error(err))
+			// The refund was already processed at T-Bank, so we log but don't fail.
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "refunded"})
 	}
 }

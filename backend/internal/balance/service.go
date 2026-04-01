@@ -273,6 +273,62 @@ func (s *Service) Refund(ctx context.Context, userID string, amount float64, des
 	return nil
 }
 
+// DeductForRefund subtracts the specified amount from the user's balance as part of
+// a payment refund reversal. Returns ErrInsufficientBalance if the user does not
+// have enough funds. Records a 'payment_refund' transaction in the ledger.
+func (s *Service) DeductForRefund(ctx context.Context, userID string, amount float64, description string) error {
+	if amount <= 0 {
+		return fmt.Errorf("balance: deduct amount must be positive, got %.6f", amount)
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("balance: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var currentBalance float64
+	err = tx.QueryRow(ctx,
+		`SELECT balance FROM users WHERE id = $1 FOR UPDATE`, userID,
+	).Scan(&currentBalance)
+	if err != nil {
+		return fmt.Errorf("balance: lock user %s: %w", userID, err)
+	}
+
+	if currentBalance < amount {
+		return ErrInsufficientBalance
+	}
+
+	newBalance := currentBalance - amount
+
+	_, err = tx.Exec(ctx,
+		`UPDATE users SET balance = $1 WHERE id = $2`, newBalance, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("balance: update balance for user %s: %w", userID, err)
+	}
+
+	_, err = tx.Exec(ctx,
+		`INSERT INTO balance_transactions (user_id, amount, balance_after, tx_type, description)
+		 VALUES ($1, $2, $3, 'payment_refund', $4)`,
+		userID, -amount, newBalance, description,
+	)
+	if err != nil {
+		return fmt.Errorf("balance: insert payment_refund transaction: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("balance: commit payment refund deduction: %w", err)
+	}
+
+	s.logger.Info("balance deducted for payment refund",
+		zap.String("user_id", userID),
+		zap.Float64("amount", amount),
+		zap.Float64("new_balance", newBalance),
+	)
+	return nil
+}
+
 // GetHistory returns recent balance transactions for the given user, ordered by
 // created_at descending (newest first). Returns the page of transactions, the
 // total count of all transactions for the user, and any error.

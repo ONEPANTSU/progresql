@@ -53,6 +53,7 @@ const (
 	StatusConfirmed = "confirmed"
 	StatusFailed    = "failed"
 	StatusExpired   = "expired"
+	StatusRefunded  = "refunded"
 )
 
 type errorResponse struct {

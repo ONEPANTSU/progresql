@@ -37,6 +37,7 @@ import {
   Star as StarIcon,
   AccountBalanceWallet as WalletIcon,
   TrendingUp as TrendingUpIcon,
+  ReceiptLong as ReceiptLongIcon,
 } from '@mui/icons-material';
 import { useAgent } from '../contexts/AgentContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -48,6 +49,7 @@ import { useModels } from '../hooks/useModels';
 import PaymentModal from './PaymentModal';
 import BalanceTopUpModal from './BalanceTopUpModal';
 import UsageDashboard from './UsageDashboard';
+import PaymentHistory from './PaymentHistory';
 
 interface SettingsPanelProps {
   open: boolean;
@@ -103,6 +105,7 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [paymentModalOpen, setPaymentModalOpen] = React.useState(false);
   const [balanceTopUpModalOpen, setBalanceTopUpModalOpen] = React.useState(false);
   const [usageDashboardOpen, setUsageDashboardOpen] = React.useState(false);
+  const [paymentHistoryOpen, setPaymentHistoryOpen] = React.useState(false);
 
   // Dynamic price state
   const [currentPrice, setCurrentPrice] = React.useState<number>(1999);
@@ -316,6 +319,25 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               }}
             >
               {t('balance.topUp')}
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              size="small"
+              onClick={() => setPaymentHistoryOpen(true)}
+              startIcon={<ReceiptLongIcon sx={{ fontSize: 14 }} />}
+              sx={{
+                mt: 0.75,
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                height: 32,
+                borderColor: 'rgba(99,102,241,0.3)',
+                color: '#6366f1',
+                '&:hover': { borderColor: '#6366f1', bgcolor: 'rgba(99,102,241,0.06)' },
+              }}
+            >
+              {language === 'ru' ? 'История платежей' : 'Payment History'}
             </Button>
             <Button
               variant="outlined"
@@ -649,6 +671,10 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     <UsageDashboard
       open={usageDashboardOpen}
       onClose={() => setUsageDashboardOpen(false)}
+    />
+    <PaymentHistory
+      open={paymentHistoryOpen}
+      onClose={() => setPaymentHistoryOpen(false)}
     />
     </>
   );
