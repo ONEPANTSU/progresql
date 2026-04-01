@@ -275,7 +275,7 @@ func (s *Service) Refund(ctx context.Context, userID string, amount float64, des
 
 // DeductForRefund subtracts the specified amount from the user's balance as part of
 // a payment refund reversal. Returns ErrInsufficientBalance if the user does not
-// have enough funds. Records a 'payment_refund' transaction in the ledger.
+// have enough funds. Records a 'refund' transaction in the ledger.
 func (s *Service) DeductForRefund(ctx context.Context, userID string, amount float64, description string) error {
 	if amount <= 0 {
 		return fmt.Errorf("balance: deduct amount must be positive, got %.6f", amount)
@@ -310,11 +310,11 @@ func (s *Service) DeductForRefund(ctx context.Context, userID string, amount flo
 
 	_, err = tx.Exec(ctx,
 		`INSERT INTO balance_transactions (user_id, amount, balance_after, tx_type, description)
-		 VALUES ($1, $2, $3, 'payment_refund', $4)`,
+		 VALUES ($1, $2, $3, 'refund', $4)`,
 		userID, -amount, newBalance, description,
 	)
 	if err != nil {
-		return fmt.Errorf("balance: insert payment_refund transaction: %w", err)
+		return fmt.Errorf("balance: insert refund transaction: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
