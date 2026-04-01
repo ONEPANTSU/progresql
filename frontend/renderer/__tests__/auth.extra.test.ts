@@ -275,7 +275,7 @@ describe('auth service (extended coverage)', () => {
       await expect(createPaymentInvoice()).rejects.toThrow('Failed to create payment invoice');
     });
 
-    it('uses custom payment method when provided', async () => {
+    it('does not send payment_method in v3 (T-Bank handles method selection)', async () => {
       localStorage.setItem(TOKEN_KEY, 'token');
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
@@ -286,9 +286,9 @@ describe('auth service (extended coverage)', () => {
       await createPaymentInvoice(5);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.any(String),
+        expect.stringContaining('/api/v3/payments/create-invoice'),
         expect.objectContaining({
-          body: expect.stringContaining('"payment_method":5'),
+          body: expect.not.stringContaining('"payment_method"'),
         })
       );
     });

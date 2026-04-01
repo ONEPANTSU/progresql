@@ -121,14 +121,13 @@ export async function createPaymentInvoice(
   const token = getAuthToken();
   const body: Record<string, unknown> = {
     currency: 'RUB',
-    payment_method: paymentMethod,
     payment_type: options?.paymentType ?? 'subscription',
     plan: options?.plan ?? 'pro',
   };
   if (options?.paymentType === 'balance_topup' && options?.amount) {
     body.amount = options.amount;
   }
-  const res = await fetch(`${baseUrl}/api/v2/payments/create-invoice`, {
+  const res = await fetch(`${baseUrl}/api/v3/payments/create-invoice`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -148,7 +147,7 @@ export async function createPaymentInvoice(
 export async function fetchPrices(): Promise<import('../types').PricesResponse> {
   const baseUrl = getBackendUrl();
   const token = getAuthToken();
-  const res = await fetch(`${baseUrl}/api/v2/payment/prices`, {
+  const res = await fetch(`${baseUrl}/api/v3/payment/prices`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) throw new Error('Failed to fetch prices');

@@ -122,6 +122,13 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	mux.Handle("GET /api/v2/payment/prices", authMW(http.HandlerFunc(payment.PriceHandlerV2(db))))
 	mux.HandleFunc("POST /api/v2/payments/webhook", payment.WebhookHandlerV2(userStore, balanceSvc, db, cfg.PlategaMerchantID, cfg.PlategaSecret))
 
+	// v3 — T-Bank payment routes.
+	tbankClient := payment.NewTBankClient(cfg.TBankTerminalKey, cfg.TBankPassword)
+	mux.Handle("POST /api/v3/payments/create-invoice", authMW(http.HandlerFunc(payment.CreateInvoiceHandlerV3(tbankClient, userStore, db, cfg.TBankNotificationURL))))
+	mux.Handle("GET /api/v3/payment/prices", authMW(http.HandlerFunc(payment.PriceHandlerV2(db))))
+	mux.HandleFunc("POST /api/v3/payments/webhook", payment.WebhookHandlerV3(tbankClient, userStore, balanceSvc, db))
+	mux.Handle("GET /api/v3/payments/status/{payment_id}", authMW(http.HandlerFunc(payment.GetPaymentStatusHandlerV3(tbankClient))))
+
 	// v2 — Balance endpoints (authenticated).
 	balanceHandler := balance.NewHandler(balanceSvc, log)
 	mux.Handle("GET /api/v2/balance", authMW(http.HandlerFunc(balanceHandler.GetBalanceHandler)))

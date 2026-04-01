@@ -14,8 +14,6 @@ import {
 } from '@mui/material';
 import {
   Close as CloseIcon,
-  CreditCard as CreditCardIcon,
-  QrCode as QrCodeIcon,
   AccountBalanceWallet as WalletIcon,
 } from '@mui/icons-material';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -37,7 +35,6 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
   const [balance, setBalance] = React.useState<BalanceInfo | null>(null);
   const [selectedAmount, setSelectedAmount] = React.useState<number | null>(null);
   const [customAmount, setCustomAmount] = React.useState('');
-  const [selectedMethod, setSelectedMethod] = React.useState<'card' | 'sbp' | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = React.useState(false);
@@ -49,7 +46,6 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
     setError(null);
     setSelectedAmount(null);
     setCustomAmount('');
-    setSelectedMethod(null);
     fetchBalance()
       .then(setBalance)
       .catch(() => setBalance(null))
@@ -76,16 +72,13 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
     setError(null);
   };
 
-  const handleSelectMethod = async (method: 'card' | 'sbp') => {
+  const handleTopUp = async () => {
     if (loading || !canSubmit) return;
-    setSelectedMethod(method);
     setLoading(true);
     setError(null);
 
-    const paymentMethod = method === 'card' ? 11 : 2;
-
     try {
-      const { payment_url } = await createPaymentInvoice(paymentMethod, {
+      const { payment_url } = await createPaymentInvoice(11, {
         paymentType: 'balance_topup',
         amount: effectiveAmount,
       });
@@ -104,33 +97,6 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
       setLoading(false);
     }
   };
-
-  const methodSx = (method: 'card' | 'sbp') => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: 2,
-    p: '10px 14px',
-    borderRadius: 2,
-    border: '1.5px solid',
-    borderColor:
-      selectedMethod === method && loading
-        ? '#6366f1'
-        : 'rgba(99,102,241,0.2)',
-    bgcolor:
-      selectedMethod === method && loading
-        ? 'rgba(99,102,241,0.1)'
-        : 'rgba(99,102,241,0.04)',
-    cursor: loading || !canSubmit ? 'not-allowed' : 'pointer',
-    opacity: !canSubmit && !loading ? 0.5 : 1,
-    transition: 'all 0.18s ease',
-    '&:hover':
-      loading || !canSubmit
-        ? {}
-        : {
-            borderColor: '#6366f1',
-            bgcolor: 'rgba(99,102,241,0.1)',
-          },
-  });
 
   const presetSx = (amount: number) => ({
     minWidth: 'auto',
@@ -272,37 +238,28 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
           </Box>
         )}
 
-        {/* Payment methods */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
-          <Box
-            onClick={() => handleSelectMethod('card')}
-            sx={methodSx('card')}
-            data-testid="balance-payment-card"
+        {/* Top up button */}
+        <Box sx={{ mb: 2 }}>
+          <Button
+            fullWidth
+            variant="contained"
+            disabled={loading || !canSubmit}
+            onClick={() => handleTopUp()}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              py: 1.5,
+              fontSize: '1rem',
+              background: (loading || !canSubmit) ? undefined : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
+            }}
           >
-            {loading && selectedMethod === 'card' ? (
-              <CircularProgress size={22} sx={{ color: '#6366f1', flexShrink: 0 }} />
+            {loading ? (
+              <CircularProgress size={22} sx={{ color: '#fff' }} />
             ) : (
-              <CreditCardIcon sx={{ fontSize: 22, color: '#6366f1', flexShrink: 0 }} />
+              language === 'ru' ? 'Пополнить' : 'Top Up'
             )}
-            <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
-              {t('payment.card')}
-            </Typography>
-          </Box>
-
-          <Box
-            onClick={() => handleSelectMethod('sbp')}
-            sx={methodSx('sbp')}
-            data-testid="balance-payment-sbp"
-          >
-            {loading && selectedMethod === 'sbp' ? (
-              <CircularProgress size={22} sx={{ color: '#6366f1', flexShrink: 0 }} />
-            ) : (
-              <QrCodeIcon sx={{ fontSize: 22, color: '#6366f1', flexShrink: 0 }} />
-            )}
-            <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
-              {t('payment.sbp')}
-            </Typography>
-          </Box>
+          </Button>
         </Box>
 
         {/* Error message */}
