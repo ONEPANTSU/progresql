@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -27,6 +27,107 @@ import {
 import { createLogger } from '../utils/logger';
 import { getDescription, setDescription as saveDescription } from '../utils/descriptionStorage';
 import { useTranslation } from '../contexts/LanguageContext';
+import { EditorView, basicSetup } from 'codemirror';
+import { EditorState } from '@codemirror/state';
+import { sql, PostgreSQL } from '@codemirror/lang-sql';
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { EditorView as EditorViewTheme } from '@codemirror/view';
+import { tags } from '@lezer/highlight';
+
+// Mini CodeMirror theme for function editing in modal
+const modalEditorTheme = EditorViewTheme.theme({
+  '&': { backgroundColor: '#1a1d23', color: '#e6edf3', borderRadius: '8px', fontSize: '14px' },
+  '.cm-content': { caretColor: '#58a6ff', padding: '12px', fontFamily: 'monospace', minHeight: '120px' },
+  '.cm-gutters': { backgroundColor: '#1a1d23', color: '#484f58', border: 'none', borderRadius: '8px 0 0 8px' },
+  '.cm-activeLine': { backgroundColor: '#161b2280' },
+  '&.cm-focused': { outline: '2px solid #8b5cf6' },
+  '.cm-scroller': { overflow: 'auto', maxHeight: '400px' },
+  '.cm-cursor': { borderLeftColor: '#58a6ff' },
+  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: '#3a6fbf' },
+}, { dark: true });
+
+const modalHighlight = HighlightStyle.define([
+  { tag: tags.keyword, color: '#c678dd' },
+  { tag: tags.operatorKeyword, color: '#c678dd' },
+  { tag: tags.definitionKeyword, color: '#c678dd' },
+  { tag: tags.typeName, color: '#e5c07b' },
+  { tag: tags.string, color: '#98c379' },
+  { tag: tags.number, color: '#d19a66' },
+  { tag: tags.comment, color: '#5c6370', fontStyle: 'italic' },
+  { tag: tags.operator, color: '#56b6c2' },
+  { tag: tags.punctuation, color: '#abb2bf' },
+  { tag: tags.variableName, color: '#e6edf3' },
+  { tag: tags.function(tags.variableName), color: '#61afef' },
+]);
+
+/** Inline CodeMirror SQL editor for modal */
+function MiniSQLEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
+  const [cmReady, setCmReady] = useState(false);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    try {
+      const state = EditorState.create({
+        doc: value,
+        extensions: [
+          basicSetup,
+          sql({ dialect: PostgreSQL }),
+          modalEditorTheme,
+          syntaxHighlighting(modalHighlight),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) {
+              onChange(update.state.doc.toString());
+            }
+          }),
+        ],
+      });
+
+      const view = new EditorView({ state, parent: containerRef.current });
+      viewRef.current = view;
+      setCmReady(true);
+
+      return () => { view.destroy(); };
+    } catch {
+      // CodeMirror not available (e.g. in tests) — fallback textarea handles it
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <Box sx={{ position: 'relative' }}>
+      <Box
+        ref={containerRef}
+        sx={{
+          border: '1px solid rgba(139,92,246,0.3)',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          '& .cm-editor': { borderRadius: '8px' },
+        }}
+      />
+      {/* Fallback textarea for test environments where CodeMirror cannot initialize */}
+      {!cmReady && (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            width: '100%',
+            minHeight: '120px',
+            backgroundColor: '#1a1d23',
+            color: '#e6edf3',
+            fontFamily: 'monospace',
+            fontSize: '14px',
+            border: '1px solid rgba(139,92,246,0.3)',
+            borderRadius: '8px',
+            padding: '12px',
+            resize: 'vertical',
+          }}
+        />
+      )}
+    </Box>
+  );
+}
 
 /** Highlight SQL keywords, strings, and numbers for display. */
 function highlightSQL(sql: string): React.ReactNode[] {
@@ -234,6 +335,7 @@ export default function ElementDetailsModal({
   const [savingFunction, setSavingFunction] = useState(false);
   const [saveFunctionError, setSaveFunctionError] = useState<string | null>(null);
   const [saveFunctionSuccess, setSaveFunctionSuccess] = useState(false);
+  const [savedFunctionDef, setSavedFunctionDef] = useState<string | null>(null);
 
   // Enum values for type details
   const [enumValues, setEnumValues] = useState<string[]>([]);
@@ -261,6 +363,10 @@ export default function ElementDetailsModal({
     setDropColTarget(null);
     setAlteringCol(null);
     setSqlError(null);
+    setSavedFunctionDef(null);
+    setEditingFunctionBody(false);
+    setSaveFunctionError(null);
+    setSaveFunctionSuccess(false);
     if (element) {
       const schema = element.table_schema || element.routine_schema || element.procedure_schema || element.view_schema || 'public';
       const name = element.table_name || element.routine_name || element.procedure_name || element.view_name ||
@@ -1480,6 +1586,8 @@ export default function ElementDetailsModal({
   const renderFunctionDetails = () => {
     if (elementType !== 'function' || !element) return null;
 
+    const currentFunctionDef = savedFunctionDef || element.routine_definition;
+
     return (
       <Box>
         <SectionHeader icon={<FunctionsIcon sx={{ fontSize: '1rem', color: '#8b5cf6' }} />}>
@@ -1507,26 +1615,9 @@ export default function ElementDetailsModal({
                 <TableCell>
                   <Box sx={{ position: 'relative' }}>
                     {editingFunctionBody ? (
-                      <TextField
-                        multiline
-                        fullWidth
-                        minRows={6}
-                        maxRows={20}
+                      <MiniSQLEditor
                         value={functionBodyDraft}
-                        onChange={(e) => setFunctionBodyDraft(e.target.value)}
-                        variant="outlined"
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            fontFamily: 'monospace',
-                            fontSize: '0.875rem',
-                            lineHeight: 1.5,
-                            bgcolor: 'background.paper',
-                            '& fieldset': { borderColor: 'rgba(139,92,246,0.4)' },
-                            '&:hover fieldset': { borderColor: 'rgba(139,92,246,0.6)' },
-                            '&.Mui-focused fieldset': { borderColor: '#8b5cf6' },
-                          },
-                          '& .MuiInputBase-input': { color: '#e6edf3' },
-                        }}
+                        onChange={(v) => setFunctionBodyDraft(v)}
                       />
                     ) : (
                       <Box sx={{
@@ -1546,14 +1637,14 @@ export default function ElementDetailsModal({
                         '&::-webkit-scrollbar-track': { bgcolor: 'grey.100', borderRadius: '4px' },
                         '&::-webkit-scrollbar-thumb': { bgcolor: 'grey.400', borderRadius: '4px', '&:hover': { bgcolor: 'grey.500' } },
                       }}>
-                        {element.routine_definition ? highlightSQL(element.routine_definition) : 'No function code available'}
+                        {currentFunctionDef ? highlightSQL(currentFunctionDef) : 'No function code available'}
                       </Box>
                     )}
-                    {!editingFunctionBody && element.routine_definition && (
+                    {!editingFunctionBody && currentFunctionDef && (
                       <Tooltip title={t('details.copyCode')}>
                         <IconButton
                           size="small"
-                          onClick={() => copyToClipboard(element.routine_definition)}
+                          onClick={() => copyToClipboard(currentFunctionDef)}
                           sx={{
                             position: 'absolute',
                             top: 8,
@@ -1584,7 +1675,7 @@ export default function ElementDetailsModal({
           </Alert>
         )}
 
-        {element.routine_definition && (
+        {currentFunctionDef && (
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 2 }}>
             {editingFunctionBody ? (
               <>
@@ -1622,6 +1713,7 @@ export default function ElementDetailsModal({
                         const result = await onExecuteSQL(sqlToExecute);
                         if (result.success) {
                           setSaveFunctionSuccess(true);
+                          setSavedFunctionDef(functionBodyDraft);
                           setEditingFunctionBody(false);
                           onRefreshData?.();
                         } else {
@@ -1653,7 +1745,7 @@ export default function ElementDetailsModal({
                 variant="outlined"
                 startIcon={<EditIcon />}
                 onClick={() => {
-                  setFunctionBodyDraft(element.routine_definition || '');
+                  setFunctionBodyDraft(currentFunctionDef || '');
                   setEditingFunctionBody(true);
                   setSaveFunctionError(null);
                   setSaveFunctionSuccess(false);

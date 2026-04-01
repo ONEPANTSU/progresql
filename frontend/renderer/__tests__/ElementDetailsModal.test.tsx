@@ -57,6 +57,29 @@ jest.mock('../utils/userStorage', () => ({
   userKey: jest.fn((suffix: string) => `progresql-${suffix}`),
 }));
 
+// Mock CodeMirror modules so MiniSQLEditor renders a simple textarea in tests
+jest.mock('codemirror', () => ({
+  EditorView: class { destroy() {} },
+  basicSetup: [],
+}));
+jest.mock('@codemirror/state', () => ({
+  EditorState: { create: () => ({}) },
+}));
+jest.mock('@codemirror/lang-sql', () => ({
+  sql: () => [],
+  PostgreSQL: {},
+}));
+jest.mock('@codemirror/language', () => ({
+  HighlightStyle: { define: () => [] },
+  syntaxHighlighting: () => [],
+}));
+jest.mock('@codemirror/view', () => ({
+  EditorView: { theme: () => [], updateListener: { of: () => [] } },
+}));
+jest.mock('@lezer/highlight', () => ({
+  tags: new Proxy({}, { get: () => () => ({}) }),
+}));
+
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 const mockFunction = {
