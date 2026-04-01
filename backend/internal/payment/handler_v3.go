@@ -139,6 +139,23 @@ func CreateInvoiceHandlerV3(client *TBankClient, userStore *auth.UserStore, db *
 		// Amount in kopecks for T-Bank.
 		amountKopecks := int64(invoiceAmount * 100)
 
+		// Build 54-FZ receipt.
+		receipt := &TBankReceipt{
+			Email:    user.Email,
+			Taxation: "usn_income",
+			Items: []TBankReceiptItem{
+				{
+					Name:          description,
+					Price:         amountKopecks,
+					Quantity:      1.00,
+					Amount:        amountKopecks,
+					Tax:           "none",
+					PaymentMethod: "full_payment",
+					PaymentObject: "service",
+				},
+			},
+		}
+
 		result, err := client.Init(r.Context(), TBankInitRequest{
 			Amount:          amountKopecks,
 			OrderId:         orderID,
@@ -149,6 +166,7 @@ func CreateInvoiceHandlerV3(client *TBankClient, userStore *auth.UserStore, db *
 			FailURL:         reqBody.FailRedirectURL,
 			PayType:         "O",
 			Language:        "ru",
+			Receipt:         receipt,
 		})
 		if err != nil {
 			zap.L().Error("v3/create-invoice: TBank error",

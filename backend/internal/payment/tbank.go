@@ -49,6 +49,25 @@ type TBankInitRequest struct {
 	FailURL         string // redirect after failure
 	Language        string // "ru" or "en"
 	PayType         string // "O" for one-stage
+	Receipt         *TBankReceipt // 54-FZ receipt (not included in token calculation)
+}
+
+// TBankReceipt represents the Receipt object for 54-FZ compliance.
+type TBankReceipt struct {
+	Email    string            `json:"Email,omitempty"`
+	Taxation string            `json:"Taxation"` // usn_income, usn_income_outcome, osn, etc.
+	Items    []TBankReceiptItem `json:"Items"`
+}
+
+// TBankReceiptItem represents a single item in the receipt.
+type TBankReceiptItem struct {
+	Name          string  `json:"Name"`
+	Price         int64   `json:"Price"`         // in kopecks
+	Quantity      float64 `json:"Quantity"`
+	Amount        int64   `json:"Amount"`        // Price * Quantity in kopecks
+	Tax           string  `json:"Tax"`           // none, vat10, vat20, etc.
+	PaymentMethod string  `json:"PaymentMethod"` // full_payment, prepayment, etc.
+	PaymentObject string  `json:"PaymentObject"` // service, commodity, payment, etc.
 }
 
 // TBankInitResponse is the response from Init.
@@ -172,6 +191,9 @@ func (c *TBankClient) Init(ctx context.Context, req TBankInitRequest) (*TBankIni
 	}
 	if req.Language != "" {
 		reqBody["Language"] = req.Language
+	}
+	if req.Receipt != nil {
+		reqBody["Receipt"] = req.Receipt
 	}
 
 	body, err := json.Marshal(reqBody)

@@ -27,7 +27,7 @@ interface BalanceTopUpModalProps {
 
 const PRESET_AMOUNTS = [100, 500, 1000, 5000, 10000] as const;
 const MIN_AMOUNT = 100;
-const MAX_AMOUNT = 100000;
+const MAX_AMOUNT = 50000;
 
 export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalProps) {
   const { t, language } = useTranslation();

@@ -22,7 +22,7 @@ const (
 	PriceProRUB     = 1999.0
 	PriceProPlusRUB = 5999.0
 	MinBalanceTopUp = 100.0
-	MaxBalanceTopUp = 100000.0
+	MaxBalanceTopUp = 50000.0
 )
 
 // resolvePlanPrice returns the price in RUB for the given subscription plan.
