@@ -68,15 +68,21 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
   '.cm-completionIcon': { opacity: 0.7 },
   '.cm-completionDetail': { color: '#8b949e', fontStyle: 'italic', marginLeft: '8px' },
 
-  // Search panel — floating top-right, compact
-  '.cm-panels.cm-panels-top': {
-    border: 'none',
-    backgroundColor: 'transparent',
+  // Search panel — floating overlay in top-right corner of editor
+  '& .cm-panels': {
     position: 'absolute',
-    top: '4px',
-    right: '4px',
+    top: 0,
+    right: 0,
     left: 'auto',
-    zIndex: 10,
+    bottom: 'auto',
+    zIndex: 20,
+    backgroundColor: 'transparent',
+    border: 'none',
+    width: 'auto',
+    pointerEvents: 'auto',
+  },
+  '& .cm-panels.cm-panels-top': {
+    borderBottom: 'none',
   },
   '.cm-panel.cm-search': {
     backgroundColor: '#1e1e2e',
