@@ -90,6 +90,7 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
     fontSize: '13px',
     boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
     flexWrap: 'wrap',
+    maxWidth: '420px',
   },
   '.cm-panel.cm-search input[type="text"], .cm-panel.cm-search .cm-textfield': {
     backgroundColor: '#2a2a3e',
@@ -101,6 +102,8 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
     outline: 'none',
     fontFamily: 'monospace',
     width: '180px',
+    flex: '1 1 140px',
+    minWidth: '100px',
   },
   '.cm-panel.cm-search input[type="text"]:focus, .cm-panel.cm-search .cm-textfield:focus': {
     borderColor: '#8b5cf6',
@@ -130,8 +133,26 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
     backgroundColor: '#7c3aed !important',
     borderColor: '#7c3aed !important',
   },
-  // Close button — minimal
+  '.cm-panel.cm-search button[name=close]:hover': {
+    backgroundColor: '#3a3a4e !important',
+    color: '#e6edf3 !important',
+  },
+  // Hide useless: "all" button, checkboxes
+  '.cm-panel.cm-search button[name=select]': { display: 'none !important' },
+  '.cm-panel.cm-search label': { display: 'none !important' },
+  // Two-row layout: Find row (input, next, prev, ×), Replace row (input, replace, replace all)
+  // br acts as flex line-break
+  '.cm-panel.cm-search br': {
+    display: 'block',
+    flexBasis: '100%',
+    height: 0,
+    margin: 0,
+    border: 'none',
+    order: 5,
+  },
+  // Close button on first row
   '.cm-panel.cm-search button[name=close]': {
+    order: 4,
     backgroundColor: 'transparent !important',
     color: '#8b949e !important',
     border: 'none !important',
@@ -141,14 +162,10 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
     cursor: 'pointer',
     lineHeight: '1',
   },
-  '.cm-panel.cm-search button[name=close]:hover': {
-    backgroundColor: '#3a3a4e !important',
-    color: '#e6edf3 !important',
-  },
-  // Hide useless: "all" button, checkboxes
-  '.cm-panel.cm-search button[name=select]': { display: 'none !important' },
-  '.cm-panel.cm-search label': { display: 'none !important' },
-  '.cm-panel.cm-search br': { display: 'none' },
+  // Replace row elements after line-break
+  '.cm-panel.cm-search input[name=replace]': { order: 6 },
+  '.cm-panel.cm-search button[name=replace]': { order: 7 },
+  '.cm-panel.cm-search button[name=replaceAll]': { order: 8 },
   '.cm-searchMatch': {
     backgroundColor: '#e2c08d55',
     outline: '1px solid #c8a97180',
