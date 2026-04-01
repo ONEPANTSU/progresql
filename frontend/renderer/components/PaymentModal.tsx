@@ -206,13 +206,6 @@ export default function PaymentModal({
           </Box>
         </Box>
 
-        {/* Selected plan price */}
-        <Box sx={{ textAlign: 'center', mb: 2 }}>
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            {selectedPlan === 'pro' ? 'Pro' : 'Pro Plus'} — {currentPlanPrice}₽{language === 'ru' ? '/мес' : '/month'}
-          </Typography>
-        </Box>
-
         {/* Pay button */}
         <Box sx={{ mb: 2 }}>
           <Button
@@ -225,6 +218,7 @@ export default function PaymentModal({
               fontWeight: 700,
               py: 1.5,
               fontSize: '1rem',
+              color: '#fff',
               background: paymentLoading ? undefined : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
               '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
             }}

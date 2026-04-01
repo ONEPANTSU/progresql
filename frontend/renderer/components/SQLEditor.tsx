@@ -87,7 +87,7 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
   '.cm-panel.cm-search': {
     backgroundColor: '#1e1e2e',
     borderRadius: '8px',
-    padding: '6px 8px',
+    padding: '6px 28px 6px 8px',
     border: '1px solid #30363d',
     display: 'flex',
     gap: '4px',
@@ -97,6 +97,7 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
     boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
     flexWrap: 'wrap',
     maxWidth: '420px',
+    position: 'relative',
   },
   '.cm-panel.cm-search input[type="text"], .cm-panel.cm-search .cm-textfield': {
     backgroundColor: '#2a2a3e',
@@ -158,16 +159,18 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
   },
   // Close button on first row
   '.cm-panel.cm-search button[name=close]': {
-    order: 4,
-    marginLeft: '8px !important',
+    position: 'absolute !important' as any,
+    top: '6px !important',
+    right: '4px !important',
     backgroundColor: 'transparent !important',
     color: '#8b949e !important',
     border: 'none !important',
     borderRadius: '4px !important',
-    padding: '2px 6px !important',
-    fontSize: '16px !important',
+    padding: '2px 4px !important',
+    fontSize: '14px !important',
     cursor: 'pointer',
     lineHeight: '1',
+    zIndex: 1,
   },
   // Replace row elements after line-break
   '.cm-panel.cm-search input[name=replace]': { order: 6 },

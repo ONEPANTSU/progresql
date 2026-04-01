@@ -232,6 +232,9 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
             onChange={(e) => handleCustomChange(e.target.value)}
             disabled={loading}
             placeholder={`${MIN_AMOUNT} \u2014 ${MAX_AMOUNT.toLocaleString()}`}
+            InputProps={{
+              endAdornment: <Typography sx={{ color: 'text.secondary', fontSize: '0.9rem', ml: 0.5 }}>{'\u20BD'}</Typography>,
+            }}
             error={customAmount !== '' && !isCustomValid}
             helperText={
               customAmount !== '' && Number(customAmount) < MIN_AMOUNT && customAmount !== ''
@@ -248,15 +251,6 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
           />
         )}
 
-        {/* Selected amount summary */}
-        {effectiveAmount > 0 && effectiveAmount >= MIN_AMOUNT && effectiveAmount <= MAX_AMOUNT && (
-          <Box sx={{ textAlign: 'center', mb: 2 }}>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {t('balance.topUpButton')}: {effectiveAmount.toLocaleString()}{'\u20BD'}
-            </Typography>
-          </Box>
-        )}
-
         {/* Top up button */}
         <Box sx={{ mb: 2 }}>
           <Button
@@ -269,6 +263,7 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
               fontWeight: 700,
               py: 1.5,
               fontSize: '1rem',
+              color: '#fff',
               background: (loading || !canSubmit) ? undefined : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
               '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
             }}
