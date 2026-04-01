@@ -91,6 +91,11 @@ func CreateInvoiceHandlerV3(client *TBankClient, userStore *auth.UserStore, db *
 		var description string
 
 		ts := time.Now().Unix()
+		// T-Bank OrderId max ~36 chars. Use first 8 chars of user ID.
+		shortUID := user.ID
+		if len(shortUID) > 8 {
+			shortUID = shortUID[:8]
+		}
 
 		switch reqBody.PaymentType {
 		case "subscription":
@@ -101,7 +106,7 @@ func CreateInvoiceHandlerV3(client *TBankClient, userStore *auth.UserStore, db *
 			}
 			invoiceAmount = resolvePlanPrice(reqBody.Plan)
 			invoiceAmount = applyDiscount(r.Context(), db, user.ID, invoiceAmount)
-			orderID = fmt.Sprintf("sub_%s_%s_%d", reqBody.Plan, user.ID, ts)
+			orderID = fmt.Sprintf("sub_%s_%s_%d", reqBody.Plan, shortUID, ts)
 			planStr := reqBody.Plan
 			paymentPlan = &planStr
 			description = resolveDescription("subscription", reqBody.Plan)
@@ -122,7 +127,7 @@ func CreateInvoiceHandlerV3(client *TBankClient, userStore *auth.UserStore, db *
 				return
 			}
 			invoiceAmount = reqBody.Amount
-			orderID = fmt.Sprintf("bal_%.0f_%s_%d", reqBody.Amount, user.ID, ts)
+			orderID = fmt.Sprintf("bal_%.0f_%s_%d", reqBody.Amount, shortUID, ts)
 			description = resolveDescription("balance_topup", "")
 
 		default:
@@ -283,33 +288,51 @@ func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc B
 			return
 		}
 
-		// Strip timestamp suffix from OrderId and parse to get user ID, plan, amount.
-		cleanOrderID := stripTimestampSuffix(payload.OrderId)
-		parsed, err := parseOrderPayload(cleanOrderID)
-		if err != nil {
-			log.Error("failed to parse order payload",
-				zap.String("order_id", payload.OrderId), zap.Error(err))
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid order_id format"})
+		// Look up payment in DB by invoice_id (PaymentId from T-Bank).
+		// The payment record was created during Init with full user_id, plan, amount.
+		if db == nil {
+			log.Error("database not configured for webhook")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(errorResponse{Error: "database not configured"})
 			return
 		}
 
-		switch parsed.PaymentType {
+		var userID, paymentType, plan string
+		var amount float64
+		{
+			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+			defer cancel()
+			err := db.QueryRow(ctx,
+				`SELECT user_id, payment_type, plan, amount
+				   FROM payments WHERE invoice_id = $1 AND status IN ('created', 'pending')
+				   LIMIT 1`,
+				paymentIDStr).Scan(&userID, &paymentType, &plan, &amount)
+			if err != nil {
+				log.Error("payment not found in DB",
+					zap.String("payment_id", paymentIDStr),
+					zap.String("order_id", payload.OrderId), zap.Error(err))
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(errorResponse{Error: "payment not found"})
+				return
+			}
+		}
+
+		switch paymentType {
 		case "subscription":
 			expiresAt := time.Now().UTC().Add(30 * 24 * time.Hour).Format(time.RFC3339)
 
-			if err := planUpdater.SetPlan(parsed.UserID, parsed.Plan, &expiresAt); err != nil {
+			if err := planUpdater.SetPlan(userID, plan, &expiresAt); err != nil {
 				log.Error("failed to update user plan",
-					zap.String("user_id", parsed.UserID), zap.String("plan", parsed.Plan), zap.Error(err))
+					zap.String("user_id", userID), zap.String("plan", plan), zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
 				json.NewEncoder(w).Encode(errorResponse{Error: "failed to update user plan"})
 				return
 			}
 
-			metrics.UserSubscriptionsActivatedTotal.WithLabelValues(parsed.Plan).Inc()
+			metrics.UserSubscriptionsActivatedTotal.WithLabelValues(plan).Inc()
 			log.Info("subscription payment confirmed via TBank",
-				zap.String("user_id", parsed.UserID),
-				zap.String("plan", parsed.Plan),
+				zap.String("user_id", userID),
+				zap.String("plan", plan),
 				zap.Int64("payment_id", payload.PaymentId))
 
 		case "balance_topup":
@@ -321,20 +344,20 @@ func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc B
 			}
 
 			description := fmt.Sprintf("Top-up via TBank (payment: %d)", payload.PaymentId)
-			if err := balanceSvc.TopUp(r.Context(), parsed.UserID, parsed.Amount, description); err != nil {
+			if err := balanceSvc.TopUp(r.Context(), userID, amount, description); err != nil {
 				log.Error("failed to top up balance",
-					zap.String("user_id", parsed.UserID),
-					zap.Float64("amount", parsed.Amount), zap.Error(err))
+					zap.String("user_id", userID),
+					zap.Float64("amount", amount), zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
 				json.NewEncoder(w).Encode(errorResponse{Error: "failed to credit balance"})
 				return
 			}
 
 			metrics.BalanceTopUpsTotal.Inc()
-			metrics.BalanceTopUpsAmountTotal.Add(parsed.Amount)
+			metrics.BalanceTopUpsAmountTotal.Add(amount)
 			log.Info("balance top-up confirmed via TBank",
-				zap.String("user_id", parsed.UserID),
-				zap.Float64("amount", parsed.Amount),
+				zap.String("user_id", userID),
+				zap.Float64("amount", amount),
 				zap.Int64("payment_id", payload.PaymentId))
 		}
 
