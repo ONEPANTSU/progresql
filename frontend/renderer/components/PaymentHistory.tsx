@@ -186,16 +186,20 @@ export default function PaymentHistory({ open, onClose }: PaymentHistoryProps) {
         body: JSON.stringify({ payment_id: refundTarget.id }),
       });
 
+      const body = await res.json().catch(() => null);
       if (!res.ok) {
-        const body = await res.json().catch(() => null);
         throw new Error(body?.error || 'Refund failed');
       }
 
-      setSnackbar({
-        open: true,
-        message: language === 'ru' ? 'Возврат успешно оформлен' : 'Refund processed successfully',
-        severity: 'success',
-      });
+      const refundAmt = body?.refund_amount;
+      const deducted = body?.deducted;
+      let msg = language === 'ru' ? 'Возврат успешно оформлен' : 'Refund processed successfully';
+      if (deducted > 0) {
+        msg += language === 'ru'
+          ? `. Возвращено ${refundAmt?.toFixed(2)}₽ (удержано ${deducted?.toFixed(2)}₽ за использование AI)`
+          : `. Refunded ${refundAmt?.toFixed(2)}₽ (${deducted?.toFixed(2)}₽ deducted for AI usage)`;
+      }
+      setSnackbar({ open: true, message: msg, severity: 'success' });
       setRefundTarget(null);
       // Refresh list from the beginning
       setPayments([]);
@@ -391,8 +395,8 @@ export default function PaymentHistory({ open, onClose }: PaymentHistoryProps) {
                       ? 'Сумма будет списана с баланса и возвращена на карту'
                       : 'The amount will be deducted from your balance and returned to your card')
                   : (language === 'ru'
-                      ? 'Подписка будет отменена и переведена на тариф Free'
-                      : 'Your subscription will be cancelled and downgraded to the Free plan')}
+                      ? 'Подписка будет отменена и переведена на тариф Free. Из суммы возврата будут удержаны фактические расходы на AI-токены (ст. 32 ЗоЗПП).'
+                      : 'Your subscription will be cancelled and downgraded to Free. Actual AI token costs will be deducted from the refund amount.')}
               </Alert>
               <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                 <Button
