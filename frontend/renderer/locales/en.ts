@@ -36,10 +36,11 @@ const en = {
   'auth.register.req.lowercase': 'Lowercase letter (a-z)',
   'auth.register.req.digit': 'Digit (0-9)',
   'auth.register.req.special': 'Special character (!@#$...)',
-  'auth.register.legalConsent': 'I agree to the {terms} and {privacy}, including cross-border data transfer to Germany and the USA for AI query processing',
+  'auth.register.legalConsent': 'I agree to the {terms}, {privacy} and {offer}, including cross-border data transfer to Germany and the USA for AI query processing',
   'auth.register.legalTerms': 'Terms of Use',
   'auth.register.legalPrivacy': 'Privacy Policy',
-  'auth.register.legalRequired': 'You must accept the Terms of Use and Privacy Policy to register',
+  'auth.register.legalOffer': 'Public Offer',
+  'auth.register.legalRequired': 'You must accept the Terms of Use, Privacy Policy and Public Offer to register',
   'auth.register.marketingConsent': 'I agree to receive news and promotional emails',
 
   // ── Auth: Verify Email ──

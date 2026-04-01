@@ -117,6 +117,7 @@ export default function RegisterPage() {
       Promise.all([
         authService.acceptLegal('terms', '1.0'),
         authService.acceptLegal('privacy', '1.0'),
+        authService.acceptLegal('offer', '1.0'),
       ]).catch(() => {});
       // Navigate explicitly to avoid race with useEffect
       navigatingRef.current = true;
@@ -218,10 +219,10 @@ export default function RegisterPage() {
             label={
               <Typography variant="caption" color="text.secondary">
                 {t('auth.register.legalConsent')
-                  .split(/{terms}|{privacy}/)
+                  .split(/{terms}|{privacy}|{offer}/)
                   .reduce<React.ReactNode[]>((acc, part, i) => {
                     if (i > 0) {
-                      const placeholder = t('auth.register.legalConsent').match(/{terms}|{privacy}/g)?.[i - 1];
+                      const placeholder = t('auth.register.legalConsent').match(/{terms}|{privacy}|{offer}/g)?.[i - 1];
                       if (placeholder === '{terms}') {
                         acc.push(
                           <MuiLink
@@ -235,7 +236,7 @@ export default function RegisterPage() {
                             {t('auth.register.legalTerms')}
                           </MuiLink>
                         );
-                      } else {
+                      } else if (placeholder === '{privacy}') {
                         acc.push(
                           <MuiLink
                             key="privacy"
@@ -246,6 +247,19 @@ export default function RegisterPage() {
                             sx={{ cursor: 'pointer', verticalAlign: 'baseline' }}
                           >
                             {t('auth.register.legalPrivacy')}
+                          </MuiLink>
+                        );
+                      } else {
+                        acc.push(
+                          <MuiLink
+                            key="offer"
+                            component="button"
+                            type="button"
+                            variant="caption"
+                            onClick={(e: React.MouseEvent) => { e.preventDefault(); openLegalLink('https://progresql.com/offer'); }}
+                            sx={{ cursor: 'pointer', verticalAlign: 'baseline' }}
+                          >
+                            {t('auth.register.legalOffer')}
                           </MuiLink>
                         );
                       }
