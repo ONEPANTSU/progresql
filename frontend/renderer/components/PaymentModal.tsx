@@ -14,8 +14,6 @@ import {
 } from '@mui/material';
 import {
   Close as CloseIcon,
-  CreditCard as CreditCardIcon,
-  QrCode as QrCodeIcon,
   LocalOffer as PromoIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
@@ -73,7 +71,6 @@ export default function PaymentModal({
   const [promoLoading, setPromoLoading] = React.useState(false);
   const [promoSuccess, setPromoSuccess] = React.useState<string | null>(null);
   const [promoError, setPromoError] = React.useState<string | null>(null);
-  const [selectedMethod, setSelectedMethod] = React.useState<'card' | 'sbp' | null>(null);
   const [proPrice, setProPrice] = React.useState(1999);
   const [proPlusPrice, setProPlusPrice] = React.useState(5999);
 
@@ -84,7 +81,7 @@ export default function PaymentModal({
       try {
         const baseUrl = loadBackendUrl('https://progresql.com');
         const token = getAuthToken() || '';
-        const resp = await fetch(`${baseUrl}/api/v2/payment/prices`, {
+        const resp = await fetch(`${baseUrl}/api/v3/payment/prices`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         if (resp.ok) {
@@ -125,12 +122,6 @@ export default function PaymentModal({
     }
   };
 
-  const handleSelectMethod = (method: 'card' | 'sbp') => {
-    if (paymentLoading) return;
-    setSelectedMethod(method);
-    onSelectMethod(method, selectedPlan);
-  };
-
   const openLegalLink = (url: string) => {
     if (window.electronAPI?.openExternal) {
       window.electronAPI.openExternal(url);
@@ -138,23 +129,6 @@ export default function PaymentModal({
       window.open(url, '_blank');
     }
   };
-
-  const methodSx = (method: 'card' | 'sbp') => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: 2,
-    p: '10px 14px',
-    borderRadius: 2,
-    border: '1.5px solid',
-    borderColor: (selectedMethod === method && paymentLoading) ? '#6366f1' : 'rgba(99,102,241,0.2)',
-    bgcolor: (selectedMethod === method && paymentLoading) ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.04)',
-    cursor: paymentLoading ? 'not-allowed' : 'pointer',
-    transition: 'all 0.18s ease',
-    '&:hover': paymentLoading ? {} : {
-      borderColor: '#6366f1',
-      bgcolor: 'rgba(99,102,241,0.1)',
-    },
-  });
 
   const planCardSx = (plan: 'pro' | 'pro_plus') => ({
     flex: 1,
@@ -239,25 +213,28 @@ export default function PaymentModal({
           </Typography>
         </Box>
 
-        {/* Payment methods */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
-          <Box onClick={() => handleSelectMethod('card')} sx={methodSx('card')} data-testid="payment-method-card">
-            {paymentLoading && selectedMethod === 'card' ? (
-              <CircularProgress size={22} sx={{ color: '#6366f1', flexShrink: 0 }} />
+        {/* Pay button */}
+        <Box sx={{ mb: 2 }}>
+          <Button
+            fullWidth
+            variant="contained"
+            disabled={paymentLoading}
+            onClick={() => onSelectMethod('card', selectedPlan)}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              py: 1.5,
+              fontSize: '1rem',
+              background: paymentLoading ? undefined : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
+            }}
+          >
+            {paymentLoading ? (
+              <CircularProgress size={22} sx={{ color: '#fff' }} />
             ) : (
-              <CreditCardIcon sx={{ fontSize: 22, color: '#6366f1', flexShrink: 0 }} />
+              language === 'ru' ? 'Оплатить' : 'Pay'
             )}
-            <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>{t('payment.card')}</Typography>
-          </Box>
-
-          <Box onClick={() => handleSelectMethod('sbp')} sx={methodSx('sbp')} data-testid="payment-method-sbp">
-            {paymentLoading && selectedMethod === 'sbp' ? (
-              <CircularProgress size={22} sx={{ color: '#6366f1', flexShrink: 0 }} />
-            ) : (
-              <QrCodeIcon sx={{ fontSize: 22, color: '#6366f1', flexShrink: 0 }} />
-            )}
-            <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>{t('payment.sbp')}</Typography>
-          </Box>
+          </Button>
         </Box>
 
         {/* Promo code collapsible */}

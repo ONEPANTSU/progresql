@@ -50,6 +50,11 @@ type Config struct {
 	PlategaAPIKey     string `mapstructure:"platega_api_key"`
 	PlategaSecret     string `mapstructure:"platega_secret"`
 
+	// T-Bank (Tinkoff) e-acquiring settings.
+	TBankTerminalKey     string `mapstructure:"tbank_terminal_key"`
+	TBankPassword        string `mapstructure:"tbank_password"`
+	TBankNotificationURL string `mapstructure:"tbank_notification_url"`
+
 	// Admin user IDs (comma-separated in env var PROGRESSQL_ADMIN_USER_IDS).
 	AdminUserIDs []string `mapstructure:"admin_user_ids"`
 }
@@ -80,6 +85,9 @@ func LoadConfig(configPath ...string) (*Config, error) {
 	v.SetDefault("platega_merchant_id", "")
 	v.SetDefault("platega_api_key", "")
 	v.SetDefault("platega_secret", "")
+	v.SetDefault("tbank_terminal_key", "")
+	v.SetDefault("tbank_password", "")
+	v.SetDefault("tbank_notification_url", "https://progresql.com/api/v3/payments/webhook")
 
 	// Config file
 	v.SetConfigName("config")
