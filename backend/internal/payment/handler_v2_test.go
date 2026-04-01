@@ -118,7 +118,7 @@ func TestMinTopUpAmount(t *testing.T) {
 }
 
 func TestMaxTopUpAmount(t *testing.T) {
-	if MaxBalanceTopUp != 100000.0 {
-		t.Errorf("MaxBalanceTopUp = %v, want 100000.0", MaxBalanceTopUp)
+	if MaxBalanceTopUp != 50000.0 {
+		t.Errorf("MaxBalanceTopUp = %v, want 50000.0", MaxBalanceTopUp)
 	}
 }
