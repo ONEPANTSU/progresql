@@ -159,6 +159,7 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
   // Close button on first row
   '.cm-panel.cm-search button[name=close]': {
     order: 4,
+    marginLeft: '8px !important',
     backgroundColor: 'transparent !important',
     color: '#8b949e !important',
     border: 'none !important',

@@ -35,6 +35,7 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
   const [balance, setBalance] = React.useState<BalanceInfo | null>(null);
   const [selectedAmount, setSelectedAmount] = React.useState<number | null>(null);
   const [customAmount, setCustomAmount] = React.useState('');
+  const [showCustomInput, setShowCustomInput] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = React.useState(false);
@@ -46,6 +47,7 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
     setError(null);
     setSelectedAmount(null);
     setCustomAmount('');
+    setShowCustomInput(false);
     fetchBalance()
       .then(setBalance)
       .catch(() => setBalance(null))
@@ -61,6 +63,7 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
   const handlePresetClick = (amount: number) => {
     setSelectedAmount(amount);
     setCustomAmount('');
+    setShowCustomInput(false);
     setError(null);
   };
 
@@ -190,7 +193,7 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
           {t('balance.selectAmount')}
         </Typography>
 
-        {/* Preset amount buttons */}
+        {/* Preset amount buttons + custom */}
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
           {PRESET_AMOUNTS.map((amount) => (
             <Button
@@ -203,31 +206,47 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
               {amount.toLocaleString()}{'\u20BD'}
             </Button>
           ))}
+          <Button
+            variant="outlined"
+            onClick={() => { setShowCustomInput(true); setSelectedAmount(null); }}
+            sx={{
+              ...presetSx(0),
+              borderColor: showCustomInput ? '#6366f1' : 'divider',
+              bgcolor: showCustomInput ? 'rgba(99,102,241,0.1)' : 'transparent',
+              color: showCustomInput ? '#6366f1' : 'text.primary',
+            }}
+            disabled={loading}
+          >
+            {language === 'ru' ? 'Другая' : 'Other'}
+          </Button>
         </Box>
 
-        {/* Custom amount input */}
-        <TextField
-          fullWidth
-          size="small"
-          label={t('balance.customAmount')}
-          value={customAmount}
-          onChange={(e) => handleCustomChange(e.target.value)}
-          disabled={loading}
-          placeholder={`${MIN_AMOUNT} \u2014 ${MAX_AMOUNT.toLocaleString()}`}
-          error={customAmount !== '' && !isCustomValid}
-          helperText={
-            customAmount !== '' && Number(customAmount) < MIN_AMOUNT && customAmount !== ''
-              ? t('balance.minAmount', { amount: String(MIN_AMOUNT) })
-              : customAmount !== '' && Number(customAmount) > MAX_AMOUNT
-                ? t('balance.maxAmount', { amount: MAX_AMOUNT.toLocaleString() })
-                : undefined
-          }
-          sx={{ mb: 2 }}
-          inputProps={{
-            inputMode: 'numeric',
-            'data-testid': 'balance-custom-amount-input',
-          }}
-        />
+        {/* Custom amount input — shown only after clicking "Other" */}
+        {showCustomInput && (
+          <TextField
+            fullWidth
+            size="small"
+            autoFocus
+            label={t('balance.customAmount')}
+            value={customAmount}
+            onChange={(e) => handleCustomChange(e.target.value)}
+            disabled={loading}
+            placeholder={`${MIN_AMOUNT} \u2014 ${MAX_AMOUNT.toLocaleString()}`}
+            error={customAmount !== '' && !isCustomValid}
+            helperText={
+              customAmount !== '' && Number(customAmount) < MIN_AMOUNT && customAmount !== ''
+                ? t('balance.minAmount', { amount: String(MIN_AMOUNT) })
+                : customAmount !== '' && Number(customAmount) > MAX_AMOUNT
+                  ? t('balance.maxAmount', { amount: MAX_AMOUNT.toLocaleString() })
+                  : undefined
+            }
+            sx={{ mb: 2 }}
+            inputProps={{
+              inputMode: 'numeric',
+              'data-testid': 'balance-custom-amount-input',
+            }}
+          />
+        )}
 
         {/* Selected amount summary */}
         {effectiveAmount > 0 && effectiveAmount >= MIN_AMOUNT && effectiveAmount <= MAX_AMOUNT && (
