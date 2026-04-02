@@ -8,7 +8,8 @@ import (
 )
 
 // TokenTTL is the default lifetime of a JWT token.
-const TokenTTL = 24 * time.Hour
+// 30 days for desktop app — sessions must survive laptop reboots.
+const TokenTTL = 30 * 24 * time.Hour
 
 // Claims represents the custom JWT claims for a session.
 type Claims struct {
@@ -30,7 +31,7 @@ func NewJWTService(secret string) *JWTService {
 }
 
 // GenerateToken creates a signed JWT for the given session ID.
-// The token is valid for TokenTTL (24 hours) and uses HS256.
+// The token is valid for TokenTTL (30 days) and uses HS256.
 func (s *JWTService) GenerateToken(sessionID string) (string, error) {
 	now := time.Now()
 	claims := Claims{

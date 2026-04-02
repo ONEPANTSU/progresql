@@ -3,6 +3,50 @@ const { createLogger } = require('./logger');
 const log = createLogger('ToolServer');
 
 let dbHealthRef = null;
+let approvalCallback = null;
+let autoApproved = false;
+
+// ── SQL danger classification ──
+const DDL_KEYWORDS = ['CREATE', 'ALTER', 'DROP', 'TRUNCATE', 'RENAME', 'COMMENT'];
+const DML_KEYWORDS = ['INSERT', 'UPDATE', 'DELETE', 'MERGE', 'UPSERT'];
+const DCL_KEYWORDS = ['GRANT', 'REVOKE', 'REASSIGN', 'SECURITY'];
+const DANGEROUS_FUNCTIONS = [
+  'pg_terminate_backend', 'pg_cancel_backend', 'pg_reload_conf',
+  'pg_rotate_logfile', 'pg_switch_wal', 'pg_switch_xlog',
+  'lo_unlink', 'lo_create', 'lo_import', 'lo_export',
+  'dblink_exec', 'set_config', 'pg_advisory_lock',
+  'nextval', 'setval', 'pg_sleep',
+];
+
+function classifySqlDanger(sql) {
+  const cleaned = sql.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '').trim();
+  const upper = cleaned.toUpperCase();
+  const firstWord = upper.split(/\s+/)[0];
+  if (DDL_KEYWORDS.includes(firstWord)) return 'ddl';
+  if (DML_KEYWORDS.includes(firstWord)) return 'dml';
+  if (DCL_KEYWORDS.includes(firstWord)) return 'dcl';
+  if (firstWord === 'SELECT' || firstWord === 'WITH') {
+    const lower = cleaned.toLowerCase();
+    for (const fn of DANGEROUS_FUNCTIONS) {
+      if (lower.includes(fn + '(') || lower.includes(fn + ' (')) return 'function_call';
+    }
+  }
+  if (['CALL', 'DO', 'EXECUTE'].includes(firstWord)) return 'function_call';
+  return null;
+}
+
+/**
+ * Set a callback for requesting user approval before dangerous SQL execution.
+ * The callback receives (sql, dangerLevel) and must return a Promise<'accept_once'|'accept_always'|'deny'>.
+ */
+function setApprovalCallback(cb) {
+  approvalCallback = cb;
+}
+
+/** Reset auto-approval (called when security mode changes). */
+function resetAutoApproval() {
+  autoApproved = false;
+}
 
 /**
  * Set reference to db-health module for auto-reconnect on stale connections.
@@ -197,9 +241,30 @@ async function handleToolCall(ws, envelope) {
       case 'explain_query':
         result = await runExplainQuery(args);
         break;
-      case 'execute_query':
+      case 'execute_query': {
+        // Gate dangerous SQL through user approval
+        const sql = args.sql || '';
+        const dangerLevel = classifySqlDanger(sql);
+        if (dangerLevel && approvalCallback && !autoApproved) {
+          try {
+            const decision = await approvalCallback(sql, dangerLevel);
+            if (decision === 'deny') {
+              sendToolResult(ws, callId, false, null, 'User denied execution of this SQL statement.');
+              return;
+            }
+            if (decision === 'accept_always') {
+              autoApproved = true;
+            }
+          } catch (approvalErr) {
+            log.warn('Approval request failed:', approvalErr.message);
+            // If approval fails, deny by default for safety
+            sendToolResult(ws, callId, false, null, 'Tool approval request failed. Please try again.');
+            return;
+          }
+        }
         result = await runExecuteQuery(args);
         break;
+      }
       case 'list_functions':
         result = await runListFunctions(args);
         break;
@@ -568,5 +633,7 @@ module.exports = {
   isToolServerRunning,
   getToolServerPort,
   setDbHealth,
+  setApprovalCallback,
+  resetAutoApproval,
   DEFAULT_PORT,
 };

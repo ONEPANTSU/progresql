@@ -273,4 +273,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return { success: false };
     }
   },
+  // Tool approval IPC — main process asks renderer to approve dangerous SQL
+  onToolApprovalRequest: (callback) => {
+    ipcRenderer.on('tool-approval-request', (_event, data) => {
+      log.debug('Tool approval request received:', data.dangerLevel);
+      callback(data);
+    });
+  },
+  removeToolApprovalListener: () => {
+    ipcRenderer.removeAllListeners('tool-approval-request');
+  },
+  respondToolApproval: (decision) => {
+    ipcRenderer.send('tool-approval-response', decision);
+  },
 });
