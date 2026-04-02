@@ -15,7 +15,7 @@ import {
   Block as DenyIcon,
 } from '@mui/icons-material';
 import { highlightSQL } from '../../utils/sqlHighlight';
-import { useTranslation } from '../../contexts/LanguageContext';
+import { useTranslationSafe } from '../../contexts/LanguageContext';
 
 export type SqlDangerLevel = 'ddl' | 'dml' | 'dcl' | 'function_call';
 
@@ -49,7 +49,7 @@ function dangerColor(level: SqlDangerLevel): 'error' | 'warning' {
 }
 
 const ToolApprovalDialog: React.FC<ToolApprovalDialogProps> = ({ pending }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslationSafe();
   const highlightedHTML = useMemo(
     () => (pending ? highlightSQL(pending.sql) : ''),
     [pending?.sql],
