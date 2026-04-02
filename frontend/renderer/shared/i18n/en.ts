@@ -327,6 +327,8 @@ const en = {
   'notify.connectionAdded': 'Connection "{name}" added',
   'notify.connectionUpdated': 'Connection "{name}" updated',
   'notify.connectionDeleted': 'Connection "{name}" deleted',
+  'notify.querySuccess': '{count} rows returned',
+  'notify.queryExecuted': 'Query executed successfully ({count} rows affected)',
   'notify.dbStructureErrorDetail': 'Failed to get database structure: {error}',
   'notify.updateError': 'Update error: {error}',
 
