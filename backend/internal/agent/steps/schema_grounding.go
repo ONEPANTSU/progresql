@@ -152,12 +152,63 @@ func (s *SchemaGroundingStep) Execute(ctx context.Context, pctx *agent.PipelineC
 }
 
 // handleEmptyDatabase streams a helpful LLM response when the database has no tables.
-// Sets SkipRemaining to bypass all subsequent pipeline steps.
+// In safe/data modes, sets SkipRemaining to bypass all subsequent pipeline steps.
+// In execute mode, generates SQL (e.g. CREATE TABLE) and allows auto-execute.
 func (s *SchemaGroundingStep) handleEmptyDatabase(ctx context.Context, pctx *agent.PipelineContext) error {
-	pctx.Logger.Info("database is empty, no tables found — generating helpful response")
+	pctx.Logger.Info("database is empty, no tables found",
+		zap.String("security_mode", pctx.SecurityMode))
 
 	model := pctx.Model
 
+	// In execute mode, let the LLM generate DDL and allow auto-execute to run it.
+	if pctx.SecurityMode == agent.SecurityModeExecute {
+		prompt := "You are a PostgreSQL database assistant. The user is connected to a database, " +
+			"but the database is completely empty — there are no tables, views, or other objects.\n\n" +
+			"The user asked: " + pctx.UserMessage + "\n\n" +
+			"You are in Execute Mode — you have full access to create tables and modify the schema.\n" +
+			"Generate the SQL that fulfills the user's request. Return ONLY the SQL query, no explanations or markdown.\n" +
+			"If the user asks to create a table, generate a CREATE TABLE statement.\n\n" +
+			"IMPORTANT: Always respond in the same language as the user's message."
+
+		req := llm.ChatRequest{
+			Model: model,
+			Messages: pctx.MessagesWithHistory(
+				llm.Message{Role: "user", Content: prompt},
+			),
+		}
+
+		resp, err := pctx.LLMClient.ChatCompletion(ctx, req)
+		if err != nil {
+			return fmt.Errorf("LLM sql generation for empty database failed: %w", err)
+		}
+		pctx.AddTokens(resp.Usage.TotalTokens)
+		pctx.ModelUsed = resp.Model
+
+		if len(resp.Choices) == 0 {
+			return fmt.Errorf("LLM returned no choices for empty database")
+		}
+
+		sql := strings.TrimSpace(resp.Choices[0].Message.Content)
+		sql = stripThinkingTags(sql)
+		sql = stripCodeFences(sql)
+		sql = strings.TrimRight(sql, "; \n\t")
+		sql = strings.TrimSpace(sql)
+
+		if sql == "" {
+			return fmt.Errorf("LLM returned empty SQL for empty database")
+		}
+
+		pctx.Logger.Info("generated SQL for empty database", zap.String("sql", sql))
+		pctx.Result.SQL = sql
+		pctx.Result.Candidates = []string{sql}
+		pctx.Set(ContextKeySQLCandidates, []string{sql})
+		pctx.Set(ContextKeySQLCandidate, sql)
+		// Provide empty schema context so downstream steps don't fail.
+		pctx.Set(ContextKeySchemaContext, &SchemaContext{})
+		return nil
+	}
+
+	// Safe/data modes: stream a helpful response and skip remaining steps.
 	prompt := "You are a PostgreSQL database assistant. The user is connected to a database, " +
 		"but the database is completely empty — there are no tables, views, or other objects.\n\n" +
 		"The user asked: " + pctx.UserMessage + "\n\n" +
@@ -176,7 +227,6 @@ func (s *SchemaGroundingStep) handleEmptyDatabase(ctx context.Context, pctx *age
 
 	resp, err := pctx.StreamLLM(ctx, req)
 	if err != nil {
-		// Fallback: static bilingual message if LLM is unavailable.
 		pctx.Logger.Warn("LLM unavailable for empty-database response, using fallback", zap.Error(err))
 		pctx.Result.Explanation = "База данных пуста — в ней нет таблиц. " +
 			"Вы можете создать таблицы с помощью CREATE TABLE или импортировать существующую схему.\n\n" +
