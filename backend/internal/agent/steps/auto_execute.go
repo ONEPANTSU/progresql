@@ -82,7 +82,9 @@ func (s *AutoExecuteStep) Execute(ctx context.Context, pctx *agent.PipelineConte
 
 		errResult, _ := json.Marshal(map[string]string{"error": result.Error})
 		pctx.Result.QueryResult = errResult
-		return nil
+
+		// Stream LLM analysis of the error with suggestions for the user.
+		return s.explainExecutionError(ctx, pctx, sql, result.Error)
 	}
 
 	pctx.Result.QueryResult = result.Data
@@ -91,6 +93,59 @@ func (s *AutoExecuteStep) Execute(ctx context.Context, pctx *agent.PipelineConte
 
 	// Stream a summarization of the results to the user.
 	return s.summarizeResults(ctx, pctx, sql, result.Data)
+}
+
+// explainExecutionError streams an LLM-generated explanation of why the SQL failed
+// and suggests concrete actions the user can take to fix it.
+func (s *AutoExecuteStep) explainExecutionError(ctx context.Context, pctx *agent.PipelineContext, sql, execError string) error {
+	// Read schema context for richer diagnostics.
+	var schemaDesc string
+	if scVal, ok := pctx.Get(ContextKeySchemaContext); ok {
+		if sc, ok := scVal.(*SchemaContext); ok {
+			schemaDesc = buildSchemaDescription(sc)
+		}
+	}
+
+	prompt := fmt.Sprintf(
+		"You are a PostgreSQL database assistant. The user asked a question, you generated a SQL query, "+
+			"but it failed during execution.\n\n"+
+			"CRITICAL RULES:\n"+
+			"- Respond in the same language as the user's message.\n"+
+			"- Clearly explain what went wrong and WHY the error occurred.\n"+
+			"- Suggest concrete steps to fix the problem (e.g. create missing tables, fix references, adjust data types).\n"+
+			"- If the error mentions a missing table/column/relation, explain that it doesn't exist and suggest creating it.\n"+
+			"- If the fix requires multiple steps (e.g. creating a referenced table first), list them in order.\n"+
+			"- Be concise but helpful.\n\n"+
+			"User question: %s\n\n"+
+			"Generated SQL:\n```sql\n%s\n```\n\n"+
+			"Execution error:\n%s",
+		pctx.UserMessage,
+		sql,
+		execError,
+	)
+
+	if schemaDesc != "" {
+		prompt += fmt.Sprintf("\n\nCurrent database schema:\n%s", schemaDesc)
+	}
+
+	req := llm.ChatRequest{
+		Model: pctx.Model,
+		Messages: pctx.MessagesWithHistory(
+			llm.Message{Role: "user", Content: prompt},
+		),
+	}
+
+	resp, err := pctx.StreamLLM(ctx, req)
+	if err != nil {
+		pctx.Logger.Warn("execution error explanation failed, keeping raw error", zap.Error(err))
+		return nil
+	}
+
+	if len(resp.Choices) > 0 && resp.Choices[0].Message.Content != "" {
+		pctx.Result.Explanation = resp.Choices[0].Message.Content
+	}
+
+	return nil
 }
 
 // summarizeResults sends the query results to the LLM for a streamed human-friendly summary.
