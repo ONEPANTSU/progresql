@@ -41,8 +41,8 @@ const ToolApprovalBanner: React.FC<ToolApprovalBannerProps> = ({ pending }) => {
         p: 1.5,
         borderRadius: 1.5,
         border: '1px solid',
-        borderColor: 'warning.main',
-        bgcolor: 'rgba(237, 108, 2, 0.04)',
+        borderColor: 'rgba(150, 130, 200, 0.3)',
+        bgcolor: 'rgba(120, 100, 180, 0.06)',
         animation: 'fadeIn 0.2s ease-in',
         '@keyframes fadeIn': {
           from: { opacity: 0, transform: 'translateY(8px)' },
@@ -52,8 +52,8 @@ const ToolApprovalBanner: React.FC<ToolApprovalBannerProps> = ({ pending }) => {
     >
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
-        <WarningIcon sx={{ fontSize: 18, color: 'warning.main' }} />
-        <Typography variant="body2" sx={{ fontWeight: 600, color: 'warning.main', flex: 1 }}>
+        <WarningIcon sx={{ fontSize: 16, color: 'text.secondary', opacity: 0.7 }} />
+        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary', flex: 1, fontSize: '0.8rem' }}>
           {t('toolApproval.title')}
         </Typography>
         <Chip
@@ -61,17 +61,17 @@ const ToolApprovalBanner: React.FC<ToolApprovalBannerProps> = ({ pending }) => {
           size="small"
           variant="outlined"
           sx={{
-            height: 20,
-            fontSize: '0.65rem',
+            height: 18,
+            fontSize: '0.6rem',
             fontWeight: 600,
-            borderColor: 'warning.main',
-            color: 'warning.main',
+            borderColor: 'rgba(150, 130, 200, 0.4)',
+            color: 'text.secondary',
           }}
         />
       </Box>
 
       {/* Description */}
-      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
+      <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', mb: 1, fontSize: '0.7rem' }}>
         {t(`toolApproval.level.${pending.dangerLevel}` as any)}
       </Typography>
 
@@ -81,14 +81,14 @@ const ToolApprovalBanner: React.FC<ToolApprovalBannerProps> = ({ pending }) => {
         dangerouslySetInnerHTML={{ __html: highlightedHTML }}
         className="hljs"
         sx={{
-          bgcolor: 'grey.50',
+          bgcolor: 'rgba(0, 0, 0, 0.15)',
           color: 'text.primary',
           p: 1,
           borderRadius: 1,
           border: '1px solid',
-          borderColor: 'grey.200',
+          borderColor: 'rgba(150, 130, 200, 0.15)',
           fontFamily: 'monospace',
-          fontSize: '0.75rem',
+          fontSize: '0.72rem',
           lineHeight: 1.4,
           overflow: 'auto',
           maxHeight: '120px',
@@ -109,17 +109,17 @@ const ToolApprovalBanner: React.FC<ToolApprovalBannerProps> = ({ pending }) => {
       <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'flex-end' }}>
         <Button
           onClick={() => pending.resolve('deny')}
-          startIcon={<DenyIcon sx={{ fontSize: '14px !important' }} />}
+          startIcon={<DenyIcon sx={{ fontSize: '13px !important' }} />}
           size="small"
           sx={{
-            fontSize: '0.7rem',
+            fontSize: '0.68rem',
             textTransform: 'none',
-            color: 'error.main',
-            borderColor: 'error.main',
+            color: 'text.secondary',
+            borderColor: 'rgba(150, 130, 200, 0.3)',
             px: 1.5,
             py: 0.25,
-            minHeight: 28,
-            '&:hover': { bgcolor: 'rgba(211, 47, 47, 0.08)' },
+            minHeight: 26,
+            '&:hover': { bgcolor: 'rgba(150, 130, 200, 0.08)', borderColor: 'rgba(150, 130, 200, 0.5)' },
           }}
           variant="outlined"
         >
@@ -127,17 +127,17 @@ const ToolApprovalBanner: React.FC<ToolApprovalBannerProps> = ({ pending }) => {
         </Button>
         <Button
           onClick={() => pending.resolve('accept_once')}
-          startIcon={<AcceptIcon sx={{ fontSize: '14px !important' }} />}
+          startIcon={<AcceptIcon sx={{ fontSize: '13px !important' }} />}
           size="small"
           sx={{
-            fontSize: '0.7rem',
+            fontSize: '0.68rem',
             textTransform: 'none',
-            color: 'warning.main',
-            borderColor: 'warning.main',
+            color: 'text.secondary',
+            borderColor: 'rgba(150, 130, 200, 0.3)',
             px: 1.5,
             py: 0.25,
-            minHeight: 28,
-            '&:hover': { bgcolor: 'rgba(237, 108, 2, 0.08)' },
+            minHeight: 26,
+            '&:hover': { bgcolor: 'rgba(150, 130, 200, 0.08)', borderColor: 'rgba(150, 130, 200, 0.5)' },
           }}
           variant="outlined"
         >
@@ -145,17 +145,18 @@ const ToolApprovalBanner: React.FC<ToolApprovalBannerProps> = ({ pending }) => {
         </Button>
         <Button
           onClick={() => pending.resolve('accept_always')}
-          startIcon={<AcceptIcon sx={{ fontSize: '14px !important' }} />}
+          startIcon={<AcceptIcon sx={{ fontSize: '13px !important' }} />}
           size="small"
           sx={{
-            fontSize: '0.7rem',
+            fontSize: '0.68rem',
             textTransform: 'none',
-            bgcolor: 'success.main',
-            color: '#fff',
+            bgcolor: 'rgba(150, 130, 200, 0.2)',
+            color: 'text.primary',
+            border: '1px solid rgba(150, 130, 200, 0.3)',
             px: 1.5,
             py: 0.25,
-            minHeight: 28,
-            '&:hover': { bgcolor: 'success.dark' },
+            minHeight: 26,
+            '&:hover': { bgcolor: 'rgba(150, 130, 200, 0.35)' },
           }}
           variant="contained"
         >
