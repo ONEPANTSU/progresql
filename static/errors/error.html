@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Error — ProgreSQL</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #080b12;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+      z-index: 0;
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      z-index: 0;
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+      -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+    }
+    .card {
+      position: relative;
+      z-index: 1;
+      max-width: 560px;
+      width: 100%;
+      padding: 48px 40px;
+      background: rgba(15, 20, 35, 0.6);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      border-radius: 16px;
+      backdrop-filter: blur(20px);
+      text-align: center;
+    }
+    .logo {
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+      margin-bottom: 32px;
+    }
+    .logo span { color: #6366f1; }
+    .error-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 96px;
+      font-weight: 700;
+      line-height: 1;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 16px;
+      user-select: none;
+    }
+    .error-title {
+      font-size: 22px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 12px;
+    }
+    .error-desc {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #94a3b8;
+      margin-bottom: 32px;
+    }
+    .sql-hint {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: #64748b;
+      background: rgba(99, 102, 241, 0.06);
+      border: 1px solid rgba(99, 102, 241, 0.1);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 32px;
+      text-align: left;
+      overflow-x: auto;
+    }
+    .sql-hint .kw { color: #818cf8; }
+    .sql-hint .str { color: #34d399; }
+    .sql-hint .comment { color: #475569; font-style: italic; }
+    .actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+    }
+    .btn-primary:hover {
+      box-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: rgba(99, 102, 241, 0.1);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+    .btn-secondary:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: rgba(99, 102, 241, 0.3);
+    }
+    .footer-links {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(99, 102, 241, 0.1);
+      font-size: 13px;
+      color: #64748b;
+    }
+    .footer-links a {
+      color: #818cf8;
+      text-decoration: none;
+    }
+    .footer-links a:hover {
+      color: #6366f1;
+      text-decoration: underline;
+    }
+    @media (max-width: 480px) {
+      .card { padding: 32px 20px; }
+      .error-code { font-size: 72px; }
+      .error-title { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <img src="/icon.png" alt="" width="36" height="36" style="border-radius:5px;vertical-align:middle;margin-right:6px;">Progre<span>SQL</span>
+    </div>
+
+    <div class="error-code" id="errorCode">404</div>
+    <h1 class="error-title" id="errorTitle">Page not found</h1>
+    <p class="error-desc" id="errorDesc">The page you're looking for doesn't exist or has been moved.</p>
+
+    <div class="sql-hint" id="sqlHint">
+      <span class="kw">SELECT</span> * <span class="kw">FROM</span> pages<br>
+      <span class="kw">WHERE</span> path = <span class="str">'/???'</span>;<br>
+      <span class="comment">-- 0 rows returned</span>
+    </div>
+
+    <div class="actions">
+      <a href="/" class="btn btn-primary" id="btnHome">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6l6-4.5L14 6v7.5a1 1 0 01-1 1H3a1 1 0 01-1-1V6z"/><path d="M6 14.5V8h4v6.5"/></svg>
+        <span id="btnHomeText">Home</span>
+      </a>
+      <a href="mailto:progresql@yandex.ru" class="btn btn-secondary" id="btnContact">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M1 3l7 5 7-5"/></svg>
+        <span id="btnContactText">Contact support</span>
+      </a>
+    </div>
+
+    <div class="footer-links">
+      <a href="/">progresql.com</a>
+    </div>
+  </div>
+
+  <script>
+    var errors = {
+      '400': {
+        ru: ['Неверный запрос', 'Сервер не может обработать запрос. Проверьте корректность URL.'],
+        en: ['Bad request', 'The server cannot process the request. Please check the URL.'],
+        sql: { kw1:'SELECT', col:'error_message', kw2:'FROM', tbl:'requests', kw3:'WHERE', cond:'syntax', op:'=', val:"'invalid'", comment:'-- malformed request' }
+      },
+      '403': {
+        ru: ['Доступ запрещён', 'У вас нет прав для доступа к этой странице.'],
+        en: ['Forbidden', 'You don\'t have permission to access this page.'],
+        sql: { kw1:'SELECT', col:'*', kw2:'FROM', tbl:'protected_pages', kw3:'WHERE', cond:'has_access', op:'=', val:'FALSE', comment:'-- permission denied' }
+      },
+      '404': {
+        ru: ['Страница не найдена', 'Запрашиваемая страница не существует или была перемещена.'],
+        en: ['Page not found', 'The page you\'re looking for doesn\'t exist or has been moved.'],
+        sql: { kw1:'SELECT', col:'*', kw2:'FROM', tbl:'pages', kw3:'WHERE', cond:'path', op:'=', val:"'/???'", comment:'-- 0 rows returned' }
+      },
+      '500': {
+        ru: ['Внутренняя ошибка сервера', 'Что-то пошло не так на нашей стороне. Мы уже разбираемся.'],
+        en: ['Internal server error', 'Something went wrong on our end. We\'re looking into it.'],
+        sql: { kw1:'SELECT', col:'*', kw2:'FROM', tbl:'server_status', kw3:'WHERE', cond:'healthy', op:'=', val:'TRUE', comment:'-- ERROR: unexpected failure' }
+      },
+      '502': {
+        ru: ['Ошибка шлюза', 'Сервер временно недоступен. Попробуйте обновить страницу.'],
+        en: ['Bad gateway', 'The server is temporarily unavailable. Try refreshing the page.'],
+        sql: { kw1:'SELECT', col:'*', kw2:'FROM', tbl:'upstream', kw3:'WHERE', cond:'status', op:'=', val:"'healthy'", comment:'-- connection refused' }
+      },
+      '503': {
+        ru: ['Сервис недоступен', 'Сервер на обслуживании или перегружен. Попробуйте позже.'],
+        en: ['Service unavailable', 'The server is under maintenance or overloaded. Please try again later.'],
+        sql: { kw1:'SELECT', col:'*', kw2:'FROM', tbl:'services', kw3:'WHERE', cond:'available', op:'=', val:'TRUE', comment:'-- service down for maintenance' }
+      }
+    };
+
+    var btnLabels = { ru: ['На главную', 'Написать в поддержку'], en: ['Home', 'Contact support'] };
+
+    function detectLang() {
+      var n = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
+      return n.startsWith('ru') ? 'ru' : 'en';
+    }
+
+    function getCode() {
+      var params = new URLSearchParams(window.location.search);
+      var c = params.get('code');
+      if (c && errors[c]) return c;
+      var p = window.location.pathname;
+      var m = p.match(/(\d{3})/);
+      if (m && errors[m[1]]) return m[1];
+      return '404';
+    }
+
+    function render() {
+      var code = getCode();
+      var lang = detectLang();
+      var e = errors[code] || errors['404'];
+      var s = e.sql;
+
+      document.getElementById('errorCode').textContent = code;
+      document.getElementById('errorTitle').textContent = e[lang][0];
+      document.getElementById('errorDesc').textContent = e[lang][1];
+      document.getElementById('btnHomeText').textContent = btnLabels[lang][0];
+      document.getElementById('btnContactText').textContent = btnLabels[lang][1];
+      document.title = code + ' — ProgreSQL';
+
+      document.getElementById('sqlHint').innerHTML =
+        '<span class="kw">' + s.kw1 + '</span> ' + s.col + ' <span class="kw">' + s.kw2 + '</span> ' + s.tbl + '<br>' +
+        '<span class="kw">' + s.kw3 + '</span> ' + s.cond + ' ' + s.op + ' <span class="str">' + s.val + '</span>;<br>' +
+        '<span class="comment">' + s.comment + '</span>';
+    }
+
+    render();
+  </script>
+</body>
+</html>
