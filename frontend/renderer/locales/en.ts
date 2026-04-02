@@ -227,6 +227,17 @@ const en = {
   'sqlBlock.verifyInvalid': 'Invalid SQL',
   'sqlBlock.executionFailed': 'Execution failed',
 
+  // ── Tool Approval ──
+  'toolApproval.title': 'Confirm SQL Execution',
+  'toolApproval.description': 'The AI is about to execute a potentially dangerous SQL statement. Please review and approve or deny.',
+  'toolApproval.deny': 'Deny',
+  'toolApproval.acceptOnce': 'Allow Once',
+  'toolApproval.acceptAlways': 'Allow All',
+  'toolApproval.level.ddl': 'Schema change (CREATE, ALTER, DROP)',
+  'toolApproval.level.dml': 'Data modification (INSERT, UPDATE, DELETE)',
+  'toolApproval.level.dcl': 'Permission change (GRANT, REVOKE)',
+  'toolApproval.level.function_call': 'Function with side effects',
+
   // ── Error Boundary ──
   'error.crashed': '{panel} crashed',
   'error.somethingWrong': 'Something went wrong',
