@@ -10,7 +10,7 @@ import {
   ToolResultPayload,
 } from '../services/agent/AgentService';
 import { handleToolCall } from '../services/agent/toolHandler';
-import ToolApprovalDialog, { PendingApproval, SqlDangerLevel } from '../components/chat/ToolApprovalDialog';
+import type { PendingApproval, SqlDangerLevel } from '../components/chat/ToolApprovalDialog';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('AgentContext');
@@ -138,6 +138,8 @@ export interface AgentContextValue {
   refreshUsage: () => void;
   /** Last server notification (quota.warning, model.fallback, etc.) */
   lastNotification: ServerNotification | null;
+  /** Pending tool approval request (shown inline in chat) */
+  pendingApproval: PendingApproval | null;
 }
 
 const AgentContext = createContext<AgentContextValue | undefined>(undefined);
@@ -305,6 +307,30 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSecurityMode(enabled ? 'safe' : 'execute');
   }, [setSecurityMode]);
 
+  // IPC listener: tool-server.js (main process) asks renderer to approve dangerous SQL
+  useEffect(() => {
+    const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+    if (!api?.onToolApprovalRequest) return;
+
+    api.onToolApprovalRequest((data: { sql: string; dangerLevel: string }) => {
+      setPendingApproval({
+        sql: data.sql,
+        dangerLevel: data.dangerLevel as SqlDangerLevel,
+        resolve: (decision) => {
+          setPendingApproval(null);
+          if (decision === 'accept_always') {
+            autoApproveRef.current = true;
+          }
+          api.respondToolApproval(decision);
+        },
+      });
+    });
+
+    return () => {
+      api.removeToolApprovalListener?.();
+    };
+  }, []);
+
   // Connect
   const connect = useCallback(async () => {
     const service = serviceRef.current;
@@ -415,12 +441,12 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     usage,
     refreshUsage,
     lastNotification,
-  }), [connectionState, connectionPhase, isAuthError, connect, disconnect, sendRequest, cancelRequest, sessionId, error, backendUrl, setBackendUrl, model, setModel, autocompleteModel, setAutocompleteModel, autocompleteEnabled, setAutocompleteEnabled, securityMode, setSecurityMode, setSafeMode, sendAutocomplete, cancelAutocomplete, usage, refreshUsage, lastNotification]);
+    pendingApproval,
+  }), [connectionState, connectionPhase, isAuthError, connect, disconnect, sendRequest, cancelRequest, sessionId, error, backendUrl, setBackendUrl, model, setModel, autocompleteModel, setAutocompleteModel, autocompleteEnabled, setAutocompleteEnabled, securityMode, setSecurityMode, setSafeMode, sendAutocomplete, cancelAutocomplete, usage, refreshUsage, lastNotification, pendingApproval]);
 
   return (
     <AgentContext.Provider value={value}>
       {children}
-      <ToolApprovalDialog pending={pendingApproval} />
     </AgentContext.Provider>
   );
 };

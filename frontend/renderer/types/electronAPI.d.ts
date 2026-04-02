@@ -104,6 +104,10 @@ declare global {
       saveAuthData: (data: PersistedAuthData) => Promise<{ success: boolean }>;
       loadAuthData: () => Promise<PersistedAuthData | null>;
       clearAuthData: () => Promise<{ success: boolean }>;
+      // Tool approval IPC
+      onToolApprovalRequest: (callback: (data: { sql: string; dangerLevel: string }) => void) => void;
+      removeToolApprovalListener: () => void;
+      respondToolApproval: (decision: 'accept_once' | 'accept_always' | 'deny') => void;
     };
   }
 }

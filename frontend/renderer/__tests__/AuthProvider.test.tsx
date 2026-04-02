@@ -245,18 +245,19 @@ describe('AuthProvider', () => {
       const user = makeUser({ emailVerified: false });
       mockGetAuthToken.mockReturnValue('fake-jwt-token');
       mockGetCurrentUser.mockReturnValue(user);
+      // refreshUser must resolve before verifyCode is called — return same user
       mockRefreshUser.mockResolvedValue(user);
       mockVerifyCode.mockResolvedValue(undefined);
 
       let captured: ReturnType<typeof useAuth> | null = null;
       renderWithProvider((ctx) => { captured = ctx; });
 
+      // Wait for initAuth to complete including the fire-and-forget refreshUser
       await waitFor(() => {
         expect(captured?.user).not.toBeNull();
       });
-
-      // Flush the pending refreshUser promise from initAuth (fire-and-forget)
-      await act(async () => {});
+      // Ensure refreshUser from initAuth has fully resolved and state settled
+      await act(async () => { await new Promise(r => setTimeout(r, 0)); });
 
       await act(async () => {
         await captured?.verifyCode('123456');

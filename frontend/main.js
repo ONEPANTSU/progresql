@@ -195,6 +195,20 @@ app.whenReady().then(() => {
   });
 
   createWindow();
+
+  // Wire tool-server approval callback: sends IPC to renderer for user confirmation
+  toolServer.setApprovalCallback((sql, dangerLevel) => {
+    return new Promise((resolve) => {
+      if (!mainWindow || mainWindow.isDestroyed()) {
+        resolve('deny');
+        return;
+      }
+      mainWindow.webContents.send('tool-approval-request', { sql, dangerLevel });
+      ipcMain.once('tool-approval-response', (_event, decision) => {
+        resolve(decision);
+      });
+    });
+  });
 });
 
 app.on('window-all-closed', async () => {

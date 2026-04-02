@@ -28,6 +28,7 @@ import { useChat } from '../hooks/useChat';
 import { useAgentMessages } from '../hooks/useAgentMessages';
 import ChatMessage from './chat/ChatMessage';
 import ChatInput, { ChatInputHandle } from './chat/ChatInput';
+import ToolApprovalBanner from './chat/ToolApprovalDialog';
 
 export interface ChatPanelHandle {
   sendImproveSQL: (sql: string) => void;
@@ -360,6 +361,11 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
         {/* Typing indicator removed — streaming shows content in real-time */}
         <div ref={chat.messagesEndRef} />
       </Box>
+
+      {/* Tool approval banner — inline like Claude/Cursor */}
+      {agent.pendingApproval && (
+        <ToolApprovalBanner pending={agent.pendingApproval} />
+      )}
 
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
       <ChatInput ref={chatInputRef} inputValue={inputValue} setInputValue={setInputValue} isTyping={isTyping} isConnected={agent.isConnected} onSendMessage={agentMessages.handleSendMessage} onStopGeneration={agentMessages.stopGeneration} attachedSQL={attachedSQL} onRemoveAttachment={() => setAttachedSQL(null)} activeConnection={activeConnection} connections={connections} connectionErrors={connectionErrors} onSwitchConnection={handleChatSwitchConnection} chatConnectionId={chat.activeChat?.connectionId ?? null} chatDatabase={chat.activeChat?.database ?? null} hasSentFirstMessage={chat.activeChat?.hasSentFirstMessage ?? false} />
