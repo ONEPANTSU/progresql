@@ -342,6 +342,8 @@ export default function Home() {
     // If already connected (green), just switch active without reconnecting
     if (connection.isActive && connection.id !== activeConnection?.id) {
       setActiveConnection(connection);
+      setIsReconnecting(false);
+      setConnectionError(null);
       // Switch global.dbClient to this connection's client
       window.electronAPI?.setActiveClient?.(connectionId);
       // Refresh structure for this connection
@@ -395,6 +397,7 @@ export default function Home() {
       }
 
       setConnectionError(null); // Clear any previous errors
+      setIsReconnecting(false); // Clear reconnecting state on new connection attempt
 
       const connectionConfig = {
         connectionId: connection.id,
@@ -921,8 +924,8 @@ export default function Home() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-      // Check if it's a connection error
-      if (errorMessage.includes('connection') || errorMessage.includes('Connection')) {
+      // Check if it's a connection-lost error (not just any error containing "connection")
+      if (errorMessage.includes('connection lost') || errorMessage.includes('Connection terminated') || errorMessage.includes('ECONNREFUSED')) {
         setIsReconnecting(true);
         showError(t('notify.connectionLost'));
       }
