@@ -202,7 +202,7 @@
         <li><strong>Технические:</strong> IP-адрес, User-Agent браузера/приложения — для обеспечения безопасности;</li>
         <li><strong>Платёжные:</strong> идентификатор платежа, идентификатор заказа, сумма, валюта, статус платежа — для обработки оплаты;</li>
         <li><strong>Подписочные:</strong> тип плана (Free/Pro), даты начала и окончания подписки, пробного периода;</li>
-        <li><strong>Технические данные запросов:</strong> метаданные схемы базы данных (имена таблиц, типы колонок, индексы) и текстовое содержание запросов пользователя к ИИ-ассистенту — используются исключительно для обработки запросов в рамках оказания AI-функций и не являются персональными данными пользователя в смысле 152-ФЗ;</li>
+        <li><strong>Технические данные запросов:</strong> метаданные схемы базы данных и текст запросов пользователя к ИИ-ассистенту по общему правилу не должны содержать персональные данные. Пользователь обязан не включать в запросы персональные данные третьих лиц. В безопасном режиме (Safe Mode) в запросы не передаются строки таблиц (реальные данные из БД пользователя).</li>
         <li><strong>Журнальные:</strong> дата и время действий пользователя, идентификатор сессии, количество использованных токенов AI;</li>
         <li><strong>Юридические:</strong> факт акцепта правовых документов (тип, версия, дата, IP, User-Agent);</li>
         <li><strong>Аналитические:</strong> технические данные о взаимодействии с сайтом (идентификатор сессии, клики по элементам интерфейса) — не позволяют напрямую идентифицировать пользователя без дополнительных данных.</li>
@@ -253,6 +253,11 @@
           <td>Отправка сервисных уведомлений</td>
         </tr>
         <tr>
+          <td><strong>OpenRouter</strong> (агрегатор AI-моделей, США)</td>
+          <td>Метаданные схемы БД и текст запросов пользователя</td>
+          <td>Выполнение AI-функций; по общему правилу не содержат персональных данных</td>
+        </tr>
+        <tr>
           <td><strong>Timeweb Cloud</strong> (хостинг-провайдер, РФ)</td>
           <td>Все данные аккаунта, платёжные данные, журналы событий</td>
           <td>Хранение базы данных пользователей на серверах в РФ</td>
@@ -277,7 +282,7 @@
         <tr>
           <td><strong>Германия</strong></td>
           <td>Hostinux (API-бэкенд)</td>
-          <td>Email, имя, идентификаторы сессий, промпты, платёжные уведомления</td>
+          <td>Email, имя, идентификаторы сессий, платёжные уведомления</td>
           <td>Согласие субъекта + исполнение договора</td>
         </tr>
       </table>
@@ -328,7 +333,7 @@
         <li><strong>Technical:</strong> IP address, browser/application User-Agent — for security;</li>
         <li><strong>Payment:</strong> payment identifier, order ID, amount, currency, payment status;</li>
         <li><strong>Subscription:</strong> plan type (Free/Pro), subscription and trial dates;</li>
-        <li><strong>Technical request data:</strong> database schema metadata (table names, column types, indexes) and the text content of user queries to the AI assistant — used solely for processing requests as part of AI features and do not constitute personal data of the user;</li>
+        <li><strong>Technical request data:</strong> database schema metadata and user query text sent to the AI assistant should as a general rule not contain personal data. The user is obliged not to include third-party personal data in their queries. In Safe Mode, table rows (actual data from the user's database) are not transmitted in queries.</li>
         <li><strong>Logs:</strong> timestamps of user actions, session identifiers, AI token usage;</li>
         <li><strong>Legal:</strong> legal document acceptance records (type, version, date, IP, User-Agent);</li>
         <li><strong>Analytics:</strong> technical website interaction data (session identifier, UI element clicks) — cannot directly identify the user without additional data.</li>
@@ -379,6 +384,11 @@
           <td>Sending service notifications</td>
         </tr>
         <tr>
+          <td><strong>OpenRouter</strong> (AI model aggregator, USA)</td>
+          <td>Database schema metadata and user query text</td>
+          <td>AI feature execution; as a general rule does not contain personal data</td>
+        </tr>
+        <tr>
           <td><strong>Timeweb Cloud</strong> (hosting provider, Russia)</td>
           <td>All account data, payment data, event logs</td>
           <td>User database storage on servers in Russia</td>
@@ -403,7 +413,7 @@
         <tr>
           <td><strong>Germany</strong></td>
           <td>Hostinux (API backend)</td>
-          <td>Email, name, session IDs, prompts, payment notifications</td>
+          <td>Email, name, session identifiers, payment notifications</td>
           <td>Consent + contract performance</td>
         </tr>
       </table>
