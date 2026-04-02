@@ -286,9 +286,7 @@ export function getSubscriptionWarning(user: AuthUser | null): SubscriptionWarni
     return null;
   }
 
-  // Free plan with no trial = expired (no AI access)
-  if (user.plan === 'free' && !user.trialEndsAt) return 'expired';
-
+  // Free plan with no trial — still has daily quota, no warning needed
   return null;
 }
 
@@ -296,6 +294,9 @@ export function getSubscriptionWarning(user: AuthUser | null): SubscriptionWarni
 export function isSubscriptionActive(user: AuthUser | null): boolean {
   if (!user) return false;
   const now = new Date();
+
+  // Free plan always has daily quota — let backend handle limits
+  if ((user.plan || 'free') === 'free') return true;
 
   // Paid plan with valid expiry (pro, pro_plus)
   if (['pro', 'pro_plus'].includes(user.plan || '') && user.planExpiresAt) {
