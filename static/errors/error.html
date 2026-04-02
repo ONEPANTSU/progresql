@@ -182,8 +182,8 @@
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6l6-4.5L14 6v7.5a1 1 0 01-1 1H3a1 1 0 01-1-1V6z"/><path d="M6 14.5V8h4v6.5"/></svg>
         <span id="btnHomeText">Home</span>
       </a>
-      <a href="mailto:progresql@yandex.ru" class="btn btn-secondary" id="btnContact">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M1 3l7 5 7-5"/></svg>
+      <a href="https://t.me/progresql" target="_blank" rel="noopener" class="btn btn-secondary" id="btnContact">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 1L7.5 14L5.5 8.5L1 6.5L15 1Z"/><path d="M15 1L5.5 8.5"/></svg>
         <span id="btnContactText">Contact support</span>
       </a>
     </div>
@@ -244,11 +244,21 @@
       return '404';
     }
 
+    function getPath() {
+      var params = new URLSearchParams(window.location.search);
+      return params.get('path') || window.location.pathname;
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
     function render() {
       var code = getCode();
       var lang = detectLang();
       var e = errors[code] || errors['404'];
       var s = e.sql;
+      var path = escapeHtml(getPath());
 
       document.getElementById('errorCode').textContent = code;
       document.getElementById('errorTitle').textContent = e[lang][0];
@@ -257,9 +267,12 @@
       document.getElementById('btnContactText').textContent = btnLabels[lang][1];
       document.title = code + ' — ProgreSQL';
 
+      // For 404, show the actual requested path
+      var val = (code === '404') ? "'" + path + "'" : s.val;
+
       document.getElementById('sqlHint').innerHTML =
         '<span class="kw">' + s.kw1 + '</span> ' + s.col + ' <span class="kw">' + s.kw2 + '</span> ' + s.tbl + '<br>' +
-        '<span class="kw">' + s.kw3 + '</span> ' + s.cond + ' ' + s.op + ' <span class="str">' + s.val + '</span>;<br>' +
+        '<span class="kw">' + s.kw3 + '</span> ' + s.cond + ' ' + s.op + ' <span class="str">' + val + '</span>;<br>' +
         '<span class="comment">' + s.comment + '</span>';
     }
 
