@@ -334,9 +334,9 @@ describe('auth service', () => {
       expect(getSubscriptionWarning(user)).toBeNull();
     });
 
-    it('returns "expired" for free plan with no trial', () => {
+    it('returns null for free plan with no trial (has daily quota)', () => {
       const user = makeUser({ plan: 'free', trialEndsAt: undefined });
-      expect(getSubscriptionWarning(user)).toBe('expired');
+      expect(getSubscriptionWarning(user)).toBeNull();
     });
   });
 
@@ -372,14 +372,14 @@ describe('auth service', () => {
       expect(isSubscriptionActive(user)).toBe(true);
     });
 
-    it('returns false when trial has expired', () => {
+    it('returns true for free plan even when trial has expired (has daily quota)', () => {
       const user = makeUser({ plan: 'free', trialEndsAt: pastDate(1) });
-      expect(isSubscriptionActive(user)).toBe(false);
+      expect(isSubscriptionActive(user)).toBe(true);
     });
 
-    it('returns false for free plan with no trial and no expiry', () => {
+    it('returns true for free plan with no trial (has daily quota)', () => {
       const user = makeUser({ plan: 'free', trialEndsAt: undefined, planExpiresAt: undefined });
-      expect(isSubscriptionActive(user)).toBe(false);
+      expect(isSubscriptionActive(user)).toBe(true);
     });
   });
 
