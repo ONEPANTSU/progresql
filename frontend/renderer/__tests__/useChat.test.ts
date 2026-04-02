@@ -8,10 +8,10 @@
 */
 
 import { renderHook, act } from '@testing-library/react';
-import { useChat } from '../hooks/useChat';
+import { useChat } from '@/features/agent-chat/useChat';
 
 // Mock storage utilities so tests are self-contained
-jest.mock('../utils/chatStorage', () => ({
+jest.mock('@/entities/chat/chatStorage', () => ({
   loadChats: jest.fn(() => []),
   saveChats: jest.fn(),
   loadActiveChatId: jest.fn(() => null),
@@ -19,7 +19,7 @@ jest.mock('../utils/chatStorage', () => ({
   clearChatHistory: jest.fn(),
 }));
 
-jest.mock('../utils/logger', () => ({
+jest.mock('@/shared/lib/logger', () => ({
   createLogger: () => ({
     debug: jest.fn(),
     info: jest.fn(),
@@ -34,7 +34,7 @@ import {
   loadActiveChatId,
   saveActiveChatId,
   clearChatHistory,
-} from '../utils/chatStorage';
+} from '@/entities/chat/chatStorage';
 
 const mockLoadChats = loadChats as jest.Mock;
 const mockSaveChats = saveChats as jest.Mock;

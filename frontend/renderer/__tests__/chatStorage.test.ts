@@ -13,11 +13,11 @@ import {
   loadActiveChatId,
   saveActiveChatId,
   clearChatHistory,
-} from '../utils/chatStorage';
-import type { Chat, Message } from '../types';
+} from '@/entities/chat/chatStorage';
+import type { Chat, Message } from '@/shared/types';
 
 // Mock the logger to suppress noise
-jest.mock('../utils/logger', () => ({
+jest.mock('@/shared/lib/logger', () => ({
   createLogger: () => ({
     debug: jest.fn(),
     info: jest.fn(),
@@ -27,7 +27,7 @@ jest.mock('../utils/logger', () => ({
 }));
 
 // Mock userStorage to keep key resolution deterministic in tests
-jest.mock('../utils/userStorage', () => ({
+jest.mock('@/shared/lib/userStorage', () => ({
   userKey: jest.fn((suffix: string) => `progresql-${suffix}`),
 }));
 

@@ -1,11 +1,23 @@
 package quota
 
 import (
+	"context"
 	"math"
 	"testing"
 
+	"github.com/onepantsu/progressql/backend/internal/exchange"
 	"github.com/onepantsu/progressql/backend/internal/subscription"
+	"go.uber.org/zap"
 )
+
+// testService creates a minimal *Service with a fallback exchange rate (90 RUB/USD)
+// for unit tests that only need calculateCostRUB.
+func testService() *Service {
+	return &Service{
+		logger:  zap.NewNop(),
+		rateSvc: exchange.NewRateServiceWithRate(90.0),
+	}
+}
 
 // ---------- determineQuotaAction tests ----------
 
@@ -223,7 +235,8 @@ func TestCalculateCostRUB_KnownModel(t *testing.T) {
 	// Output cost: 500 * 0.60 / 1_000_000 = 0.0003 USD
 	// Total USD: 0.0005
 	// Total RUB: 0.0005 * 90 = 0.045
-	cost := calculateCostRUB("qwen/qwen3-coder", 1000, 500, 0)
+	svc := testService()
+	cost := svc.calculateCostRUB(context.Background(), "qwen/qwen3-coder", 1000, 500, 0)
 	expected := 0.045
 	if !almostEqual(cost, expected, 0.0001) {
 		t.Fatalf("expected cost ~%.4f RUB, got %.4f", expected, cost)
@@ -231,7 +244,8 @@ func TestCalculateCostRUB_KnownModel(t *testing.T) {
 }
 
 func TestCalculateCostRUB_UnknownModel(t *testing.T) {
-	cost := calculateCostRUB("unknown/model-xyz", 1000, 500, 0)
+	svc := testService()
+	cost := svc.calculateCostRUB(context.Background(), "unknown/model-xyz", 1000, 500, 0)
 	if cost != 0 {
 		t.Fatalf("expected 0 for unknown model, got %f", cost)
 	}
@@ -240,7 +254,8 @@ func TestCalculateCostRUB_UnknownModel(t *testing.T) {
 func TestCalculateCostRUB_WithMarkup50(t *testing.T) {
 	// Same as above but 50% markup
 	// 0.045 * 1.50 = 0.0675
-	cost := calculateCostRUB("qwen/qwen3-coder", 1000, 500, 50)
+	svc := testService()
+	cost := svc.calculateCostRUB(context.Background(), "qwen/qwen3-coder", 1000, 500, 50)
 	expected := 0.0675
 	if !almostEqual(cost, expected, 0.0001) {
 		t.Fatalf("expected cost ~%.4f RUB, got %.4f", expected, cost)
@@ -249,7 +264,8 @@ func TestCalculateCostRUB_WithMarkup50(t *testing.T) {
 
 func TestCalculateCostRUB_WithMarkup25(t *testing.T) {
 	// 0.045 * 1.25 = 0.05625
-	cost := calculateCostRUB("qwen/qwen3-coder", 1000, 500, 25)
+	svc := testService()
+	cost := svc.calculateCostRUB(context.Background(), "qwen/qwen3-coder", 1000, 500, 25)
 	expected := 0.05625
 	if !almostEqual(cost, expected, 0.0001) {
 		t.Fatalf("expected cost ~%.5f RUB, got %.5f", expected, cost)

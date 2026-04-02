@@ -3,13 +3,13 @@ import type { AppProps } from 'next/app';
 import Head from 'next/head';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box } from '@mui/material';
-import { AuthProvider } from '../providers/AuthProvider';
-import { NotificationProvider } from '../contexts/NotificationContext';
-import { ThemeProvider } from '../contexts/ThemeContext';
-import { AgentProvider } from '../contexts/AgentContext';
-import { LanguageProvider } from '../contexts/LanguageContext';
-import NotificationBridge from '../components/NotificationBridge';
-import '../styles/sidebar.css';
+import { AuthProvider } from '@/features/auth/AuthProvider';
+import { NotificationProvider } from '@/features/notifications/NotificationContext';
+import { ThemeProvider } from '@/features/settings/ThemeContext';
+import { AgentProvider } from '@/features/agent-chat/AgentContext';
+import { LanguageProvider } from '@/shared/i18n/LanguageContext';
+import NotificationBridge from '@/widgets/notification-bridge/NotificationBridge';
+import '@/app/styles/sidebar.css';
 
 export default function App({ Component, pageProps }: AppProps) {
   return (

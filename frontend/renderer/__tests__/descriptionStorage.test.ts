@@ -13,10 +13,10 @@ import {
   getAllDescriptions,
   getDescriptionsForContext,
   UserDescription,
-} from '../utils/descriptionStorage';
+} from '@/entities/database/descriptionStorage';
 
 // Mock userStorage so key resolution is deterministic
-jest.mock('../utils/userStorage', () => ({
+jest.mock('@/shared/lib/userStorage', () => ({
   userKey: jest.fn((suffix: string) => `progresql-${suffix}`),
 }));
 

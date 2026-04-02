@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Box, Button, CircularProgress, Paper, TextField, Typography, Alert } from '@mui/material';
 import { useRouter } from 'next/router';
-import { useAuth } from '../providers/AuthProvider';
-import Logo from '../components/Logo';
-import { useTranslation } from '../contexts/LanguageContext';
+import { useAuth } from '@/features/auth/AuthProvider';
+import Logo from '@/shared/ui/Logo';
+import { useTranslation } from '@/shared/i18n/LanguageContext';
 
 /** Navigate via absolute file:// URL in packaged Electron only */
 function navigateTo(route: string, router: ReturnType<typeof useRouter>) {

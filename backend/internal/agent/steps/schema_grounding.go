@@ -145,7 +145,7 @@ func (s *SchemaGroundingStep) Execute(ctx context.Context, pctx *agent.PipelineC
 		return fmt.Errorf("no table descriptions obtained for relevant tables")
 	}
 
-	// Step 4: Store the enriched schema context for downstream steps.
+	// Step 5: Store the enriched schema context for downstream steps.
 	pctx.Set(ContextKeySchemaContext, &schemaCtx)
 
 	return nil
@@ -381,44 +381,3 @@ func parseTableNames(data json.RawMessage) ([]string, error) {
 	return nil, fmt.Errorf("unexpected list_tables format: %s", string(data))
 }
 
-// stripThinkingTags removes <think>...</think> blocks that reasoning models
-// (e.g. Qwen, DeepSeek) prepend to their responses before the actual content.
-// Handles both <think>...</think> and partial/unclosed <think> tags.
-func stripThinkingTags(s string) string {
-	s = strings.TrimSpace(s)
-	for {
-		openIdx := strings.Index(s, "<think>")
-		if openIdx == -1 {
-			break
-		}
-		closeIdx := strings.Index(s, "</think>")
-		if closeIdx != -1 && closeIdx > openIdx {
-			// Remove the full <think>...</think> block.
-			s = s[:openIdx] + s[closeIdx+len("</think>"):]
-		} else {
-			// Unclosed <think> — remove from <think> to end.
-			s = s[:openIdx]
-		}
-		s = strings.TrimSpace(s)
-	}
-	return strings.TrimSpace(s)
-}
-
-// stripCodeFences removes markdown code block fences from a string.
-// Handles ```json, ```sql, ```<any-lang>, and bare ``` fences.
-func stripCodeFences(s string) string {
-	s = strings.TrimSpace(s)
-	if strings.HasPrefix(s, "```") {
-		// Strip opening fence with optional language tag (e.g., ```json, ```sql).
-		idx := strings.Index(s, "\n")
-		if idx != -1 {
-			s = s[idx+1:]
-		} else {
-			s = strings.TrimPrefix(s, "```")
-		}
-	}
-	if strings.HasSuffix(s, "```") {
-		s = strings.TrimSuffix(s, "```")
-	}
-	return strings.TrimSpace(s)
-}

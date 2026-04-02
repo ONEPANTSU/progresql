@@ -70,6 +70,16 @@ func (s *AutoExecuteStep) Execute(ctx context.Context, pctx *agent.PipelineConte
 
 	if !result.Success {
 		pctx.Logger.Warn("auto_execute query failed", zap.String("error", result.Error))
+
+		// If user denied execution, stream a correction so the chat doesn't
+		// show the previous LLM text that implied the query was executed.
+		if strings.Contains(result.Error, "denied") {
+			deniedMsg := "\n\n---\n*SQL execution was denied by the user. No changes were made to the database.*"
+			pctx.Result.Explanation = deniedMsg
+			pctx.Result.SQL = ""
+			return nil
+		}
+
 		errResult, _ := json.Marshal(map[string]string{"error": result.Error})
 		pctx.Result.QueryResult = errResult
 		return nil

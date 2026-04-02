@@ -9,8 +9,8 @@
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import ChartBlock from '../components/chat/ChartBlock';
-import type { MessageVisualization } from '../types';
+import ChartBlock from '@/features/agent-chat/ui/ChartBlock';
+import type { MessageVisualization } from '@/shared/types';
 
 // ── Mock recharts — complex SVG, not meaningful to test in jsdom ──────────────
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, within } from '@testing-library/react';
-import ChatPanel from '../components/ChatPanel';
-import { AgentContextValue } from '../contexts/AgentContext';
+import ChatPanel from '@/features/agent-chat/ChatPanel';
+import { AgentContextValue } from '@/features/agent-chat/AgentContext';
 
 // ── Mocks ──
 
@@ -33,11 +33,11 @@ const mockAgentValue: AgentContextValue = {
   lastNotification: null,
 };
 
-jest.mock('../contexts/AgentContext', () => ({
+jest.mock('@/features/agent-chat/AgentContext', () => ({
   useAgent: () => mockAgentValue,
 }));
 
-jest.mock('../contexts/LanguageContext', () => ({
+jest.mock('@/shared/i18n/LanguageContext', () => ({
   useTranslation: () => ({
     language: 'en',
     setLanguage: jest.fn(),
@@ -62,7 +62,7 @@ jest.mock('../contexts/LanguageContext', () => ({
   }),
 }));
 
-jest.mock('../contexts/NotificationContext', () => ({
+jest.mock('@/features/notifications/NotificationContext', () => ({
   useNotifications: () => ({
     showNotification: jest.fn(),
     showSuccess: jest.fn(),
@@ -72,7 +72,7 @@ jest.mock('../contexts/NotificationContext', () => ({
   }),
 }));
 
-jest.mock('../providers/AuthProvider', () => ({
+jest.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
     user: null,
     isLoading: false,
@@ -84,7 +84,7 @@ jest.mock('../providers/AuthProvider', () => ({
 }));
 
 // Mock logger to prevent console noise
-jest.mock('../utils/logger', () => ({
+jest.mock('@/shared/lib/logger', () => ({
   createLogger: () => ({
     debug: jest.fn(),
     info: jest.fn(),

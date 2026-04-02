@@ -54,7 +54,7 @@ ProgreSQL is an AI-powered PostgreSQL database management desktop application. I
 | Database | PostgreSQL 16 |
 | LLM Provider | OpenRouter API (12 models: 6 budget + 6 premium) |
 | Payments | Platega (Card/SBP) |
-| Auth | JWT (HS256, 24h TTL) + bcrypt + SMTP verification |
+| Auth | JWT (HS256, 30d TTL) + bcrypt + SMTP verification |
 | Monitoring | Prometheus + Grafana 10.4 + Loki 2.9 + Promtail |
 | Reverse Proxy | Nginx + Let's Encrypt |
 | CI/CD | GitHub Actions (tag-triggered) |
@@ -130,57 +130,77 @@ backend/
 │       └── types.go             # Protocol messages (envelope, payloads)
 ```
 
-## Frontend Architecture
+## Frontend Architecture (FSD)
+
+The frontend follows **Feature-Sliced Design (FSD)** methodology — code is organized by domain features with strict layer dependencies: `shared → entities → features → widgets → pages`.
 
 ```
 frontend/
 ├── main.js                # Electron main process (IPC handlers, window management)
 ├── preload.js             # Context bridge (electronAPI)
 ├── db-health.js           # Connection health check & auto-reconnect
-├── tool-server.js         # Backend tool execution bridge
+├── tool-server.js         # Backend tool execution bridge (SQL danger gate)
 ├── mcp-manager.js         # MCP server lifecycle
 ├── renderer/
-│   ├── pages/
-│   │   ├── index.tsx      # Main app (connection mgmt, panels, query execution)
-│   │   ├── login.tsx      # Sign in
-│   │   ├── register.tsx   # Registration
-│   │   ├── verify-email.tsx  # Email verification (OTP)
+│   ├── pages/                          # Next.js entry points (thin wrappers)
+│   │   ├── index.tsx                   # Main app — orchestrates all panels
+│   │   ├── _app.tsx                    # Global providers (Auth, Agent, Theme, i18n)
+│   │   ├── login.tsx / register.tsx    # Auth pages
+│   │   ├── verify-email.tsx            # Email verification (OTP)
 │   │   └── forgot-password.tsx
-│   ├── components/
-│   │   ├── DatabasePanel.tsx     # Left: connections, schema tree
-│   │   ├── SQLEditor.tsx         # Center: CodeMirror SQL editor
-│   │   ├── QueryResults.tsx      # Center-bottom: results table
-│   │   ├── ChatPanel.tsx         # Right: AI chat sidebar
-│   │   ├── SettingsPanel.tsx     # Settings drawer
-│   │   ├── ERDiagram.tsx         # ER diagram viewer
-│   │   ├── SchemaSyncModal.tsx   # Schema diff tool
-│   │   ├── ElementDetailsModal.tsx # Object inspector
-│   │   ├── PaymentModal.tsx      # Subscription payment
-│   │   ├── TopNavigation.tsx     # Header bar
-│   │   └── UpdateBanner.tsx      # Update notification
-│   ├── contexts/
-│   │   ├── AgentContext.tsx       # AI backend connection state
-│   │   ├── ThemeContext.tsx       # Light/dark/system theme
-│   │   ├── LanguageContext.tsx    # i18n (en/ru)
-│   │   └── NotificationContext.tsx # Toast notifications
-│   ├── providers/
-│   │   └── AuthProvider.tsx      # Auth state, JWT, profile
-│   ├── hooks/
-│   │   ├── useChat.ts            # Chat tabs, messages
-│   │   ├── useSQLTabs.ts         # SQL editor tabs
-│   │   └── useStreamingMessage.ts # Streaming text renderer
-│   ├── services/
-│   │   ├── auth.ts               # Auth API client
-│   │   ├── agent/AgentService.ts # WebSocket agent client
-│   │   └── database/DatabaseSchemaService.ts
-│   ├── locales/
-│   │   ├── en.ts                 # English translations
-│   │   └── ru.ts                 # Russian translations
-│   └── utils/
-│       ├── connectionStorage.ts  # Encrypted connection persistence
-│       ├── chatStorage.ts        # Chat history persistence
-│       └── descriptionStorage.ts # User descriptions for schema objects
+│   │
+│   ├── shared/                         # Cross-cutting infrastructure
+│   │   ├── types/                      # Global TypeScript types + electronAPI.d.ts
+│   │   ├── lib/                        # Utilities: logger, userStorage, secureSettingsStorage, sqlHighlight
+│   │   ├── api/                        # WebSocket primitives (WebSocketClient, Mock, WithLogging)
+│   │   ├── i18n/                       # LanguageContext + locales (en.ts, ru.ts)
+│   │   └── ui/                         # Shared UI: Logo, ErrorBoundary
+│   │
+│   ├── entities/                       # Domain data + storage
+│   │   ├── database/                   # connectionStorage, descriptionStorage, DatabaseSchemaService
+│   │   └── chat/                       # chatStorage (chat history persistence)
+│   │
+│   ├── features/                       # Feature modules (business logic + UI)
+│   │   ├── auth/                       # AuthProvider, auth API client (JWT, login, register)
+│   │   ├── agent-chat/                 # AI chat feature
+│   │   │   ├── AgentContext.tsx         # Agent connection state, security modes
+│   │   │   ├── AgentService.ts         # WebSocket client for backend pipeline
+│   │   │   ├── ChatPanel.tsx           # Multi-tab chat interface
+│   │   │   ├── toolHandler.ts          # Local tool call execution
+│   │   │   ├── useAgentMessages.ts     # Message flow orchestration
+│   │   │   ├── useChat.ts             # Chat state management
+│   │   │   ├── useStreamingMessage.ts  # Streaming text accumulation
+│   │   │   └── ui/                     # ChatMessage, ChatInput, SQLBlock, ChartBlock, ToolApprovalDialog
+│   │   ├── sql-editor/                 # SQLEditor, useSQLTabs, sqlAutocomplete, ghostTextExtension
+│   │   ├── database-browser/           # DatabasePanel, ConnectionForm, ElementDetailsModal, SchemaSyncModal
+│   │   ├── query-results/              # QueryResults (paginated table + export)
+│   │   ├── er-diagram/                 # ERDiagram (entity-relationship viewer)
+│   │   ├── settings/                   # SettingsPanel, ThemeContext
+│   │   ├── billing/                    # PaymentModal, BalanceTopUpModal, PaymentHistory, UsageDashboard, QuotaIndicator
+│   │   └── notifications/              # NotificationContext (toast queue)
+│   │
+│   ├── widgets/                        # Composite UI blocks (bridge features)
+│   │   ├── top-navigation/             # TopNavigation (header + user menu + quota)
+│   │   ├── status-bar/                 # StatusBar (query execution footer)
+│   │   ├── update-banner/              # UpdateBanner (app update notification)
+│   │   └── notification-bridge/        # NotificationBridge (agent → toast)
+│   │
+│   ├── app/
+│   │   └── styles/                     # Global CSS
+│   └── __tests__/                      # Test suite (503 tests, 19 suites)
 ```
+
+### FSD Layer Rules
+
+| Layer | Can Import From |
+|-------|----------------|
+| `shared/` | External packages only |
+| `entities/` | `shared/` |
+| `features/` | `entities/`, `shared/` |
+| `widgets/` | `features/`, `entities/`, `shared/` |
+| `pages/` | All layers |
+
+All imports use `@/` path alias (e.g. `@/features/agent-chat/AgentContext`). Each module has an `index.ts` barrel export.
 
 ## Network Architecture
 
