@@ -121,8 +121,8 @@ func TestQuotaLimitsForPlan_KnownPlans(t *testing.T) {
 		wantAutocomplete   bool
 		wantBalanceEnabled bool
 	}{
-		{PlanFree, 50_000, 0, "daily", false, false},
-		{PlanTrial, 500_000, 0, "daily", true, false},
+		{PlanFree, 50_000, 0, "daily", false, true},
+		{PlanTrial, 500_000, 0, "daily", true, true},
 		{PlanPro, 5_000_000, 200_000, "monthly", true, true},
 		{PlanProPlus, 10_000_000, 1_500_000, "monthly", true, true},
 	}
