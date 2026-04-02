@@ -60,6 +60,12 @@ type ParallelSQLGenerationStep struct {
 func (s *ParallelSQLGenerationStep) Name() string { return "parallel_sql_generation" }
 
 func (s *ParallelSQLGenerationStep) Execute(ctx context.Context, pctx *agent.PipelineContext) error {
+	// If SQL candidates were already generated (e.g. by schema_grounding for empty DB), skip.
+	if _, ok := pctx.Get(ContextKeySQLCandidates); ok {
+		pctx.Logger.Info("parallel_sql_generation skipped: candidates already set")
+		return nil
+	}
+
 	val, ok := pctx.Get(ContextKeySchemaContext)
 	if !ok {
 		return fmt.Errorf("schema_context not found: schema_grounding step must run first")
