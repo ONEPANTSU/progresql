@@ -10,11 +10,11 @@
 import {
   authService,
   getAuthToken,
-} from '../services/auth';
+} from '@/features/auth/auth';
 
 // ── Mock dependencies ─────────────────────────────────────────────────────────
 
-jest.mock('../utils/secureSettingsStorage', () => ({
+jest.mock('@/shared/lib/secureSettingsStorage', () => ({
   loadBackendUrl: jest.fn(() => 'https://progresql.com'),
 }));
 
@@ -271,7 +271,7 @@ describe('auth service (extended coverage)', () => {
         json: () => Promise.resolve({}),
       }) as jest.Mock;
 
-      const { createPaymentInvoice } = require('../services/auth');
+      const { createPaymentInvoice } = require('@/features/auth/auth');
       await expect(createPaymentInvoice()).rejects.toThrow('Failed to create payment invoice');
     });
 
@@ -282,7 +282,7 @@ describe('auth service (extended coverage)', () => {
         json: () => Promise.resolve({ payment_url: 'https://pay.example.com' }),
       }) as jest.Mock;
 
-      const { createPaymentInvoice } = require('../services/auth');
+      const { createPaymentInvoice } = require('@/features/auth/auth');
       await createPaymentInvoice(5);
 
       expect(global.fetch).toHaveBeenCalledWith(
@@ -304,7 +304,7 @@ describe('auth service (extended coverage)', () => {
         json: () => Promise.resolve({}),
       }) as jest.Mock;
 
-      const { applyPromoCode } = require('../services/auth');
+      const { applyPromoCode } = require('@/features/auth/auth');
       await expect(applyPromoCode('BADCODE')).rejects.toThrow('Invalid or expired promo code');
     });
   });

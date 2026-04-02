@@ -57,6 +57,16 @@ func NewRateService(logger *zap.Logger) *RateService {
 	return s
 }
 
+// NewRateServiceWithRate creates a RateService with a fixed rate (for tests).
+// No background goroutine is started.
+func NewRateServiceWithRate(rate float64) *RateService {
+	return &RateService{
+		rate:   rate,
+		logger: zap.NewNop(),
+		stopCh: make(chan struct{}),
+	}
+}
+
 // GetUSDToRUB returns the current cached USD to RUB exchange rate.
 // If the cache is stale or was never populated, returns the fallback rate.
 func (s *RateService) GetUSDToRUB() float64 {

@@ -2,9 +2,9 @@ import React, { useState, useRef } from 'react';
 import { Box, Button, CircularProgress, Link as MuiLink, Paper, TextField, Typography, Alert } from '@mui/material';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useAuth } from '../providers/AuthProvider';
-import Logo from '../components/Logo';
-import { useTranslation } from '../contexts/LanguageContext';
+import { useAuth } from '@/features/auth/AuthProvider';
+import Logo from '@/shared/ui/Logo';
+import { useTranslation } from '@/shared/i18n/LanguageContext';
 
 /**
  * Navigate using full page reload in Electron production.

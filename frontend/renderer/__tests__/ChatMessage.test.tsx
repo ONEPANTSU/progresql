@@ -9,12 +9,12 @@
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import ChatMessage from '../components/chat/ChatMessage';
-import type { Message } from '../types';
+import ChatMessage from '@/features/agent-chat/ui/ChatMessage';
+import type { Message } from '@/shared/types';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-jest.mock('../utils/logger', () => ({
+jest.mock('@/shared/lib/logger', () => ({
   createLogger: () => ({
     debug: jest.fn(),
     info: jest.fn(),
@@ -23,7 +23,7 @@ jest.mock('../utils/logger', () => ({
   }),
 }));
 
-jest.mock('../utils/sqlHighlight', () => ({
+jest.mock('@/shared/lib/sqlHighlight', () => ({
   highlightSQL: jest.fn((sql: string) => `<span>${sql}</span>`),
 }));
 
@@ -45,7 +45,7 @@ jest.mock('highlight.js/lib/languages/pgsql', () => ({
   default: jest.fn(),
 }));
 
-jest.mock('../contexts/LanguageContext', () => ({
+jest.mock('@/shared/i18n/LanguageContext', () => ({
   useTranslation: () => ({
     language: 'en',
     setLanguage: jest.fn(),
@@ -54,7 +54,7 @@ jest.mock('../contexts/LanguageContext', () => ({
 }));
 
 // Mock ChartBlock to keep tests simple
-jest.mock('../components/chat/ChartBlock', () => ({
+jest.mock('@/features/agent-chat/ui/ChartBlock', () => ({
   __esModule: true,
   default: ({ visualization }: { visualization: unknown }) => (
     <div data-testid="chart-block">{JSON.stringify(visualization)}</div>
@@ -62,7 +62,7 @@ jest.mock('../components/chat/ChartBlock', () => ({
 }));
 
 // Mock SQLBlock to avoid its internal electronAPI calls
-jest.mock('../components/chat/SQLBlock', () => ({
+jest.mock('@/features/agent-chat/ui/SQLBlock', () => ({
   __esModule: true,
   default: ({ sql, onExplain, onApply, onExecute }: {
     sql: string;

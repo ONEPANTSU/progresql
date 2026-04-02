@@ -9,8 +9,8 @@
 
 import React from 'react';
 import { render, screen, act, waitFor } from '@testing-library/react';
-import { AuthProvider, useAuth } from '../providers/AuthProvider';
-import type { AuthUser } from '../types';
+import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
+import type { AuthUser } from '@/shared/types';
 
 // ── Mock dependencies ─────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ const mockVerifyCode = jest.fn();
 
 const mockGetAuthToken = jest.fn();
 
-jest.mock('../services/auth', () => ({
+jest.mock('@/features/auth/auth', () => ({
   authService: {
     getCurrentUser: (...args: unknown[]) => mockGetCurrentUser(...args),
     login: (...args: unknown[]) => mockLogin(...args),
@@ -38,7 +38,7 @@ jest.mock('../services/auth', () => ({
   loadPersistedAuth: jest.fn().mockImplementation(() => Promise.resolve()),
 }));
 
-jest.mock('../utils/userStorage', () => ({
+jest.mock('@/shared/lib/userStorage', () => ({
   migrateToUserStorage: jest.fn(),
 }));
 

@@ -286,4 +286,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   respondToolApproval: (decision) => {
     ipcRenderer.send('tool-approval-response', decision);
   },
+  resetToolAutoApproval: () => {
+    ipcRenderer.send('reset-tool-auto-approval');
+  },
 });

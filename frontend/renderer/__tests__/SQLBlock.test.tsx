@@ -9,11 +9,11 @@
 
 import React from 'react';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
-import SQLBlock from '../components/chat/SQLBlock';
+import SQLBlock from '@/features/agent-chat/ui/SQLBlock';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-jest.mock('../contexts/LanguageContext', () => ({
+jest.mock('@/shared/i18n/LanguageContext', () => ({
   useTranslation: () => ({
     language: 'en',
     setLanguage: jest.fn(),
@@ -34,7 +34,7 @@ jest.mock('../contexts/LanguageContext', () => ({
   }),
 }));
 
-jest.mock('../utils/logger', () => ({
+jest.mock('@/shared/lib/logger', () => ({
   createLogger: () => ({
     debug: jest.fn(),
     info: jest.fn(),
@@ -43,7 +43,7 @@ jest.mock('../utils/logger', () => ({
   }),
 }));
 
-jest.mock('../utils/sqlHighlight', () => ({
+jest.mock('@/shared/lib/sqlHighlight', () => ({
   highlightSQL: jest.fn((sql: string) => `<span>${sql}</span>`),
 }));
 

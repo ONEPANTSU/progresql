@@ -8,8 +8,8 @@
 */
 
 import { renderHook, act } from '@testing-library/react';
-import { useStreamingMessage } from '../hooks/useStreamingMessage';
-import type { Chat } from '../types';
+import { useStreamingMessage } from '@/features/agent-chat/useStreamingMessage';
+import type { Chat } from '@/shared/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

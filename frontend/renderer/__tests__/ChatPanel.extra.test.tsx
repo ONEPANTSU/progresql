@@ -9,8 +9,8 @@
 
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import ChatPanel from '../components/ChatPanel';
-import { AgentContextValue } from '../contexts/AgentContext';
+import ChatPanel from '@/features/agent-chat/ChatPanel';
+import { AgentContextValue } from '@/features/agent-chat/AgentContext';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
 
@@ -39,14 +39,18 @@ const mockAgentValue: AgentContextValue = {
   cancelAutocomplete: jest.fn(),
   usage: null,
   refreshUsage: jest.fn(),
+  autocompleteEnabled: true,
+  setAutocompleteEnabled: jest.fn(),
   lastNotification: null,
+  pendingApproval: null,
+  resetAutoApproval: jest.fn(),
 };
 
-jest.mock('../contexts/AgentContext', () => ({
+jest.mock('@/features/agent-chat/AgentContext', () => ({
   useAgent: () => mockAgentValue,
 }));
 
-jest.mock('../contexts/LanguageContext', () => ({
+jest.mock('@/shared/i18n/LanguageContext', () => ({
   useTranslation: () => ({
     language: 'en',
     setLanguage: jest.fn(),
@@ -81,7 +85,7 @@ jest.mock('../contexts/LanguageContext', () => ({
   }),
 }));
 
-jest.mock('../contexts/NotificationContext', () => ({
+jest.mock('@/features/notifications/NotificationContext', () => ({
   useNotifications: () => ({
     showNotification: jest.fn(),
     showSuccess: jest.fn(),
@@ -94,7 +98,7 @@ jest.mock('../contexts/NotificationContext', () => ({
 // Default auth mock — can be overridden per test via __setUser
 let mockUser: any = null;
 
-jest.mock('../providers/AuthProvider', () => ({
+jest.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
     user: mockUser,
     isLoading: false,
@@ -105,7 +109,7 @@ jest.mock('../providers/AuthProvider', () => ({
   }),
 }));
 
-jest.mock('../utils/logger', () => ({
+jest.mock('@/shared/lib/logger', () => ({
   createLogger: () => ({
     debug: jest.fn(),
     info: jest.fn(),

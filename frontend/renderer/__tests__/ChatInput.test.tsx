@@ -9,12 +9,12 @@
 
 import React, { createRef } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import ChatInput, { ChatInputHandle } from '../components/chat/ChatInput';
-import type { DatabaseServer } from '../types';
+import ChatInput, { ChatInputHandle } from '@/features/agent-chat/ui/ChatInput';
+import type { DatabaseServer } from '@/shared/types';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-jest.mock('../contexts/LanguageContext', () => ({
+jest.mock('@/shared/i18n/LanguageContext', () => ({
   useTranslation: () => ({
     language: 'en',
     setLanguage: jest.fn(),

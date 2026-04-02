@@ -209,6 +209,11 @@ app.whenReady().then(() => {
       });
     });
   });
+
+  // Reset tool-server auto-approval when renderer requests it (mode change, model change, new chat)
+  ipcMain.on('reset-tool-auto-approval', () => {
+    toolServer.resetAutoApproval();
+  });
 });
 
 app.on('window-all-closed', async () => {

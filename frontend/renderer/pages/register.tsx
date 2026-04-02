@@ -2,10 +2,10 @@ import React, { useState, useMemo, useRef } from 'react';
 import { Box, Button, Checkbox, CircularProgress, FormControlLabel, Link as MuiLink, LinearProgress, Paper, TextField, Typography, Alert } from '@mui/material';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useAuth } from '../providers/AuthProvider';
-import Logo from '../components/Logo';
-import { useTranslation } from '../contexts/LanguageContext';
-import { authService } from '../services/auth';
+import { useAuth } from '@/features/auth/AuthProvider';
+import Logo from '@/shared/ui/Logo';
+import { useTranslation } from '@/shared/i18n/LanguageContext';
+import { authService } from '@/features/auth/auth';
 
 /** Navigate via absolute file:// URL in packaged Electron only */
 function navigateTo(route: string, router: ReturnType<typeof useRouter>) {

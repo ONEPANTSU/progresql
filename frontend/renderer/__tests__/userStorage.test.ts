@@ -11,7 +11,7 @@ import {
   getCurrentUserId,
   userKey,
   migrateToUserStorage,
-} from '../utils/userStorage';
+} from '@/shared/lib/userStorage';
 
 const CURRENT_USER_KEY = 'progresql-current-user';
 

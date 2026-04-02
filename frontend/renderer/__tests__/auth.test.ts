@@ -14,12 +14,12 @@ import {
   createPaymentInvoice,
   applyPromoCode,
   authService,
-} from '../services/auth';
-import type { AuthUser } from '../types';
+} from '@/features/auth/auth';
+import type { AuthUser } from '@/shared/types';
 
 // ── Mock dependencies ─────────────────────────────────────────────────────────
 
-jest.mock('../utils/secureSettingsStorage', () => ({
+jest.mock('@/shared/lib/secureSettingsStorage', () => ({
   loadBackendUrl: jest.fn(() => 'https://progresql.com'),
 }));
 

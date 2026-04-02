@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, act, waitFor } from '@testing-library/react';
-import { AgentProvider, useAgent, AgentContextValue } from '../contexts/AgentContext';
-import { AuthProvider } from '../providers/AuthProvider';
+import { AgentProvider, useAgent, AgentContextValue } from '@/features/agent-chat/AgentContext';
+import { AuthProvider } from '@/features/auth/AuthProvider';
 
 // ── Mock AgentService ──
 
@@ -15,7 +15,7 @@ const mockSetToolCallHandler = jest.fn();
 
 const mockUpdateModel = jest.fn();
 
-jest.mock('../services/auth', () => ({
+jest.mock('@/features/auth/auth', () => ({
   authService: {
     getCurrentUser: jest.fn().mockReturnValue(null),
     login: jest.fn(),
@@ -30,7 +30,7 @@ jest.mock('../services/auth', () => ({
   isSubscriptionActive: jest.fn().mockReturnValue(false),
 }));
 
-jest.mock('../services/agent/AgentService', () => ({
+jest.mock('@/features/agent-chat/AgentService', () => ({
   AgentService: jest.fn().mockImplementation(() => ({
     connect: mockConnect,
     disconnect: mockDisconnect,
@@ -46,11 +46,11 @@ jest.mock('../services/agent/AgentService', () => ({
   })),
 }));
 
-jest.mock('../services/agent/toolHandler', () => ({
+jest.mock('@/features/agent-chat/toolHandler', () => ({
   handleToolCall: jest.fn(),
 }));
 
-jest.mock('../utils/logger', () => ({
+jest.mock('@/shared/lib/logger', () => ({
   createLogger: () => ({
     debug: jest.fn(),
     info: jest.fn(),
@@ -59,7 +59,7 @@ jest.mock('../utils/logger', () => ({
   }),
 }));
 
-jest.mock('../utils/userStorage', () => ({
+jest.mock('@/shared/lib/userStorage', () => ({
   migrateToUserStorage: jest.fn(),
   userKey: jest.fn((suffix: string) => `user_${suffix}`),
   getCurrentUserId: jest.fn(() => null),
@@ -124,7 +124,7 @@ describe('AgentContext', () => {
   });
 
   it('creates AgentService on mount', async () => {
-    const { AgentService } = require('../services/agent/AgentService');
+    const { AgentService } = require('@/features/agent-chat/AgentService');
     await renderWithProvider();
 
     expect(AgentService).toHaveBeenCalledWith({

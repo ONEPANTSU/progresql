@@ -237,7 +237,7 @@ func (m *mockErrorEmailSender) SendTrialExpiryEmail(_ string, _ int) error {
 	return fmt.Errorf("smtp error")
 }
 
-func TestNotifier_SendNotification_EmailError_RemovesRecord(t *testing.T) {
+func TestNotifier_SendNotification_EmailError_KeepsRecord(t *testing.T) {
 	emailSvc := &mockErrorEmailSender{configured: true}
 	updater := &mockPlanUpdater{}
 	store := newMockNotificationStore()
@@ -253,9 +253,10 @@ func TestNotifier_SendNotification_EmailError_RemovesRecord(t *testing.T) {
 
 	n.sendNotification(u, "trial_expiry", 0)
 
-	// After email failure the notification record should be removed.
-	if store.AlreadyNotified(u.ID, "trial_expiry", 0) {
-		t.Error("expected notification record removed after email error")
+	// After email failure the notification record is kept to prevent
+	// retry-flooding the SMTP server on every notifier cycle.
+	if !store.AlreadyNotified(u.ID, "trial_expiry", 0) {
+		t.Error("expected notification record kept after email error to prevent retry spam")
 	}
 }
 

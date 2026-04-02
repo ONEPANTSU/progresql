@@ -577,7 +577,7 @@ func TestProfileHandler_FallbackToClaimsExtra(t *testing.T) {
 
 	// Create profile handler with a NEW empty store (user not found).
 	emptyStore := auth.NewUserStore(nil)
-	handler := profileHandler(emptyStore)
+	handler := profileHandler(emptyStore, nil)
 
 	ctx := context.WithValue(context.Background(), auth.ClaimsContextKey, parsed)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/profile", nil).WithContext(ctx)

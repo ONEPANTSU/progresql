@@ -8,14 +8,14 @@
 */
 
 import { renderHook, act } from '@testing-library/react';
-import { useAgentMessages } from '../hooks/useAgentMessages';
+import { useAgentMessages } from '@/features/agent-chat/useAgentMessages';
 
 // ── Mock setup ────────────────────────────────────────────────────────────────
 
 const mockShowError = jest.fn();
 const mockShowSuccess = jest.fn();
 
-jest.mock('../contexts/NotificationContext', () => ({
+jest.mock('@/features/notifications/NotificationContext', () => ({
   useNotifications: () => ({
     showNotification: jest.fn(),
     showSuccess: mockShowSuccess,
@@ -51,11 +51,11 @@ const mockAgentValue = {
   cancelAutocomplete: jest.fn(),
 };
 
-jest.mock('../contexts/AgentContext', () => ({
+jest.mock('@/features/agent-chat/AgentContext', () => ({
   useAgent: () => mockAgentValue,
 }));
 
-jest.mock('../contexts/LanguageContext', () => ({
+jest.mock('@/shared/i18n/LanguageContext', () => ({
   useTranslation: () => ({
     language: 'en',
     setLanguage: jest.fn(),
@@ -63,7 +63,7 @@ jest.mock('../contexts/LanguageContext', () => ({
   }),
 }));
 
-jest.mock('../utils/logger', () => ({
+jest.mock('@/shared/lib/logger', () => ({
   createLogger: () => ({
     debug: jest.fn(),
     info: jest.fn(),
@@ -72,7 +72,7 @@ jest.mock('../utils/logger', () => ({
   }),
 }));
 
-jest.mock('../utils/descriptionStorage', () => ({
+jest.mock('@/entities/database/descriptionStorage', () => ({
   getDescriptionsForContext: jest.fn(() => ''),
 }));
 
@@ -83,7 +83,7 @@ const mockFinishStreaming = jest.fn();
 const mockCancelStreaming = jest.fn();
 const mockTextRef = { current: '' };
 
-jest.mock('../hooks/useStreamingMessage', () => ({
+jest.mock('@/features/agent-chat/useStreamingMessage', () => ({
   useStreamingMessage: () => ({
     textRef: mockTextRef,
     startStreaming: mockStartStreaming,

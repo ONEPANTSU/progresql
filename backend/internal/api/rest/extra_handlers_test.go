@@ -840,11 +840,13 @@ func TestUserInfoFromUser_WithExpiry(t *testing.T) {
 		PlanExpiresAt: &exp,
 	}
 	info := userInfoFromUser(user)
-	if info.Plan != "pro" {
-		t.Errorf("expected plan 'pro', got %q", info.Plan)
+	// Expired paid plan is normalized to "free" effective plan.
+	if info.Plan != "free" {
+		t.Errorf("expected plan 'free' (normalized from expired pro), got %q", info.Plan)
 	}
-	if info.SubscriptionWarning != "expired" {
-		t.Errorf("expected warning 'expired', got %q", info.SubscriptionWarning)
+	// After normalization to "free" with no trial, warning is empty.
+	if info.SubscriptionWarning != "" {
+		t.Errorf("expected no warning for normalized free plan, got %q", info.SubscriptionWarning)
 	}
 }
 
@@ -867,7 +869,7 @@ func TestUserInfoFromUser_WithTrialExpiry(t *testing.T) {
 
 func TestProfileHandler_FallbackToClaims(t *testing.T) {
 	store := auth.NewUserStore(nil)
-	handler := profileHandler(store)
+	handler := profileHandler(store, nil)
 
 	// Claims with a user ID that doesn't exist in the store — falls back to claims.
 	claims := &auth.Claims{
@@ -892,7 +894,7 @@ func TestProfileHandler_FallbackToClaims(t *testing.T) {
 
 func TestProfileHandler_EmptyUserID_FallbackToClaims(t *testing.T) {
 	store := auth.NewUserStore(nil)
-	handler := profileHandler(store)
+	handler := profileHandler(store, nil)
 
 	// Claims with empty UserID — anonymous session.
 	claims := &auth.Claims{

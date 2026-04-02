@@ -9,11 +9,11 @@
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import ElementDetailsModal from '../components/ElementDetailsModal';
+import ElementDetailsModal from '@/features/database-browser/ElementDetailsModal';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-jest.mock('../contexts/LanguageContext', () => ({
+jest.mock('@/shared/i18n/LanguageContext', () => ({
   useTranslation: () => ({
     language: 'en',
     setLanguage: jest.fn(),
@@ -39,7 +39,7 @@ jest.mock('../contexts/LanguageContext', () => ({
   }),
 }));
 
-jest.mock('../utils/logger', () => ({
+jest.mock('@/shared/lib/logger', () => ({
   createLogger: () => ({
     debug: jest.fn(),
     info: jest.fn(),
@@ -48,12 +48,12 @@ jest.mock('../utils/logger', () => ({
   }),
 }));
 
-jest.mock('../utils/descriptionStorage', () => ({
+jest.mock('@/entities/database/descriptionStorage', () => ({
   getDescription: jest.fn().mockReturnValue(''),
   setDescription: jest.fn(),
 }));
 
-jest.mock('../utils/userStorage', () => ({
+jest.mock('@/shared/lib/userStorage', () => ({
   userKey: jest.fn((suffix: string) => `progresql-${suffix}`),
 }));
 
