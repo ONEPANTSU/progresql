@@ -55,3 +55,20 @@ export function useTranslation() {
   if (!ctx) throw new Error('useTranslation must be used within LanguageProvider');
   return ctx;
 }
+
+/** Safe variant that returns English fallback when LanguageProvider is absent (e.g. in tests). */
+export function useTranslationSafe() {
+  const ctx = useContext(LanguageContext);
+  if (ctx) return ctx;
+  // Fallback: always English, no-op setLanguage
+  const t = (key: TranslationKey, params?: Record<string, string | number>): string => {
+    let text = locales.en[key] || key;
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+      }
+    }
+    return text;
+  };
+  return { language: 'en' as Language, setLanguage: () => {}, t };
+}
