@@ -184,8 +184,8 @@
     </div>
     <div id="title-ru"><h1>Политика обработки персональных данных</h1></div>
     <div id="title-en" style="display:none"><h1>Privacy Policy</h1></div>
-    <div id="version-ru" class="version-info">Дата вступления в силу: 6 апреля 2026 г. | Последнее обновление: 6 апреля 2026 г.</div>
-    <div id="version-en" class="version-info" style="display:none">Effective date: April 6, 2026 | Last updated: April 6, 2026</div>
+    <div id="version-ru" class="version-info">Дата вступления в силу: 2 апреля 2026 г. | Последнее обновление: 2 апреля 2026 г.</div>
+    <div id="version-en" class="version-info" style="display:none">Effective date: April 2, 2026 | Last updated: April 2, 2026</div>
     <div id="content-ru">
       <h2>1. Оператор</h2>
       <p>Оператором персональных данных является:<br>
@@ -202,10 +202,10 @@
         <li><strong>Технические:</strong> IP-адрес, User-Agent браузера/приложения — для обеспечения безопасности;</li>
         <li><strong>Платёжные:</strong> идентификатор платежа, идентификатор заказа, сумма, валюта, статус платежа — для обработки оплаты;</li>
         <li><strong>Подписочные:</strong> тип плана (Free/Pro), даты начала и окончания подписки, пробного периода;</li>
-        <li><strong>AI-данные:</strong> тексты запросов пользователя (промпты), метаданные схемы базы данных (имена таблиц, типы колонок, индексы), история диалога с AI-ассистентом — для генерации и оптимизации SQL-запросов;</li>
+        <li><strong>Технические данные запросов:</strong> метаданные схемы базы данных (имена таблиц, типы колонок, индексы) и текстовое содержание запросов пользователя к ИИ-ассистенту — используются исключительно для обработки запросов в рамках оказания AI-функций и не являются персональными данными пользователя в смысле 152-ФЗ;</li>
         <li><strong>Журнальные:</strong> дата и время действий пользователя, идентификатор сессии, количество использованных токенов AI;</li>
         <li><strong>Юридические:</strong> факт акцепта правовых документов (тип, версия, дата, IP, User-Agent);</li>
-        <li><strong>Аналитические:</strong> анонимизированные данные о взаимодействии с сайтом (идентификатор сессии, клики по элементам интерфейса).</li>
+        <li><strong>Аналитические:</strong> технические данные о взаимодействии с сайтом (идентификатор сессии, клики по элементам интерфейса) — не позволяют напрямую идентифицировать пользователя без дополнительных данных.</li>
       </ul>
       <h2>3. Цели обработки</h2>
       <ul>
@@ -252,6 +252,16 @@
           <td>Email, имя пользователя</td>
           <td>Отправка сервисных уведомлений</td>
         </tr>
+        <tr>
+          <td><strong>Timeweb Cloud</strong> (хостинг-провайдер, РФ)</td>
+          <td>Все данные аккаунта, платёжные данные, журналы событий</td>
+          <td>Хранение базы данных пользователей на серверах в РФ</td>
+        </tr>
+        <tr>
+          <td><strong>Hostinux</strong> (хостинг-провайдер, Германия)</td>
+          <td>Email, имя, идентификаторы сессий, платёжные уведомления</td>
+          <td>Размещение API-бэкенда</td>
+        </tr>
       </table>
       <p>Для обеспечения работы ИИ-функций сервис использует сторонние языковые модели. Запросы к ним содержат метаданные схемы базы данных и текст вопросов пользователя. Указанные данные не являются персональными данными пользователей сервиса ProgreSQL и не позволяют идентифицировать физических лиц. Пользователь самостоятельно несёт ответственность за содержание своих запросов и не должен включать в них персональные данные третьих лиц.</p>
       <p>Мы не продаём персональные данные и не передаём их иным третьим лицам, за исключением случаев, предусмотренных законодательством.</p>
@@ -266,7 +276,7 @@
         </tr>
         <tr>
           <td><strong>Германия</strong></td>
-          <td>Сервер обработки запросов (API-бэкенд)</td>
+          <td>Hostinux (API-бэкенд)</td>
           <td>Email, имя, идентификаторы сессий, промпты, платёжные уведомления</td>
           <td>Согласие субъекта + исполнение договора</td>
         </tr>
@@ -318,10 +328,10 @@
         <li><strong>Technical:</strong> IP address, browser/application User-Agent — for security;</li>
         <li><strong>Payment:</strong> payment identifier, order ID, amount, currency, payment status;</li>
         <li><strong>Subscription:</strong> plan type (Free/Pro), subscription and trial dates;</li>
-        <li><strong>AI data:</strong> user queries (prompts), database schema metadata (table names, column types, indexes), AI chat history — for SQL generation and optimization;</li>
+        <li><strong>Technical request data:</strong> database schema metadata (table names, column types, indexes) and the text content of user queries to the AI assistant — used solely for processing requests as part of AI features and do not constitute personal data of the user;</li>
         <li><strong>Logs:</strong> timestamps of user actions, session identifiers, AI token usage;</li>
         <li><strong>Legal:</strong> legal document acceptance records (type, version, date, IP, User-Agent);</li>
-        <li><strong>Analytics:</strong> anonymized website interaction data (session ID, UI element clicks).</li>
+        <li><strong>Analytics:</strong> technical website interaction data (session identifier, UI element clicks) — cannot directly identify the user without additional data.</li>
       </ul>
       <h2>3. Purposes of Processing</h2>
       <ul>
@@ -368,6 +378,16 @@
           <td>Email, username</td>
           <td>Sending service notifications</td>
         </tr>
+        <tr>
+          <td><strong>Timeweb Cloud</strong> (hosting provider, Russia)</td>
+          <td>All account data, payment data, event logs</td>
+          <td>User database storage on servers in Russia</td>
+        </tr>
+        <tr>
+          <td><strong>Hostinux</strong> (hosting provider, Germany)</td>
+          <td>Email, name, session identifiers, payment notifications</td>
+          <td>API backend hosting</td>
+        </tr>
       </table>
       <p>To provide AI features, the service uses third-party language models. Requests to these models contain database schema metadata and the text of user queries. Such data does not constitute personal data of ProgreSQL users and cannot be used to identify individuals. Users are solely responsible for the content of their queries and must not include third-party personal data in them.</p>
       <p>We do not sell personal data or share it with other third parties except as required by law.</p>
@@ -382,7 +402,7 @@
         </tr>
         <tr>
           <td><strong>Germany</strong></td>
-          <td>API backend server</td>
+          <td>Hostinux (API backend)</td>
           <td>Email, name, session IDs, prompts, payment notifications</td>
           <td>Consent + contract performance</td>
         </tr>
@@ -405,7 +425,7 @@
       <h2>10. Security</h2>
       <p>We implement the following security measures:</p>
       <ul>
-        <li>Password encryption (bcrypt, irreversible hashing);</li>
+        <li>Password hashing (bcrypt, one-way, irreversible);</li>
         <li>Data transmission over HTTPS/TLS;</li>
         <li>JWT tokens for authentication (HS256, 24-hour TTL);</li>
         <li>Rate limiting for brute-force protection;</li>
