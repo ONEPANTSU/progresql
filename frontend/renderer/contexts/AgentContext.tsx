@@ -7,8 +7,10 @@ import {
   ConnectionPhase,
   AgentServiceConfig,
   ServerNotification,
+  ToolResultPayload,
 } from '../services/agent/AgentService';
 import { handleToolCall } from '../services/agent/toolHandler';
+import ToolApprovalDialog, { PendingApproval, SqlDangerLevel } from '../components/chat/ToolApprovalDialog';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('AgentContext');
@@ -30,6 +32,54 @@ import { useAuth } from '../providers/AuthProvider';
 import { UsageInfo } from '../types';
 
 const DEFAULT_BACKEND_URL = 'https://progresql.com';
+
+// ── SQL danger classification ──
+
+const DDL_KEYWORDS = ['CREATE', 'ALTER', 'DROP', 'TRUNCATE', 'RENAME', 'COMMENT'];
+const DML_KEYWORDS = ['INSERT', 'UPDATE', 'DELETE', 'MERGE', 'UPSERT'];
+const DCL_KEYWORDS = ['GRANT', 'REVOKE', 'REASSIGN', 'SECURITY'];
+
+/** Strip SQL comments to analyze the actual statement */
+function stripSQLComments(sql: string): string {
+  return sql.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '').trim();
+}
+
+/**
+ * Classify whether an SQL statement is dangerous and what kind.
+ * Returns null if the statement is safe (e.g. SELECT without side effects).
+ */
+function classifySqlDanger(sql: string): SqlDangerLevel | null {
+  const cleaned = stripSQLComments(sql);
+  const upper = cleaned.toUpperCase();
+  const firstWord = upper.split(/\s+/)[0];
+
+  if (DDL_KEYWORDS.includes(firstWord)) return 'ddl';
+  if (DML_KEYWORDS.includes(firstWord)) return 'dml';
+  if (DCL_KEYWORDS.includes(firstWord)) return 'dcl';
+
+  // SELECT with side-effect functions (e.g. pg_terminate_backend, lo_unlink, etc.)
+  if (firstWord === 'SELECT' || firstWord === 'WITH') {
+    const dangerousFunctions = [
+      'pg_terminate_backend', 'pg_cancel_backend', 'pg_reload_conf',
+      'pg_rotate_logfile', 'pg_switch_wal', 'pg_switch_xlog',
+      'lo_unlink', 'lo_create', 'lo_import', 'lo_export',
+      'dblink_exec', 'set_config', 'pg_advisory_lock',
+      'nextval', 'setval',
+      'pg_sleep',
+    ];
+    const lowerSql = cleaned.toLowerCase();
+    for (const fn of dangerousFunctions) {
+      if (lowerSql.includes(fn + '(') || lowerSql.includes(fn + ' (')) {
+        return 'function_call';
+      }
+    }
+  }
+
+  // CALL, DO, EXECUTE — procedural execution
+  if (['CALL', 'DO', 'EXECUTE'].includes(firstWord)) return 'function_call';
+
+  return null;
+}
 
 // ── Context value ──
 
@@ -117,6 +167,10 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [usage, setUsage] = useState<UsageInfo | null>(null);
   const [lastNotification, setLastNotification] = useState<ServerNotification | null>(null);
 
+  // Tool approval state
+  const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
+  const autoApproveRef = useRef(false); // "accept always" for this session
+
   // AgentService ref (recreated when config changes)
   const serviceRef = useRef<AgentService | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
@@ -148,8 +202,33 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     });
 
-    // Register tool call handler so the backend can invoke database tools
-    service.setToolCallHandler(handleToolCall);
+    // Register tool call handler with approval gating for dangerous SQL
+    service.setToolCallHandler(async (toolName: string, args: Record<string, unknown>): Promise<ToolResultPayload> => {
+      // Only gate execute_query with dangerous SQL in execute mode
+      if (toolName === 'execute_query') {
+        const sql = (args.sql || args.query || '') as string;
+        const dangerLevel = classifySqlDanger(sql);
+
+        if (dangerLevel && !autoApproveRef.current) {
+          // Show approval dialog and wait for user decision
+          const decision = await new Promise<'accept_once' | 'accept_always' | 'deny'>((resolve) => {
+            setPendingApproval({ sql, dangerLevel, resolve });
+          });
+          setPendingApproval(null);
+
+          if (decision === 'deny') {
+            return {
+              success: false,
+              error: 'User denied execution of this SQL statement.',
+            };
+          }
+          if (decision === 'accept_always') {
+            autoApproveRef.current = true;
+          }
+        }
+      }
+      return handleToolCall(toolName, args);
+    });
 
     // Subscribe to server push notifications
     const unsubNotification = service.onNotification((notification) => {
@@ -217,6 +296,8 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setSecurityMode = useCallback((mode: SecurityMode) => {
     setSecurityModeState(mode);
     saveSecurityMode(mode);
+    // Reset "accept always" when switching modes
+    autoApproveRef.current = false;
   }, []);
 
   // Backward compat
@@ -339,6 +420,7 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <AgentContext.Provider value={value}>
       {children}
+      <ToolApprovalDialog pending={pendingApproval} />
     </AgentContext.Provider>
   );
 };
