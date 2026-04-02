@@ -202,11 +202,19 @@
         <li><strong>Технические:</strong> IP-адрес, User-Agent браузера/приложения — для обеспечения безопасности;</li>
         <li><strong>Платёжные:</strong> идентификатор платежа, идентификатор заказа, сумма, валюта, статус платежа — для обработки оплаты;</li>
         <li><strong>Подписочные:</strong> тип плана (Free/Pro), даты начала и окончания подписки, пробного периода;</li>
-        <li><strong>Технические данные запросов:</strong> метаданные схемы базы данных и текст запросов пользователя к ИИ-ассистенту по общему правилу не должны содержать персональные данные. Пользователь обязан не включать в запросы персональные данные третьих лиц. В безопасном режиме (Safe Mode) в запросы не передаются строки таблиц (реальные данные из БД пользователя).</li>
+        <li><strong>Технические данные запросов:</strong> метаданные схемы базы данных и текст запросов пользователя к ИИ-ассистенту по общему правилу не должны содержать персональные данные. Пользователь обязан не включать в запросы персональные данные третьих лиц. В безопасном режиме (Safe Mode) строки таблиц не передаются.</li>
         <li><strong>Журнальные:</strong> дата и время действий пользователя, идентификатор сессии, количество использованных токенов AI;</li>
         <li><strong>Юридические:</strong> факт акцепта правовых документов (тип, версия, дата, IP, User-Agent);</li>
         <li><strong>Аналитические:</strong> технические данные о взаимодействии с сайтом (идентификатор сессии, клики по элементам интерфейса) — не позволяют напрямую идентифицировать пользователя без дополнительных данных.</li>
       </ul>
+      <h2>Режимы безопасности и состав передаваемых данных</h2>
+      <p>Пользователь самостоятельно выбирает режим работы сервиса, который определяет состав данных передаваемых AI-ассистенту:</p>
+      <ul>
+        <li><strong>Безопасный режим (Safe Mode) — по умолчанию:</strong> AI получает только метаданные схемы (имена таблиц, типы колонок, индексы). Строки таблиц не передаются.</li>
+        <li><strong>Режим данных (Data Mode):</strong> AI дополнительно получает результаты SELECT-запросов, которые могут содержать реальные данные из базы данных пользователя.</li>
+        <li><strong>Режим выполнения (Execute Mode):</strong> AI может генерировать и выполнять любые SQL-команды, включая изменяющие данные (INSERT, UPDATE, DELETE, DROP).</li>
+      </ul>
+      <p>В режимах Data Mode и Execute Mode в AI-запросы могут попадать реальные данные из базы данных пользователя, в том числе персональные данные третьих лиц. Пользователь обязан самостоятельно обеспечить наличие правовых оснований для обработки таких данных.</p>
       <h2>3. Цели обработки</h2>
       <ul>
         <li>Предоставление доступа к сервису ProgreSQL и его функциям;</li>
@@ -333,11 +341,19 @@
         <li><strong>Technical:</strong> IP address, browser/application User-Agent — for security;</li>
         <li><strong>Payment:</strong> payment identifier, order ID, amount, currency, payment status;</li>
         <li><strong>Subscription:</strong> plan type (Free/Pro), subscription and trial dates;</li>
-        <li><strong>Technical request data:</strong> database schema metadata and user query text sent to the AI assistant should as a general rule not contain personal data. The user is obliged not to include third-party personal data in their queries. In Safe Mode, table rows (actual data from the user's database) are not transmitted in queries.</li>
+        <li><strong>Technical request data:</strong> database schema metadata and user query text sent to the AI assistant should as a general rule not contain personal data. The user is obliged not to include third-party personal data in their queries. In Safe Mode, table rows are not transmitted.</li>
         <li><strong>Logs:</strong> timestamps of user actions, session identifiers, AI token usage;</li>
         <li><strong>Legal:</strong> legal document acceptance records (type, version, date, IP, User-Agent);</li>
         <li><strong>Analytics:</strong> technical website interaction data (session identifier, UI element clicks) — cannot directly identify the user without additional data.</li>
       </ul>
+      <h2>Security Modes and Data Transmitted</h2>
+      <p>The user independently selects the operating mode, which determines what data is transmitted to the AI assistant:</p>
+      <ul>
+        <li><strong>Safe Mode (default):</strong> The AI receives only schema metadata (table names, column types, indexes). Table rows are not transmitted.</li>
+        <li><strong>Data Mode:</strong> The AI additionally receives SELECT query results, which may contain actual data from the user's database.</li>
+        <li><strong>Execute Mode:</strong> The AI may generate and execute any SQL commands, including data-modifying operations (INSERT, UPDATE, DELETE, DROP).</li>
+      </ul>
+      <p>In Data Mode and Execute Mode, actual data from the user's database — including third-party personal data — may be included in AI requests. The user is solely responsible for ensuring they have a legal basis for processing such data.</p>
       <h2>3. Purposes of Processing</h2>
       <ul>
         <li>Providing access to the ProgreSQL service and its features;</li>
