@@ -892,9 +892,17 @@ export default function Home() {
       setLastExecutedQuery(query);
       const result = await window.electronAPI.executeQuery(connId, query);
       if (result.success) {
+        const rowCount = result.rowCount || 0;
+        const hasRows = (result.rows || []).length > 0;
+        // Show green notification — especially useful for DML where there are no rows to display
+        if (hasRows) {
+          showSuccess(t('notify.querySuccess', { count: rowCount }));
+        } else {
+          showSuccess(t('notify.queryExecuted', { count: rowCount }));
+        }
         setQueryResult({
           rows: result.rows || [],
-          rowCount: result.rowCount || 0,
+          rowCount,
           fields: (result.fields || []) as Field[],
           message: 'Query executed successfully',
           timestamp: new Date().toISOString(),
