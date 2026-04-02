@@ -17,8 +17,8 @@ func TestUsageResponseFormat(t *testing.T) {
 		wantBalanceEnabled  bool
 		wantBalanceMarkup   int
 	}{
-		{"free", 50_000, 0, "daily", false, false, 0},
-		{"trial", 500_000, 0, "daily", true, false, 0},
+		{"free", 50_000, 0, "daily", false, true, 100},
+		{"trial", 500_000, 0, "daily", true, true, 75},
 		{"pro", 5_000_000, 200_000, "monthly", true, true, 50},
 		{"pro_plus", 10_000_000, 1_500_000, "monthly", true, true, 25},
 	}
