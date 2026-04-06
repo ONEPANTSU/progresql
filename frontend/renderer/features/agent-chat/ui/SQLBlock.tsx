@@ -198,6 +198,8 @@ const SQLBlock: React.FC<SQLBlockProps> = ({
           fontFamily: 'monospace',
           fontSize: '0.8125rem',
           lineHeight: 1.5,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
           overflow: 'auto',
           maxHeight: '300px',
           mb: 0,
