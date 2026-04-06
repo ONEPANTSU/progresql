@@ -446,7 +446,7 @@ ipcMain.handle('execute-query', async (event, params) => {
       success: true,
       rows: result.rows,
       rowCount: result.rowCount,
-      fields: result.fields.map(field => ({
+      fields: (result.fields || []).map(field => ({
         name: field.name,
         dataType: field.dataTypeID,
         dataTypeName: field.dataType

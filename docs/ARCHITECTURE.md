@@ -54,7 +54,7 @@ ProgreSQL is an AI-powered PostgreSQL database management desktop application. I
 | Database | PostgreSQL 16 |
 | LLM Provider | OpenRouter API (12 models: 6 budget + 6 premium) |
 | Payments | Platega (Card/SBP) |
-| Auth | JWT (HS256, 30d TTL) + bcrypt + SMTP verification |
+| Auth | JWT (HS256, 90d TTL) + bcrypt + SMTP verification |
 | Monitoring | Prometheus + Grafana 10.4 + Loki 2.9 + Promtail |
 | Reverse Proxy | Nginx + Let's Encrypt |
 | CI/CD | GitHub Actions (tag-triggered) |

@@ -477,6 +477,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
       <Box
         sx={{
           maxWidth: '80%',
+          minWidth: 0,
+          overflow: 'hidden',
           ...(isUser
             ? { background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff' }
             : { bgcolor: 'background.paper', color: 'text.primary', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }

@@ -8,8 +8,8 @@ import (
 )
 
 // TokenTTL is the default lifetime of a JWT token.
-// 30 days for desktop app — sessions must survive laptop reboots.
-const TokenTTL = 30 * 24 * time.Hour
+// 90 days for desktop app — users should rarely need to re-login.
+const TokenTTL = 90 * 24 * time.Hour
 
 // Claims represents the custom JWT claims for a session.
 type Claims struct {
