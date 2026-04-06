@@ -348,6 +348,8 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
                 borderColor: 'grey.200',
                 fontFamily: 'monospace',
                 fontSize: '0.8125rem',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
                 overflow: 'auto',
                 maxHeight: '300px',
               }}
@@ -478,7 +480,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         sx={{
           maxWidth: '80%',
           minWidth: 0,
-          overflow: 'hidden',
+          overflowWrap: 'break-word',
+          wordBreak: 'break-word',
           ...(isUser
             ? { background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff' }
             : { bgcolor: 'background.paper', color: 'text.primary', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }
