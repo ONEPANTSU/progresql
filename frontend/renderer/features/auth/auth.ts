@@ -470,15 +470,26 @@ export const authService = {
     const token = getAuthToken();
     if (!token) return null;
 
-    const res = await fetch(`${baseUrl}/api/v1/auth/profile`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${baseUrl}/api/v1/auth/profile`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch {
+      // Network error (server unreachable, timeout) — keep current session
+      return this.getCurrentUser();
+    }
 
-    if (!res.ok) return null;
+    // Only logout on 401 (token truly invalid/expired).
+    // Other errors (500, 502, etc.) — keep session alive.
+    if (!res.ok) {
+      if (res.status === 401) return null;
+      return this.getCurrentUser();
+    }
 
     const data = await res.json();
     const user: AuthUser = {
