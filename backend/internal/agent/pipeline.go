@@ -462,6 +462,12 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 			metrics.AgentRequestsTotal.WithLabelValues(payload.Action, "error").Inc()
 			metrics.AgentRequestDuration.WithLabelValues(payload.Action).Observe(duration.Seconds())
 			p.recordPrometheusTokens(pctx)
+
+			// Deduct quota for tokens consumed before the error.
+			if pctx.TokensUsed > 0 {
+				chargedCostUSD := p.deductQuotaAfterPipeline(session, pctx, requestID)
+				p.recordTokenUsage(pctx, chargedCostUSD)
+			}
 			return
 		}
 
@@ -474,6 +480,7 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 	}
 
 	// Handle cancellation: send agent.error with "cancelled" code.
+	// Still deduct quota for tokens consumed before cancellation.
 	if cancelled {
 		pctx.Logger.Info("pipeline cancelled by client")
 		p.sendError(session, requestID, websocket.ErrCodeCancelled, "cancelled")
@@ -483,6 +490,12 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		metrics.AgentRequestsTotal.WithLabelValues(payload.Action, "cancelled").Inc()
 		metrics.AgentRequestDuration.WithLabelValues(payload.Action).Observe(duration.Seconds())
 		p.recordPrometheusTokens(pctx)
+
+		// Deduct quota for partial tokens consumed before cancel.
+		if pctx.TokensUsed > 0 {
+			chargedCostUSD := p.deductQuotaAfterPipeline(session, pctx, requestID)
+			p.recordTokenUsage(pctx, chargedCostUSD)
+		}
 		return
 	}
 
@@ -1152,6 +1165,12 @@ func errorCode(err error) string {
 	}
 	if ratelimit.IsRateLimited(err) {
 		return websocket.ErrCodeRateLimited
+	}
+	// Use llm_error for LLM-related failures (timeouts, context cancelled, etc.)
+	// instead of generic invalid_request which replaces streamed content.
+	errMsg := err.Error()
+	if strings.Contains(errMsg, "llm:") || strings.Contains(errMsg, "context") {
+		return websocket.ErrCodeLLMError
 	}
 	return websocket.ErrCodeInvalidRequest
 }

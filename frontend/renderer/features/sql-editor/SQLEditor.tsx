@@ -25,14 +25,14 @@ import {
 } from '@mui/icons-material';
 import { format as formatSQL } from 'sql-formatter';
 import { EditorView, basicSetup } from 'codemirror';
-import { EditorState, Transaction, Compartment, StateEffect, StateField, RangeSet } from '@codemirror/state';
+import { EditorState, Transaction, Compartment, StateEffect, StateField, RangeSet, RangeSetBuilder } from '@codemirror/state';
 import { sql, PostgreSQL } from '@codemirror/lang-sql';
 import { HighlightStyle, syntaxHighlighting, indentUnit } from '@codemirror/language';
 import { indentWithTab } from '@codemirror/commands';
 import { keymap } from '@codemirror/view';
 import { openSearchPanel } from '@codemirror/search';
 import { tags } from '@lezer/highlight';
-import { EditorView as EditorViewTheme, Decoration, GutterMarker, gutter } from '@codemirror/view';
+import { EditorView as EditorViewTheme, Decoration, GutterMarker, gutter, ViewPlugin, ViewUpdate, DecorationSet } from '@codemirror/view';
 import { useTheme } from '@/features/settings/ThemeContext';
 import { useTranslation } from '@/shared/i18n/LanguageContext';
 import { createLogger } from '@/shared/lib/logger';
@@ -187,6 +187,90 @@ const progreSQLDarkTheme = EditorViewTheme.theme({
     borderRadius: '2px',
   },
 }, { dark: true });
+
+// --- PL/pgSQL keyword highlighting inside dollar-quoted strings ---
+// CodeMirror treats $$...$$ content as a string token (green).
+// This plugin overlays keyword/type decorations on top so PL/pgSQL
+// function bodies are readable.
+const plpgsqlKeywordDeco = Decoration.mark({ class: 'cm-plpgsql-keyword' });
+const plpgsqlTypeDeco = Decoration.mark({ class: 'cm-plpgsql-type' });
+const plpgsqlCommentDeco = Decoration.mark({ class: 'cm-plpgsql-comment' });
+
+const PLPGSQL_KEYWORDS = new Set([
+  'DECLARE', 'BEGIN', 'END', 'IF', 'THEN', 'ELSE', 'ELSIF', 'LOOP',
+  'WHILE', 'FOR', 'IN', 'EXIT', 'CONTINUE', 'RETURN', 'RAISE',
+  'EXCEPTION', 'WHEN', 'FOUND', 'NOTICE', 'PERFORM', 'EXECUTE',
+  'INTO', 'STRICT', 'USING', 'QUERY', 'SELECT', 'INSERT', 'UPDATE',
+  'DELETE', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'NULL', 'IS',
+  'AS', 'CASE', 'RECORD', 'FOREACH', 'SLICE', 'REVERSE', 'BY',
+  'OPEN', 'FETCH', 'CLOSE', 'NEXT', 'CURSOR', 'SCROLL', 'NO',
+  'LANGUAGE', 'PLPGSQL', 'NEW', 'OLD', 'TG_OP', 'TG_TABLE_NAME',
+]);
+
+const PLPGSQL_TYPES = new Set([
+  'INTEGER', 'INT', 'BIGINT', 'SMALLINT', 'TEXT', 'VARCHAR', 'CHAR',
+  'BOOLEAN', 'BOOL', 'NUMERIC', 'DECIMAL', 'REAL', 'FLOAT', 'DOUBLE',
+  'DATE', 'TIME', 'TIMESTAMP', 'TIMESTAMPTZ', 'INTERVAL', 'UUID',
+  'JSON', 'JSONB', 'BYTEA', 'SERIAL', 'BIGSERIAL', 'OID', 'VOID',
+  'TRIGGER', 'TABLE', 'SETOF', 'ARRAY', 'RECORD', 'REGCLASS',
+]);
+
+// Regex to find dollar-quoted regions: $$...$$ or $tag$...$tag$
+const DOLLAR_QUOTE_RE = /\$(\w*)\$([\s\S]*?)\$\1\$/g;
+// Regex to find PL/pgSQL tokens inside a dollar-quoted body
+const PLPGSQL_TOKEN_RE = /\b([A-Z_][A-Z0-9_]*)\b|--[^\n]*/gi;
+
+function buildPlpgsqlDecorations(doc: { toString(): string; length: number }): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>();
+  const text = doc.toString();
+  const decorations: { from: number; to: number; deco: Decoration }[] = [];
+
+  DOLLAR_QUOTE_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = DOLLAR_QUOTE_RE.exec(text)) !== null) {
+    const bodyStart = match.index + match[1].length + 2; // after opening $tag$
+    const body = match[2];
+
+    PLPGSQL_TOKEN_RE.lastIndex = 0;
+    let tokenMatch: RegExpExecArray | null;
+    while ((tokenMatch = PLPGSQL_TOKEN_RE.exec(body)) !== null) {
+      const from = bodyStart + tokenMatch.index;
+      const to = from + tokenMatch[0].length;
+      if (tokenMatch[0].startsWith('--')) {
+        decorations.push({ from, to, deco: plpgsqlCommentDeco });
+      } else {
+        const word = tokenMatch[0].toUpperCase();
+        if (PLPGSQL_KEYWORDS.has(word)) {
+          decorations.push({ from, to, deco: plpgsqlKeywordDeco });
+        } else if (PLPGSQL_TYPES.has(word)) {
+          decorations.push({ from, to, deco: plpgsqlTypeDeco });
+        }
+      }
+    }
+  }
+
+  // RangeSetBuilder requires sorted, non-overlapping ranges
+  decorations.sort((a, b) => a.from - b.from || a.to - b.to);
+  for (const d of decorations) {
+    builder.add(d.from, d.to, d.deco);
+  }
+  return builder.finish();
+}
+
+const plpgsqlHighlightPlugin = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(view: EditorView) {
+      this.decorations = buildPlpgsqlDecorations(view.state.doc);
+    }
+    update(update: ViewUpdate) {
+      if (update.docChanged) {
+        this.decorations = buildPlpgsqlDecorations(update.state.doc);
+      }
+    }
+  },
+  { decorations: (v) => v.decorations },
+);
 
 const progreSQLHighlight = HighlightStyle.define([
   { tag: tags.keyword, color: '#c678dd' },           // purple keywords (SELECT, FROM, etc.)
@@ -504,7 +588,12 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
             ".cm-scroller": { overflow: "auto", maxHeight: "100%", overscrollBehavior: "contain" },
             ".cm-errorLine": { backgroundColor: "rgba(248, 81, 73, 0.15)" },
             ".cm-error-gutter": { width: "16px" },
+            // PL/pgSQL keyword highlighting inside dollar-quoted strings
+            ".cm-plpgsql-keyword": { color: "#c678dd !important" },
+            ".cm-plpgsql-type": { color: "#e5c07b !important" },
+            ".cm-plpgsql-comment": { color: "#5c6370 !important", fontStyle: "italic" },
           }),
+          plpgsqlHighlightPlugin,
           EditorView.domEventHandlers({
             wheel: () => false,
           }),
