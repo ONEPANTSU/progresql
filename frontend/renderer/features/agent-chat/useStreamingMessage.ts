@@ -111,12 +111,19 @@ export function useStreamingMessage({ setChats }: UseStreamingMessageArgs): Stre
     const messageId = messageIdRef.current;
     if (!chatId || !messageId) return;
 
+    // If text was already streamed, preserve it and append the error.
+    // This prevents replacing visible content with just an error message.
+    const existingText = textRef.current;
+    const finalText = existingText
+      ? `${existingText}\n\n---\n\n⚠️ ${errorText}`
+      : errorText;
+
     setChats(prev => prev.map(chat =>
       chat.id === chatId
         ? {
             ...chat,
             messages: chat.messages.map(m =>
-              m.id === messageId ? { ...m, text: errorText, isStreaming: false } : m
+              m.id === messageId ? { ...m, text: finalText, isStreaming: false } : m
             ),
           }
         : chat
