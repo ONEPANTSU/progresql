@@ -89,13 +89,9 @@ func (c *Client) ChatCompletionStream(ctx context.Context, req ChatRequest, onCh
 	return nil, fmt.Errorf("llm: max retries (%d) exceeded: %w", c.retryCfg.MaxRetries, lastErr)
 }
 
-// streamIdleTimeout is the maximum time to wait between SSE chunks.
-// If the LLM goes silent for this long, we treat it as a timeout.
-const streamIdleTimeout = 60 * time.Second
-
 // doStreamRequest performs a single streaming HTTP request.
-// Unlike non-streaming requests, we do NOT apply a global RequestTimeout here.
-// Instead, parseSSEStream uses a per-chunk idle timeout (streamIdleTimeout).
+// No global timeout — streaming can last minutes. The parent context
+// handles cancellation; TCP keepalive handles dead connections.
 func (c *Client) doStreamRequest(ctx context.Context, body []byte, onChunk StreamCallback) (*ChatResponse, error) {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
@@ -118,31 +114,13 @@ func (c *Client) doStreamRequest(ctx context.Context, body []byte, onChunk Strea
 		}
 	}
 
-	return c.parseSSEStream(ctx, resp.Body, onChunk)
-}
-
-// scanLine holds the result of a single scanner.Scan() call.
-type scanLine struct {
-	text string
-	ok   bool
-	err  error
+	return c.parseSSEStream(resp.Body, onChunk)
 }
 
 // parseSSEStream reads an SSE stream and calls onChunk for each data event.
 // It aggregates content and tool_calls across chunks and returns a final ChatResponse.
-// An idle timeout (streamIdleTimeout) ensures that hung LLM connections are detected.
-func (c *Client) parseSSEStream(ctx context.Context, r io.Reader, onChunk StreamCallback) (*ChatResponse, error) {
+func (c *Client) parseSSEStream(r io.Reader, onChunk StreamCallback) (*ChatResponse, error) {
 	scanner := bufio.NewScanner(r)
-
-	// Read lines in a separate goroutine so we can apply idle timeout.
-	lineCh := make(chan scanLine, 1)
-	go func() {
-		defer close(lineCh)
-		for scanner.Scan() {
-			lineCh <- scanLine{text: scanner.Text(), ok: true}
-		}
-		lineCh <- scanLine{ok: false, err: scanner.Err()}
-	}()
 
 	var (
 		contentBuilder strings.Builder
@@ -157,36 +135,8 @@ func (c *Client) parseSSEStream(ctx context.Context, r io.Reader, onChunk Stream
 	toolCallArgs := make(map[int]*strings.Builder)
 	toolCallMeta := make(map[int]ToolCall) // stores id, type, function.name
 
-	idleTimer := time.NewTimer(streamIdleTimeout)
-	defer idleTimer.Stop()
-
-	for {
-		var sl scanLine
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("llm: %w", ctx.Err())
-		case <-idleTimer.C:
-			return nil, fmt.Errorf("llm: stream idle timeout (%s without data)", streamIdleTimeout)
-		case sl = <-lineCh:
-		}
-
-		if !sl.ok {
-			if sl.err != nil {
-				return nil, fmt.Errorf("llm: read SSE stream: %w", sl.err)
-			}
-			break // EOF
-		}
-
-		// Reset idle timer on every received line.
-		if !idleTimer.Stop() {
-			select {
-			case <-idleTimer.C:
-			default:
-			}
-		}
-		idleTimer.Reset(streamIdleTimeout)
-
-		line := sl.text
+	for scanner.Scan() {
+		line := scanner.Text()
 
 		// Skip empty lines and comments
 		if line == "" || strings.HasPrefix(line, ":") {
@@ -274,6 +224,10 @@ func (c *Client) parseSSEStream(ctx context.Context, r io.Reader, onChunk Stream
 				return nil, &callbackError{err: err}
 			}
 		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("llm: read SSE stream: %w", err)
 	}
 
 	// Build aggregated tool calls
