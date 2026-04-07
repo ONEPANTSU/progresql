@@ -53,7 +53,9 @@ func NewClient(apiKey string, opts ...Option) *Client {
 		apiKey:  apiKey,
 		baseURL: defaultBaseURL,
 		httpClient: &http.Client{
-			Timeout: defaultTimeout,
+			// No global Timeout — streaming responses can last minutes.
+			// Non-streaming requests use context.WithTimeout per-request.
+			// Streaming requests use idle timeout in parseSSEStream.
 		},
 		logger:   zap.NewNop(),
 		retryCfg: DefaultRetryConfig(),
