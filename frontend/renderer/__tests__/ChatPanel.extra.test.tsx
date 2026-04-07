@@ -184,11 +184,11 @@ describe('ChatPanel (extended coverage)', () => {
   // ── Connection state banners ────────────────────────────────────────────────
 
   describe('connection state banners', () => {
-    it('shows backend unavailable banner when connectionState is disconnected', () => {
+    it('does not show intrusive banner when disconnected (reconnect is silent)', () => {
       mockAgentValue.isConnected = false;
       mockAgentValue.connectionState = 'disconnected';
       render(<ChatPanel {...defaultProps} />);
-      expect(screen.getByText(/Backend unavailable/)).toBeInTheDocument();
+      expect(screen.queryByText(/Backend unavailable/)).not.toBeInTheDocument();
     });
 
     it('does not show backend unavailable banner when connected', () => {
