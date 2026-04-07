@@ -152,11 +152,11 @@ describe('ChatPanel', () => {
     expect(container.querySelector('[aria-label="AI Assistant panel"]')).toBeInTheDocument();
   });
 
-  it('shows backend unavailable alert when disconnected', () => {
+  it('does not show intrusive banner when disconnected (reconnect is silent)', () => {
     mockAgentValue.isConnected = false;
     mockAgentValue.connectionState = 'disconnected';
     render(<ChatPanel {...defaultProps} />);
-    expect(screen.getByText(/Backend unavailable/)).toBeInTheDocument();
+    expect(screen.queryByText(/Backend unavailable/)).not.toBeInTheDocument();
   });
 
   it('shows database info when agent is connected but DB is not', () => {
