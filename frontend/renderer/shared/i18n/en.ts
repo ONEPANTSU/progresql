@@ -203,7 +203,7 @@ const en = {
   'chat.closeChat': 'Close chat',
   'chat.scrollTabs': 'Scroll tabs',
   'chat.emptyState': 'Send a message to start a conversation',
-  'chat.backendUnavailable': 'Backend unavailable. Reconnecting...',
+  'chat.backendUnavailable': 'AI assistant reconnecting…',
   'chat.dbNotConnected': 'Database not connected. Connect to PostgreSQL to use AI tools.',
   'chat.configureApiKey': 'Configure the backend API key in settings.',
   'chat.authError': 'Invalid API key. Click to open settings.',
@@ -312,7 +312,7 @@ const en = {
   'agentError.sendFailed': 'Failed to send message. Check backend connection.',
   'agentError.validationFailed': 'SQL validation failed',
   'agentError.securityBlocked': 'This operation is not allowed in the current security mode. Switch to Execute Mode to run DDL/DML queries.',
-  'agentError.backendUnavailable': 'Backend unavailable. Reconnecting...',
+  'agentError.backendUnavailable': 'AI assistant is reconnecting, please wait…',
 
   // ── Notifications (index.tsx) ──
   'notify.connected': 'Connection established',

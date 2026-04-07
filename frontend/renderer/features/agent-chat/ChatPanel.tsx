@@ -319,7 +319,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
       </Box>
 
       {/* Banners */}
-      {agent.connectionState === 'disconnected' && (<Alert severity="error" icon={<WarningIcon />} sx={{ mx: 1, mt: 1, flexShrink: 0 }}>{t('chat.backendUnavailable')}</Alert>)}
+      {/* Backend status is shown in status bar — no intrusive banner needed */}
       {agent.isConnected && !isDatabaseConnected && (<Alert severity="info" sx={{ mx: 1, mt: 1, flexShrink: 0 }}>{t('chat.dbNotConnected')}</Alert>)}
       {!trialBannerDismissed && subscriptionWarning === 'expiring_soon' && (() => {
         const expiryDate = isPaidPlan ? user?.planExpiresAt : user?.trialEndsAt;
