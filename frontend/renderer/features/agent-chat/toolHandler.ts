@@ -133,8 +133,8 @@ type TransformResult =
  * Execute a tool call from the Go backend using Electron database APIs.
  * Returns a ToolResultPayload matching the backend's expected format.
  */
-export async function handleToolCall(toolName: string, args: Record<string, unknown>): Promise<ToolResultPayload> {
-  log.debug(`Executing tool: ${toolName}`, args);
+export async function handleToolCall(toolName: string, args: Record<string, unknown>, connectionId?: string | null): Promise<ToolResultPayload> {
+  log.debug(`Executing tool: ${toolName}`, args, connectionId ? `(conn: ${connectionId})` : '');
 
   // Check if electronAPI is available
   if (typeof window === 'undefined' || !window.electronAPI) {
@@ -150,6 +150,7 @@ export async function handleToolCall(toolName: string, args: Record<string, unkn
       requestId: `tool-${Date.now()}`,
       toolName,
       arguments: args || {},
+      ...(connectionId ? { connectionId } : {}),
     };
     const result = await electronAPI.executeToolRequest(request);
 

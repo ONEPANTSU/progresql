@@ -174,7 +174,7 @@ func (s *Service) ChargeRequest(ctx context.Context, userID string, modelID stri
 
 	_, err = tx.Exec(ctx,
 		`UPDATE users SET balance = $1, credits_used_usd = credits_used_usd + $2 WHERE id = $3`,
-		newBalance, costUSD, userID)
+		newBalance, coveredByCredits, userID)
 	if err != nil {
 		return 0, fmt.Errorf("quota: update balance: %w", err)
 	}

@@ -49,6 +49,8 @@ type AgentRequestContext struct {
 	SafeMode         *bool   `json:"safe_mode,omitempty"`     // deprecated, kept for backward compat
 	SecurityMode     *string `json:"security_mode,omitempty"` // "safe", "data", "execute"
 	Language         string  `json:"language,omitempty"`       // "ru" or "en"
+	ConnectionID     string  `json:"connection_id,omitempty"`  // which saved connection to use
+	Database         string  `json:"database,omitempty"`       // selected database name
 }
 
 // ToolResultPayload is the client's response to a tool.call.

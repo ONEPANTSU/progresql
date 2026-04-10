@@ -42,6 +42,7 @@ const mockAgentValue: AgentContextValue = {
   autocompleteEnabled: true,
   setAutocompleteEnabled: jest.fn(),
   lastNotification: null,
+  setToolConnectionId: jest.fn(),
   pendingApproval: null,
   resetAutoApproval: jest.fn(),
 };

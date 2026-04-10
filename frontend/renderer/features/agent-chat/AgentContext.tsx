@@ -128,6 +128,8 @@ export interface AgentContextValue {
   safeMode: boolean;
   /** Toggle safe mode (backward compat — maps to securityMode) */
   setSafeMode: (enabled: boolean) => void;
+  /** Set the connectionId used by tool calls (should match the active chat's connection) */
+  setToolConnectionId: (connectionId: string | null) => void;
   /** Send autocomplete request */
   sendAutocomplete: (sql: string, cursorPos: number, schemaContext: string, callback: (completion: string) => void) => void;
   /** Cancel pending autocomplete */
@@ -174,6 +176,7 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Tool approval state
   const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
   const autoApproveRef = useRef(false); // "accept always" for this session
+  const toolConnectionIdRef = useRef<string | null>(null);
 
   // Reset both renderer ref and tool-server auto-approval flag
   const resetAutoApproval = useCallback(() => {
@@ -238,7 +241,7 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
         }
       }
-      return handleToolCall(toolName, args);
+      return handleToolCall(toolName, args, toolConnectionIdRef.current);
     });
 
     // Subscribe to server push notifications
@@ -446,6 +449,7 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSecurityMode,
     safeMode: securityMode === 'safe',
     setSafeMode,
+    setToolConnectionId: (id: string | null) => { toolConnectionIdRef.current = id; },
     sendAutocomplete,
     cancelAutocomplete,
     usage,

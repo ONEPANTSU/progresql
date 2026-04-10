@@ -30,7 +30,12 @@ const mockAgentValue: AgentContextValue = {
   cancelAutocomplete: jest.fn(),
   usage: null,
   refreshUsage: jest.fn(),
+  autocompleteEnabled: true,
+  setAutocompleteEnabled: jest.fn(),
   lastNotification: null,
+  setToolConnectionId: jest.fn(),
+  pendingApproval: null,
+  resetAutoApproval: jest.fn(),
 };
 
 jest.mock('@/features/agent-chat/AgentContext', () => ({
