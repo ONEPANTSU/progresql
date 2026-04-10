@@ -265,6 +265,6 @@ describe('diffDomains', () => {
     tgt.types.push(makeDomain('pi', 'integer'));
     const { ops } = diffDomains(src, tgt);
     const kinds = ops.map((o) => o.kind).sort();
-    expect(kinds).toEqual(['create', 'drop']);
+    expect(kinds).toEqual(['rebuild']);
   });
 });

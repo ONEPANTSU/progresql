@@ -191,12 +191,12 @@ describe('resolveOps — enum rename-type op (pass-through)', () => {
     expect(out).toEqual([typeRename]);
   });
 
-  test('passes through even if a split mode is set (enum rename-type is not resolvable)', () => {
-    // The resolver only dispatches on view/function/procedure/domain, so
-    // setting a mode for an enum rename-type id is a no-op.
+  test('split mode expands to drop + create', () => {
     const modes = new Map<string, RenameMode>([[typeRename.id, 'split']]);
     const out = resolveOps([typeRename], emptyDecisions(modes));
-    expect(out).toEqual([typeRename]);
+    expect(out).toHaveLength(2);
+    expect(out[0].kind).toBe('drop');
+    expect(out[1].kind).toBe('create');
   });
 });
 
@@ -228,6 +228,9 @@ describe('resolveOps — enum rename-value rejection (splits to add + drop)', ()
       sourceEnumValues: new Map([
         ['shipment_status', ['pending', 'standard_shipping', 'delivered']],
       ]),
+      targetEnumValues: new Map([
+        ['shipment_status', ['pending', 'std_ship', 'delivered']],
+      ]),
     };
     const out = resolveOps([renameValue], decisions) as EnumOp[];
     expect(out).toHaveLength(2);
@@ -236,9 +239,9 @@ describe('resolveOps — enum rename-value rejection (splits to add + drop)', ()
     expect(add.kind).toBe('add-value');
     expect(add.value).toBe('standard_shipping');
     expect(add.id).toBe(`${renameValue.id}:split-add`);
-    // BEFORE/AFTER anchors come from the source-side ordering.
-    expect(add.before).toBe('pending');
-    expect(add.after).toBe('delivered');
+    // BEFORE/AFTER anchors validated against target enum values.
+    expect(add.after).toBe('pending');
+    expect(add.before).toBeUndefined();
 
     const drop = out[1] as Extract<EnumOp, { kind: 'drop-value' }>;
     expect(drop.kind).toBe('drop-value');

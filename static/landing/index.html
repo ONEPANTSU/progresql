@@ -752,6 +752,26 @@ h2 {
   background: linear-gradient(180deg, transparent 0%, rgba(99, 102, 241, 0.02) 30%, rgba(99, 102, 241, 0.02) 70%, transparent 100%);
 }
 
+.pricing-per-month-hint {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: -16px;
+  margin-bottom: 20px;
+}
+
+.pricing-card.pro-yearly {
+  position: relative;
+  border: none;
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 16px;
+}
+
+.pricing-card.pro-yearly .pricing-badge {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
 .pricing-grid {
   display: grid;
   grid-template-columns: 1fr 1.08fr 1fr;
@@ -1465,6 +1485,25 @@ h2 {
             <li data-en="All AI models (budget + premium)" data-ru="Все AI-модели (бюджетные + премиум)">All AI models (budget + premium)</li>
             <li data-en="Smart SQL autocomplete" data-ru="Умное ИИ-автодополнение SQL (AI autocomplete)">Smart SQL autocomplete</li>
             <li data-en="Balance top-up (20% markup)" data-ru="Пополнение баланса (наценка 20%)">Balance top-up (20% markup)</li>
+            <li data-en="AI chat, explain, optimize &amp; execute" data-ru="AI-чат, объяснение, оптимизация и выполнение">AI chat, explain, optimize &amp; execute</li>
+          </ul>
+          <a href="#" class="btn-primary download-link" style="justify-content:center;" data-en="Download free &rarr;" data-ru="Скачать бесплатно &rarr;">Download free &rarr;</a>
+          <p class="pricing-pro-hint" data-en="3-day free trial included" data-ru="3 дня бесплатного пробного периода">3-day free trial included</p>
+        </div>
+        <!-- Pro Yearly -->
+        <div class="pricing-card pro-yearly fade-in">
+          <div class="pricing-badge" data-en="Save 17%" data-ru="Экономия 17%">Save 17%</div>
+          <div class="pricing-title" data-en="Pro Yearly" data-ru="Pro на год">Pro на год</div>
+          <p class="pricing-positioning" data-en="Best value for long-term use" data-ru="Лучшая цена на длительный срок">Best value for long-term use</p>
+          <div class="pricing-price">
+            <span class="amount" data-en="$200" data-ru="19 990 ₽">19 990 ₽</span><span class="period" data-en="/year" data-ru="/год">/год</span>
+          </div>
+          <p class="pricing-per-month-hint visible" data-en="~$16.7/month" data-ru="~1 666 ₽/мес">~1 666 ₽/мес</p>
+          <ul class="pricing-features">
+            <li data-en="$15/month in AI credits (no rollover)" data-ru="$15/мес AI-кредитов (без переноса)">$15/мес AI-кредитов (без переноса)</li>
+            <li data-en="All AI models (budget + premium)" data-ru="Все AI-модели (бюджетные + премиум)">All AI models (budget + premium)</li>
+            <li data-en="Smart SQL autocomplete" data-ru="Умное ИИ-автодополнение SQL (AI autocomplete)">Smart SQL autocomplete</li>
+            <li data-en="Balance top-up (15% markup)" data-ru="Пополнение баланса (наценка 15%)">Balance top-up (15% markup)</li>
             <li data-en="AI chat, explain, optimize &amp; execute" data-ru="AI-чат, объяснение, оптимизация и выполнение">AI chat, explain, optimize &amp; execute</li>
           </ul>
           <a href="#" class="btn-primary download-link" style="justify-content:center;" data-en="Download free &rarr;" data-ru="Скачать бесплатно &rarr;">Download free &rarr;</a>
