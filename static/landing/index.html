@@ -761,11 +761,18 @@ h2 {
 
 .pricing-card.pro-yearly {
   position: relative;
-  border: none;
+  border: 1px solid var(--border);
   background: var(--bg-card);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 16px;
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
+}
+
+.pricing-card.pro-yearly:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.06);
+  transform: translateY(-1px);
 }
 
 .pricing-card.pro-yearly .pricing-badge {
