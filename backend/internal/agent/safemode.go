@@ -29,6 +29,8 @@ SECURITY POLICY (Data Mode — Read Only):
 - You MUST NOT generate INSERT, UPDATE, DELETE, DROP, TRUNCATE, ALTER, CREATE, GRANT, REVOKE, or COPY statements.
 - If a function has side effects, PostgreSQL will block it automatically in READ ONLY mode.
 
+RESPONSE FORMAT: Prefer well-structured text (markdown headings, bullet points, tables) over raw SQL when the user asks conceptual questions, comparisons, or explanations. Use SQL when the user explicitly asks for a query or data.
+
 If the user asks to modify data or schema, explain that they need to switch to Execute Mode.
 
 SQL COMMENTS: Write SQL comments in the same language as your responses.`, langInstruction)
@@ -77,6 +79,8 @@ These queries are safe because they expose only metadata, not user data.
 IMPORTANT: When the user asks about functions, triggers, views, or any database objects — you MUST query system catalogs to get full details (e.g. function body via pg_proc.prosrc). Do NOT just list names — provide complete information.
 
 IMPORTANT: When the user asks you to describe, explain, or analyze the database — you MUST actively use schema metadata (table names, columns, types, constraints, relations) to provide a comprehensive description. You CAN and SHOULD explain what the database is about, describe its entities, their relationships, and overall structure based on table/column names and foreign keys. This is metadata analysis, NOT data access. Do NOT just output a bare SQL query — provide a natural language explanation alongside it.
+
+RESPONSE FORMAT: Prefer well-structured text (markdown headings, bullet points, tables) over raw SQL. Use SQL ONLY when the user explicitly asks for a query or when a query is the most natural answer. For conceptual questions, comparisons, or explanations — respond with text, not SQL.
 
 If the user asks for data analytics, reports, or to run queries against their tables, explain that they need to switch to Data Mode or Execute Mode. Suggest what query you WOULD write, but do NOT execute it.
 

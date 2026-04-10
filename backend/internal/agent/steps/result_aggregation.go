@@ -64,7 +64,7 @@ func (s *ResultAggregationStep) Execute(ctx context.Context, pctx *agent.Pipelin
 	if err != nil {
 		return fmt.Errorf("LLM result aggregation failed: %w", err)
 	}
-	pctx.AddTokens(resp.Usage.TotalTokens)
+	pctx.AddTokensDetailed(resp.Usage)
 	pctx.ModelUsed = resp.Model
 
 	if len(resp.Choices) == 0 {

@@ -298,15 +298,11 @@ ipcMain.handle('connect-database', async (event, connectionConfig) => {
       keepAliveInitialDelayMillis: 10000
     });
 
-    // Add error handlers — clean up from both legacy and Map
+    // Log connection errors but don't remove the client immediately —
+    // the health check in db-health.js will detect truly dead connections
+    // and trigger reconnection. Removing here causes false-positive reconnect storms.
     client.on('error', (err) => {
-      log.error('Connection error:', err);
-      if (global.dbClient === client) {
-        global.dbClient = null;
-      }
-      if (connId && global.dbClients && global.dbClients.get(connId) === client) {
-        global.dbClients.delete(connId);
-      }
+      log.warn('Connection error:', err.message);
     });
 
     client.on('end', () => {
@@ -991,9 +987,7 @@ ipcMain.handle('switch-database', async (event, { connectionId, database }) => {
 
     const connId = connectionId;
     client.on('error', (err) => {
-      log.error('switch-database client error:', err);
-      if (global.dbClient === client) global.dbClient = null;
-      if (connId && global.dbClients.get(connId) === client) global.dbClients.delete(connId);
+      log.warn('switch-database client error:', err.message);
     });
     client.on('end', () => {
       if (global.dbClient === client) global.dbClient = null;

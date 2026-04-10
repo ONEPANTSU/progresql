@@ -17,10 +17,10 @@ interface QuotaIndicatorProps {
   compact?: boolean;
 }
 
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-  return String(n);
+function formatUsd(n: number): string {
+  if (!isFinite(n)) return '$0.00';
+  if (Math.abs(n) >= 0.01 || n === 0) return `$${n.toFixed(2)}`;
+  return `$${n.toFixed(4)}`;
 }
 
 function getProgressColor(pct: number): string {
@@ -30,32 +30,26 @@ function getProgressColor(pct: number): string {
 }
 
 export default function QuotaIndicator({ usage, compact = false }: QuotaIndicatorProps) {
-  const { t, language } = useTranslation();
+  const { language } = useTranslation();
 
   if (!usage) return null;
 
-  const budgetPct = usage.budget_tokens_limit > 0
-    ? Math.min(100, (usage.budget_tokens_used / usage.budget_tokens_limit) * 100)
-    : 0;
-  const premiumPct = usage.premium_tokens_limit > 0
-    ? Math.min(100, (usage.premium_tokens_used / usage.premium_tokens_limit) * 100)
+  const creditsPct = usage.credits_included_usd > 0
+    ? Math.min(100, (usage.credits_used_usd / usage.credits_included_usd) * 100)
     : 0;
 
   const planLabels: Record<string, string> = {
-    free: 'Free',
-    trial: 'Trial',
+    free: language === 'ru' ? 'Бесплатный' : 'Free',
     pro: 'Pro',
-    pro_plus: 'Pro Plus',
-    team: 'Team',
   };
 
   const planColors: Record<string, string> = {
     free: '#94a3b8',
-    trial: '#6366f1',
     pro: '#6366f1',
-    pro_plus: '#8b5cf6',
-    team: '#10b981',
   };
+
+  const planLabel = planLabels[usage.plan] || usage.plan;
+  const planColor = planColors[usage.plan] || '#6366f1';
 
   if (compact) {
     return (
@@ -63,34 +57,24 @@ export default function QuotaIndicator({ usage, compact = false }: QuotaIndicato
         title={
           <Box sx={{ p: 0.5 }}>
             <Typography variant="caption" sx={{ fontWeight: 600 }}>
-              {language === 'ru' ? 'Бюджетные' : 'Budget'}: {formatTokens(usage.budget_tokens_used)} / {formatTokens(usage.budget_tokens_limit)}
+              {language === 'ru' ? 'Кредиты' : 'Credits'}: {formatUsd(usage.credits_used_usd)} / {formatUsd(usage.credits_included_usd)}
             </Typography>
             <br />
-            {usage.premium_tokens_limit > 0 && (
-              <>
-                <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                  {language === 'ru' ? 'Премиум' : 'Premium'}: {formatTokens(usage.premium_tokens_used)} / {formatTokens(usage.premium_tokens_limit)}
-                </Typography>
-                <br />
-              </>
-            )}
-            {usage.balance_enabled && (
-              <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                {language === 'ru' ? 'Баланс' : 'Balance'}: {usage.balance.toFixed(0)}₽
-              </Typography>
-            )}
+            <Typography variant="caption" sx={{ fontWeight: 600 }}>
+              {language === 'ru' ? 'Баланс' : 'Balance'}: {formatUsd(usage.balance_usd)}
+            </Typography>
           </Box>
         }
       >
         <Chip
           size="small"
-          label={planLabels[usage.plan] || usage.plan}
+          label={planLabel}
           sx={{
             fontWeight: 700,
             fontSize: '0.65rem',
             height: 20,
             color: '#fff',
-            bgcolor: planColors[usage.plan] || '#6366f1',
+            bgcolor: planColor,
           }}
         />
       </Tooltip>
@@ -103,67 +87,43 @@ export default function QuotaIndicator({ usage, compact = false }: QuotaIndicato
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
         <Chip
           size="small"
-          label={planLabels[usage.plan] || usage.plan}
+          label={planLabel}
           sx={{
             fontWeight: 700,
             fontSize: '0.7rem',
             height: 22,
             color: '#fff',
-            bgcolor: planColors[usage.plan] || '#6366f1',
+            bgcolor: planColor,
           }}
         />
-        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-          {usage.period_type === 'daily'
-            ? (language === 'ru' ? 'Ежедневно' : 'Daily')
-            : (language === 'ru' ? 'Ежемесячно' : 'Monthly')}
-        </Typography>
-      </Box>
-
-      {/* Budget tokens */}
-      <Box sx={{ mb: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
-          <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '0.7rem' }}>
-            {language === 'ru' ? 'Бюджетные токены' : 'Budget tokens'}
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
-            {formatTokens(usage.budget_tokens_used)} / {formatTokens(usage.budget_tokens_limit)}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <BalanceIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+          <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>
+            {formatUsd(usage.balance_usd)}
           </Typography>
         </Box>
-        <LinearProgress
-          variant="determinate"
-          value={budgetPct}
-          sx={{
-            height: 4,
-            borderRadius: 2,
-            bgcolor: 'rgba(99,102,241,0.1)',
-            '& .MuiLinearProgress-bar': {
-              bgcolor: getProgressColor(budgetPct),
-              borderRadius: 2,
-            },
-          }}
-        />
       </Box>
 
-      {/* Premium tokens */}
-      {usage.premium_tokens_limit > 0 && (
+      {/* Included credits progress */}
+      {usage.credits_included_usd > 0 && (
         <Box sx={{ mb: 1 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
-            <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '0.7rem', color: '#f59e0b' }}>
-              {language === 'ru' ? 'Премиум токены' : 'Premium tokens'}
+            <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '0.7rem' }}>
+              {language === 'ru' ? 'Кредиты плана' : 'Plan credits'}
             </Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
-              {formatTokens(usage.premium_tokens_used)} / {formatTokens(usage.premium_tokens_limit)}
+              {formatUsd(usage.credits_used_usd)} / {formatUsd(usage.credits_included_usd)}
             </Typography>
           </Box>
           <LinearProgress
             variant="determinate"
-            value={premiumPct}
+            value={creditsPct}
             sx={{
               height: 4,
               borderRadius: 2,
-              bgcolor: 'rgba(245,158,11,0.1)',
+              bgcolor: 'rgba(99,102,241,0.1)',
               '& .MuiLinearProgress-bar': {
-                bgcolor: getProgressColor(premiumPct),
+                bgcolor: getProgressColor(creditsPct),
                 borderRadius: 2,
               },
             }}
@@ -171,15 +131,15 @@ export default function QuotaIndicator({ usage, compact = false }: QuotaIndicato
         </Box>
       )}
 
-      {/* Balance */}
-      {usage.balance_enabled && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <BalanceIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-          <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>
-            {usage.balance.toFixed(0)}₽
-          </Typography>
-        </Box>
-      )}
+      {/* Stats row */}
+      <Box sx={{ display: 'flex', gap: 2, mt: 0.5 }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
+          {language === 'ru' ? 'Запросов' : 'Requests'}: <strong>{usage.requests_total}</strong>
+        </Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
+          {language === 'ru' ? 'Всего' : 'Total'}: <strong>{formatUsd(usage.cost_usd_total)}</strong>
+        </Typography>
+      </Box>
     </Box>
   );
 }

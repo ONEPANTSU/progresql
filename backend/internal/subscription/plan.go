@@ -9,23 +9,26 @@ import (
 type Plan string
 
 const (
-	PlanFree    Plan = "free"
-	PlanTrial   Plan = "trial"
-	PlanPro     Plan = "pro"
-	PlanProPlus Plan = "pro_plus"
-	PlanTeam    Plan = "team" // keep for backward compat
+	PlanFree Plan = "free"
+	PlanPro  Plan = "pro"
+
+	// Deprecated aliases — kept for backward compatibility with existing DB rows.
+	PlanTrial   Plan = "free"
+	PlanProPlus Plan = "pro"
+	PlanTeam    Plan = "pro"
 )
 
-// PlanLimits defines resource limits for a subscription plan.
+// PlanLimits defines resource and billing limits for a subscription plan.
 type PlanLimits struct {
-	// MaxRequestsPerMin is the maximum AI requests per minute.
-	MaxRequestsPerMin int
-	// MaxSessionsConcurrent is the maximum concurrent WebSocket sessions.
+	MaxRequestsPerMin     int
 	MaxSessionsConcurrent int
-	// MaxTokensPerRequest is the maximum tokens per single LLM request.
-	MaxTokensPerRequest int
-	// AllowedModels lists model IDs available to this plan. Empty means all models.
-	AllowedModels []string
+	MaxTokensPerRequest   int
+	AllowedModelTiers     []string // "budget", "premium"
+	AutocompleteEnabled   bool
+	BalanceMarkupPct      int     // markup % on balance top-ups
+	DailyCreditsUSD       float64 // daily free credits (Free plan)
+	MonthlyCreditsUSD     float64 // monthly credits (Pro plan)
+	CreditsRollover       bool    // whether unused credits carry over
 }
 
 // DefaultLimits returns the resource limits for each plan.
@@ -33,82 +36,60 @@ var DefaultLimits = map[Plan]PlanLimits{
 	PlanFree: {
 		MaxRequestsPerMin:     10,
 		MaxSessionsConcurrent: 1,
-		MaxTokensPerRequest:   4096,
-	},
-	PlanTrial: {
-		MaxRequestsPerMin:     10,
-		MaxSessionsConcurrent: 1,
-		MaxTokensPerRequest:   4096,
+		MaxTokensPerRequest:   16384,
+		AllowedModelTiers:     []string{"budget"},
+		AutocompleteEnabled:   false,
+		BalanceMarkupPct:      30,
+		DailyCreditsUSD:       0.03,
+		MonthlyCreditsUSD:     0,
+		CreditsRollover:       false,
 	},
 	PlanPro: {
 		MaxRequestsPerMin:     60,
 		MaxSessionsConcurrent: 5,
-		MaxTokensPerRequest:   16384,
-	},
-	PlanProPlus: {
-		MaxRequestsPerMin:     120,
-		MaxSessionsConcurrent: 5,
 		MaxTokensPerRequest:   32768,
-	},
-	PlanTeam: {
-		MaxRequestsPerMin:     120,
-		MaxSessionsConcurrent: 20,
-		MaxTokensPerRequest:   32768,
-	},
-}
-
-// QuotaLimits defines token-quota constraints for a subscription plan.
-type QuotaLimits struct {
-	BudgetTokensLimit   int64  // max budget tokens per period
-	PremiumTokensLimit  int64  // max premium tokens per period (included free)
-	PeriodType          string // "daily" or "monthly"
-	AutocompleteEnabled bool
-	BalanceMarkupPct    int  // 0 = no balance access, 50 = Pro, 25 = ProPlus
-	BalanceEnabled      bool // whether user can use balance at all
-}
-
-var defaultQuotaLimits = map[Plan]QuotaLimits{
-	PlanFree: {
-		BudgetTokensLimit:   50_000,
-		PremiumTokensLimit:  0,
-		PeriodType:          "daily",
-		AutocompleteEnabled: false,
-		BalanceMarkupPct:    100,
-		BalanceEnabled:      true,
-	},
-	PlanTrial: {
-		BudgetTokensLimit:   500_000,
-		PremiumTokensLimit:  0,
-		PeriodType:          "daily",
-		AutocompleteEnabled: true,
-		BalanceMarkupPct:    75,
-		BalanceEnabled:      true,
-	},
-	PlanPro: {
-		BudgetTokensLimit:   5_000_000,
-		PremiumTokensLimit:  200_000,
-		PeriodType:          "monthly",
-		AutocompleteEnabled: true,
-		BalanceMarkupPct:    50,
-		BalanceEnabled:      true,
-	},
-	PlanProPlus: {
-		BudgetTokensLimit:   10_000_000,
-		PremiumTokensLimit:  1_500_000,
-		PeriodType:          "monthly",
-		AutocompleteEnabled: true,
-		BalanceMarkupPct:    25,
-		BalanceEnabled:      true,
+		AllowedModelTiers:     []string{"budget", "premium"},
+		AutocompleteEnabled:   true,
+		BalanceMarkupPct:      20,
+		DailyCreditsUSD:       0,
+		MonthlyCreditsUSD:     15.0,
+		CreditsRollover:       false,
 	},
 }
 
-// QuotaLimitsForPlan returns the token-quota limits for the given plan.
-// Falls back to PlanFree quota if the plan is unknown.
-func QuotaLimitsForPlan(p Plan) QuotaLimits {
-	if q, ok := defaultQuotaLimits[p]; ok {
-		return q
+// LimitsForPlan returns limits for a given plan. Falls back to free if unknown.
+func LimitsForPlan(p Plan) PlanLimits {
+	// Normalize deprecated plans.
+	p = NormalizePlan(p)
+	if limits, ok := DefaultLimits[p]; ok {
+		return limits
 	}
-	return defaultQuotaLimits[PlanFree]
+	return DefaultLimits[PlanFree]
+}
+
+// NormalizePlan maps deprecated plan names to current ones.
+func NormalizePlan(p Plan) Plan {
+	switch p {
+	case "pro_plus", "team":
+		return PlanPro
+	case "trial":
+		return PlanFree
+	}
+	if _, ok := DefaultLimits[p]; ok {
+		return p
+	}
+	return PlanFree
+}
+
+// IsModelTierAllowed checks if a model tier is permitted for the plan.
+func IsModelTierAllowed(p Plan, tier string) bool {
+	limits := LimitsForPlan(p)
+	for _, t := range limits.AllowedModelTiers {
+		if t == tier {
+			return true
+		}
+	}
+	return false
 }
 
 // UserSubscription holds a user's subscription state.
@@ -132,7 +113,7 @@ func (s *UserSubscription) IsActive() bool {
 // EffectivePlan returns the user's active plan, falling back to free if expired.
 func (s *UserSubscription) EffectivePlan() Plan {
 	if s.IsActive() {
-		return s.Plan
+		return NormalizePlan(s.Plan)
 	}
 	return PlanFree
 }
@@ -142,18 +123,10 @@ func (s *UserSubscription) Limits() PlanLimits {
 	return LimitsForPlan(s.EffectivePlan())
 }
 
-// LimitsForPlan returns limits for a given plan. Falls back to free if unknown.
-func LimitsForPlan(p Plan) PlanLimits {
-	if limits, ok := DefaultLimits[p]; ok {
-		return limits
-	}
-	return DefaultLimits[PlanFree]
-}
-
 // ValidPlan checks if a plan string is a recognized plan.
 func ValidPlan(p Plan) bool {
 	switch p {
-	case PlanFree, PlanTrial, PlanPro, PlanProPlus, PlanTeam:
+	case PlanFree, "trial", "pro", "pro_plus", "team":
 		return true
 	}
 	return false

@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"github.com/onepantsu/progressql/backend/internal/api/rest"
+	"github.com/onepantsu/progressql/backend/internal/balance"
+	"github.com/onepantsu/progressql/backend/internal/billing"
 	"github.com/onepantsu/progressql/backend/config"
 	"github.com/onepantsu/progressql/backend/internal/auth"
 	"github.com/onepantsu/progressql/backend/internal/database"
@@ -64,6 +66,11 @@ func main() {
 	notifier := subscription.NewNotifier(db, emailSvc, userStore, log, 1*time.Hour)
 	notifier.Start()
 
+	// Billing creditor — daily Free credits ($0.03) and monthly Pro credits ($15).
+	balanceSvc := balance.NewService(db, log)
+	creditor := billing.NewCreditor(db, balanceSvc, log)
+	creditor.Start()
+
 	router := rest.NewRouter(cfg, log, hub, userStore, db)
 
 	addr := ":" + cfg.ServerPort
@@ -86,8 +93,9 @@ func main() {
 	<-stop
 	log.Info("graceful shutdown initiated")
 
-	// Step 0: Stop subscription notifier.
+	// Step 0: Stop background services.
 	notifier.Stop()
+	creditor.Stop()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

@@ -265,7 +265,7 @@ export function getSubscriptionWarning(user: AuthUser | null): SubscriptionWarni
   const now = Date.now();
   const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
-  const isPaidPlan = user.plan === 'pro' || user.plan === 'pro_plus';
+  const isPaidPlan = user.plan === 'pro';
 
   // Check paid plan expiry FIRST (takes priority over trial)
   if (isPaidPlan && user.planExpiresAt) {
@@ -298,8 +298,8 @@ export function isSubscriptionActive(user: AuthUser | null): boolean {
   // Free plan always has daily quota — let backend handle limits
   if ((user.plan || 'free') === 'free') return true;
 
-  // Paid plan with valid expiry (pro, pro_plus)
-  if (['pro', 'pro_plus'].includes(user.plan || '') && user.planExpiresAt) {
+  // Paid plan with valid expiry
+  if (user.plan === 'pro' && user.planExpiresAt) {
     if (new Date(user.planExpiresAt) > now) return true;
   }
 

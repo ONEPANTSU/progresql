@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { Chat, Message } from '@/shared/types';
 import { useNotifications } from '@/features/notifications/NotificationContext';
 import { useAgent } from '@/features/agent-chat/AgentContext';
@@ -124,6 +124,8 @@ export interface UseAgentMessagesReturn {
   handleSendAnalyzeSchema: () => void;
   handleSendMessage: () => void;
   stopGeneration: () => void;
+  /** Cancel any active request for the given chat (e.g. when closing the tab). */
+  cancelChatRequest: (chatId: string) => void;
 }
 
 interface UseAgentMessagesArgs {
@@ -156,6 +158,15 @@ export function useAgentMessages({
   const streaming = useStreamingMessage({ setChats });
   const { t, language } = useTranslation();
   const activeRequestIdRef = useRef<string | null>(null);
+  // Track which chat the current request belongs to
+  const activeRequestChatIdRef = useRef<string | null>(null);
+
+  // When activeChatId changes (tab switch), update isTyping for the new chat.
+  // Don't cancel the old request — let it finish in the background.
+  useEffect(() => {
+    const isCurrentChatStreaming = activeChatId != null && activeChatId === activeRequestChatIdRef.current && activeRequestIdRef.current != null;
+    setIsTyping(isCurrentChatStreaming);
+  }, [activeChatId, setIsTyping]);
 
   const stopGeneration = useCallback(() => {
     const requestId = activeRequestIdRef.current;
@@ -163,6 +174,7 @@ export function useAgentMessages({
 
     agent.cancelRequest(requestId);
     activeRequestIdRef.current = null;
+    activeRequestChatIdRef.current = null;
 
     // Keep partial text, append " · stopped" marker.
     const partialText = streaming.textRef.current;
@@ -172,6 +184,12 @@ export function useAgentMessages({
     streaming.finishStreaming(stoppedText);
     setIsTyping(false);
   }, [agent, streaming, setIsTyping]);
+
+  /** Cancel any active request for a specific chat (e.g. when closing its tab). */
+  const cancelChatRequest = useCallback((chatId: string) => {
+    if (activeRequestChatIdRef.current !== chatId) return;
+    stopGeneration();
+  }, [stopGeneration]);
 
   const addPlaceholderAndSend = useCallback(
     (
@@ -214,6 +232,7 @@ export function useAgentMessages({
         },
         onResponse: (response: AgentResponsePayload) => {
           activeRequestIdRef.current = null;
+          activeRequestChatIdRef.current = null;
           const finalText = formatAgentResponse(response, t);
           const viz = response.result.visualization;
           streaming.finishStreaming(finalText, viz ? {
@@ -225,7 +244,7 @@ export function useAgentMessages({
             sql: viz.sql,
           } : undefined);
           // Attach model metadata to the finalized message
-          if (response.model_used || response.model_tier || response.cost_rub) {
+          if (response.model_used || response.model_tier || response.cost_usd) {
             setChats(prev => prev.map(chat =>
               chat.id === chatId
                 ? {
@@ -236,7 +255,7 @@ export function useAgentMessages({
                             ...m,
                             modelUsed: response.model_used,
                             modelTier: response.model_tier,
-                            costRUB: response.cost_rub,
+                            costUSD: response.cost_usd,
                             inputTokens: response.input_tokens,
                             outputTokens: response.output_tokens,
                           }
@@ -250,6 +269,7 @@ export function useAgentMessages({
         },
         onError: (error) => {
           activeRequestIdRef.current = null;
+          activeRequestChatIdRef.current = null;
           // If cancelled, the stopGeneration handler already finalized the message.
           if (error.code === 'cancelled') {
             return;
@@ -264,6 +284,7 @@ export function useAgentMessages({
         },
       });
       activeRequestIdRef.current = requestId;
+      activeRequestChatIdRef.current = chatId;
     },
     [agent, setChats, setIsTyping, showError, streaming, t, connectionId],
   );
@@ -523,5 +544,6 @@ export function useAgentMessages({
     handleSendAnalyzeSchema,
     handleSendMessage,
     stopGeneration,
+    cancelChatRequest,
   };
 }

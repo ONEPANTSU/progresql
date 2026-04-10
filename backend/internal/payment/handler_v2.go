@@ -20,20 +20,14 @@ import (
 // Plan prices in RUB.
 const (
 	PriceProRUB     = 1999.0
-	PriceProPlusRUB = 5999.0
+	PriceProPlusRUB = 1999.0 // deprecated: alias for Pro
 	MinBalanceTopUp = 100.0
 	MaxBalanceTopUp = 50000.0
 )
 
 // resolvePlanPrice returns the price in RUB for the given subscription plan.
-// Defaults to Pro price for unknown plans.
 func resolvePlanPrice(plan string) float64 {
-	switch plan {
-	case "pro_plus":
-		return PriceProPlusRUB
-	default:
-		return PriceProRUB
-	}
+	return PriceProRUB
 }
 
 // orderPayloadResult holds the parsed result of a Platega payment payload.
@@ -459,10 +453,8 @@ func PriceHandlerV2(db *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		proPrice := PriceProRUB
-		proPlusPrice := PriceProPlusRUB
 		if userID != "" {
 			proPrice = applyDiscount(r.Context(), db, userID, PriceProRUB)
-			proPlusPrice = applyDiscount(r.Context(), db, userID, PriceProPlusRUB)
 		}
 
 		json.NewEncoder(w).Encode(pricesResponse{
@@ -471,13 +463,6 @@ func PriceHandlerV2(db *pgxpool.Pool) http.HandlerFunc {
 					Plan:          "pro",
 					Price:         proPrice,
 					OriginalPrice: PriceProRUB,
-					Currency:      "RUB",
-					Period:        "month",
-				},
-				{
-					Plan:          "pro_plus",
-					Price:         proPlusPrice,
-					OriginalPrice: PriceProPlusRUB,
 					Currency:      "RUB",
 					Period:        "month",
 				},

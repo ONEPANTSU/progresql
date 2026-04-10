@@ -244,9 +244,17 @@ export interface CustomType {
   name: string;
   schema: string;
   owner: string;
+  /** pg_type.typcategory — high-level group like 'E' (enum), 'N' (numeric), 'S' (string)… */
   type_category: string;
-  is_preferred: boolean;
-  is_instantiable: boolean;
+  /**
+   * pg_type.typtype — one-char discriminator: 'b' base, 'c' composite, 'd' domain,
+   * 'e' enum, 'p' pseudo, 'r' range, 'm' multirange.
+   * This is the *correct* field to use when you want "is this a domain?" rather than
+   * `type_category`, which reflects the base-type category for domains.
+   */
+  type_type?: string;
+  is_preferred?: boolean;
+  is_instantiable?: boolean;
   base_type?: string;
   element_type?: string;
   enum_values?: string[];
@@ -367,7 +375,7 @@ export interface AuthUser {
   email: string;
   name?: string;
   emailVerified?: boolean;
-  plan?: 'free' | 'trial' | 'pro' | 'pro_plus';
+  plan?: 'free' | 'pro';
   planExpiresAt?: string;
   trialEndsAt?: string;
   subscriptionWarning?: SubscriptionWarning;
@@ -425,7 +433,7 @@ export interface Message {
   visualization?: MessageVisualization;
   modelUsed?: string;
   modelTier?: 'budget' | 'premium';
-  costRUB?: number;
+  costUSD?: number;
   inputTokens?: number;
   outputTokens?: number;
 }
@@ -455,30 +463,32 @@ export interface ChatMessagePayload {
   schema?: DatabaseSchemaMessage;
 }
 
-// Quota & Balance types
+// Quota & Balance types (Billing v2: USD credits, plan tiers)
 export interface QuotaInfo {
   plan: string;
-  budget_tokens_limit: number;
-  premium_tokens_limit: number;
-  period_type: 'daily' | 'monthly';
+  allowed_model_tiers: string[];
   autocomplete_enabled: boolean;
   balance_markup_pct: number;
-  balance_enabled: boolean;
   max_requests_per_min: number;
   max_tokens_per_request: number;
+  daily_credits_usd: number;
+  monthly_credits_usd: number;
+  credits_rollover: boolean;
 }
 
 export interface UsageInfo {
-  budget_tokens_used: number;
-  budget_tokens_limit: number;
-  premium_tokens_used: number;
-  premium_tokens_limit: number;
+  balance_usd: number;
+  balance_rub: number;
+  plan: string;
+  credits_included_usd: number;
+  credits_used_usd: number;
+  credits_remaining_usd: number;
   period_start: string;
   period_end: string;
-  period_type: 'daily' | 'monthly';
-  balance: number;
-  balance_enabled: boolean;
-  plan: string;
+  requests_total: number;
+  tokens_total: number;
+  cost_usd_total: number;
+  avg_cost_per_request_usd: number;
 }
 
 export interface BalanceInfo {
@@ -490,12 +500,26 @@ export interface BalanceTransaction {
   id: string;
   amount: number;
   balance_after: number;
-  tx_type: 'top_up' | 'model_charge' | 'over_quota_charge' | 'refund';
+  tx_type: 'top_up' | 'model_charge' | 'subscription_credit' | 'credit_expire' | 'autocomplete_charge' | 'over_quota_charge' | 'refund';
   model_id: string;
   tokens_input: number;
   tokens_output: number;
   description: string;
   created_at: string;
+}
+
+export interface TopUpOption {
+  amount_rub: number;
+  amount_usd: number;
+  credits_usd: number;
+  markup_pct: number;
+}
+
+export interface TopUpOptionsResponse {
+  options: TopUpOption[];
+  exchange_rate: number;
+  markup_pct: number;
+  plan: string;
 }
 
 export interface PlanPrice {

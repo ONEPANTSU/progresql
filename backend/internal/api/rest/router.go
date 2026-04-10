@@ -126,7 +126,7 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	tbankClient := payment.NewTBankClient(cfg.TBankTerminalKey, cfg.TBankPassword)
 	mux.Handle("POST /api/v3/payments/create-invoice", authMW(http.HandlerFunc(payment.CreateInvoiceHandlerV3(tbankClient, userStore, db, cfg.TBankNotificationURL))))
 	mux.Handle("GET /api/v3/payment/prices", authMW(http.HandlerFunc(payment.PriceHandlerV2(db))))
-	mux.HandleFunc("POST /api/v3/payments/webhook", payment.WebhookHandlerV3(tbankClient, userStore, balanceSvc, db))
+	mux.HandleFunc("POST /api/v3/payments/webhook", payment.WebhookHandlerV3(tbankClient, userStore, balanceSvc, db, rateSvc))
 	mux.Handle("GET /api/v3/payments/status/{payment_id}", authMW(http.HandlerFunc(payment.GetPaymentStatusHandlerV3(tbankClient))))
 	mux.Handle("GET /api/v3/payments/history", authMW(http.HandlerFunc(payment.PaymentHistoryHandlerV3(db))))
 	mux.Handle("POST /api/v3/payments/refund", authMW(http.HandlerFunc(payment.RefundHandlerV3(tbankClient, userStore, balanceSvc, db, rateSvc))))
@@ -142,6 +142,7 @@ func NewRouter(cfg *config.Config, log *zap.Logger, hub *websocket.Hub, userStor
 	mux.Handle("GET /api/v2/quota", authMW(http.HandlerFunc(quotaHandler.GetQuotaHandler)))
 	mux.Handle("GET /api/v2/usage/history", authMW(http.HandlerFunc(quotaHandler.GetUsageHistoryHandler)))
 	mux.Handle("GET /api/v2/models/pricing", http.HandlerFunc(quotaHandler.GetModelPricingHandler))
+	mux.Handle("GET /api/v2/billing/topup-options", authMW(http.HandlerFunc(quotaHandler.GetTopUpOptionsHandler)))
 
 	// Admin analytics endpoints (JWT + admin user ID required).
 	if len(cfg.AdminUserIDs) > 0 {

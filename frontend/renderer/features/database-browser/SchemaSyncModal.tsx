@@ -1,3 +1,11 @@
+/**
+ * Schema Sync modal — UI shell.
+ *
+ * All diff/SQL logic lives under `./schema-sync`. This file is purely the
+ * React/MUI surface: connection pickers, the compare button, the result
+ * accordion list, and the "insert to editor" action.
+ */
+
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   Dialog,
@@ -12,72 +20,57 @@ import {
   Select,
   MenuItem,
   Checkbox,
-  FormControlLabel,
   Chip,
   Divider,
   IconButton,
   Tooltip,
   CircularProgress,
   Alert,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import {
   CompareArrows as CompareIcon,
   SwapHoriz as SwapIcon,
-  ExpandMore as ExpandMoreIcon,
   Warning as WarningIcon,
   Add as AddIcon,
   Remove as RemoveIcon,
   Edit as EditIcon,
+  Category as CategoryIcon,
+  CallSplit as CallSplitIcon,
+  Visibility as VisibilityIcon,
+  Functions as FunctionsIcon,
+  Numbers as NumbersIcon,
+  FlashOn as FlashOnIcon,
+  Label as LabelIcon,
+  TableChart as TableChartIcon,
 } from '@mui/icons-material';
-import type { DatabaseServer, DatabaseInfo, Table, Column, Index, Constraint } from '@/shared/types';
+import type { DatabaseServer, DatabaseInfo } from '@/shared/types';
 import { useTranslation } from '@/shared/i18n/LanguageContext';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-type DiffKind = 'add' | 'drop' | 'alter';
-
-interface ColumnDiff {
-  kind: DiffKind;
-  tableName: string;
-  column?: Column;
-  sourceColumn?: Column;
-  targetColumn?: Column;
-}
-
-interface IndexDiff {
-  kind: DiffKind;
-  tableName: string;
-  index?: Index;
-  sourceIndex?: Index;
-  targetIndex?: Index;
-}
-
-interface ConstraintDiff {
-  kind: DiffKind;
-  tableName: string;
-  constraint?: Constraint;
-  sourceConstraint?: Constraint;
-  targetConstraint?: Constraint;
-}
-
-interface TableDiff {
-  tableName: string;
-  kind: DiffKind; // 'add' = exists only in source, 'drop' = exists only in target, 'alter' = differs
-  columns: ColumnDiff[];
-  indexes: IndexDiff[];
-  constraints: ConstraintDiff[];
-  isDestructive: boolean;
-}
-
-interface SchemaDiff {
-  tables: TableDiff[];
-  hasChanges: boolean;
-}
+import {
+  diffSchemas,
+  generateTableSQL,
+  renderChangeOp,
+  configureEnumGeneratorContext,
+  getDependenciesForEnum,
+  planMigration,
+  renderPlanSQL,
+  resolveOps,
+  resolveTableRenames,
+  type DiffKind,
+  type SchemaDiff,
+  type ChangeOp,
+  type ObjectCategory,
+  type EnumOp,
+  type ViewOp,
+  type RoutineOp,
+  type SequenceOp,
+  type TriggerOp,
+  type DomainOp,
+  type UserDecisions,
+  type RenameMode,
+} from './schema-sync';
+import { OpSection, OpRow, RenameResolverButtons } from './schema-sync/components';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -91,423 +84,170 @@ interface SchemaSyncModalProps {
 }
 
 // ---------------------------------------------------------------------------
-// Diff engine (all schemas)
-// ---------------------------------------------------------------------------
-
-function getAllTables(db: DatabaseInfo): Table[] {
-  return db.tables || [];
-}
-
-/** Schema-qualified key: "schema.table" */
-function tableQualifiedName(t: Table): string {
-  const schema = t.table_schema || 'public';
-  return `${schema}.${t.table_name}`;
-}
-
-function columnKey(c: Column): string {
-  return c.column_name;
-}
-
-function columnsEqual(a: Column, b: Column): boolean {
-  return (
-    a.data_type === b.data_type &&
-    a.is_nullable === b.is_nullable &&
-    a.column_default === b.column_default &&
-    a.character_maximum_length === b.character_maximum_length &&
-    a.numeric_precision === b.numeric_precision &&
-    a.numeric_scale === b.numeric_scale
-  );
-}
-
-function indexKey(idx: Index): string {
-  return idx.index_name;
-}
-
-function indexesEqual(a: Index, b: Index): boolean {
-  return (
-    a.index_definition === b.index_definition &&
-    a.is_unique === b.is_unique
-  );
-}
-
-function constraintKey(c: Constraint): string {
-  return c.constraint_name;
-}
-
-function constraintsEqual(a: Constraint, b: Constraint): boolean {
-  return (
-    a.constraint_type === b.constraint_type &&
-    a.column_name === b.column_name &&
-    a.referenced_table === b.referenced_table &&
-    a.referenced_column === b.referenced_column &&
-    a.check_condition === b.check_condition
-  );
-}
-
-function diffSchemas(sourceDb: DatabaseInfo, targetDb: DatabaseInfo): SchemaDiff {
-  const sourceTables = getAllTables(sourceDb);
-  const targetTables = getAllTables(targetDb);
-
-  const sourceMap = new Map(sourceTables.map((t) => [tableQualifiedName(t), t]));
-  const targetMap = new Map(targetTables.map((t) => [tableQualifiedName(t), t]));
-
-  const tables: TableDiff[] = [];
-
-  // Tables in source but not in target -> CREATE TABLE
-  for (const [name, srcTable] of sourceMap) {
-    if (!targetMap.has(name)) {
-      tables.push({
-        tableName: name,
-        kind: 'add',
-        columns: (srcTable.columns || []).map((c) => ({ kind: 'add', tableName: name, column: c })),
-        indexes: (srcTable.indexes || []).map((i) => ({ kind: 'add', tableName: name, index: i })),
-        constraints: (srcTable.constraints || []).map((c) => ({ kind: 'add', tableName: name, constraint: c })),
-        isDestructive: false,
-      });
-    }
-  }
-
-  // Tables in target but not in source -> DROP TABLE (destructive)
-  for (const [name, tgtTable] of targetMap) {
-    if (!sourceMap.has(name)) {
-      tables.push({
-        tableName: name,
-        kind: 'drop',
-        columns: [],
-        indexes: [],
-        constraints: [],
-        isDestructive: true,
-      });
-    }
-  }
-
-  // Tables in both -> compare columns, indexes, constraints
-  for (const [name, srcTable] of sourceMap) {
-    const tgtTable = targetMap.get(name);
-    if (!tgtTable) continue;
-
-    const colDiffs: ColumnDiff[] = [];
-    const idxDiffs: IndexDiff[] = [];
-    const conDiffs: ConstraintDiff[] = [];
-
-    const srcCols = new Map((srcTable.columns || []).map((c) => [columnKey(c), c]));
-    const tgtCols = new Map((tgtTable.columns || []).map((c) => [columnKey(c), c]));
-
-    for (const [key, col] of srcCols) {
-      const tgtCol = tgtCols.get(key);
-      if (!tgtCol) {
-        colDiffs.push({ kind: 'add', tableName: name, column: col });
-      } else if (!columnsEqual(col, tgtCol)) {
-        colDiffs.push({ kind: 'alter', tableName: name, sourceColumn: col, targetColumn: tgtCol });
-      }
-    }
-    for (const [key, col] of tgtCols) {
-      if (!srcCols.has(key)) {
-        colDiffs.push({ kind: 'drop', tableName: name, column: col });
-      }
-    }
-
-    const srcIdxs = new Map((srcTable.indexes || []).map((i) => [indexKey(i), i]));
-    const tgtIdxs = new Map((tgtTable.indexes || []).map((i) => [indexKey(i), i]));
-
-    for (const [key, idx] of srcIdxs) {
-      const tgtIdx = tgtIdxs.get(key);
-      if (!tgtIdx) {
-        idxDiffs.push({ kind: 'add', tableName: name, index: idx });
-      } else if (!indexesEqual(idx, tgtIdx)) {
-        idxDiffs.push({ kind: 'alter', tableName: name, sourceIndex: idx, targetIndex: tgtIdx });
-      }
-    }
-    for (const [key] of tgtIdxs) {
-      if (!srcIdxs.has(key)) {
-        idxDiffs.push({ kind: 'drop', tableName: name, index: tgtIdxs.get(key)! });
-      }
-    }
-
-    const srcCons = new Map((srcTable.constraints || []).map((c) => [constraintKey(c), c]));
-    const tgtCons = new Map((tgtTable.constraints || []).map((c) => [constraintKey(c), c]));
-
-    for (const [key, con] of srcCons) {
-      const tgtCon = tgtCons.get(key);
-      if (!tgtCon) {
-        conDiffs.push({ kind: 'add', tableName: name, constraint: con });
-      } else if (!constraintsEqual(con, tgtCon)) {
-        conDiffs.push({ kind: 'alter', tableName: name, sourceConstraint: con, targetConstraint: tgtCon });
-      }
-    }
-    for (const [key] of tgtCons) {
-      if (!srcCons.has(key)) {
-        conDiffs.push({ kind: 'drop', tableName: name, constraint: tgtCons.get(key)! });
-      }
-    }
-
-    if (colDiffs.length > 0 || idxDiffs.length > 0 || conDiffs.length > 0) {
-      const isDestructive = colDiffs.some((d) => d.kind === 'drop') ||
-        idxDiffs.some((d) => d.kind === 'drop') ||
-        conDiffs.some((d) => d.kind === 'drop');
-      tables.push({
-        tableName: name,
-        kind: 'alter',
-        columns: colDiffs,
-        indexes: idxDiffs,
-        constraints: conDiffs,
-        isDestructive,
-      });
-    }
-  }
-
-  // Sort: CREATE TABLE first, then ALTER, then DROP
-  const order: Record<DiffKind, number> = { add: 0, alter: 1, drop: 2 };
-  tables.sort((a, b) => order[a.kind] - order[b.kind] || a.tableName.localeCompare(b.tableName));
-
-  return { tables, hasChanges: tables.length > 0 };
-}
-
-// ---------------------------------------------------------------------------
-// SQL generation
-// ---------------------------------------------------------------------------
-
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
-
-/** Quote a potentially schema-qualified name like "myschema.mytable" */
-function quoteQualifiedName(name: string): string {
-  if (name.includes('.')) {
-    const [schema, table] = name.split('.', 2);
-    return `${quoteIdent(schema)}.${quoteIdent(table)}`;
-  }
-  return quoteIdent(name);
-}
-
-function columnTypeSQL(col: Column): string {
-  let t = col.data_type;
-  if (col.character_maximum_length) {
-    t += `(${col.character_maximum_length})`;
-  } else if (col.numeric_precision && col.data_type.toLowerCase().includes('numeric')) {
-    t += `(${col.numeric_precision}${col.numeric_scale ? `, ${col.numeric_scale}` : ''})`;
-  }
-  return t;
-}
-
-/** Generate CREATE TABLE without FK constraints (FKs are added separately for correct ordering) */
-function generateCreateTable(diff: TableDiff): string {
-  const qualifiedName = quoteQualifiedName(diff.tableName);
-
-  const cols = diff.columns
-    .filter((d) => d.kind === 'add' && d.column)
-    .map((d) => {
-      const c = d.column!;
-      let line = `  ${quoteIdent(c.column_name)} ${columnTypeSQL(c)}`;
-      if (c.is_nullable === 'NO') line += ' NOT NULL';
-      if (c.column_default !== null && c.column_default !== undefined) line += ` DEFAULT ${c.column_default}`;
-      return line;
-    });
-
-  const pks = diff.constraints
-    .filter((d) => d.kind === 'add' && d.constraint?.constraint_type === 'PRIMARY KEY')
-    .map((d) => d.constraint!);
-
-  if (pks.length > 0) {
-    const pkCols = pks.map((pk) => quoteIdent(pk.column_name)).join(', ');
-    cols.push(`  PRIMARY KEY (${pkCols})`);
-  }
-
-  let sql = `CREATE TABLE ${qualifiedName} (\n${cols.join(',\n')}\n);`;
-
-  // Non-FK, non-PK constraints (UNIQUE, CHECK) — safe to add inline
-  const inlineConstraints = diff.constraints
-    .filter((d) => d.kind === 'add' && d.constraint &&
-      d.constraint.constraint_type !== 'PRIMARY KEY' &&
-      d.constraint.constraint_type !== 'FOREIGN KEY');
-  for (const cd of inlineConstraints) {
-    const c = cd.constraint!;
-    if (c.constraint_type === 'UNIQUE') {
-      sql += `\nALTER TABLE ${qualifiedName} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} UNIQUE (${quoteIdent(c.column_name)});`;
-    } else if (c.constraint_type === 'CHECK' && c.check_condition) {
-      sql += `\nALTER TABLE ${qualifiedName} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} CHECK (${c.check_condition});`;
-    }
-  }
-
-  // Indexes (non-primary)
-  for (const id of diff.indexes.filter((d) => d.kind === 'add' && d.index && !d.index.is_primary)) {
-    const idx = id.index!;
-    if (idx.index_definition) {
-      sql += `\n${idx.index_definition};`;
-    } else {
-      const unique = idx.is_unique ? 'UNIQUE ' : '';
-      sql += `\nCREATE ${unique}INDEX ${quoteIdent(idx.index_name)} ON ${qualifiedName} (${idx.columns.map(quoteIdent).join(', ')});`;
-    }
-  }
-
-  return sql;
-}
-
-/** Generate FK constraint statements for a CREATE TABLE diff (added after all tables exist) */
-function generateCreateTableFKs(diff: TableDiff): string {
-  const qualifiedName = quoteQualifiedName(diff.tableName);
-  const fks = diff.constraints
-    .filter((d) => d.kind === 'add' && d.constraint?.constraint_type === 'FOREIGN KEY');
-  if (fks.length === 0) return '';
-  const statements: string[] = [];
-  for (const cd of fks) {
-    const c = cd.constraint!;
-    let stmt = `ALTER TABLE ${qualifiedName} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} FOREIGN KEY (${quoteIdent(c.column_name)}) REFERENCES ${quoteIdent(c.referenced_table || '')}(${quoteIdent(c.referenced_column || '')})`;
-    if (c.on_delete) stmt += ` ON DELETE ${c.on_delete}`;
-    if (c.on_update) stmt += ` ON UPDATE ${c.on_update}`;
-    statements.push(stmt + ';');
-  }
-  return statements.join('\n');
-}
-
-function generateAlterTable(diff: TableDiff): string {
-  const statements: string[] = [];
-  const tbl = quoteQualifiedName(diff.tableName);
-
-  // Add columns
-  for (const cd of diff.columns.filter((d) => d.kind === 'add' && d.column)) {
-    const c = cd.column!;
-    let line = `ALTER TABLE ${tbl} ADD COLUMN ${quoteIdent(c.column_name)} ${columnTypeSQL(c)}`;
-    if (c.is_nullable === 'NO') line += ' NOT NULL';
-    if (c.column_default !== null && c.column_default !== undefined) line += ` DEFAULT ${c.column_default}`;
-    statements.push(line + ';');
-  }
-
-  // Alter columns (type change, nullability, default)
-  for (const cd of diff.columns.filter((d) => d.kind === 'alter' && d.sourceColumn && d.targetColumn)) {
-    const src = cd.sourceColumn!;
-    const tgt = cd.targetColumn!;
-    const col = quoteIdent(src.column_name);
-
-    if (src.data_type !== tgt.data_type || src.character_maximum_length !== tgt.character_maximum_length) {
-      statements.push(`ALTER TABLE ${tbl} ALTER COLUMN ${col} TYPE ${columnTypeSQL(src)};`);
-    }
-    if (src.is_nullable !== tgt.is_nullable) {
-      if (src.is_nullable === 'NO') {
-        statements.push(`ALTER TABLE ${tbl} ALTER COLUMN ${col} SET NOT NULL;`);
-      } else {
-        statements.push(`ALTER TABLE ${tbl} ALTER COLUMN ${col} DROP NOT NULL;`);
-      }
-    }
-    if (src.column_default !== tgt.column_default) {
-      if (src.column_default !== null && src.column_default !== undefined) {
-        statements.push(`ALTER TABLE ${tbl} ALTER COLUMN ${col} SET DEFAULT ${src.column_default};`);
-      } else {
-        statements.push(`ALTER TABLE ${tbl} ALTER COLUMN ${col} DROP DEFAULT;`);
-      }
-    }
-  }
-
-  // Drop columns
-  for (const cd of diff.columns.filter((d) => d.kind === 'drop' && d.column)) {
-    statements.push(`ALTER TABLE ${tbl} DROP COLUMN ${quoteIdent(cd.column!.column_name)};`);
-  }
-
-  // Add constraints
-  for (const cd of diff.constraints.filter((d) => d.kind === 'add' && d.constraint)) {
-    const c = cd.constraint!;
-    if (c.constraint_type === 'FOREIGN KEY') {
-      let stmt = `ALTER TABLE ${tbl} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} FOREIGN KEY (${quoteIdent(c.column_name)}) REFERENCES ${quoteIdent(c.referenced_table || '')}(${quoteIdent(c.referenced_column || '')})`;
-      if (c.on_delete) stmt += ` ON DELETE ${c.on_delete}`;
-      if (c.on_update) stmt += ` ON UPDATE ${c.on_update}`;
-      statements.push(stmt + ';');
-    } else if (c.constraint_type === 'UNIQUE') {
-      statements.push(`ALTER TABLE ${tbl} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} UNIQUE (${quoteIdent(c.column_name)});`);
-    } else if (c.constraint_type === 'CHECK' && c.check_condition) {
-      statements.push(`ALTER TABLE ${tbl} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} CHECK (${c.check_condition});`);
-    } else if (c.constraint_type === 'PRIMARY KEY') {
-      statements.push(`ALTER TABLE ${tbl} ADD CONSTRAINT ${quoteIdent(c.constraint_name)} PRIMARY KEY (${quoteIdent(c.column_name)});`);
-    }
-  }
-
-  // Drop constraints
-  for (const cd of diff.constraints.filter((d) => d.kind === 'drop' && d.constraint)) {
-    statements.push(`ALTER TABLE ${tbl} DROP CONSTRAINT ${quoteIdent(cd.constraint!.constraint_name)};`);
-  }
-
-  // Alter constraints (drop + re-add)
-  for (const cd of diff.constraints.filter((d) => d.kind === 'alter' && d.sourceConstraint)) {
-    const src = cd.sourceConstraint!;
-    statements.push(`ALTER TABLE ${tbl} DROP CONSTRAINT ${quoteIdent(src.constraint_name)};`);
-    if (src.constraint_type === 'FOREIGN KEY') {
-      let stmt = `ALTER TABLE ${tbl} ADD CONSTRAINT ${quoteIdent(src.constraint_name)} FOREIGN KEY (${quoteIdent(src.column_name)}) REFERENCES ${quoteIdent(src.referenced_table || '')}(${quoteIdent(src.referenced_column || '')})`;
-      if (src.on_delete) stmt += ` ON DELETE ${src.on_delete}`;
-      if (src.on_update) stmt += ` ON UPDATE ${src.on_update}`;
-      statements.push(stmt + ';');
-    } else if (src.constraint_type === 'UNIQUE') {
-      statements.push(`ALTER TABLE ${tbl} ADD CONSTRAINT ${quoteIdent(src.constraint_name)} UNIQUE (${quoteIdent(src.column_name)});`);
-    } else if (src.constraint_type === 'CHECK' && src.check_condition) {
-      statements.push(`ALTER TABLE ${tbl} ADD CONSTRAINT ${quoteIdent(src.constraint_name)} CHECK (${src.check_condition});`);
-    }
-  }
-
-  // Add indexes
-  for (const id of diff.indexes.filter((d) => d.kind === 'add' && d.index && !d.index.is_primary)) {
-    const idx = id.index!;
-    if (idx.index_definition) {
-      statements.push(`${idx.index_definition};`);
-    } else {
-      const unique = idx.is_unique ? 'UNIQUE ' : '';
-      statements.push(`CREATE ${unique}INDEX ${quoteIdent(idx.index_name)} ON ${tbl} (${idx.columns.map(quoteIdent).join(', ')});`);
-    }
-  }
-
-  // Drop indexes
-  for (const id of diff.indexes.filter((d) => d.kind === 'drop' && d.index)) {
-    statements.push(`DROP INDEX ${quoteIdent(id.index!.index_name)};`);
-  }
-
-  // Alter indexes (drop + re-create)
-  for (const id of diff.indexes.filter((d) => d.kind === 'alter' && d.sourceIndex)) {
-    const src = id.sourceIndex!;
-    statements.push(`DROP INDEX ${quoteIdent(src.index_name)};`);
-    if (src.index_definition) {
-      statements.push(`${src.index_definition};`);
-    } else {
-      const unique = src.is_unique ? 'UNIQUE ' : '';
-      statements.push(`CREATE ${unique}INDEX ${quoteIdent(src.index_name)} ON ${tbl} (${src.columns.map(quoteIdent).join(', ')});`);
-    }
-  }
-
-  return statements.join('\n');
-}
-
-function generateDropTable(diff: TableDiff): string {
-  return `DROP TABLE ${quoteQualifiedName(diff.tableName)};`;
-}
-
-function generateSQL(diff: TableDiff): string {
-  switch (diff.kind) {
-    case 'add':
-      return generateCreateTable(diff);
-    case 'drop':
-      return generateDropTable(diff);
-    case 'alter':
-      return generateAlterTable(diff);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Component
+// Small presentational helpers
 // ---------------------------------------------------------------------------
 
 const kindIcon: Record<DiffKind, React.ReactNode> = {
   add: <AddIcon sx={{ fontSize: 14, color: 'success.main' }} />,
   drop: <RemoveIcon sx={{ fontSize: 14, color: 'error.main' }} />,
   alter: <EditIcon sx={{ fontSize: 14, color: 'warning.main' }} />,
+  rename: <SwapIcon sx={{ fontSize: 14, color: 'info.main' }} />,
 };
 
 const kindLabel: Record<DiffKind, string> = {
   add: 'CREATE',
   drop: 'DROP',
   alter: 'ALTER',
+  rename: 'RENAME',
 };
 
-const kindColor: Record<DiffKind, 'success' | 'error' | 'warning'> = {
+const kindColor: Record<DiffKind, 'success' | 'error' | 'warning' | 'info'> = {
   add: 'success',
   drop: 'error',
   alter: 'warning',
+  rename: 'info',
 };
+
+// ---------------------------------------------------------------------------
+// Enum op presentation
+// ---------------------------------------------------------------------------
+
+/** Group enum ops by their `objectName` so they render as one row per enum. */
+function groupEnumOps(ops: ChangeOp[]): Array<{ enumName: string; ops: EnumOp[] }> {
+  const groups = new Map<string, EnumOp[]>();
+  for (const op of ops) {
+    if (op.category !== 'enum') continue;
+    const bucket = groups.get(op.objectName) ?? [];
+    bucket.push(op);
+    groups.set(op.objectName, bucket);
+  }
+  return Array.from(groups.entries())
+    .map(([enumName, opList]) => ({ enumName, ops: opList }))
+    .sort((a, b) => a.enumName.localeCompare(b.enumName));
+}
+
+// ---------------------------------------------------------------------------
+// View op presentation
+// ---------------------------------------------------------------------------
+
+type ViewKindStyle = {
+  chip: string;
+  color: 'success' | 'error' | 'warning' | 'info';
+  icon: React.ReactNode;
+};
+
+const viewKindStyles: Record<ViewOp['kind'], ViewKindStyle> = {
+  'create':  { chip: 'CREATE VIEW',  color: 'success', icon: <AddIcon sx={{ fontSize: 14, color: 'success.main' }} /> },
+  'drop':    { chip: 'DROP VIEW',    color: 'error',   icon: <RemoveIcon sx={{ fontSize: 14, color: 'error.main' }} /> },
+  'replace': { chip: 'REPLACE VIEW', color: 'warning', icon: <EditIcon sx={{ fontSize: 14, color: 'warning.main' }} /> },
+  'rename':  { chip: 'RENAME VIEW',  color: 'info',    icon: <SwapIcon sx={{ fontSize: 14, color: 'info.main' }} /> },
+};
+
+/** Group view ops by `objectName`. */
+function groupViewOps(ops: ChangeOp[]): Array<{ viewName: string; ops: ViewOp[] }> {
+  const groups = new Map<string, ViewOp[]>();
+  for (const op of ops) {
+    if (op.category !== 'view') continue;
+    const bucket = groups.get(op.objectName) ?? [];
+    bucket.push(op);
+    groups.set(op.objectName, bucket);
+  }
+  return Array.from(groups.entries())
+    .map(([viewName, opList]) => ({ viewName, ops: opList }))
+    .sort((a, b) => a.viewName.localeCompare(b.viewName));
+}
+
+// ---------------------------------------------------------------------------
+// Routine (function / procedure) op presentation
+// ---------------------------------------------------------------------------
+
+type RoutineKindStyle = {
+  chip: string;
+  color: 'success' | 'error' | 'warning' | 'info';
+  icon: React.ReactNode;
+};
+
+const routineKindStyles: Record<RoutineOp['kind'], RoutineKindStyle> = {
+  'create':  { chip: 'CREATE',  color: 'success', icon: <AddIcon sx={{ fontSize: 14, color: 'success.main' }} /> },
+  'drop':    { chip: 'DROP',    color: 'error',   icon: <RemoveIcon sx={{ fontSize: 14, color: 'error.main' }} /> },
+  'replace': { chip: 'REPLACE', color: 'warning', icon: <EditIcon sx={{ fontSize: 14, color: 'warning.main' }} /> },
+  'rename':  { chip: 'RENAME',  color: 'info',    icon: <SwapIcon sx={{ fontSize: 14, color: 'info.main' }} /> },
+};
+
+/** Group routine ops (functions + procedures) by `objectName`. */
+function groupRoutineOps(
+  ops: ChangeOp[],
+  category: 'function' | 'procedure',
+): Array<{ routineName: string; ops: RoutineOp[] }> {
+  const groups = new Map<string, RoutineOp[]>();
+  for (const op of ops) {
+    if (op.category !== category) continue;
+    const bucket = groups.get(op.objectName) ?? [];
+    bucket.push(op);
+    groups.set(op.objectName, bucket);
+  }
+  return Array.from(groups.entries())
+    .map(([routineName, opList]) => ({ routineName, ops: opList }))
+    .sort((a, b) => a.routineName.localeCompare(b.routineName));
+}
+
+// ---------------------------------------------------------------------------
+// Sequence / trigger / domain op presentation (shared compact style)
+// ---------------------------------------------------------------------------
+
+type MiscOp = SequenceOp | TriggerOp | DomainOp;
+
+const miscColorByKind: Record<string, 'success' | 'error' | 'warning' | 'info'> = {
+  create: 'success',
+  drop: 'error',
+  alter: 'warning',
+  replace: 'warning',
+  rename: 'info',
+};
+
+const miscKindIcon: Record<string, React.ReactNode> = {
+  create: <AddIcon sx={{ fontSize: 14, color: 'success.main' }} />,
+  drop: <RemoveIcon sx={{ fontSize: 14, color: 'error.main' }} />,
+  alter: <EditIcon sx={{ fontSize: 14, color: 'warning.main' }} />,
+  replace: <EditIcon sx={{ fontSize: 14, color: 'warning.main' }} />,
+  rename: <SwapIcon sx={{ fontSize: 14, color: 'info.main' }} />,
+};
+
+function miscChipLabel(op: MiscOp): string {
+  const prefix = op.category.toUpperCase();
+  return `${op.kind.toUpperCase()} ${prefix}`;
+}
+
+function filterMiscOps(ops: ChangeOp[], category: 'sequence' | 'trigger' | 'domain'): MiscOp[] {
+  return ops.filter((o) => o.category === category) as MiscOp[];
+}
+
+/** Normalise enum_values that may arrive as a Postgres array literal string. */
+function parseEnumValues(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    return raw
+      .replace(/^\{|\}$/g, '')
+      .split(',')
+      .map((v) => v.trim().replace(/^"|"$/g, ''))
+      .filter((v) => v.length > 0);
+  }
+  return [];
+}
+
+/** Build a lookup of qualified enum name -> ordered source value list. */
+function indexSourceEnumValues(db: DatabaseInfo | null): Map<string, string[]> {
+  const map = new Map<string, string[]>();
+  if (!db) return map;
+  for (const t of db.types || []) {
+    const vals = parseEnumValues(t.enum_values);
+    if (vals.length > 0) {
+      const qn = `${t.schema || 'public'}.${t.name}`;
+      map.set(qn, vals);
+    }
+  }
+  return map;
+}
 
 export default function SchemaSyncModal({ open, onClose, connections, onApplySQL }: SchemaSyncModalProps) {
   const { t } = useTranslation();
@@ -520,12 +260,42 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
   const [diff, setDiff] = useState<SchemaDiff | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  // Schema snapshots kept so the enum generator context (dependency lookup)
+  // can be refreshed without a second network round-trip and so rejected
+  // rename-value suggestions can derive their post-drop value list.
+  const [sourceSnap, setSourceSnap] = useState<DatabaseInfo | null>(null);
+  const [targetSnap, setTargetSnap] = useState<DatabaseInfo | null>(null);
+
+  // User decisions for enum ops — applied via `resolveOps` before the
+  // planner turns ops into SQL.
+  const [selectedOpIds, setSelectedOpIds] = useState<Set<string>>(new Set());
+  const [rejectedValueRenames, setRejectedValueRenames] = useState<Set<string>>(new Set());
+  const [dropValueChoices, setDropValueChoices] = useState<
+    Map<string, { replacement: string | null; skip: boolean }>
+  >(new Map());
+
+  // Override rename-value target: opId → new toValue.
+  const [renameValueTargets, setRenameValueTargets] = useState<Map<string, string>>(new Map());
+
+  // Rename mode choice per rename op id (views/routines/domains).
+  const [opRenameModes, setOpRenameModes] = useState<Map<string, RenameMode>>(new Map());
+  // Rename mode choice per table name (the new / source-side name).
+  const [tableRenameModes, setTableRenameModes] = useState<Map<string, RenameMode>>(new Map());
+
   // Reset state when modal opens
   React.useEffect(() => {
     if (open) {
       setDiff(null);
       setError(null);
       setSelected(new Set());
+      setSourceSnap(null);
+      setTargetSnap(null);
+      setSelectedOpIds(new Set());
+      setRejectedValueRenames(new Set());
+      setRenameValueTargets(new Map());
+      setDropValueChoices(new Map());
+      setOpRenameModes(new Map());
+      setTableRenameModes(new Map());
     }
   }, [open]);
 
@@ -547,8 +317,8 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
     setSelected(new Set());
 
     try {
-      // Sequential calls to avoid race condition when both use the same connection.
-      // pg.Client is not safe for concurrent queries on the same connection.
+      // Sequential calls to avoid race condition when both use the same
+      // connection — pg.Client is not safe for concurrent queries.
       const sourceResult = await window.electronAPI.getDatabaseStructure(sourceId, sourceDatabase || undefined);
       const targetResult = await window.electronAPI.getDatabaseStructure(targetId, targetDatabase || undefined);
 
@@ -561,19 +331,52 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
 
       const sourceDb = sourceResult.databases[0];
       const targetDb = targetResult.databases[0];
+
+      // Arm the enum generator with column-dependency info from the TARGET
+      // snapshot — the rebuild dance must ALTER columns that currently exist
+      // in the live DB, not columns being ADDed by the same migration.
+      configureEnumGeneratorContext(targetDb);
+      setSourceSnap(sourceDb);
+      setTargetSnap(targetDb);
+
       const result = diffSchemas(sourceDb, targetDb);
       setDiff(result);
 
-      // Select all non-destructive by default
-      const defaultSelected = new Set<string>();
+      // Pre-select non-destructive, non-ambiguous tables + ops.
+      // Rename candidates require user decision → leave unchecked.
+      const renameKinds = new Set(['rename', 'rename-type', 'rename-value']);
+      const defaultSelectedTables = new Set<string>();
       for (const td of result.tables) {
-        if (!td.isDestructive) {
-          defaultSelected.add(td.tableName);
+        if (!td.isDestructive && td.kind !== 'rename') defaultSelectedTables.add(td.tableName);
+      }
+      setSelected(defaultSelectedTables);
+
+      // Collect enum names that have any rename op → leave entire group unchecked.
+      const enumsWithRenames = new Set<string>();
+      for (const op of result.ops) {
+        if (op.category === 'enum' && renameKinds.has(op.kind)) {
+          enumsWithRenames.add(op.objectName);
         }
       }
-      setSelected(defaultSelected);
+
+      const defaultSelectedOps = new Set<string>();
+      for (const op of result.ops) {
+        if (op.isDestructive) continue;
+        if (renameKinds.has(op.kind)) continue;
+        // Skip all ops in an enum group that contains a rename.
+        if (op.category === 'enum' && enumsWithRenames.has(op.objectName)) continue;
+        defaultSelectedOps.add(op.id);
+      }
+      setSelectedOpIds(defaultSelectedOps);
+
+      // Reset user decisions from a previous run.
+      setRejectedValueRenames(new Set());
+      setRenameValueTargets(new Map());
+      setDropValueChoices(new Map());
+      setOpRenameModes(new Map());
+      setTableRenameModes(new Map());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : t('schemaSync.unknownError'));
     } finally {
       setLoading(false);
     }
@@ -591,94 +394,94 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
     });
   }, []);
 
+  const visibleTables = useMemo(() => {
+    if (!diff) return [];
+    return diff.tables;
+  }, [diff]);
+
   const toggleAll = useCallback(() => {
     if (!diff) return;
-    const visibleTables = diff.tables.filter((t) => true);
     const allSelected = visibleTables.every((t) => selected.has(t.tableName));
     if (allSelected) {
       setSelected(new Set());
     } else {
       setSelected(new Set(visibleTables.map((t) => t.tableName)));
     }
-  }, [diff, selected]);
+  }, [diff, selected, visibleTables]);
 
-  const visibleTables = useMemo(() => {
-    if (!diff) return [];
-    return diff.tables;
-  }, [diff]);
+  // Source-side enum value lookup — fed into resolveOps so a rejected
+  // rename-value suggestion can derive the post-drop value list.
+  const sourceEnumValues = useMemo(() => indexSourceEnumValues(sourceSnap), [sourceSnap]);
+  const targetEnumValues = useMemo(() => indexSourceEnumValues(targetSnap), [targetSnap]);
 
+  // Raw diff → resolved ops (user decisions applied) → migration plan → SQL.
   const finalSQL = useMemo(() => {
     if (!diff) return '';
-    const selectedTables = diff.tables.filter((t) => selected.has(t.tableName));
-    const parts: string[] = [];
+    // Nothing selected → no SQL to generate.
+    if (selected.size === 0 && selectedOpIds.size === 0) return '';
+    const decisions: UserDecisions = {
+      rejectedValueRenames,
+      dropValueChoices,
+      sourceEnumValues,
+      targetEnumValues,
+      renameResolutions: opRenameModes,
+      renameValueTargets,
+    };
+    const resolvedOps = resolveOps(diff.ops, decisions);
+    // Apply per-table rename resolutions (split / keep-both) to the
+    // legacy TableDiff list before feeding it into the planner.
+    const resolvedTables = resolveTableRenames(diff.tables, tableRenameModes);
 
-    // 1. CREATE SCHEMA (deduplicated, before any tables)
-    const schemas = new Set<string>();
-    for (const td of selectedTables) {
-      if (td.kind === 'add' && td.tableName.includes('.')) {
-        const schema = td.tableName.split('.', 2)[0];
-        if (schema !== 'public') schemas.add(schema);
-      }
-    }
-    if (schemas.size > 0) {
-      for (const s of schemas) {
-        parts.push(`CREATE SCHEMA IF NOT EXISTS ${quoteIdent(s)};`);
-      }
-      parts.push('');
-    }
-
-    // 2. CREATE TABLE (without FK constraints)
-    const creates = selectedTables.filter((t) => t.kind === 'add');
-    for (const td of creates) {
-      parts.push(`-- CREATE TABLE: ${td.tableName}`);
-      parts.push(generateCreateTable(td));
-      parts.push('');
-    }
-
-    // 3. FK constraints for new tables (after ALL tables exist)
-    const fkParts: string[] = [];
-    for (const td of creates) {
-      const fkSQL = generateCreateTableFKs(td);
-      if (fkSQL) fkParts.push(fkSQL);
-    }
-    if (fkParts.length > 0) {
-      parts.push('-- FOREIGN KEY CONSTRAINTS');
-      parts.push(fkParts.join('\n'));
-      parts.push('');
-    }
-
-    // 4. ALTER TABLE
-    const alters = selectedTables.filter((t) => t.kind === 'alter');
-    for (const td of alters) {
-      parts.push(`-- ALTER TABLE: ${td.tableName}`);
-      parts.push(generateAlterTable(td));
-      parts.push('');
-    }
-
-    // 5. DROP TABLE (tables with FKs to other dropped tables go first)
-    const drops = selectedTables.filter((t) => t.kind === 'drop');
-    if (drops.length > 0) {
-      for (const td of drops) {
-        parts.push(`-- DROP TABLE: ${td.tableName}`);
-        parts.push(generateDropTable(td));
-        parts.push('');
+    // Extend selection sets to include synthetic split ops / split tables
+    // spawned from rename resolution. Both use the `:split-*` id suffix.
+    const effectiveSelectedOps = new Set(selectedOpIds);
+    for (const op of resolvedOps) {
+      const parentId = op.id.replace(/:split-(add|drop|create)$/, '');
+      if (parentId !== op.id && selectedOpIds.has(parentId)) {
+        effectiveSelectedOps.add(op.id);
       }
     }
 
-    const body = parts.join('\n').trim();
-    if (!body) return '';
-    return `BEGIN;\n\n${body}\n\nCOMMIT;`;
-  }, [diff, selected]);
+    // For tables, a rename that was downgraded to split/keep-both produces
+    // new TableDiff entries keyed by their new names. Propagate selection
+    // only when the original rename table was selected by the user.
+    const effectiveSelectedTables = new Set(selected);
+    for (const td of resolvedTables) {
+      // Synthetic split entries share the same tableName or renamedFrom
+      // as the original rename table. Only propagate if the user had
+      // the original selected.
+      if (td.renamedFrom && selected.has(td.renamedFrom)) {
+        effectiveSelectedTables.add(td.tableName);
+      }
+    }
 
+    const resolvedDiff: SchemaDiff = { ...diff, ops: resolvedOps, tables: resolvedTables };
+    const plan = planMigration(resolvedDiff, {
+      selectedTables: effectiveSelectedTables,
+      selectedOpIds: effectiveSelectedOps,
+    });
+    return renderPlanSQL(plan);
+  }, [
+    diff,
+    selected,
+    selectedOpIds,
+    rejectedValueRenames,
+    dropValueChoices,
+    sourceEnumValues,
+    targetEnumValues,
+    opRenameModes,
+    renameValueTargets,
+    tableRenameModes,
+  ]);
 
   const handleInsertToEditor = useCallback(() => {
     if (onApplySQL && finalSQL) {
-      // Save values before closing modal (onClose may unmount and clear state)
+      // Save values before closing modal (onClose may unmount and clear state).
       const connId = targetId || undefined;
       const db = targetDatabase || undefined;
       const sql = finalSQL;
       onClose();
-      // Apply after modal is closed so editor state is ready
+      // Apply after modal is closed so editor state is ready.
       setTimeout(() => onApplySQL(sql, connId, db), 100);
     }
   }, [onApplySQL, finalSQL, targetId, targetDatabase, onClose]);
@@ -688,13 +491,190 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
   };
 
   const diffSummary = useMemo(() => {
-    if (!diff) return { add: 0, alter: 0, drop: 0 };
-    return {
-      add: diff.tables.filter((t) => t.kind === 'add').length,
-      alter: diff.tables.filter((t) => t.kind === 'alter').length,
-      drop: diff.tables.filter((t) => t.kind === 'drop').length,
+    if (!diff) return { create: 0, alter: 0, drop: 0, rename: 0, destructive: 0 };
+
+    // Map every op kind to a unified bucket.
+    const kindBucket = (k: string): 'create' | 'alter' | 'drop' | 'rename' => {
+      if (k === 'add' || k === 'create' || k === 'add-value') return 'create';
+      if (k === 'drop' || k === 'drop-value') return 'drop';
+      if (k === 'rename' || k === 'rename-type' || k === 'rename-value') return 'rename';
+      return 'alter'; // alter, replace, etc.
     };
+
+    const counts = { create: 0, alter: 0, drop: 0, rename: 0, destructive: 0 };
+
+    // Tables
+    for (const t of diff.tables) {
+      counts[kindBucket(t.kind)]++;
+      if (t.isDestructive) counts.destructive++;
+    }
+    // All other ops
+    for (const op of diff.ops) {
+      counts[kindBucket(op.kind)]++;
+      if (op.isDestructive) counts.destructive++;
+    }
+
+    return counts;
   }, [diff]);
+
+  // Group ops by enum name for rendering a per-type accordion.
+  const enumGroups = useMemo(
+    () => groupEnumOps(diff?.ops ?? []),
+    [diff],
+  );
+
+  // Group ops by view name for rendering a per-view accordion.
+  const viewGroups = useMemo(
+    () => groupViewOps(diff?.ops ?? []),
+    [diff],
+  );
+
+  // Group ops by function / procedure qualified name.
+  const functionGroups = useMemo(
+    () => groupRoutineOps(diff?.ops ?? [], 'function'),
+    [diff],
+  );
+  const procedureGroups = useMemo(
+    () => groupRoutineOps(diff?.ops ?? [], 'procedure'),
+    [diff],
+  );
+
+  const sequenceOps = useMemo(() => filterMiscOps(diff?.ops ?? [], 'sequence'), [diff]);
+  const triggerOps = useMemo(() => filterMiscOps(diff?.ops ?? [], 'trigger'), [diff]);
+  const domainOps = useMemo(() => filterMiscOps(diff?.ops ?? [], 'domain'), [diff]);
+
+  const toggleOp = useCallback((opId: string) => {
+    setSelectedOpIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(opId)) next.delete(opId);
+      else next.add(opId);
+      return next;
+    });
+  }, []);
+
+  const toggleRenameValueRejected = useCallback((opId: string) => {
+    setRejectedValueRenames((prev) => {
+      const next = new Set(prev);
+      if (next.has(opId)) next.delete(opId);
+      else next.add(opId);
+      return next;
+    });
+  }, []);
+
+  const setDropValueChoice = useCallback(
+    (opId: string, patch: Partial<{ replacement: string | null; skip: boolean }>) => {
+      setDropValueChoices((prev) => {
+        const next = new Map(prev);
+        const current = next.get(opId) ?? { replacement: null, skip: false };
+        next.set(opId, { ...current, ...patch });
+        return next;
+      });
+    },
+    [],
+  );
+
+  /** Set rename mode for an op-level rename (view / routine / domain). */
+  const setOpRenameMode = useCallback((opId: string, mode: RenameMode) => {
+    setOpRenameModes((prev) => {
+      const next = new Map(prev);
+      if (mode === 'accept') {
+        next.delete(opId);
+      } else {
+        next.set(opId, mode);
+      }
+      return next;
+    });
+  }, []);
+
+  /** Set rename mode for a table rename (keyed by the new / source-side name). */
+  const setTableRenameMode = useCallback((tableName: string, mode: RenameMode) => {
+    setTableRenameModes((prev) => {
+      const next = new Map(prev);
+      if (mode === 'accept') {
+        next.delete(tableName);
+      } else {
+        next.set(tableName, mode);
+      }
+      return next;
+    });
+  }, []);
+
+  /**
+   * Select-all / deselect-all for every op in a given category. If not ALL
+   * ops are selected → select all; if all are selected → deselect all.
+   * Same logic as table toggleAll for consistent UX.
+   */
+  const toggleAllInCategory = useCallback(
+    (category: ObjectCategory | 'routine') => {
+      if (!diff) return;
+      const categoryOps = diff.ops.filter((o) =>
+        category === 'routine'
+          ? o.category === 'function' || o.category === 'procedure'
+          : o.category === category,
+      );
+      if (categoryOps.length === 0) return;
+      setSelectedOpIds((prev) => {
+        const next = new Set(prev);
+        const allSelected = categoryOps.every((o) => next.has(o.id));
+        if (allSelected) {
+          for (const o of categoryOps) next.delete(o.id);
+        } else {
+          for (const o of categoryOps) next.add(o.id);
+        }
+        return next;
+      });
+    },
+    [diff],
+  );
+
+  /**
+   * Compute the SQL preview for a single op, applying the user's current
+   * rename-mode decision. Used by the view / routine / domain sections so
+   * the in-row preview updates live when the user toggles accept / split /
+   * keep-both — the old `renderChangeOp(op)` call always showed the
+   * original rename statement regardless of mode.
+   */
+  const previewOpSQL = useCallback(
+    (op: ChangeOp): string => {
+      // Only rename ops care about the mode; everything else is a straight
+      // render.
+      const isRename =
+        (op.category === 'view' ||
+          op.category === 'function' ||
+          op.category === 'procedure' ||
+          op.category === 'domain') &&
+        op.kind === 'rename';
+      if (!isRename) return renderChangeOp(op);
+
+      const mode = opRenameModes.get(op.id) ?? 'accept';
+      if (mode === 'accept') return renderChangeOp(op);
+
+      const decisions: UserDecisions = {
+        rejectedValueRenames: new Set(),
+        dropValueChoices: new Map(),
+        sourceEnumValues: new Map(),
+        renameResolutions: new Map([[op.id, mode]]),
+      };
+      const resolved = resolveOps([op], decisions);
+      return resolved.map((o) => renderChangeOp(o)).join('\n\n');
+    },
+    [opRenameModes],
+  );
+
+  /** How many ops in a given category are currently selected. */
+  const selectedCountInCategory = useCallback(
+    (category: ObjectCategory | 'routine'): number => {
+      if (!diff) return 0;
+      return diff.ops.reduce((acc, o) => {
+        const matches =
+          category === 'routine'
+            ? o.category === 'function' || o.category === 'procedure'
+            : o.category === category;
+        return matches && selectedOpIds.has(o.id) ? acc + 1 : acc;
+      }, 0);
+    },
+    [diff, selectedOpIds],
+  );
 
   return (
     <Dialog
@@ -863,9 +843,9 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
         {diff && diff.hasChanges && (
           <>
             {/* Summary bar */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-              {diffSummary.add > 0 && (
-                <Chip icon={<AddIcon />} label={`${diffSummary.add} create`} size="small" color="success" variant="outlined" />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
+              {diffSummary.create > 0 && (
+                <Chip icon={<AddIcon />} label={`${diffSummary.create} create`} size="small" color="success" variant="outlined" />
               )}
               {diffSummary.alter > 0 && (
                 <Chip icon={<EditIcon />} label={`${diffSummary.alter} alter`} size="small" color="warning" variant="outlined" />
@@ -873,110 +853,554 @@ export default function SchemaSyncModal({ open, onClose, connections, onApplySQL
               {diffSummary.drop > 0 && (
                 <Chip icon={<RemoveIcon />} label={`${diffSummary.drop} drop`} size="small" color="error" variant="outlined" />
               )}
-
-            </Box>
-
-            {/* Select all */}
-            <Box sx={{ mb: 1 }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    size="small"
-                    checked={visibleTables.length > 0 && visibleTables.every((t) => selected.has(t.tableName))}
-                    indeterminate={
-                      visibleTables.some((t) => selected.has(t.tableName)) &&
-                      !visibleTables.every((t) => selected.has(t.tableName))
-                    }
-                    onChange={toggleAll}
-                  />
-                }
-                label={
-                  <Typography variant="caption" color="text.secondary">
-                    {t('schemaSync.selectAll')} ({visibleTables.length} tables)
-                  </Typography>
-                }
-              />
-            </Box>
-
-            {/* Table diffs */}
-            {visibleTables.map((td) => (
-              <Accordion
-                key={td.tableName}
-                disableGutters
-                sx={{
-                  boxShadow: 'none',
-                  '&:before': { display: 'none' },
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: '4px !important',
-                  mb: 0.5,
-                  overflow: 'hidden',
-                }}
-              >
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  sx={{ minHeight: 36, '& .MuiAccordionSummary-content': { my: 0.5, alignItems: 'center', gap: 1 } }}
-                >
-                  <Checkbox
-                    size="small"
-                    checked={selected.has(td.tableName)}
-                    onChange={() => toggleTable(td.tableName)}
-                    onClick={(e) => e.stopPropagation()}
-                    sx={{ p: 0 }}
-                  />
-                  {kindIcon[td.kind]}
-                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8125rem', fontWeight: 500 }}>
-                    {td.tableName}
-                  </Typography>
+              {diffSummary.rename > 0 && (
+                <Chip icon={<SwapIcon />} label={`${diffSummary.rename} rename`} size="small" color="info" variant="outlined" />
+              )}
+              {diffSummary.destructive > 0 && (
+                <Tooltip title="Destructive ops detected — review carefully before running">
                   <Chip
-                    label={kindLabel[td.kind]}
+                    icon={<WarningIcon />}
+                    label={`${diffSummary.destructive} destructive`}
                     size="small"
-                    color={kindColor[td.kind]}
-                    variant="outlined"
-                    sx={{ height: 20, fontSize: '0.625rem' }}
+                    color="warning"
                   />
-                  {td.isDestructive && (
-                    <WarningIcon sx={{ fontSize: 14, color: 'warning.main', ml: 0.5 }} />
-                  )}
-                  <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto', mr: 1 }}>
-                    {td.kind === 'add' ? `${td.columns.length} cols` :
-                      td.kind === 'drop' ? '' :
-                        `${td.columns.length} col, ${td.indexes.length} idx, ${td.constraints.length} con`}
-                  </Typography>
-                </AccordionSummary>
-                <AccordionDetails sx={{ pt: 0, pb: 1, px: 2 }}>
-                  {td.kind === 'drop' ? (
-                    <Typography variant="caption" color="error.main">
-                      This table exists in Target but not in Source. It will be dropped.
-                    </Typography>
-                  ) : (
-                    <Box
-                      component="pre"
-                      sx={{
-                        m: 0,
-                        p: 1,
-                        bgcolor: 'action.hover',
-                        borderRadius: 1,
-                        fontSize: '0.75rem',
-                        fontFamily: 'monospace',
-                        overflow: 'auto',
-                        maxHeight: 200,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {generateSQL(td)}
-                    </Box>
-                  )}
-                </AccordionDetails>
-              </Accordion>
-            ))}
+                </Tooltip>
+              )}
+            </Box>
+
+            {/* Enum ops section ------------------------------------------------ */}
+            {enumGroups.length > 0 && (() => {
+              const allEnumOps = enumGroups.flatMap((g) => g.ops);
+              const enumHasDestructive = allEnumOps.some((o) => o.isDestructive);
+              return (
+                <OpSection
+                  title={t('schemaSync.enums')}
+                  icon={<CategoryIcon sx={{ fontSize: 14 }} />}
+                  count={enumGroups.length}
+                  selectedCount={enumGroups.filter((g) => g.ops.every((op) => selectedOpIds.has(op.id))).length}
+                  onToggleAll={() => toggleAllInCategory('enum')}
+                  hasDestructive={enumHasDestructive}
+                >
+                  {enumGroups.map((group) => {
+                    // Determine overall kind for the enum group.
+                    const typeOp = group.ops.find(
+                      (op) => op.kind === 'create' || op.kind === 'drop' || op.kind === 'rename-type',
+                    );
+                    const valueOps = group.ops.filter(
+                      (op) => op.kind === 'add-value' || op.kind === 'drop-value' || op.kind === 'rename-value',
+                    );
+
+                    let overallKind: 'create' | 'drop' | 'rename' | 'alter';
+                    if (typeOp?.kind === 'create') overallKind = 'create';
+                    else if (typeOp?.kind === 'drop') overallKind = 'drop';
+                    else if (typeOp?.kind === 'rename-type') overallKind = 'rename';
+                    else overallKind = 'alter';
+
+                    const chipMap: Record<string, { label: string; color: 'success' | 'error' | 'info' | 'warning'; icon: React.ReactNode }> = {
+                      create: { label: t('schemaSync.enumChip.create'), color: 'success', icon: <AddIcon sx={{ fontSize: 14, color: 'success.main' }} /> },
+                      drop:   { label: t('schemaSync.enumChip.drop'),   color: 'error',   icon: <RemoveIcon sx={{ fontSize: 14, color: 'error.main' }} /> },
+                      rename: { label: t('schemaSync.enumChip.rename'), color: 'info',     icon: <SwapIcon sx={{ fontSize: 14, color: 'info.main' }} /> },
+                      alter:  { label: t('schemaSync.enumChip.alter'),  color: 'warning',  icon: <EditIcon sx={{ fontSize: 14, color: 'warning.main' }} /> },
+                    };
+                    const chip = chipMap[overallKind];
+
+                    const groupSelected = group.ops.every((op) => selectedOpIds.has(op.id));
+                    const isDestructive = group.ops.some((op) => op.isDestructive);
+
+                    // Display name: rename shows "old → new", others show enum name.
+                    const name =
+                      overallKind === 'rename' && typeOp?.kind === 'rename-type'
+                        ? `${(typeOp as any).fromName} → ${(typeOp as any).toName}`
+                        : group.enumName;
+
+                    // Toggle all ops in the group at once.
+                    const toggleGroup = () => {
+                      setSelectedOpIds((prev) => {
+                        const next = new Set(prev);
+                        if (groupSelected) {
+                          group.ops.forEach((op) => next.delete(op.id));
+                        } else {
+                          group.ops.forEach((op) => next.add(op.id));
+                        }
+                        return next;
+                      });
+                    };
+
+                    // Rename-type resolver (shown on expand).
+                    let renameResolver: React.ReactNode = null;
+                    if (overallKind === 'rename' && typeOp?.kind === 'rename-type') {
+                      const renameMode = opRenameModes.get(typeOp.id) ?? 'accept';
+                      renameResolver = (
+                        <RenameResolverButtons
+                          value={renameMode}
+                          onChange={(mode) => setOpRenameMode(typeOp.id, mode)}
+                        />
+                      );
+                    }
+
+                    // Collapsed extras: rename resolver + value-level changes (shown on expand).
+                    const collapsedParts: React.ReactNode[] = [];
+                    if (renameResolver) collapsedParts.push(<Box key="rr">{renameResolver}</Box>);
+
+                    if (valueOps.length > 0) {
+                      collapsedParts.push(
+                        <Box
+                          key="value-ops"
+                          data-op-extras
+                          sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: collapsedParts.length > 0 ? 0.5 : 0 }}
+                        >
+                          <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                            {t('schemaSync.enumValueChanges')}
+                          </Typography>
+                          {valueOps.map((op) => {
+                            if (op.kind === 'add-value') {
+                              return (
+                                <Box key={op.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, pl: 0.5 }}>
+                                  <AddIcon sx={{ fontSize: 12, color: 'success.main' }} />
+                                  <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.72rem' }}>
+                                    {op.value}
+                                  </Typography>
+                                </Box>
+                              );
+                            }
+                            if (op.kind === 'drop-value') {
+                              const choice = dropValueChoices.get(op.id) ?? { replacement: null, skip: false };
+                              const sVals = sourceEnumValues.get(op.objectName) ?? [];
+                              const pdv = Array.isArray(op.postDropValues) ? op.postDropValues : sVals;
+                              const remaining = pdv.filter((v: string) => v !== op.value);
+                              return (
+                                <Box key={op.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, pl: 0.5, flexWrap: 'wrap' }}>
+                                  <RemoveIcon sx={{ fontSize: 12, color: 'error.main' }} />
+                                  <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.72rem', color: 'error.main', fontWeight: 600 }}>
+                                    {op.value}
+                                  </Typography>
+                                  {remaining.length > 0 && (
+                                    <>
+                                      <Typography variant="caption" sx={{ fontSize: '0.68rem', color: 'text.secondary', mx: 0.25 }}>→</Typography>
+                                      <Select
+                                        size="small"
+                                        value={choice.replacement ?? '__null__'}
+                                        onChange={(e) => {
+                                          const v = e.target.value;
+                                          setDropValueChoice(op.id, { replacement: v === '__null__' ? null : String(v) });
+                                        }}
+                                        sx={{ fontSize: '0.68rem', height: 22, minWidth: 100, '& .MuiSelect-select': { py: 0.25, px: 0.75 } }}
+                                      >
+                                        <MenuItem value="__null__" sx={{ fontSize: '0.68rem' }}><em>NULL</em></MenuItem>
+                                        {remaining.map((v: string) => (
+                                          <MenuItem key={v} value={v} sx={{ fontSize: '0.68rem' }}>{v}</MenuItem>
+                                        ))}
+                                      </Select>
+                                    </>
+                                  )}
+                                </Box>
+                              );
+                            }
+                            if (op.kind === 'rename-value') {
+                              const isRejected = rejectedValueRenames.has(op.id);
+                              // Effective rename target (user may have overridden).
+                              const effectiveToValue = renameValueTargets.get(op.id) ?? op.toValue;
+                              // All "added" values in this group that could serve as rename targets.
+                              const addedInGroup = valueOps
+                                .filter((o) => o.kind === 'add-value')
+                                .map((o) => o.value);
+                              // Rename target candidates: the differ's pick + all add-values.
+                              const renameTargetCandidates = Array.from(new Set([op.toValue, ...addedInGroup]));
+                              const showTargetSelector = renameTargetCandidates.length > 1 && !isRejected;
+
+                              const toggleBtns = (
+                                <ToggleButtonGroup
+                                  size="small"
+                                  exclusive
+                                  value={isRejected ? 'split' : 'rename'}
+                                  onChange={(_, v) => { if (v) toggleRenameValueRejected(op.id); }}
+                                  sx={{
+                                    ml: 'auto',
+                                    '& .MuiToggleButton-root': {
+                                      px: 0.75, py: 0, minHeight: 20,
+                                      textTransform: 'none', fontSize: '0.6rem', fontWeight: 600, gap: 0.25,
+                                    },
+                                  }}
+                                >
+                                  <Tooltip title={t('schemaSync.renameValueTooltip')}>
+                                    <ToggleButton value="rename" color="info">
+                                      <SwapIcon sx={{ fontSize: 12 }} /> Rename
+                                    </ToggleButton>
+                                  </Tooltip>
+                                  <Tooltip title={t('schemaSync.splitValueTooltip')}>
+                                    <ToggleButton value="split" color="warning">
+                                      <CallSplitIcon sx={{ fontSize: 12 }} /> Split
+                                    </ToggleButton>
+                                  </Tooltip>
+                                </ToggleButtonGroup>
+                              );
+
+                              if (isRejected) {
+                                // Split mode: show ADD + DROP lines, toggle stays on right of DROP.
+                                const sVals = sourceEnumValues.get(op.objectName) ?? [];
+                                const splitDropId = `${op.id}:split-drop`;
+                                const choice = dropValueChoices.get(splitDropId) ?? { replacement: null, skip: false };
+                                const remaining = sVals.filter((v: string) => v !== op.fromValue);
+                                return (
+                                  <Box key={op.id} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pl: 0.5 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                      <AddIcon sx={{ fontSize: 12, color: 'success.main' }} />
+                                      <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.72rem' }}>{op.toValue}</Typography>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                                      <RemoveIcon sx={{ fontSize: 12, color: 'error.main' }} />
+                                      <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.72rem', color: 'error.main', fontWeight: 600 }}>{op.fromValue}</Typography>
+                                      {remaining.length > 0 && (
+                                        <>
+                                          <Typography variant="caption" sx={{ fontSize: '0.68rem', color: 'text.secondary', mx: 0.25 }}>→</Typography>
+                                          <Select
+                                            size="small"
+                                            value={choice.replacement ?? '__null__'}
+                                            onChange={(e) => {
+                                              const v = e.target.value;
+                                              setDropValueChoice(splitDropId, { replacement: v === '__null__' ? null : String(v) });
+                                            }}
+                                            sx={{ fontSize: '0.68rem', height: 22, minWidth: 100, '& .MuiSelect-select': { py: 0.25, px: 0.75 } }}
+                                          >
+                                            <MenuItem value="__null__" sx={{ fontSize: '0.68rem' }}><em>NULL</em></MenuItem>
+                                            {remaining.map((v: string) => (
+                                              <MenuItem key={v} value={v} sx={{ fontSize: '0.68rem' }}>{v}</MenuItem>
+                                            ))}
+                                          </Select>
+                                        </>
+                                      )}
+                                      {toggleBtns}
+                                    </Box>
+                                  </Box>
+                                );
+                              }
+                              // Rename mode: show fromValue → target selector (or plain text).
+                              return (
+                                <Box key={op.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, pl: 0.5 }}>
+                                  <SwapIcon sx={{ fontSize: 12, color: 'info.main' }} />
+                                  <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.72rem' }}>
+                                    {op.fromValue} →
+                                  </Typography>
+                                  {showTargetSelector ? (
+                                    <Select
+                                      size="small"
+                                      value={effectiveToValue}
+                                      onChange={(e) => {
+                                        setRenameValueTargets((prev) => {
+                                          const next = new Map(prev);
+                                          next.set(op.id, String(e.target.value));
+                                          return next;
+                                        });
+                                      }}
+                                      sx={{ fontSize: '0.68rem', height: 22, minWidth: 100, '& .MuiSelect-select': { py: 0.25, px: 0.75 } }}
+                                    >
+                                      {renameTargetCandidates.map((v) => (
+                                        <MenuItem key={v} value={v} sx={{ fontSize: '0.68rem' }}>{v}</MenuItem>
+                                      ))}
+                                    </Select>
+                                  ) : (
+                                    <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.72rem' }}>
+                                      {effectiveToValue}
+                                    </Typography>
+                                  )}
+                                  {toggleBtns}
+                                </Box>
+                              );
+                            }
+                            return null;
+                          })}
+                        </Box>,
+                      );
+                    }
+
+                    const collapsedExtras = collapsedParts.length > 0 ? <Box>{collapsedParts}</Box> : null;
+
+                    // Combined SQL preview for all ops in the group,
+                    // respecting user decisions (rename mode, drop-value replacements,
+                    // rejected value renames).
+                    const previewSQL = (() => {
+                      const decisions: UserDecisions = {
+                        rejectedValueRenames,
+                        dropValueChoices,
+                        sourceEnumValues,
+                        targetEnumValues,
+                        renameResolutions: opRenameModes,
+                        renameValueTargets,
+                      };
+                      const resolved = resolveOps(group.ops, decisions);
+                      return resolved.map((o) => renderChangeOp(o)).filter(Boolean).join('\n\n');
+                    })();
+
+                    return (
+                      <OpRow
+                        key={group.enumName}
+                        id={group.enumName}
+                        selected={groupSelected}
+                        onToggle={toggleGroup}
+                        kindIcon={chip.icon}
+                        chipLabel={chip.label}
+                        chipColor={chip.color}
+                        name={name}
+                        isDestructive={isDestructive}
+                        collapsedExtras={collapsedExtras}
+                        sql={previewSQL}
+                        sqlMaxHeight={200}
+                      />
+                    );
+                  })}
+                </OpSection>
+              );
+            })()}
+
+            {/* View ops section ------------------------------------------------ */}
+            {viewGroups.length > 0 && (() => {
+              const allViewOps = viewGroups.flatMap((g) => g.ops);
+              const viewHasDestructive = allViewOps.some((o) => o.isDestructive);
+              return (
+                <OpSection
+                  title={t('schemaSync.views')}
+                  icon={<VisibilityIcon sx={{ fontSize: 14 }} />}
+                  count={allViewOps.length}
+                  selectedCount={selectedCountInCategory('view')}
+                  onToggleAll={() => toggleAllInCategory('view')}
+                  hasDestructive={viewHasDestructive}
+                >
+                  {allViewOps.map((op) => {
+                    const style = viewKindStyles[op.kind];
+                    const isSelected = selectedOpIds.has(op.id);
+                    const renameMode = opRenameModes.get(op.id) ?? 'accept';
+                    const renameExtras =
+                      op.kind === 'rename' ? (
+                        <RenameResolverButtons
+                          value={renameMode}
+                          onChange={(mode) => setOpRenameMode(op.id, mode)}
+                        />
+                      ) : null;
+                    return (
+                      <OpRow
+                        key={op.id}
+                        id={op.id}
+                        selected={isSelected}
+                        onToggle={() => toggleOp(op.id)}
+                        kindIcon={style.icon}
+                        chipLabel={style.chip}
+                        chipColor={style.color}
+                        name={op.objectName}
+                        isDestructive={op.isDestructive}
+                        collapsedExtras={renameExtras}
+                        sql={previewOpSQL(op)}
+                        sqlMaxHeight={200}
+                      />
+                    );
+                  })}
+                </OpSection>
+              );
+            })()}
+
+            {/* Function / procedure ops section -------------------------------- */}
+            {(functionGroups.length > 0 || procedureGroups.length > 0) && (() => {
+              const allRoutineOps = [...functionGroups, ...procedureGroups].flatMap((g) => g.ops);
+              const routineHasDestructive = allRoutineOps.some((o) => o.isDestructive);
+              return (
+                <OpSection
+                  title={t('schemaSync.routines')}
+                  icon={<FunctionsIcon sx={{ fontSize: 14 }} />}
+                  count={allRoutineOps.length}
+                  selectedCount={selectedCountInCategory('routine')}
+                  onToggleAll={() => toggleAllInCategory('routine')}
+                  hasDestructive={routineHasDestructive}
+                >
+                  {allRoutineOps.map((op) => {
+                    const style = routineKindStyles[op.kind];
+                    const isSelected = selectedOpIds.has(op.id);
+                    const renameMode = opRenameModes.get(op.id) ?? 'accept';
+                    const renameExtras =
+                      op.kind === 'rename' ? (
+                        <RenameResolverButtons
+                          value={renameMode}
+                          onChange={(mode) => setOpRenameMode(op.id, mode)}
+                        />
+                      ) : null;
+                    return (
+                      <OpRow
+                        key={op.id}
+                        id={op.id}
+                        selected={isSelected}
+                        onToggle={() => toggleOp(op.id)}
+                        kindIcon={style.icon}
+                        chipLabel={`${style.chip} ${op.category.toUpperCase()}`}
+                        chipColor={style.color}
+                        name={op.objectName}
+                        isDestructive={op.isDestructive}
+                        collapsedExtras={renameExtras}
+                        sql={previewOpSQL(op)}
+                        sqlMaxHeight={240}
+                      />
+                    );
+                  })}
+                </OpSection>
+              );
+            })()}
+
+            {/* Sequences section ----------------------------------------------- */}
+            {sequenceOps.length > 0 && (
+              <OpSection
+                title={t('schemaSync.sequences')}
+                icon={<NumbersIcon sx={{ fontSize: 14 }} />}
+                count={sequenceOps.length}
+                selectedCount={selectedCountInCategory('sequence')}
+                onToggleAll={() => toggleAllInCategory('sequence')}
+                hasDestructive={sequenceOps.some((o) => o.isDestructive)}
+              >
+                {sequenceOps.map((op) => {
+                  const isSelected = selectedOpIds.has(op.id);
+                  return (
+                    <OpRow
+                      key={op.id}
+                      id={op.id}
+                      selected={isSelected}
+                      onToggle={() => toggleOp(op.id)}
+                      kindIcon={miscKindIcon[op.kind]}
+                      chipLabel={miscChipLabel(op)}
+                      chipColor={miscColorByKind[op.kind] || 'info'}
+                      name={op.objectName}
+                      isDestructive={op.isDestructive}
+                      sql={previewOpSQL(op)}
+                      sqlMaxHeight={160}
+                    />
+                  );
+                })}
+              </OpSection>
+            )}
+
+            {/* Triggers section ------------------------------------------------ */}
+            {triggerOps.length > 0 && (
+              <OpSection
+                title={t('schemaSync.triggers')}
+                icon={<FlashOnIcon sx={{ fontSize: 14 }} />}
+                count={triggerOps.length}
+                selectedCount={selectedCountInCategory('trigger')}
+                onToggleAll={() => toggleAllInCategory('trigger')}
+                hasDestructive={triggerOps.some((o) => o.isDestructive)}
+              >
+                {triggerOps.map((op) => {
+                  const isSelected = selectedOpIds.has(op.id);
+                  return (
+                    <OpRow
+                      key={op.id}
+                      id={op.id}
+                      selected={isSelected}
+                      onToggle={() => toggleOp(op.id)}
+                      kindIcon={miscKindIcon[op.kind]}
+                      chipLabel={miscChipLabel(op)}
+                      chipColor={miscColorByKind[op.kind] || 'info'}
+                      name={op.objectName}
+                      isDestructive={op.isDestructive}
+                      sql={previewOpSQL(op)}
+                      sqlMaxHeight={160}
+                    />
+                  );
+                })}
+              </OpSection>
+            )}
+
+            {/* Domains section ------------------------------------------------- */}
+            {domainOps.length > 0 && (
+              <OpSection
+                title={t('schemaSync.domains')}
+                icon={<LabelIcon sx={{ fontSize: 14 }} />}
+                count={domainOps.length}
+                selectedCount={selectedCountInCategory('domain')}
+                onToggleAll={() => toggleAllInCategory('domain')}
+                hasDestructive={domainOps.some((o) => o.isDestructive)}
+              >
+                {domainOps.map((op) => {
+                  const isSelected = selectedOpIds.has(op.id);
+                  const renameMode = opRenameModes.get(op.id) ?? 'accept';
+                  const renameExtras =
+                    op.kind === 'rename' ? (
+                      <RenameResolverButtons
+                        value={renameMode}
+                        onChange={(mode) => setOpRenameMode(op.id, mode)}
+                      />
+                    ) : null;
+                  return (
+                    <OpRow
+                      key={op.id}
+                      id={op.id}
+                      selected={isSelected}
+                      onToggle={() => toggleOp(op.id)}
+                      kindIcon={miscKindIcon[op.kind]}
+                      chipLabel={miscChipLabel(op)}
+                      chipColor={miscColorByKind[op.kind] || 'info'}
+                      name={op.objectName}
+                      isDestructive={op.isDestructive}
+                      collapsedExtras={renameExtras}
+                      sql={previewOpSQL(op)}
+                      sqlMaxHeight={160}
+                    />
+                  );
+                })}
+              </OpSection>
+            )}
+
+            {/* Tables section -------------------------------------------------- */}
+            {visibleTables.length > 0 && (
+              <OpSection
+                title={t('schemaSync.tables') || 'Tables'}
+                icon={<TableChartIcon sx={{ fontSize: 14 }} />}
+                count={visibleTables.length}
+                selectedCount={visibleTables.filter((tbl) => selected.has(tbl.tableName)).length}
+                onToggleAll={toggleAll}
+                hasDestructive={visibleTables.some((tbl) => tbl.isDestructive)}
+              >
+                {visibleTables.map((td) => {
+                  const isSelected = selected.has(td.tableName);
+                  const name =
+                    td.kind === 'rename' && td.renamedFrom
+                      ? `${td.renamedFrom} → ${td.tableName}`
+                      : td.tableName;
+                  const meta = undefined;
+                  const renameMode = tableRenameModes.get(td.tableName) ?? 'accept';
+                  const renameExtras =
+                    td.kind === 'rename' ? (
+                      <RenameResolverButtons
+                        value={renameMode}
+                        onChange={(mode) => setTableRenameMode(td.tableName, mode)}
+                      />
+                    ) : null;
+                  const sql = (() => {
+                    if (td.kind === 'rename' && renameMode !== 'accept') {
+                      const resolved = resolveTableRenames(
+                        [td],
+                        new Map([[td.tableName, renameMode]]),
+                      );
+                      return resolved.map((r) => generateTableSQL(r)).join('\n\n');
+                    }
+                    return generateTableSQL(td);
+                  })();
+                  return (
+                    <OpRow
+                      key={td.tableName}
+                      id={td.tableName}
+                      selected={isSelected}
+                      onToggle={() => toggleTable(td.tableName)}
+                      kindIcon={kindIcon[td.kind]}
+                      chipLabel={`${kindLabel[td.kind]} TABLE`}
+                      chipColor={kindColor[td.kind]}
+                      name={name}
+                      meta={meta}
+                      isDestructive={td.isDestructive}
+                      collapsedExtras={renameExtras}
+                      sql={sql}
+                      sqlMaxHeight={240}
+                    />
+                  );
+                })}
+              </OpSection>
+            )}
 
             <Divider sx={{ my: 1.5 }} />
-
-            <Typography variant="caption" color="text.secondary">
-              {t('schemaSync.tablesSelected').replace('{selected}', String(selected.size)).replace('{total}', String(visibleTables.length))}
-            </Typography>
           </>
         )}
       </DialogContent>

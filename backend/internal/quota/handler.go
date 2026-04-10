@@ -14,7 +14,7 @@ import (
 	"github.com/onepantsu/progressql/backend/internal/subscription"
 )
 
-// Handler provides HTTP handlers for quota-related API endpoints.
+// Handler provides HTTP handlers for billing-related API endpoints.
 type Handler struct {
 	service   *Service
 	logger    *zap.Logger
@@ -38,29 +38,31 @@ type errorResp struct {
 
 // usageResponse is the JSON shape for GET /api/v2/usage.
 type usageResponse struct {
-	BudgetTokensUsed   int64   `json:"budget_tokens_used"`
-	BudgetTokensLimit  int64   `json:"budget_tokens_limit"`
-	PremiumTokensUsed  int64   `json:"premium_tokens_used"`
-	PremiumTokensLimit int64   `json:"premium_tokens_limit"`
+	BalanceUSD         float64 `json:"balance_usd"`
+	BalanceRUB         float64 `json:"balance_rub"`
+	Plan               string  `json:"plan"`
+	CreditsIncludedUSD float64 `json:"credits_included_usd"`
+	CreditsUsedUSD     float64 `json:"credits_used_usd"`
+	CreditsRemainingUSD float64 `json:"credits_remaining_usd"`
 	PeriodStart        string  `json:"period_start"`
 	PeriodEnd          string  `json:"period_end"`
-	PeriodType         string  `json:"period_type"`
-	Balance            float64 `json:"balance"`
-	BalanceEnabled     bool    `json:"balance_enabled"`
-	Plan               string  `json:"plan"`
+	RequestsTotal      int     `json:"requests_total"`
+	TokensTotal        int64   `json:"tokens_total"`
+	CostUSDTotal       float64 `json:"cost_usd_total"`
+	AvgCostPerReqUSD   float64 `json:"avg_cost_per_request_usd"`
 }
 
 // quotaResponse is the JSON shape for GET /api/v2/quota.
 type quotaResponse struct {
-	Plan                string `json:"plan"`
-	BudgetTokensLimit   int64  `json:"budget_tokens_limit"`
-	PremiumTokensLimit  int64  `json:"premium_tokens_limit"`
-	PeriodType          string `json:"period_type"`
-	AutocompleteEnabled bool   `json:"autocomplete_enabled"`
-	BalanceMarkupPct    int    `json:"balance_markup_pct"`
-	BalanceEnabled      bool   `json:"balance_enabled"`
-	MaxRequestsPerMin   int    `json:"max_requests_per_min"`
-	MaxTokensPerRequest int    `json:"max_tokens_per_request"`
+	Plan                string   `json:"plan"`
+	AllowedModelTiers   []string `json:"allowed_model_tiers"`
+	AutocompleteEnabled bool     `json:"autocomplete_enabled"`
+	BalanceMarkupPct    int      `json:"balance_markup_pct"`
+	MaxRequestsPerMin   int      `json:"max_requests_per_min"`
+	MaxTokensPerRequest int      `json:"max_tokens_per_request"`
+	MonthlyCreditsUSD   float64  `json:"monthly_credits_usd"`
+	DailyCreditsUSD     float64  `json:"daily_credits_usd"`
+	CreditsRollover     bool     `json:"credits_rollover"`
 }
 
 // usageHistoryResponse is the JSON shape for GET /api/v2/usage/history.
@@ -87,17 +89,20 @@ type modelPricingResponse struct {
 	UsdToRub float64            `json:"usd_to_rub"`
 }
 
-// GetUsageHandler returns current token usage for the authenticated user.
-//
-// @Summary      Get current usage
-// @Description  Returns current token usage, limits, and balance for the authenticated user.
-// @Tags         quota
-// @Produce      json
-// @Security     BearerAuth
-// @Success      200  {object}  usageResponse
-// @Failure      401  {object}  errorResp
-// @Failure      500  {object}  errorResp
-// @Router       /api/v2/usage [get]
+// topupOption describes a single top-up option.
+type topupOption struct {
+	AmountRUB  float64 `json:"amount_rub"`
+	CreditsUSD float64 `json:"credits_usd"`
+}
+
+// topupOptionsResponse is the JSON shape for GET /api/v2/billing/topup-options.
+type topupOptionsResponse struct {
+	MarkupPct int           `json:"markup_pct"`
+	UsdToRub  float64       `json:"usd_to_rub"`
+	Options   []topupOption `json:"options"`
+}
+
+// GetUsageHandler returns current billing usage for the authenticated user.
 func (h *Handler) GetUsageHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -117,43 +122,36 @@ func (h *Handler) GetUsageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get plan name for response.
-	var planStr string
-	err = h.service.db.QueryRow(r.Context(),
-		`SELECT CASE WHEN COALESCE(plan,'free') NOT IN ('free','trial') AND plan_expires_at IS NOT NULL AND plan_expires_at < NOW() THEN 'free' ELSE COALESCE(plan,'free') END FROM users WHERE id = $1`, userID).Scan(&planStr)
-	if err != nil {
-		planStr = "free"
+	creditsRemaining := usage.CreditsIncludedUSD - usage.CreditsUsedUSD
+	if creditsRemaining < 0 {
+		creditsRemaining = 0
 	}
 
-	plan := subscription.Plan(planStr)
-	quotaLimits := subscription.QuotaLimitsForPlan(plan)
+	var avgCost float64
+	if usage.RequestsTotal > 0 {
+		avgCost = usage.CostUSDTotal / float64(usage.RequestsTotal)
+	}
+
+	rate := h.rateSvc.GetUSDToRUB()
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(usageResponse{
-		BudgetTokensUsed:   usage.BudgetTokensUsed,
-		BudgetTokensLimit:  usage.BudgetTokensLimit,
-		PremiumTokensUsed:  usage.PremiumTokensUsed,
-		PremiumTokensLimit: usage.PremiumTokensLimit,
-		PeriodStart:        usage.PeriodStart.Format("2006-01-02T15:04:05Z"),
-		PeriodEnd:          usage.PeriodEnd.Format("2006-01-02T15:04:05Z"),
-		PeriodType:         quotaLimits.PeriodType,
-		Balance:            usage.Balance,
-		BalanceEnabled:     quotaLimits.BalanceEnabled,
-		Plan:               planStr,
+		BalanceUSD:          usage.BalanceUSD,
+		BalanceRUB:          usage.BalanceUSD * rate,
+		Plan:                usage.Plan,
+		CreditsIncludedUSD:  usage.CreditsIncludedUSD,
+		CreditsUsedUSD:      usage.CreditsUsedUSD,
+		CreditsRemainingUSD: creditsRemaining,
+		PeriodStart:         usage.PeriodStart.Format("2006-01-02T15:04:05Z"),
+		PeriodEnd:           usage.PeriodEnd.Format("2006-01-02T15:04:05Z"),
+		RequestsTotal:       usage.RequestsTotal,
+		TokensTotal:         usage.TokensTotal,
+		CostUSDTotal:        usage.CostUSDTotal,
+		AvgCostPerReqUSD:    avgCost,
 	})
 }
 
-// GetQuotaHandler returns the quota configuration for the authenticated user's plan.
-//
-// @Summary      Get quota limits
-// @Description  Returns quota limits and plan configuration for the authenticated user.
-// @Tags         quota
-// @Produce      json
-// @Security     BearerAuth
-// @Success      200  {object}  quotaResponse
-// @Failure      401  {object}  errorResp
-// @Failure      500  {object}  errorResp
-// @Router       /api/v2/quota [get]
+// GetQuotaHandler returns the billing configuration for the authenticated user's plan.
 func (h *Handler) GetQuotaHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -166,7 +164,11 @@ func (h *Handler) GetQuotaHandler(w http.ResponseWriter, r *http.Request) {
 
 	var planStr string
 	err := h.service.db.QueryRow(r.Context(),
-		`SELECT CASE WHEN COALESCE(plan,'free') NOT IN ('free','trial') AND plan_expires_at IS NOT NULL AND plan_expires_at < NOW() THEN 'free' ELSE COALESCE(plan,'free') END FROM users WHERE id = $1`, userID).Scan(&planStr)
+		`SELECT CASE WHEN COALESCE(plan,'free') NOT IN ('free','trial')
+		              AND plan_expires_at IS NOT NULL
+		              AND plan_expires_at < NOW()
+		         THEN 'free' ELSE COALESCE(plan,'free') END
+		 FROM users WHERE id = $1`, userID).Scan(&planStr)
 	if err != nil {
 		h.logger.Error("failed to get user plan",
 			zap.String("user_id", userID), zap.Error(err))
@@ -175,37 +177,24 @@ func (h *Handler) GetQuotaHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	plan := subscription.Plan(planStr)
-	ql := subscription.QuotaLimitsForPlan(plan)
+	plan := subscription.NormalizePlan(subscription.Plan(planStr))
 	pl := subscription.LimitsForPlan(plan)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(quotaResponse{
-		Plan:                planStr,
-		BudgetTokensLimit:   ql.BudgetTokensLimit,
-		PremiumTokensLimit:  ql.PremiumTokensLimit,
-		PeriodType:          ql.PeriodType,
-		AutocompleteEnabled: ql.AutocompleteEnabled,
-		BalanceMarkupPct:    ql.BalanceMarkupPct,
-		BalanceEnabled:      ql.BalanceEnabled,
+		Plan:                string(plan),
+		AllowedModelTiers:   pl.AllowedModelTiers,
+		AutocompleteEnabled: pl.AutocompleteEnabled,
+		BalanceMarkupPct:    pl.BalanceMarkupPct,
 		MaxRequestsPerMin:   pl.MaxRequestsPerMin,
 		MaxTokensPerRequest: pl.MaxTokensPerRequest,
+		MonthlyCreditsUSD:   pl.MonthlyCreditsUSD,
+		DailyCreditsUSD:     pl.DailyCreditsUSD,
+		CreditsRollover:     pl.CreditsRollover,
 	})
 }
 
 // GetUsageHistoryHandler returns paginated token usage history with aggregate stats.
-//
-// @Summary      Get token usage history
-// @Description  Returns paginated token usage history and aggregate statistics for the authenticated user.
-// @Tags         quota
-// @Produce      json
-// @Security     BearerAuth
-// @Param        limit   query     int  false  "Number of records per page (default 20, max 100)"
-// @Param        offset  query     int  false  "Offset for pagination (default 0)"
-// @Success      200     {object}  usageHistoryResponse
-// @Failure      401     {object}  errorResp
-// @Failure      500     {object}  errorResp
-// @Router       /api/v2/usage/history [get]
 func (h *Handler) GetUsageHistoryHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -249,21 +238,12 @@ func (h *Handler) GetUsageHistoryHandler(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-// GetModelPricingHandler returns model pricing information. No authentication required.
-// Uses the database-driven model catalog service with fallback to config.DefaultModels().
-//
-// @Summary      Get model pricing
-// @Description  Returns pricing information for all available models.
-// @Tags         quota
-// @Produce      json
-// @Success      200  {object}  modelPricingResponse
-// @Router       /api/v2/models/pricing [get]
+// GetModelPricingHandler returns model pricing information.
 func (h *Handler) GetModelPricingHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var pricingModels []modelPricingInfo
 
-	// Try loading from database-driven model catalog first.
 	if h.modelsSvc != nil {
 		allModels, err := h.modelsSvc.All(r.Context())
 		if err == nil && len(allModels) > 0 {
@@ -279,7 +259,6 @@ func (h *Handler) GetModelPricingHandler(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	// Fallback to config if DB models are empty or unavailable.
 	if len(pricingModels) == 0 {
 		for _, m := range config.DefaultModels() {
 			pricingModels = append(pricingModels, modelPricingInfo{
@@ -296,5 +275,46 @@ func (h *Handler) GetModelPricingHandler(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(modelPricingResponse{
 		Models:   pricingModels,
 		UsdToRub: h.rateSvc.GetUSDToRUB(),
+	})
+}
+
+// GetTopUpOptionsHandler returns available top-up options with credits after markup.
+func (h *Handler) GetTopUpOptionsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	markupPct := 30 // default for Free
+
+	userID := auth.UserIDFromContext(r.Context())
+	if userID != "" {
+		var planStr string
+		err := h.service.db.QueryRow(r.Context(),
+			`SELECT CASE WHEN COALESCE(plan,'free') NOT IN ('free','trial')
+			              AND plan_expires_at IS NOT NULL
+			              AND plan_expires_at < NOW()
+			         THEN 'free' ELSE COALESCE(plan,'free') END
+			 FROM users WHERE id = $1`, userID).Scan(&planStr)
+		if err == nil {
+			plan := subscription.NormalizePlan(subscription.Plan(planStr))
+			markupPct = subscription.LimitsForPlan(plan).BalanceMarkupPct
+		}
+	}
+
+	rate := h.rateSvc.GetUSDToRUB()
+	amounts := []float64{300, 900, 2700, 4500, 9000}
+
+	var options []topupOption
+	for _, rub := range amounts {
+		credits := rub / rate / (1.0 + float64(markupPct)/100.0)
+		options = append(options, topupOption{
+			AmountRUB:  rub,
+			CreditsUSD: float64(int(credits*100)) / 100, // round to 2 decimals
+		})
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(topupOptionsResponse{
+		MarkupPct: markupPct,
+		UsdToRub:  rate,
+		Options:   options,
 	})
 }

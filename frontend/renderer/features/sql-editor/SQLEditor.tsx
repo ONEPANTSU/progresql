@@ -514,11 +514,9 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
             // Debounced AI autocomplete
             if (autocompleteTimer.current) clearTimeout(autocompleteTimer.current);
             agentRef.current.cancelAutocomplete();
-            // Autocomplete: 500ms debounce, min 3 chars after last space, skip strings/comments
+            // Autocomplete: 500ms debounce, min 3 chars total before cursor, skip strings/comments
             const cursorPos = update.state.selection.main.head;
-            const textBeforeCursor = newQuery.slice(0, cursorPos);
-            const lastSpaceIdx = textBeforeCursor.lastIndexOf(' ');
-            const charsAfterSpace = lastSpaceIdx === -1 ? textBeforeCursor.length : textBeforeCursor.length - lastSpaceIdx - 1;
+            const textBeforeCursor = newQuery.slice(0, cursorPos).trimStart();
             // Skip if cursor is inside a string or comment
             const isInStringOrComment = (() => {
               const before = textBeforeCursor;
@@ -536,10 +534,11 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
               if (lastBlockOpen > lastBlockClose) return true;
               return false;
             })();
-            // Autocomplete is available for trial and paid plans (not free after trial expiry)
+            // Autocomplete is available for trial and paid plans (not free after trial expiry).
+            // If usage hasn't loaded yet (null), allow — backend validates the plan.
             const plan = agentRef.current.usage?.plan;
-            const autocompleteAllowed = plan && plan !== 'free';
-            if (agentRef.current.isConnected && autocompleteAllowed && charsAfterSpace >= 3 && !isInStringOrComment) {
+            const autocompleteAllowed = !plan || plan !== 'free';
+            if (agentRef.current.isConnected && autocompleteAllowed && textBeforeCursor.length >= 3 && !isInStringOrComment) {
               autocompleteTimer.current = setTimeout(() => {
                 if (!viewRef.current) return;
                 const currentPos = viewRef.current.state.selection.main.head;

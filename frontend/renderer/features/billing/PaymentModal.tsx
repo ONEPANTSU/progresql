@@ -34,45 +34,33 @@ interface PaymentModalProps {
   paymentError: string | null;
 }
 
-const PLAN_FEATURES = {
-  pro: {
-    budget: '5M',
-    premium: '200K',
-    requests: '60',
-    autocomplete: true,
-    balance: true,
-    markup: 50,
-  },
-  pro_plus: {
-    budget: '10M',
-    premium: '1.5M',
-    requests: '120',
-    autocomplete: true,
-    balance: true,
-    markup: 25,
-  },
+// Pro plan feature highlights. Text values are intentionally generic — real
+// numeric limits come from the backend via /api/v2/quota.
+const PRO_FEATURES = {
+  monthlyCreditsUsd: 5,   // default fallback when API data is not yet loaded
+  requestsPerMin: 60,
+  markupPct: 50,
+  autocomplete: true,
+  premiumModels: true,
 } as const;
 
 export default function PaymentModal({
   open,
   onClose,
-  currentPrice,
-  originalPrice,
   onSelectMethod,
   paymentLoading,
   paymentError,
 }: PaymentModalProps) {
   const { t, language } = useTranslation();
-  const { user, refreshUser } = useAuth();
+  const { refreshUser } = useAuth();
 
-  const [selectedPlan, setSelectedPlan] = React.useState<'pro' | 'pro_plus'>('pro');
   const [promoOpen, setPromoOpen] = React.useState(false);
   const [promoCode, setPromoCode] = React.useState('');
   const [promoLoading, setPromoLoading] = React.useState(false);
   const [promoSuccess, setPromoSuccess] = React.useState<string | null>(null);
   const [promoError, setPromoError] = React.useState<string | null>(null);
   const [proPrice, setProPrice] = React.useState(1999);
-  const [proPlusPrice, setProPlusPrice] = React.useState(5999);
+  const [monthlyCreditsUsd, setMonthlyCreditsUsd] = React.useState<number>(PRO_FEATURES.monthlyCreditsUsd);
 
   // Fetch prices from API
   React.useEffect(() => {
@@ -88,7 +76,6 @@ export default function PaymentModal({
           const data = await resp.json();
           for (const plan of data.plans || []) {
             if (plan.plan === 'pro') setProPrice(plan.price);
-            if (plan.plan === 'pro_plus') setProPlusPrice(plan.price);
           }
         }
       } catch {
@@ -98,8 +85,27 @@ export default function PaymentModal({
     fetchPrices();
   }, [open]);
 
-  const currentPlanPrice = selectedPlan === 'pro' ? proPrice : proPlusPrice;
-  const features = PLAN_FEATURES[selectedPlan];
+  // Fetch Pro plan monthly credits from /api/v2/plans (if available)
+  React.useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try {
+        const baseUrl = loadBackendUrl('https://progresql.com');
+        const token = getAuthToken() || '';
+        const resp = await fetch(`${baseUrl}/api/v2/plans`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          const plans = data.plans || data;
+          const pro = Array.isArray(plans) ? plans.find((p: any) => p.plan === 'pro' || p.name === 'pro') : null;
+          if (pro?.monthly_credits_usd) setMonthlyCreditsUsd(pro.monthly_credits_usd);
+        }
+      } catch {
+        // keep default
+      }
+    })();
+  }, [open]);
 
   const handleApplyPromoCode = async () => {
     if (!promoCode.trim()) return;
@@ -111,7 +117,7 @@ export default function PaymentModal({
       setPromoSuccess(t('settings.promoCodeSuccess'));
       setPromoCode('');
       await refreshUser();
-      if (result.plan === 'pro' || result.plan === 'pro_plus') {
+      if (result.plan === 'pro') {
         setTimeout(() => onClose(), 1500);
       }
     } catch (err: unknown) {
@@ -130,22 +136,6 @@ export default function PaymentModal({
     }
   };
 
-  const planCardSx = (plan: 'pro' | 'pro_plus') => ({
-    flex: 1,
-    p: 1.5,
-    borderRadius: 2,
-    border: '2px solid',
-    borderColor: selectedPlan === plan
-      ? '#6366f1'
-      : 'divider',
-    cursor: 'pointer',
-    transition: 'all 0.18s ease',
-    position: 'relative' as const,
-    '&:hover': {
-      borderColor: '#6366f1',
-    },
-  });
-
   return (
     <Dialog
       open={open}
@@ -160,7 +150,7 @@ export default function PaymentModal({
 
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 0.5, pt: 2 }}>
         <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          {language === 'ru' ? 'Выберите план' : 'Choose a Plan'}
+          {language === 'ru' ? 'Обновить до Pro' : 'Upgrade to Pro'}
         </Typography>
         <IconButton size="small" onClick={onClose} disabled={paymentLoading}>
           <CloseIcon fontSize="small" />
@@ -169,40 +159,53 @@ export default function PaymentModal({
 
       <DialogContent sx={{ pt: 1, pb: 3 }}>
 
-        {/* Plan comparison cards */}
-        <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5 }}>
-          {/* Pro Card */}
-          <Box onClick={() => setSelectedPlan('pro')} sx={planCardSx('pro')}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Pro</Typography>
-            <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, color: '#6366f1', lineHeight: 1 }}>
+        {/* Pro Plan Card */}
+        <Box
+          sx={{
+            p: 2,
+            mb: 2.5,
+            borderRadius: 2,
+            border: '2px solid #6366f1',
+            position: 'relative',
+            background: 'linear-gradient(135deg, rgba(99,102,241,0.05), rgba(139,92,246,0.05))',
+          }}
+        >
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>Pro</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+            <Typography sx={{ fontSize: '2rem', fontWeight: 800, color: '#6366f1', lineHeight: 1 }}>
               {proPrice}₽
             </Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
               {language === 'ru' ? '/мес' : '/month'}
             </Typography>
-            <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-              <FeatureLine text={`${PLAN_FEATURES.pro.budget} ${language === 'ru' ? 'бюдж. токенов' : 'budget tokens'}`} />
-              <FeatureLine text={`${PLAN_FEATURES.pro.premium} ${language === 'ru' ? 'прем. токенов' : 'premium tokens'}`} />
-              <FeatureLine text={`${PLAN_FEATURES.pro.requests} ${language === 'ru' ? 'запр/мин' : 'req/min'}`} />
-              <FeatureLine text={`${language === 'ru' ? 'Наценка' : 'Markup'} ${PLAN_FEATURES.pro.markup}%`} />
-            </Box>
           </Box>
-
-          {/* Pro Plus Card */}
-          <Box onClick={() => setSelectedPlan('pro_plus')} sx={planCardSx('pro_plus')}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Pro Plus</Typography>
-            <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, color: '#8b5cf6', lineHeight: 1 }}>
-              {proPlusPrice}₽
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {language === 'ru' ? '/мес' : '/month'}
-            </Typography>
-            <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-              <FeatureLine text={`${PLAN_FEATURES.pro_plus.budget} ${language === 'ru' ? 'бюдж. токенов' : 'budget tokens'}`} />
-              <FeatureLine text={`${PLAN_FEATURES.pro_plus.premium} ${language === 'ru' ? 'прем. токенов' : 'premium tokens'}`} highlight />
-              <FeatureLine text={`${PLAN_FEATURES.pro_plus.requests} ${language === 'ru' ? 'запр/мин' : 'req/min'}`} />
-              <FeatureLine text={`${language === 'ru' ? 'Наценка' : 'Markup'} ${PLAN_FEATURES.pro_plus.markup}%`} highlight />
-            </Box>
+          <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            <FeatureLine
+              text={language === 'ru'
+                ? `$${monthlyCreditsUsd.toFixed(2)} кредитов ежемесячно`
+                : `$${monthlyCreditsUsd.toFixed(2)} credits per month`}
+              highlight
+            />
+            <FeatureLine
+              text={language === 'ru'
+                ? 'Доступ к премиум моделям (Claude, GPT-4.1, o4)'
+                : 'Premium models access (Claude, GPT-4.1, o4)'}
+            />
+            <FeatureLine
+              text={language === 'ru'
+                ? `${PRO_FEATURES.requestsPerMin} запросов в минуту`
+                : `${PRO_FEATURES.requestsPerMin} requests per minute`}
+            />
+            <FeatureLine
+              text={language === 'ru'
+                ? 'AI-автодополнение в редакторе'
+                : 'AI autocomplete in editor'}
+            />
+            <FeatureLine
+              text={language === 'ru'
+                ? `Пополнение баланса (наценка ${PRO_FEATURES.markupPct}%)`
+                : `Balance top-ups (${PRO_FEATURES.markupPct}% markup)`}
+            />
           </Box>
         </Box>
 
@@ -212,7 +215,7 @@ export default function PaymentModal({
             fullWidth
             variant="contained"
             disabled={paymentLoading}
-            onClick={() => onSelectMethod('card', selectedPlan)}
+            onClick={() => onSelectMethod('card', 'pro')}
             sx={{
               textTransform: 'none',
               fontWeight: 700,
@@ -322,8 +325,8 @@ export default function PaymentModal({
 function FeatureLine({ text, highlight }: { text: string; highlight?: boolean }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      <CheckIcon sx={{ fontSize: 12, color: highlight ? '#8b5cf6' : 'success.main' }} />
-      <Typography variant="caption" sx={{ color: highlight ? '#8b5cf6' : 'text.secondary', fontWeight: highlight ? 600 : 400, fontSize: '0.7rem' }}>
+      <CheckIcon sx={{ fontSize: 14, color: highlight ? '#8b5cf6' : 'success.main' }} />
+      <Typography variant="caption" sx={{ color: highlight ? '#8b5cf6' : 'text.secondary', fontWeight: highlight ? 700 : 500, fontSize: '0.75rem' }}>
         {text}
       </Typography>
     </Box>

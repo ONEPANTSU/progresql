@@ -147,7 +147,7 @@ func (s *SeedExpansionStep) generateVariation(
 		return "", fmt.Errorf("LLM variation %d failed: %w", variationIndex, err)
 	}
 
-	pctx.AddTokens(resp.Usage.TotalTokens)
+	pctx.AddTokensDetailed(resp.Usage)
 	if resp.Model != "" {
 		pctx.ModelUsed = resp.Model
 	}

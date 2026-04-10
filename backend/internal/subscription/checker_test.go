@@ -19,34 +19,34 @@ func (m *mockResolver) GetSubscription(userID string) (*UserSubscription, error)
 	return nil, ErrInvalidPlan
 }
 
-func TestChecker_CheckModel_AllAllowed(t *testing.T) {
+func TestChecker_CheckModelTier_Allowed(t *testing.T) {
 	c := NewChecker(nil)
 	sub := &UserSubscription{Plan: PlanFree}
-	if err := c.CheckModel(sub, "any-model"); err != nil {
+	if err := c.CheckModelTier(sub, "budget"); err != nil {
 		t.Errorf("expected nil, got %v", err)
 	}
 }
 
-func TestChecker_CheckModel_Restricted(t *testing.T) {
+func TestChecker_CheckModelTier_Restricted(t *testing.T) {
 	c := NewChecker(nil)
 	future := time.Now().Add(24 * time.Hour)
 	sub := &UserSubscription{Plan: PlanPro, ExpiresAt: &future}
 
-	// Override limits to test restricted models.
+	// Override limits to test restricted tiers.
 	origLimits := DefaultLimits[PlanPro]
 	DefaultLimits[PlanPro] = PlanLimits{
 		MaxRequestsPerMin:     60,
 		MaxSessionsConcurrent: 5,
 		MaxTokensPerRequest:   16384,
-		AllowedModels:         []string{"model-a", "model-b"},
+		AllowedModelTiers:     []string{"budget", "premium"},
 	}
 	defer func() { DefaultLimits[PlanPro] = origLimits }()
 
-	if err := c.CheckModel(sub, "model-a"); err != nil {
-		t.Errorf("model-a should be allowed, got %v", err)
+	if err := c.CheckModelTier(sub, "budget"); err != nil {
+		t.Errorf("budget tier should be allowed, got %v", err)
 	}
-	if err := c.CheckModel(sub, "model-c"); err != ErrFeatureNotInPlan {
-		t.Errorf("model-c should be blocked, got %v", err)
+	if err := c.CheckModelTier(sub, "ultra"); err != ErrFeatureNotInPlan {
+		t.Errorf("ultra tier should be blocked, got %v", err)
 	}
 }
 

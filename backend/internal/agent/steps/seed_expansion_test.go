@@ -74,7 +74,7 @@ func TestSeedExpansion_OneCandidate_ExpandsToThree(t *testing.T) {
 			Choices: []llm.Choice{
 				{Message: llm.Message{Role: "assistant", Content: sql}, FinishReason: "stop"},
 			},
-			Usage: llm.Usage{TotalTokens: 30},
+			Usage: llm.Usage{PromptTokens: 20, CompletionTokens: 10, TotalTokens: 30},
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)

@@ -127,7 +127,7 @@ func TestDiagnosticRetry_RetrySucceedsOnSecondAttempt(t *testing.T) {
 			Choices: []llm.Choice{
 				{Message: llm.Message{Role: "assistant", Content: "SELECT id, name FROM users LIMIT 10"}, FinishReason: "stop"},
 			},
-			Usage: llm.Usage{TotalTokens: 40},
+			Usage: llm.Usage{PromptTokens: 30, CompletionTokens: 10, TotalTokens: 40},
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)

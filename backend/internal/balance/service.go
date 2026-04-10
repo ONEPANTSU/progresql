@@ -18,7 +18,7 @@ type Transaction struct {
 	ID           string    `json:"id"`
 	Amount       float64   `json:"amount"`
 	BalanceAfter float64   `json:"balance_after"`
-	TxType       string    `json:"tx_type"`       // "top_up", "model_charge", "over_quota_charge", "refund"
+	TxType       string    `json:"tx_type"`       // "top_up", "model_charge", "subscription_credit", "credit_expire", "autocomplete_charge", "refund"
 	ModelID      string    `json:"model_id"`       // nullable, set for model-related charges
 	TokensInput  int       `json:"tokens_input"`   // nullable
 	TokensOutput int       `json:"tokens_output"`  // nullable
@@ -389,4 +389,105 @@ func (s *Service) GetHistory(ctx context.Context, userID string, limit, offset i
 	}
 
 	return transactions, total, nil
+}
+
+// CreditSubscription adds subscription credits (USD) to a user's balance.
+// Used by the billing creditor for daily Free credits and monthly Pro credits.
+func (s *Service) CreditSubscription(ctx context.Context, userID string, amount float64, description string) error {
+	if amount <= 0 {
+		return nil
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("balance: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var currentBalance float64
+	err = tx.QueryRow(ctx,
+		`SELECT COALESCE(balance, 0) FROM users WHERE id = $1 FOR UPDATE`, userID,
+	).Scan(&currentBalance)
+	if err != nil {
+		return fmt.Errorf("balance: lock user %s: %w", userID, err)
+	}
+
+	newBalance := currentBalance + amount
+
+	_, err = tx.Exec(ctx,
+		`UPDATE users SET balance = $1, credits_used_usd = 0 WHERE id = $2`,
+		newBalance, userID)
+	if err != nil {
+		return fmt.Errorf("balance: update balance: %w", err)
+	}
+
+	_, err = tx.Exec(ctx,
+		`INSERT INTO balance_transactions (user_id, amount, balance_after, tx_type, description)
+		 VALUES ($1, $2, $3, 'subscription_credit', $4)`,
+		userID, amount, newBalance, description)
+	if err != nil {
+		return fmt.Errorf("balance: insert subscription credit tx: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("balance: commit subscription credit: %w", err)
+	}
+
+	s.logger.Info("subscription credits added",
+		zap.String("user_id", userID),
+		zap.Float64("amount", amount),
+		zap.Float64("new_balance", newBalance),
+	)
+	return nil
+}
+
+// ExpireDailyCredits removes unspent daily credits from a Free user's balance.
+// Only expires the unused portion of daily credits, not any purchased top-up balance.
+func (s *Service) ExpireDailyCredits(ctx context.Context, userID string, dailyAmount float64) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("balance: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var currentBalance float64
+	var creditsUsed float64
+	err = tx.QueryRow(ctx,
+		`SELECT COALESCE(balance, 0), COALESCE(credits_used_usd, 0) FROM users WHERE id = $1 FOR UPDATE`, userID,
+	).Scan(&currentBalance, &creditsUsed)
+	if err != nil {
+		return fmt.Errorf("balance: lock user %s: %w", userID, err)
+	}
+
+	// Only expire the unused portion of daily credits.
+	expireAmount := dailyAmount - creditsUsed
+	if expireAmount > currentBalance {
+		expireAmount = currentBalance
+	}
+	if expireAmount <= 0 {
+		return tx.Rollback(ctx)
+	}
+
+	newBalance := currentBalance - expireAmount
+
+	_, err = tx.Exec(ctx,
+		`UPDATE users SET balance = $1, credits_used_usd = 0 WHERE id = $2`,
+		newBalance, userID)
+	if err != nil {
+		return fmt.Errorf("balance: update balance: %w", err)
+	}
+
+	_, err = tx.Exec(ctx,
+		`INSERT INTO balance_transactions (user_id, amount, balance_after, tx_type, description)
+		 VALUES ($1, $2, $3, 'credit_expire', $4)`,
+		userID, -expireAmount, newBalance, "Daily credits expired")
+	if err != nil {
+		return fmt.Errorf("balance: insert credit expire tx: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("balance: commit credit expire: %w", err)
+	}
+
+	return nil
 }

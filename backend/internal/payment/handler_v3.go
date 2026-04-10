@@ -46,12 +46,7 @@ func stripTimestampSuffix(orderID string) string {
 func resolveDescription(paymentType, plan string) string {
 	switch paymentType {
 	case "subscription":
-		switch plan {
-		case "pro_plus":
-			return "ProgreSQL Pro Plus subscription"
-		default:
-			return "ProgreSQL Pro subscription"
-		}
+		return "ProgreSQL Pro subscription"
 	case "balance_topup":
 		return "ProgreSQL balance top-up"
 	default:
@@ -108,9 +103,13 @@ func CreateInvoiceHandlerV3(client *TBankClient, userStore *auth.UserStore, db *
 
 		switch reqBody.PaymentType {
 		case "subscription":
-			if reqBody.Plan != "pro" && reqBody.Plan != "pro_plus" {
+			// Normalize legacy plan names to "pro".
+			if reqBody.Plan == "pro_plus" || reqBody.Plan == "team" {
+				reqBody.Plan = "pro"
+			}
+			if reqBody.Plan != "pro" {
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(errorResponse{Error: "invalid plan: must be 'pro' or 'pro_plus'"})
+				json.NewEncoder(w).Encode(errorResponse{Error: "invalid plan: must be 'pro'"})
 				return
 			}
 			invoiceAmount = resolvePlanPrice(reqBody.Plan)
@@ -234,7 +233,8 @@ type tbankWebhookPayload struct {
 
 // WebhookHandlerV3 returns an HTTP handler that processes T-Bank payment
 // callback notifications. Authentication is via token verification.
-func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc BalanceTopUpHandler, db *pgxpool.Pool) http.HandlerFunc {
+// rateSvc provides the current USD/RUB exchange rate for balance top-up conversion.
+func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc BalanceTopUpHandler, db *pgxpool.Pool, rateSvc ExchangeRateProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -326,6 +326,7 @@ func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc B
 
 		var userID, paymentType, plan string
 		var amount float64
+		var creditedUSD float64 // set inside balance_topup branch; read later when updating payments row
 		{
 			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 			defer cancel()
@@ -370,21 +371,53 @@ func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc B
 				return
 			}
 
-			description := fmt.Sprintf("Top-up via TBank (payment: %d)", payload.PaymentId)
-			if err := balanceSvc.TopUp(r.Context(), userID, amount, description); err != nil {
+			// Convert RUB payment to USD credits with plan-based markup.
+			amountRUB := amount
+			usdRate := 90.0 // fallback
+			if rateSvc != nil {
+				usdRate = rateSvc.GetUSDToRUB()
+			}
+
+			// Look up user's plan for markup percentage.
+			markupPct := 30 // default: Free plan markup
+			var userPlan string
+			{
+				lookupCtx, lookupCancel := context.WithTimeout(r.Context(), 3*time.Second)
+				defer lookupCancel()
+				_ = db.QueryRow(lookupCtx,
+					`SELECT COALESCE(plan, 'free') FROM users WHERE id = $1`, userID,
+				).Scan(&userPlan)
+			}
+			switch userPlan {
+			case "pro":
+				markupPct = 20
+			}
+
+			amountUSD := amountRUB / usdRate / (1.0 + float64(markupPct)/100.0)
+			// Round to 6 decimal places.
+			amountUSD = math.Round(amountUSD*1e6) / 1e6
+			creditedUSD = amountUSD // remember for the payments UPDATE below
+
+			description := fmt.Sprintf("Top-up %.0f₽ → $%.4f (rate: %.2f, markup: %d%%)",
+				amountRUB, amountUSD, usdRate, markupPct)
+			if err := balanceSvc.TopUp(r.Context(), userID, amountUSD, description); err != nil {
 				log.Error("failed to top up balance",
 					zap.String("user_id", userID),
-					zap.Float64("amount", amount), zap.Error(err))
+					zap.Float64("amount_rub", amountRUB),
+					zap.Float64("amount_usd", amountUSD), zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
 				json.NewEncoder(w).Encode(errorResponse{Error: "failed to credit balance"})
 				return
 			}
 
 			metrics.BalanceTopUpsTotal.Inc()
-			metrics.BalanceTopUpsAmountTotal.Add(amount)
+			metrics.BalanceTopUpsAmountTotal.Add(amountRUB)
 			log.Info("balance top-up confirmed via TBank",
 				zap.String("user_id", userID),
-				zap.Float64("amount", amount),
+				zap.Float64("amount_rub", amountRUB),
+				zap.Float64("amount_usd", amountUSD),
+				zap.Float64("exchange_rate", usdRate),
+				zap.Int("markup_pct", markupPct),
 				zap.Int64("payment_id", payload.PaymentId))
 		}
 
@@ -392,11 +425,20 @@ func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc B
 		if db != nil {
 			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 			defer cancel()
-			_, _ = db.Exec(ctx,
-				`UPDATE payments
-				    SET status = $1, paid_at = NOW(), confirmed_at = NOW(), updated_at = NOW()
-				  WHERE invoice_id = $2 AND status IN ('created', 'pending')`,
-				StatusConfirmed, paymentIDStr)
+			if paymentType == "balance_topup" && creditedUSD > 0 {
+				_, _ = db.Exec(ctx,
+					`UPDATE payments
+					    SET status = $1, paid_at = NOW(), confirmed_at = NOW(),
+					        updated_at = NOW(), credited_usd = $3
+					  WHERE invoice_id = $2 AND status IN ('created', 'pending')`,
+					StatusConfirmed, paymentIDStr, creditedUSD)
+			} else {
+				_, _ = db.Exec(ctx,
+					`UPDATE payments
+					    SET status = $1, paid_at = NOW(), confirmed_at = NOW(), updated_at = NOW()
+					  WHERE invoice_id = $2 AND status IN ('created', 'pending')`,
+					StatusConfirmed, paymentIDStr)
+			}
 		}
 
 		// Prometheus: track confirmed payment.
@@ -695,15 +737,16 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 		var (
 			paymentUserID, invoiceID, status, paymentType, plan string
 			amount                                               float64
+			creditedUSD                                          *float64
 			paidAt                                               *time.Time
 		)
 		err := db.QueryRow(ctx,
 			`SELECT user_id, COALESCE(invoice_id, ''), status,
 			        COALESCE(payment_type, 'subscription'), COALESCE(plan, 'none'),
-			        amount, paid_at
+			        amount, credited_usd, paid_at
 			   FROM payments WHERE id = $1`,
 			reqBody.PaymentID,
-		).Scan(&paymentUserID, &invoiceID, &status, &paymentType, &plan, &amount, &paidAt)
+		).Scan(&paymentUserID, &invoiceID, &status, &paymentType, &plan, &amount, &creditedUSD, &paidAt)
 		if err != nil {
 			log.Error("payment not found", zap.Error(err))
 			w.WriteHeader(http.StatusNotFound)
@@ -737,14 +780,34 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 		// Reverse side effects based on payment type.
 		switch paymentType {
 		case "balance_topup":
+			// Deduct the EXACT USD amount that was originally credited to the
+			// user's balance. We must not recompute from RUB with today's rate,
+			// because the exchange rate and plan markup at the time of top-up
+			// may differ from the current ones. T-Bank Cancel API below still
+			// refunds the full RUB amount, so the user gets back exactly what
+			// they paid in fiat.
+			var usdToDeduct float64
+			if creditedUSD != nil && *creditedUSD > 0 {
+				usdToDeduct = *creditedUSD
+			} else {
+				// Legacy top-up (pre-019 migration) without a stored USD value.
+				// Fall back to the back-fill formula used by the migration so
+				// the deduction is at least self-consistent with the estimate.
+				usdToDeduct = math.Round((amount/90.0/1.30)*1e6) / 1e6
+				log.Warn("refund: using fallback USD estimate for legacy top-up",
+					zap.Float64("amount_rub", amount),
+					zap.Float64("estimated_usd", usdToDeduct))
+			}
 			description := fmt.Sprintf("Refund for payment %s", reqBody.PaymentID)
-			if err := balanceRefund.DeductForRefund(ctx, userID, amount, description); err != nil {
+			if err := balanceRefund.DeductForRefund(ctx, userID, usdToDeduct, description); err != nil {
 				log.Error("failed to deduct balance for refund", zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
 				json.NewEncoder(w).Encode(errorResponse{Error: "failed to reverse balance: " + err.Error()})
 				return
 			}
-			log.Info("balance reversed for refund", zap.Float64("amount", amount))
+			log.Info("balance reversed for refund",
+				zap.Float64("amount_rub", amount),
+				zap.Float64("amount_usd", usdToDeduct))
 
 		case "subscription":
 			// Per Article 32 of Russian Consumer Protection Law: deduct actual expenses
