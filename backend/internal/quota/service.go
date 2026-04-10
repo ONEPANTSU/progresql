@@ -10,6 +10,7 @@ import (
 
 	"github.com/onepantsu/progressql/backend/config"
 	"github.com/onepantsu/progressql/backend/internal/exchange"
+	"github.com/onepantsu/progressql/backend/internal/metrics"
 	"github.com/onepantsu/progressql/backend/internal/models"
 	"github.com/onepantsu/progressql/backend/internal/subscription"
 )
@@ -203,6 +204,17 @@ func (s *Service) ChargeRequest(ctx context.Context, userID string, modelID stri
 	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("quota: commit tx: %w", err)
 	}
+
+	// Record Prometheus metrics after successful commit.
+	planLabel := string(plan)
+	if coveredByCredits > 0 {
+		metrics.CreditsUsedTotal.WithLabelValues(planLabel).Add(coveredByCredits)
+	}
+	if coveredByBalance > 0 {
+		metrics.BalanceChargedUSDTotal.WithLabelValues(planLabel).Add(coveredByBalance)
+	}
+	// Determine action from model ID for cost histogram — use a simplified label.
+	metrics.RequestCostUSD.WithLabelValues(modelID, "chat").Observe(costUSD)
 
 	return costUSD, nil
 }

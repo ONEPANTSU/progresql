@@ -1,13 +1,13 @@
 {
   "id": null,
   "uid": "progressql-revenue-balance",
-  "title": "ProgreSQL — Revenue, Balance & Quotas",
-  "description": "Prometheus-based metrics for revenue by plan, balance operations, quota events, and model fallbacks",
+  "title": "ProgreSQL — Revenue, Balance & Credits",
+  "description": "Prometheus-based metrics for revenue by plan, balance operations, credit usage, and active sessions",
   "tags": [
     "progressql",
     "revenue",
     "balance",
-    "quotas"
+    "credits"
   ],
   "timezone": "browser",
   "editable": true,
@@ -53,13 +53,13 @@
     {
       "id": 1,
       "title": "Revenue by Plan",
-      "description": "Cumulative revenue broken down by plan (pro, pro_plus, balance_topup)",
+      "description": "Cumulative revenue broken down by plan (pro, pro_yearly, balance_topup)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "currencyUSD",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -76,7 +76,7 @@
             "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#8b5cf6" } }]
           },
           {
-            "matcher": { "id": "byName", "options": "pro_plus" },
+            "matcher": { "id": "byName", "options": "pro_yearly" },
             "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#6366f1" } }]
           },
           {
@@ -186,19 +186,81 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
       "id": 200,
-      "title": "Usage",
+      "title": "Credits",
       "type": "row"
     },
     {
       "id": 4,
-      "title": "Quota Exceeded by Plan / Tier",
-      "description": "Quota exceeded events broken down by plan and tier (budget, premium)",
+      "title": "Credits Granted vs Used vs Expired",
+      "description": "Credit flow: granted to users, consumed by AI requests, and expired unused",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 10 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Granted" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#10b981" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Used" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#8b5cf6" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Expired" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ef4444" } }]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(increase(credits_granted_usd_total[5m]))",
+          "legendFormat": "Granted",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(increase(credits_used_usd_total[5m]))",
+          "legendFormat": "Used",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(increase(credits_expired_usd_total[5m]))",
+          "legendFormat": "Expired",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Credits by Plan",
+      "description": "Credit usage breakdown by plan",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 10 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -211,12 +273,16 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byRegexp", "options": ".*budget.*" },
+            "matcher": { "id": "byName", "options": "free" },
             "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#f59e0b" } }]
           },
           {
-            "matcher": { "id": "byRegexp", "options": ".*premium.*" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ef4444" } }]
+            "matcher": { "id": "byName", "options": "pro" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#8b5cf6" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "pro_yearly" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#6366f1" } }]
           }
         ]
       },
@@ -227,44 +293,8 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "increase(quota_exceeded_total[5m])",
-          "legendFormat": "{{plan}} / {{tier}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "title": "Model Fallback Rate",
-      "description": "Rate of model fallback events (premium to budget model)",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 10 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "fixed", "fixedColor": "#f97316" },
-          "unit": "opm",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "spanNulls": true
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": { "mode": "multi", "sort": "desc" },
-        "legend": { "displayMode": "list", "placement": "bottom" }
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "rate(model_fallback_total[5m]) * 60",
-          "legendFormat": "{{from_model}} → {{to_model}}",
+          "expr": "increase(credits_used_usd_total[5m])",
+          "legendFormat": "{{plan}}",
           "refId": "A"
         }
       ]
@@ -358,15 +388,53 @@
     },
     {
       "id": 8,
-      "title": "Top-up Amount Rate (RUB)",
-      "description": "Rate of balance top-up amounts in RUB per minute",
+      "title": "Balance Charged Beyond Credits (USD)",
+      "description": "USD charged from user balance after plan credits are exhausted, by plan",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 19 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "increase(balance_charged_usd_total[5m])",
+          "legendFormat": "{{plan}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Total Platform Balance (USD)",
+      "description": "Sum of all user balances in USD",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 19 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
           "color": { "mode": "fixed", "fixedColor": "#10b981" },
-          "unit": "currencyRUB",
+          "unit": "currencyUSD",
+          "decimals": 2,
           "custom": {
             "drawStyle": "line",
             "lineInterpolation": "smooth",
@@ -386,22 +454,28 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "rate(balance_topups_amount_total[5m]) * 60",
-          "legendFormat": "RUB / min",
+          "expr": "total_balance_usd",
+          "legendFormat": "Total Balance",
           "refId": "A"
         }
       ]
     },
     {
-      "id": 9,
-      "title": "Top-up Count Rate",
-      "description": "Rate of balance top-up events over time",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 27 },
+      "id": 400,
+      "title": "Active Users",
+      "type": "row"
+    },
+    {
+      "id": 10,
+      "title": "Active Users by Plan",
+      "description": "Number of registered users by effective plan",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 19 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "fixed", "fixedColor": "#06b6d4" },
           "unit": "short",
           "custom": {
             "drawStyle": "line",
@@ -413,17 +487,64 @@
             "spanNulls": true
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "free" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#f59e0b" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "pro" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#8b5cf6" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "pro_yearly" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#6366f1" } }]
+          }
+        ]
       },
       "options": {
-        "tooltip": { "mode": "single", "sort": "none" },
+        "tooltip": { "mode": "multi", "sort": "desc" },
         "legend": { "displayMode": "list", "placement": "bottom" }
       },
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "increase(balance_topups_total[5m])",
-          "legendFormat": "Top-ups",
+          "expr": "active_users",
+          "legendFormat": "{{plan}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Request Cost Distribution",
+      "description": "Distribution of per-request costs in USD",
+      "type": "histogram",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "#8b5cf6" },
+          "unit": "currencyUSD",
+          "custom": {
+            "fillOpacity": 60,
+            "gradientMode": "opacity"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "single", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "bucketSize": 0,
+        "combine": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(increase(request_cost_usd_bucket[1h])) by (le)",
+          "legendFormat": "{{le}}",
+          "format": "heatmap",
           "refId": "A"
         }
       ]

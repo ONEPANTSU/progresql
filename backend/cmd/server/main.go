@@ -56,6 +56,11 @@ func main() {
 	}
 	defer db.Close()
 
+	// Plan limits store — loads limits from DB with 5-min cache refresh.
+	planLimitsStore := subscription.NewPlanLimitsStore(db, log)
+	planLimitsStore.Start()
+	subscription.SetPlanLimitsStore(planLimitsStore)
+
 	hub := websocket.NewHub()
 
 	// User store — PostgreSQL-backed.
@@ -70,6 +75,10 @@ func main() {
 	balanceSvc := balance.NewService(db, log)
 	creditor := billing.NewCreditor(db, balanceSvc, log)
 	creditor.Start()
+
+	// Periodic metrics collector — active users, total balance, etc.
+	metricsCollector := billing.NewMetricsCollector(db, log)
+	metricsCollector.Start()
 
 	router := rest.NewRouter(cfg, log, hub, userStore, db)
 
@@ -96,6 +105,8 @@ func main() {
 	// Step 0: Stop background services.
 	notifier.Stop()
 	creditor.Stop()
+	planLimitsStore.Stop()
+	metricsCollector.Stop()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

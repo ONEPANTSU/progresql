@@ -81,7 +81,7 @@ var BalanceTopUpsTotal = promauto.NewCounter(prometheus.CounterOpts{
 
 var BalanceTopUpsAmountTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "balance_topups_amount_total",
-	Help: "Total amount of balance top-ups in RUB.",
+	Help: "Total amount of balance top-ups in USD.",
 })
 
 var BalanceChargesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -92,39 +92,114 @@ var BalanceChargesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 var QuotaExceededTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "quota_exceeded_total",
 	Help: "Total number of quota exceeded events.",
-}, []string{"plan", "tier"}) // tier: "budget", "premium"
-
-var ModelFallbackTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "model_fallback_total",
-	Help: "Total number of model fallback events (premium to budget).",
-}, []string{"from_model", "to_model"})
+}, []string{"plan"})
 
 var RevenueByPlanTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "revenue_by_plan_total",
-	Help: "Total revenue in RUB by plan.",
-}, []string{"plan"}) // "pro", "pro_plus", "balance_topup"
+	Help: "Total revenue in USD by plan.",
+}, []string{"plan"}) // "pro", "pro_yearly", "balance_topup"
+
+// --- Credits metrics ---
+
+var CreditsGrantedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "credits_granted_usd_total",
+	Help: "Total USD credits granted to users",
+}, []string{"plan", "type"}) // type: daily, monthly
+
+var CreditsExpiredTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "credits_expired_usd_total",
+	Help: "Total USD credits expired (unused)",
+}, []string{"plan"})
+
+var CreditsUsedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "credits_used_usd_total",
+	Help: "Total USD credits consumed by AI requests",
+}, []string{"plan"})
+
+// --- Balance (USD) metrics ---
+
+var BalanceChargedUSDTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "balance_charged_usd_total",
+	Help: "Total USD charged from user balance (beyond credits)",
+}, []string{"plan"})
+
+// --- Active users and platform balance ---
+
+var ActiveUsersGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "active_users",
+	Help: "Number of active users by plan",
+}, []string{"plan"})
+
+var TotalBalanceUSD = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "total_balance_usd",
+	Help: "Sum of all user balances in USD",
+})
+
+// --- Request cost ---
+
+var RequestCostUSD = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "request_cost_usd",
+	Help:    "Cost of individual AI requests in USD",
+	Buckets: []float64{0.0001, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5},
+}, []string{"model", "action"})
 
 // Init pre-initializes label combinations so CounterVec metrics are visible
 // in Prometheus even before any events occur (avoids "No data" in Grafana).
 func Init() {
+	// Payments
 	PaymentsTotal.WithLabelValues("created", "RUB")
 	PaymentsTotal.WithLabelValues("confirmed", "RUB")
 	PaymentsTotal.WithLabelValues("failed", "RUB")
+	PaymentsTotal.WithLabelValues("created", "USD")
+	PaymentsTotal.WithLabelValues("confirmed", "USD")
+	PaymentsTotal.WithLabelValues("failed", "USD")
 	PaymentsAmountTotal.WithLabelValues("RUB")
+	PaymentsAmountTotal.WithLabelValues("USD")
+
+	// Subscriptions
 	UserSubscriptionsActivatedTotal.WithLabelValues("pro")
-	UserSubscriptionsActivatedTotal.WithLabelValues("pro_plus")
+	UserSubscriptionsActivatedTotal.WithLabelValues("pro_yearly")
 	UserSubscriptionsExpiredTotal.WithLabelValues("expired")
 	UserSubscriptionsExpiredTotal.WithLabelValues("trial_expired")
+
+	// Promo
 	PromoCodesApplied.WithLabelValues("", "percent")
 	PromoCodesApplied.WithLabelValues("", "amount")
+
+	// Balance charges
 	BalanceChargesTotal.WithLabelValues("model_charge")
 	BalanceChargesTotal.WithLabelValues("over_quota_charge")
-	QuotaExceededTotal.WithLabelValues("free", "budget")
-	QuotaExceededTotal.WithLabelValues("pro", "premium")
-	ModelFallbackTotal.WithLabelValues("", "")
+
+	// Quota exceeded
+	QuotaExceededTotal.WithLabelValues("free")
+	QuotaExceededTotal.WithLabelValues("pro")
+	QuotaExceededTotal.WithLabelValues("pro_yearly")
+
+	// Revenue
 	RevenueByPlanTotal.WithLabelValues("pro")
-	RevenueByPlanTotal.WithLabelValues("pro_plus")
+	RevenueByPlanTotal.WithLabelValues("pro_yearly")
 	RevenueByPlanTotal.WithLabelValues("balance_topup")
+
+	// Credits
+	CreditsGrantedTotal.WithLabelValues("free", "daily")
+	CreditsGrantedTotal.WithLabelValues("pro", "monthly")
+	CreditsGrantedTotal.WithLabelValues("pro_yearly", "monthly")
+	CreditsExpiredTotal.WithLabelValues("free")
+	CreditsExpiredTotal.WithLabelValues("pro")
+	CreditsExpiredTotal.WithLabelValues("pro_yearly")
+	CreditsUsedTotal.WithLabelValues("free")
+	CreditsUsedTotal.WithLabelValues("pro")
+	CreditsUsedTotal.WithLabelValues("pro_yearly")
+
+	// Balance charged (beyond credits)
+	BalanceChargedUSDTotal.WithLabelValues("free")
+	BalanceChargedUSDTotal.WithLabelValues("pro")
+	BalanceChargedUSDTotal.WithLabelValues("pro_yearly")
+
+	// Active users
+	ActiveUsersGauge.WithLabelValues("free")
+	ActiveUsersGauge.WithLabelValues("pro")
+	ActiveUsersGauge.WithLabelValues("pro_yearly")
 }
 
 // --- WebSocket metrics ---
