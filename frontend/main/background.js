@@ -1021,18 +1021,67 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
     const toolName = toolRequest.toolName;
     const args = toolRequest.arguments || {};
 
-    // Route to appropriate SafePostgresToolsApi method
+    // Route to appropriate handler.
+    // When a specific connectionId is provided, use direct SQL via dbClientForTool
+    // instead of safeApi (MCP server), because safeApi is a singleton bound to
+    // one connection and won't reflect the chat's selected database.
     if (toolName === 'list_schemas') {
-      result = await safeApi.getSchemas();
+      if (connId && dbClientForTool) {
+        const r = await dbClientForTool.query(
+          `SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('pg_toast','pg_catalog','information_schema') ORDER BY schema_name`
+        );
+        result = r.rows.map(row => row.schema_name);
+      } else {
+        result = await safeApi.getSchemas();
+      }
     } else if (toolName === 'list_tables') {
       log.debug('Calling getTables with schema:', args.schema || 'public');
-      result = await safeApi.getTables(args.schema || 'public');
+      if (connId && dbClientForTool) {
+        const schema = args.schema || 'public';
+        const r = await dbClientForTool.query(
+          `SELECT table_name as name, table_type as type FROM information_schema.tables WHERE table_schema = $1 ORDER BY table_name`,
+          [schema]
+        );
+        result = r.rows.map(row => ({ name: row.name, type: row.type }));
+      } else {
+        result = await safeApi.getTables(args.schema || 'public');
+      }
       log.debug('getTables result:', JSON.stringify(result, null, 2));
     } else if (toolName === 'table_columns') {
-      // MCP server tool name - map to getColumns
-      result = await safeApi.getColumns(args.schema || 'public', args.table);
+      if (connId && dbClientForTool) {
+        const schema = args.schema || 'public';
+        const r = await dbClientForTool.query(
+          `SELECT column_name as name, data_type as type, is_nullable, column_default as "default" FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position`,
+          [schema, args.table]
+        );
+        result = r.rows.map(row => ({ name: row.name, type: row.type, nullable: row.is_nullable === 'YES', default: row.default }));
+      } else {
+        result = await safeApi.getColumns(args.schema || 'public', args.table);
+      }
     } else if (toolName === 'describe_table') {
-      result = await safeApi.describeTable(args.schema || 'public', args.table);
+      if (connId && dbClientForTool) {
+        const schema = args.schema || 'public';
+        const table = args.table;
+        const colRes = await dbClientForTool.query(
+          `SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position`,
+          [schema, table]
+        );
+        const idxRes = await dbClientForTool.query(
+          `SELECT indexname as name, indexdef as definition FROM pg_indexes WHERE schemaname = $1 AND tablename = $2 ORDER BY indexname`,
+          [schema, table]
+        );
+        const fkRes = await dbClientForTool.query(
+          `SELECT tc.constraint_name as name, kcu.column_name, ccu.table_name AS foreign_table_name, ccu.column_name AS foreign_column_name FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema JOIN information_schema.constraint_column_usage ccu ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = $1 AND tc.table_name = $2`,
+          [schema, table]
+        );
+        result = {
+          columns: colRes.rows.map(c => ({ column_name: c.column_name, data_type: c.data_type, is_nullable: c.is_nullable, column_default: c.column_default })),
+          indexes: idxRes.rows.map(i => ({ index_name: i.name, definition: i.definition })),
+          foreign_keys: fkRes.rows.map(fk => ({ constraint_name: fk.name, column_name: fk.column_name, foreign_table_name: fk.foreign_table_name, foreign_column_name: fk.foreign_column_name })),
+        };
+      } else {
+        result = await safeApi.describeTable(args.schema || 'public', args.table);
+      }
     } else if (toolName === 'list_indexes') {
       // Get indexes directly from database (MCP server doesn't provide this)
       if (!dbClientForTool) {
@@ -1199,13 +1248,26 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
         schema: schema,
       }));
     } else if (toolName === 'explain_query' || toolName === 'explain') {
-      result = await safeApi.explainQuery(args.query || args.sql, args.format || 'json');
+      if (connId && dbClientForTool) {
+        const sql = args.query || args.sql;
+        const format = (args.format || 'json').toUpperCase();
+        const r = await dbClientForTool.query(`EXPLAIN (FORMAT ${format}) ${sql}`);
+        result = { plan: r.rows.map(row => Object.values(row)[0]).join('\n'), error: '' };
+      } else {
+        result = await safeApi.explainQuery(args.query || args.sql, args.format || 'json');
+      }
     } else if (toolName === 'explain_analyze') {
-      // explain_analyze is not in SafePostgresToolsApi, use callToolSafe
-      result = await safeApi.callToolSafe(toolName, args);
-      result = safeApi.extractResult(result);
+      if (connId && dbClientForTool) {
+        const sql = args.query || args.sql;
+        const r = await dbClientForTool.query(`EXPLAIN ANALYZE ${sql}`);
+        result = { plan: r.rows.map(row => Object.values(row)[0]).join('\n'), error: '' };
+      } else {
+        result = await safeApi.callToolSafe(toolName, args);
+        result = safeApi.extractResult(result);
+      }
     } else {
-      // For other tools, use safe API's callToolSafe which enforces allowlist
+      // For other tools, try dbClientForTool for direct SQL if available,
+      // otherwise use safe API's callToolSafe which enforces allowlist
       result = await safeApi.callToolSafe(toolName, args);
       // Extract result from MCP format
       result = safeApi.extractResult(result);
