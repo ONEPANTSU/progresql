@@ -70,15 +70,16 @@
       <p>С момента акцепта Оферта приобретает силу договора.</p>
       <h2>3. Тарифы</h2>
       <table>
-        <tr><th>Параметр</th><th>Free</th><th>Pro</th><th>Pro Plus</th></tr>
-        <tr><td>Стоимость</td><td>Бесплатно</td><td>1 999 руб./мес</td><td>5 999 руб./мес</td></tr>
-        <tr><td>Период</td><td>Бессрочно</td><td>30 дней</td><td>30 дней</td></tr>
-        <tr><td>Бюджетные токены</td><td>50 000/день</td><td>5 000 000/мес</td><td>10 000 000/мес</td></tr>
-        <tr><td>Премиум-токены</td><td>—</td><td>200 000/мес</td><td>1 500 000/мес</td></tr>
-        <tr><td>AI-модели</td><td>6 бюджетных</td><td>Все 13 моделей</td><td>Все 13 моделей</td></tr>
-        <tr><td>Автодополнение SQL</td><td>Базовое</td><td>Умное</td><td>Умное</td></tr>
-        <tr><td>Пополнение баланса</td><td>—</td><td>Наценка 50%</td><td>Наценка 25%</td></tr>
+        <tr><th>Параметр</th><th>Free</th><th>Pro</th></tr>
+        <tr><td>Стоимость</td><td>Бесплатно</td><td>1 999 руб./мес</td></tr>
+        <tr><td>Период</td><td>Бессрочно</td><td>30 дней</td></tr>
+        <tr><td>Включённые кредиты</td><td>$0,03/день (без переноса)</td><td>$15/мес (без переноса)</td></tr>
+        <tr><td>AI-модели</td><td>Только бюджетные</td><td>Все модели (бюджетные + премиум)</td></tr>
+        <tr><td>Автодополнение SQL</td><td>Базовое</td><td>Умное</td></tr>
+        <tr><td>Лимит запросов</td><td>10/мин</td><td>60/мин</td></tr>
+        <tr><td>Пополнение баланса</td><td>Наценка 30%</td><td>Наценка 20%</td></tr>
       </table>
+      <p><em>Кредиты — это внутренняя единица измерения стоимости AI-запросов в долларах США. Каждый AI-запрос списывается из баланса пользователя по факту использования (на основе количества токенов и цены соответствующей модели).</em></p>
       <p>Администрация вправе изменять тарифы с уведомлением за 14 дней.</p>
       <h2>4. Условия оплаты</h2>
       <p><strong>Для резидентов РФ:</strong></p>
@@ -98,15 +99,17 @@
         <li>Ограничений на экспортную деятельность нет.</li>
       </ul>
       <h2>6. Пополнение баланса</h2>
-      <p>Пользователи тарифов Pro и Pro Plus могут пополнять внутренний баланс для дополнительного использования AI-функций сверх включённых в тариф лимитов.</p>
+      <p>Пользователи любых тарифов могут пополнять внутренний баланс (кредиты в долларах США) для использования AI-функций сверх включённых в тариф лимитов.</p>
       <ul>
         <li>Минимальная сумма пополнения: <strong>100 ₽</strong>;</li>
         <li>Максимальная сумма пополнения: <strong>50 000 ₽</strong>;</li>
-        <li>Наценка на баланс для тарифа Pro: <strong>50%</strong> (т.е. при пополнении на 1 000 ₽ на баланс зачисляется токенов на сумму ~667 ₽);</li>
-        <li>Наценка на баланс для тарифа Pro Plus: <strong>25%</strong> (т.е. при пополнении на 1 000 ₽ на баланс зачисляется токенов на сумму ~800 ₽);</li>
-        <li>Средства, зачисленные на баланс, <strong>не подлежат возврату</strong> после использования (списания токенов);</li>
-        <li>Неиспользованный баланс сохраняется при продлении подписки;</li>
-        <li>При переходе на тариф Free неиспользованный баланс замораживается и восстанавливается при повторном оформлении подписки Pro или Pro Plus.</li>
+        <li>Баланс ведётся в долларах США (USD), конвертация из рублей производится по курсу ЦБ РФ на момент платежа;</li>
+        <li>Наценка на баланс для тарифа Free: <strong>30%</strong>;</li>
+        <li>Наценка на баланс для тарифа Pro: <strong>20%</strong>;</li>
+        <li>Средства, зачисленные на баланс, <strong>не подлежат возврату</strong> после использования (списания кредитов на AI-запросы);</li>
+        <li>Купленный пользователем баланс <strong>сохраняется</strong> при смене тарифа и не сгорает;</li>
+        <li>Включённые в тариф Free ежедневные кредиты ($0,03/день) <strong>сгорают</strong> в конце суток и обновляются на следующий день;</li>
+        <li>Неиспользованные кредиты тарифа Pro ($15/мес) сгорают при начале нового периода и не накапливаются.</li>
       </ul>
       <h2>7. Возвраты</h2>
       <p>Условия возврата описаны в документе <a href="/legal/refunds.html">«Политика возвратов»</a>.</p>
@@ -146,15 +149,16 @@
       <p>Upon acceptance, the Offer becomes a binding agreement.</p>
       <h2>3. Pricing</h2>
       <table>
-        <tr><th>Parameter</th><th>Free</th><th>Pro</th><th>Pro Plus</th></tr>
-        <tr><td>Price</td><td>Free</td><td>1,999 RUB/month</td><td>5,999 RUB/month</td></tr>
-        <tr><td>Period</td><td>Unlimited</td><td>30 days</td><td>30 days</td></tr>
-        <tr><td>Budget tokens</td><td>50,000/day</td><td>5,000,000/month</td><td>10,000,000/month</td></tr>
-        <tr><td>Premium tokens</td><td>—</td><td>200,000/month</td><td>1,500,000/month</td></tr>
-        <tr><td>AI models</td><td>6 budget</td><td>All 13 models</td><td>All 13 models</td></tr>
-        <tr><td>SQL autocomplete</td><td>Basic</td><td>Smart</td><td>Smart</td></tr>
-        <tr><td>Balance top-up</td><td>—</td><td>50% markup</td><td>25% markup</td></tr>
+        <tr><th>Parameter</th><th>Free</th><th>Pro</th></tr>
+        <tr><td>Price</td><td>Free</td><td>1,999 RUB/month</td></tr>
+        <tr><td>Period</td><td>Unlimited</td><td>30 days</td></tr>
+        <tr><td>Included credits</td><td>$0.03/day (no rollover)</td><td>$15/month (no rollover)</td></tr>
+        <tr><td>AI models</td><td>Budget tier only</td><td>All models (budget + premium)</td></tr>
+        <tr><td>SQL autocomplete</td><td>Basic</td><td>Smart</td></tr>
+        <tr><td>Request rate limit</td><td>10/min</td><td>60/min</td></tr>
+        <tr><td>Balance top-up</td><td>30% markup</td><td>20% markup</td></tr>
       </table>
+      <p><em>Credits are an internal USD-denominated unit representing AI request cost. Each AI request is charged from the user's balance based on actual token usage and the pricing of the selected model.</em></p>
       <p>The Provider reserves the right to change pricing with 14 days notice.</p>
       <h2>4. Payment Terms</h2>
       <p><strong>For Russian residents:</strong></p>
@@ -174,15 +178,17 @@
         <li>There are no export restrictions.</li>
       </ul>
       <h2>6. Balance Top-Up</h2>
-      <p>Pro and Pro Plus subscribers may top up their internal balance for additional AI usage beyond the limits included in their plan.</p>
+      <p>Users of any plan may top up their internal balance (USD-denominated credits) to use AI features beyond the limits included in their plan.</p>
       <ul>
         <li>Minimum top-up amount: <strong>100 RUB</strong>;</li>
         <li>Maximum top-up amount: <strong>50,000 RUB</strong>;</li>
-        <li>Pro plan markup: <strong>50%</strong> (i.e., a 1,000 RUB top-up credits ~667 RUB worth of tokens);</li>
-        <li>Pro Plus plan markup: <strong>25%</strong> (i.e., a 1,000 RUB top-up credits ~800 RUB worth of tokens);</li>
-        <li>Balance funds are <strong>non-refundable</strong> once used (tokens consumed);</li>
-        <li>Unused balance carries over upon subscription renewal;</li>
-        <li>Upon downgrade to Free, unused balance is frozen and restored when re-subscribing to Pro or Pro Plus.</li>
+        <li>Balance is denominated in US Dollars (USD); conversion from RUB is done at the current CBR exchange rate at the moment of payment;</li>
+        <li>Free plan markup: <strong>30%</strong>;</li>
+        <li>Pro plan markup: <strong>20%</strong>;</li>
+        <li>Balance funds are <strong>non-refundable</strong> once used (AI request credits consumed);</li>
+        <li>Purchased balance <strong>carries over</strong> between plan changes and does not expire;</li>
+        <li>Free plan daily credits ($0.03/day) <strong>expire</strong> at end of day and are refreshed the next day;</li>
+        <li>Unused Pro plan monthly credits ($15/month) expire at the start of each new billing period and do not accumulate.</li>
       </ul>
       <h2>7. Refunds</h2>
       <p>Conditions described in the <a href="/legal/refunds.html">Refund Policy</a>.</p>

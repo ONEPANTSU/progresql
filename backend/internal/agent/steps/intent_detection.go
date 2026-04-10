@@ -18,6 +18,7 @@ const ContextKeyIntent = "intent"
 const (
 	IntentSQL            = "sql"
 	IntentConversational = "conversational"
+	IntentKnowledge      = "knowledge"
 )
 
 // IntentDetectionStep classifies user messages as SQL-related or conversational.
@@ -37,13 +38,16 @@ func (s *IntentDetectionStep) Execute(ctx context.Context, pctx *agent.PipelineC
 
 	// Classify intent via a fast LLM call.
 	classifyPrompt := "You are an intent classifier for a PostgreSQL database assistant.\n" +
-		"Classify the following user message as either \"sql\" or \"conversational\".\n\n" +
+		"Classify the following user message as \"sql\", \"knowledge\", or \"conversational\".\n\n" +
 		"Rules:\n" +
-		"- \"sql\" — the user wants to generate SQL, query data, explore/analyze database, " +
-		"learn about database structure, list tables, describe entities, or anything that requires accessing the database.\n" +
-		"- \"conversational\" — ONLY pure greetings, thanks, and chitchat that do NOT require database access.\n\n" +
-		"IMPORTANT: When in doubt, classify as \"sql\". Any message that mentions the database, tables, " +
-		"data, entities, schema, or asks to show/explain/describe anything in the database is \"sql\".\n\n" +
+		"- \"sql\" — the user wants to generate SQL, query data, explore/analyze the database structure, " +
+		"list tables, describe entities, or anything that requires executing a query against the database.\n" +
+		"- \"knowledge\" — the user asks a conceptual, theoretical, or educational question about databases, " +
+		"PostgreSQL, SQL syntax, data types, best practices, comparisons, or explanations that can be " +
+		"answered with plain text WITHOUT generating or executing SQL.\n" +
+		"- \"conversational\" — ONLY pure greetings, thanks, and chitchat that do NOT require database knowledge.\n\n" +
+		"IMPORTANT: \"knowledge\" is for questions that need a TEXT explanation, not a SQL query.\n" +
+		"IMPORTANT: When in doubt between sql and knowledge, classify as \"sql\".\n\n" +
 		"Examples classified as \"sql\":\n" +
 		"- \"show all users\" → sql\n" +
 		"- \"покажи все заказы за вчера\" → sql\n" +
@@ -66,6 +70,21 @@ func (s *IntentDetectionStep) Execute(ctx context.Context, pctx *agent.PipelineC
 		"- \"начни\" → sql\n" +
 		"- \"go\" → sql\n" +
 		"- \"давай\" → sql\n\n" +
+		"Examples classified as \"knowledge\":\n" +
+		"- \"чем отличается домен от перечисления?\" → knowledge\n" +
+		"- \"what is the difference between a view and a materialized view?\" → knowledge\n" +
+		"- \"зачем нужны индексы?\" → knowledge\n" +
+		"- \"explain ACID properties\" → knowledge\n" +
+		"- \"что такое нормализация?\" → knowledge\n" +
+		"- \"when should I use JSONB vs JSON?\" → knowledge\n" +
+		"- \"в чём разница между INNER JOIN и LEFT JOIN?\" → knowledge\n" +
+		"- \"what are PostgreSQL isolation levels?\" → knowledge\n" +
+		"- \"как работает MVCC?\" → knowledge\n" +
+		"- \"что лучше — UUID или SERIAL для первичного ключа?\" → knowledge\n" +
+		"- \"а чем отличаются эти понятия в принципе?\" → knowledge\n" +
+		"- \"расскажи про типы данных в PostgreSQL\" → knowledge\n" +
+		"- \"what is a CTE?\" → knowledge\n" +
+		"- \"как правильно писать миграции?\" → knowledge\n\n" +
 		"Examples classified as \"conversational\":\n" +
 		"- \"hello\" → conversational\n" +
 		"- \"привет\" → conversational\n" +
@@ -73,7 +92,7 @@ func (s *IntentDetectionStep) Execute(ctx context.Context, pctx *agent.PipelineC
 		"- \"спасибо\" → conversational\n" +
 		"- \"who are you\" → conversational\n" +
 		"- \"расскажи о себе\" → conversational\n\n" +
-		"Respond with ONLY one word: sql or conversational\n\n" +
+		"Respond with ONLY one word: sql, knowledge, or conversational\n\n" +
 		"User message: " + msg
 
 	classifyReq := llm.ChatRequest{
@@ -94,22 +113,28 @@ func (s *IntentDetectionStep) Execute(ctx context.Context, pctx *agent.PipelineC
 		return nil
 	}
 
-	pctx.AddTokens(resp.Usage.TotalTokens)
+	pctx.AddTokensDetailed(resp.Usage)
 	pctx.ModelUsed = resp.Model
 
 	intent := IntentSQL
 	if len(resp.Choices) > 0 {
 		raw := strings.TrimSpace(strings.ToLower(stripThinkingTags(resp.Choices[0].Message.Content)))
-		if raw == "conversational" {
+		switch raw {
+		case "conversational":
 			intent = IntentConversational
+		case "knowledge":
+			intent = IntentKnowledge
 		}
 	}
 
 	pctx.Set(ContextKeyIntent, intent)
 	pctx.Logger.Info("intent detected", zap.String("intent", intent))
 
-	if intent == IntentConversational {
+	switch intent {
+	case IntentConversational:
 		return s.handleConversational(ctx, pctx, model)
+	case IntentKnowledge:
+		return s.handleKnowledge(ctx, pctx, model)
 	}
 
 	return nil
@@ -135,6 +160,43 @@ func (s *IntentDetectionStep) handleConversational(ctx context.Context, pctx *ag
 	resp, err := pctx.StreamLLM(ctx, req)
 	if err != nil {
 		return fmt.Errorf("conversational response failed: %w", err)
+	}
+
+	if len(resp.Choices) > 0 {
+		pctx.Result.Explanation = resp.Choices[0].Message.Content
+	}
+
+	pctx.SkipRemaining = true
+	return nil
+}
+
+// handleKnowledge streams a direct LLM response for conceptual/educational questions.
+// Unlike conversational, this uses schema context and database expertise to give
+// rich, well-structured text answers (markdown tables, examples) WITHOUT generating SQL queries.
+func (s *IntentDetectionStep) handleKnowledge(ctx context.Context, pctx *agent.PipelineContext, model string) error {
+	prompt := "You are an expert PostgreSQL database assistant and teacher.\n" +
+		"The user asked a conceptual or educational question about databases, SQL, or PostgreSQL.\n\n" +
+		"RULES:\n" +
+		"- Answer with clear, well-structured TEXT — use markdown formatting (headers, bullet points, tables).\n" +
+		"- Use markdown tables for comparisons instead of SQL queries.\n" +
+		"- You MAY include short SQL snippets as EXAMPLES to illustrate concepts, but ONLY if they add value.\n" +
+		"- Do NOT generate runnable queries against the user's database. This is a teaching response, not a query.\n" +
+		"- Be concise but thorough. Prefer practical advice over dry theory.\n" +
+		"- If relevant, mention PostgreSQL-specific features and best practices.\n\n" +
+		"IMPORTANT: Always respond in the same language as the user's message. " +
+		"If the user writes in Russian, respond in Russian. If in English, respond in English.\n\n" +
+		"User message: " + pctx.UserMessage
+
+	req := llm.ChatRequest{
+		Model: model,
+		Messages: pctx.MessagesWithHistory(
+			llm.Message{Role: "user", Content: prompt},
+		),
+	}
+
+	resp, err := pctx.StreamLLM(ctx, req)
+	if err != nil {
+		return fmt.Errorf("knowledge response failed: %w", err)
 	}
 
 	if len(resp.Choices) > 0 {

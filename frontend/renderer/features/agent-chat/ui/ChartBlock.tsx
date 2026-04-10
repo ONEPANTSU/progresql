@@ -322,10 +322,14 @@ const LineChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
     return { ...keys, coercedData: coerceNumericData(data, keys.yKeys) };
   }, [data]);
 
+  // Force fresh Recharts instance on data change so animation always plays.
+  const chartKey = useMemo(() => Date.now(), [data]);
+
   return (
     <div style={chartContainerStyle}>
       <ResponsiveContainer width="100%" height={280}>
         <LineChart
+          key={chartKey}
           data={coercedData}
           margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
         >
@@ -352,10 +356,14 @@ const AreaChartView: React.FC<{ data: Record<string, unknown>[]; xLabel?: string
     return { ...keys, coercedData: coerceNumericData(data, keys.yKeys) };
   }, [data]);
 
+  // Force fresh Recharts instance on data change so animation always plays.
+  const chartKey = useMemo(() => Date.now(), [data]);
+
   return (
     <div style={chartContainerStyle}>
       <ResponsiveContainer width="100%" height={280}>
         <AreaChart
+          key={chartKey}
           data={coercedData}
           margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
         >

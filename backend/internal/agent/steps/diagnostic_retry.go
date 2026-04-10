@@ -256,7 +256,7 @@ func (s *DiagnosticRetryStep) regenerateSQL(
 		return "", fmt.Errorf("LLM retry for candidate %d failed: %w", candidateIndex, err)
 	}
 
-	pctx.AddTokens(resp.Usage.TotalTokens)
+	pctx.AddTokensDetailed(resp.Usage)
 	if resp.Model != "" {
 		pctx.ModelUsed = resp.Model
 	}

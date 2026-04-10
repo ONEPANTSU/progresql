@@ -5,269 +5,172 @@ import (
 	"math"
 	"testing"
 
-	"github.com/onepantsu/progressql/backend/internal/exchange"
 	"github.com/onepantsu/progressql/backend/internal/subscription"
 	"go.uber.org/zap"
 )
 
-// testService creates a minimal *Service with a fallback exchange rate (90 RUB/USD)
-// for unit tests that only need calculateCostRUB.
+// testService creates a minimal *Service for unit tests that only need calculateCostUSD.
 func testService() *Service {
 	return &Service{
-		logger:  zap.NewNop(),
-		rateSvc: exchange.NewRateServiceWithRate(90.0),
+		logger: zap.NewNop(),
 	}
 }
-
-// ---------- determineQuotaAction tests ----------
-
-func TestDetermineQuotaAction_FreeUser_BudgetModel_UnderLimit(t *testing.T) {
-	r := determineQuotaAction(
-		subscription.PlanFree, "budget",
-		10_000, 50_000, // budgetUsed, budgetLimit
-		0, 0, // premiumUsed, premiumLimit
-		0, false, // balance, balanceEnabled
-	)
-	if !r.Allowed {
-		t.Fatal("expected Allowed=true for free user under budget limit")
-	}
-	if r.UseBalance {
-		t.Fatal("expected UseBalance=false")
-	}
-	if r.FallbackModelID != "" {
-		t.Fatalf("expected no fallback, got %q", r.FallbackModelID)
-	}
-	if r.RemainingBudget != 40_000 {
-		t.Fatalf("expected RemainingBudget=40000, got %d", r.RemainingBudget)
-	}
-}
-
-func TestDetermineQuotaAction_FreeUser_BudgetModel_OverLimit(t *testing.T) {
-	r := determineQuotaAction(
-		subscription.PlanFree, "budget",
-		50_000, 50_000,
-		0, 0,
-		0, false,
-	)
-	if r.Allowed {
-		t.Fatal("expected Allowed=false for free user with exhausted budget")
-	}
-	if r.UseBalance {
-		t.Fatal("expected UseBalance=false for free user")
-	}
-	if r.Reason == "" {
-		t.Fatal("expected a reason when not allowed")
-	}
-}
-
-func TestDetermineQuotaAction_FreeUser_PremiumModel_Fallback(t *testing.T) {
-	r := determineQuotaAction(
-		subscription.PlanFree, "premium",
-		10_000, 50_000,
-		0, 0,
-		0, false,
-	)
-	if r.Allowed {
-		t.Fatal("expected Allowed=false for free user requesting premium")
-	}
-	if r.FallbackModelID != DefaultBudgetFallbackModel {
-		t.Fatalf("expected fallback to %q, got %q", DefaultBudgetFallbackModel, r.FallbackModelID)
-	}
-}
-
-func TestDetermineQuotaAction_ProUser_BudgetModel_UnderLimit(t *testing.T) {
-	r := determineQuotaAction(
-		subscription.PlanPro, "budget",
-		1_000_000, 5_000_000,
-		0, 200_000,
-		500.0, true,
-	)
-	if !r.Allowed {
-		t.Fatal("expected Allowed=true")
-	}
-	if r.UseBalance {
-		t.Fatal("expected UseBalance=false when under limit")
-	}
-	if r.RemainingBudget != 4_000_000 {
-		t.Fatalf("expected RemainingBudget=4000000, got %d", r.RemainingBudget)
-	}
-}
-
-func TestDetermineQuotaAction_ProUser_BudgetModel_OverLimit_HasBalance(t *testing.T) {
-	r := determineQuotaAction(
-		subscription.PlanPro, "budget",
-		5_000_000, 5_000_000,
-		0, 200_000,
-		100.0, true,
-	)
-	if !r.Allowed {
-		t.Fatal("expected Allowed=true when balance available")
-	}
-	if !r.UseBalance {
-		t.Fatal("expected UseBalance=true when quota exhausted but has balance")
-	}
-}
-
-func TestDetermineQuotaAction_ProUser_BudgetModel_OverLimit_ZeroBalance(t *testing.T) {
-	r := determineQuotaAction(
-		subscription.PlanPro, "budget",
-		5_000_000, 5_000_000,
-		0, 200_000,
-		0, true,
-	)
-	if r.Allowed {
-		t.Fatal("expected Allowed=false with zero balance")
-	}
-	if r.UseBalance {
-		t.Fatal("expected UseBalance=false with zero balance")
-	}
-	if r.Reason == "" {
-		t.Fatal("expected a reason when not allowed")
-	}
-}
-
-func TestDetermineQuotaAction_ProUser_PremiumModel_UnderLimit(t *testing.T) {
-	r := determineQuotaAction(
-		subscription.PlanPro, "premium",
-		1_000_000, 5_000_000,
-		50_000, 200_000,
-		500.0, true,
-	)
-	if !r.Allowed {
-		t.Fatal("expected Allowed=true for pro user under premium limit")
-	}
-	if r.UseBalance {
-		t.Fatal("expected UseBalance=false when under limit")
-	}
-	if r.RemainingPremium != 150_000 {
-		t.Fatalf("expected RemainingPremium=150000, got %d", r.RemainingPremium)
-	}
-}
-
-func TestDetermineQuotaAction_ProUser_PremiumModel_OverLimit_HasBalance(t *testing.T) {
-	r := determineQuotaAction(
-		subscription.PlanPro, "premium",
-		1_000_000, 5_000_000,
-		200_000, 200_000,
-		100.0, true,
-	)
-	if !r.Allowed {
-		t.Fatal("expected Allowed=true when balance available")
-	}
-	if !r.UseBalance {
-		t.Fatal("expected UseBalance=true when premium quota exhausted but has balance")
-	}
-}
-
-func TestDetermineQuotaAction_ProUser_PremiumModel_OverLimit_NoBalance(t *testing.T) {
-	r := determineQuotaAction(
-		subscription.PlanPro, "premium",
-		1_000_000, 5_000_000,
-		200_000, 200_000,
-		0, true,
-	)
-	if r.Allowed && !r.UseBalance {
-		// Should fallback
-	}
-	if r.FallbackModelID != DefaultBudgetFallbackModel {
-		t.Fatalf("expected fallback to %q, got %q", DefaultBudgetFallbackModel, r.FallbackModelID)
-	}
-}
-
-func TestDetermineQuotaAction_ProPlusUser_PremiumModel_UnderLimit(t *testing.T) {
-	r := determineQuotaAction(
-		subscription.PlanProPlus, "premium",
-		2_000_000, 10_000_000,
-		500_000, 1_500_000,
-		1000.0, true,
-	)
-	if !r.Allowed {
-		t.Fatal("expected Allowed=true for pro_plus user under premium limit")
-	}
-	if r.UseBalance {
-		t.Fatal("expected UseBalance=false when under limit")
-	}
-	if r.RemainingPremium != 1_000_000 {
-		t.Fatalf("expected RemainingPremium=1000000, got %d", r.RemainingPremium)
-	}
-}
-
-func TestDetermineQuotaAction_TrialUser_PremiumModel_Fallback(t *testing.T) {
-	r := determineQuotaAction(
-		subscription.PlanTrial, "premium",
-		100_000, 500_000,
-		0, 0,
-		0, false,
-	)
-	if r.Allowed {
-		t.Fatal("expected Allowed=false for trial user requesting premium")
-	}
-	if r.FallbackModelID != DefaultBudgetFallbackModel {
-		t.Fatalf("expected fallback to %q, got %q", DefaultBudgetFallbackModel, r.FallbackModelID)
-	}
-}
-
-func TestDetermineQuotaAction_TrialUser_BudgetModel_UnderLimit(t *testing.T) {
-	r := determineQuotaAction(
-		subscription.PlanTrial, "budget",
-		100_000, 500_000,
-		0, 0,
-		0, false,
-	)
-	if !r.Allowed {
-		t.Fatal("expected Allowed=true for trial user under budget limit")
-	}
-	if r.RemainingBudget != 400_000 {
-		t.Fatalf("expected RemainingBudget=400000, got %d", r.RemainingBudget)
-	}
-}
-
-// ---------- calculateCostRUB tests ----------
 
 func almostEqual(a, b, epsilon float64) bool {
 	return math.Abs(a-b) < epsilon
 }
 
-func TestCalculateCostRUB_KnownModel(t *testing.T) {
-	// qwen/qwen3-coder: input $0.20/M, output $0.60/M
-	// 1000 input + 500 output, 0% markup
-	// Input cost: 1000 * 0.20 / 1_000_000 = 0.0002 USD
-	// Output cost: 500 * 0.60 / 1_000_000 = 0.0003 USD
-	// Total USD: 0.0005
-	// Total RUB: 0.0005 * 90 = 0.045
-	svc := testService()
-	cost := svc.calculateCostRUB(context.Background(), "qwen/qwen3-coder", 1000, 500, 0)
-	expected := 0.045
-	if !almostEqual(cost, expected, 0.0001) {
-		t.Fatalf("expected cost ~%.4f RUB, got %.4f", expected, cost)
+// ---------- IsModelTierAllowed tests (used by CheckRequest logic) ----------
+
+func TestIsModelTierAllowed_FreePlan_BudgetAllowed(t *testing.T) {
+	if !subscription.IsModelTierAllowed(subscription.PlanFree, "budget") {
+		t.Fatal("expected budget tier to be allowed for free plan")
 	}
 }
 
-func TestCalculateCostRUB_UnknownModel(t *testing.T) {
+func TestIsModelTierAllowed_FreePlan_PremiumDenied(t *testing.T) {
+	if subscription.IsModelTierAllowed(subscription.PlanFree, "premium") {
+		t.Fatal("expected premium tier to be denied for free plan")
+	}
+}
+
+func TestIsModelTierAllowed_ProPlan_BudgetAllowed(t *testing.T) {
+	if !subscription.IsModelTierAllowed(subscription.PlanPro, "budget") {
+		t.Fatal("expected budget tier to be allowed for pro plan")
+	}
+}
+
+func TestIsModelTierAllowed_ProPlan_PremiumAllowed(t *testing.T) {
+	if !subscription.IsModelTierAllowed(subscription.PlanPro, "premium") {
+		t.Fatal("expected premium tier to be allowed for pro plan")
+	}
+}
+
+func TestIsModelTierAllowed_TrialNormalizesToFree(t *testing.T) {
+	// "trial" normalizes to "free", so premium should be denied.
+	if subscription.IsModelTierAllowed(subscription.NormalizePlan("trial"), "premium") {
+		t.Fatal("expected premium tier to be denied for trial (normalized to free)")
+	}
+}
+
+func TestIsModelTierAllowed_ProPlusNormalizesToPro(t *testing.T) {
+	// "pro_plus" normalizes to "pro", so premium should be allowed.
+	if !subscription.IsModelTierAllowed(subscription.NormalizePlan("pro_plus"), "premium") {
+		t.Fatal("expected premium tier to be allowed for pro_plus (normalized to pro)")
+	}
+}
+
+func TestIsModelTierAllowed_UnknownTierDenied(t *testing.T) {
+	if subscription.IsModelTierAllowed(subscription.PlanPro, "ultra") {
+		t.Fatal("expected unknown tier 'ultra' to be denied")
+	}
+}
+
+// ---------- calculateCostUSD tests ----------
+
+func TestCalculateCostUSD_KnownModel(t *testing.T) {
+	// qwen/qwen3-coder: input $0.20/M, output $0.60/M
+	// 1000 input + 500 output
+	// Input cost: 1000 * 0.20 / 1_000_000 = 0.0002 USD
+	// Output cost: 500 * 0.60 / 1_000_000 = 0.0003 USD
+	// Total USD: 0.0005
 	svc := testService()
-	cost := svc.calculateCostRUB(context.Background(), "unknown/model-xyz", 1000, 500, 0)
+	cost := svc.calculateCostUSD(context.Background(), "qwen/qwen3-coder", 1000, 500)
+	expected := 0.0005
+	if !almostEqual(cost, expected, 0.00001) {
+		t.Fatalf("expected cost ~%.6f USD, got %.6f", expected, cost)
+	}
+}
+
+func TestCalculateCostUSD_UnknownModel(t *testing.T) {
+	svc := testService()
+	cost := svc.calculateCostUSD(context.Background(), "unknown/model-xyz", 1000, 500)
 	if cost != 0 {
 		t.Fatalf("expected 0 for unknown model, got %f", cost)
 	}
 }
 
-func TestCalculateCostRUB_WithMarkup50(t *testing.T) {
-	// Same as above but 50% markup
-	// 0.045 * 1.50 = 0.0675
+func TestCalculateCostUSD_ZeroTokens(t *testing.T) {
 	svc := testService()
-	cost := svc.calculateCostRUB(context.Background(), "qwen/qwen3-coder", 1000, 500, 50)
-	expected := 0.0675
-	if !almostEqual(cost, expected, 0.0001) {
-		t.Fatalf("expected cost ~%.4f RUB, got %.4f", expected, cost)
+	cost := svc.calculateCostUSD(context.Background(), "qwen/qwen3-coder", 0, 0)
+	if cost != 0 {
+		t.Fatalf("expected 0 for zero tokens, got %f", cost)
 	}
 }
 
-func TestCalculateCostRUB_WithMarkup25(t *testing.T) {
-	// 0.045 * 1.25 = 0.05625
+func TestCalculateCostUSD_PremiumModel(t *testing.T) {
+	// openai/gpt-4.1: input $2.00/M, output $8.00/M
+	// 10000 input + 2000 output
+	// Input cost: 10000 * 2.00 / 1_000_000 = 0.02 USD
+	// Output cost: 2000 * 8.00 / 1_000_000 = 0.016 USD
+	// Total USD: 0.036
 	svc := testService()
-	cost := svc.calculateCostRUB(context.Background(), "qwen/qwen3-coder", 1000, 500, 25)
-	expected := 0.05625
+	cost := svc.calculateCostUSD(context.Background(), "openai/gpt-4.1", 10000, 2000)
+	expected := 0.036
 	if !almostEqual(cost, expected, 0.0001) {
-		t.Fatalf("expected cost ~%.5f RUB, got %.5f", expected, cost)
+		t.Fatalf("expected cost ~%.4f USD, got %.4f", expected, cost)
+	}
+}
+
+func TestCalculateCostUSD_OnlyInputTokens(t *testing.T) {
+	// qwen/qwen3-coder: input $0.20/M
+	// 5000 input, 0 output
+	// Input cost: 5000 * 0.20 / 1_000_000 = 0.001 USD
+	svc := testService()
+	cost := svc.calculateCostUSD(context.Background(), "qwen/qwen3-coder", 5000, 0)
+	expected := 0.001
+	if !almostEqual(cost, expected, 0.00001) {
+		t.Fatalf("expected cost ~%.6f USD, got %.6f", expected, cost)
+	}
+}
+
+func TestCalculateCostUSD_OnlyOutputTokens(t *testing.T) {
+	// qwen/qwen3-coder: output $0.60/M
+	// 0 input, 5000 output
+	// Output cost: 5000 * 0.60 / 1_000_000 = 0.003 USD
+	svc := testService()
+	cost := svc.calculateCostUSD(context.Background(), "qwen/qwen3-coder", 0, 5000)
+	expected := 0.003
+	if !almostEqual(cost, expected, 0.00001) {
+		t.Fatalf("expected cost ~%.6f USD, got %.6f", expected, cost)
+	}
+}
+
+// ---------- LimitsForPlan tests ----------
+
+func TestLimitsForPlan_Free(t *testing.T) {
+	pl := subscription.LimitsForPlan(subscription.PlanFree)
+	if pl.MaxRequestsPerMin != 10 {
+		t.Errorf("MaxRequestsPerMin = %d, want 10", pl.MaxRequestsPerMin)
+	}
+	if pl.AutocompleteEnabled {
+		t.Error("expected AutocompleteEnabled=false for free plan")
+	}
+	if pl.BalanceMarkupPct != 30 {
+		t.Errorf("BalanceMarkupPct = %d, want 30", pl.BalanceMarkupPct)
+	}
+}
+
+func TestLimitsForPlan_Pro(t *testing.T) {
+	pl := subscription.LimitsForPlan(subscription.PlanPro)
+	if pl.MaxRequestsPerMin != 60 {
+		t.Errorf("MaxRequestsPerMin = %d, want 60", pl.MaxRequestsPerMin)
+	}
+	if !pl.AutocompleteEnabled {
+		t.Error("expected AutocompleteEnabled=true for pro plan")
+	}
+	if pl.BalanceMarkupPct != 20 {
+		t.Errorf("BalanceMarkupPct = %d, want 20", pl.BalanceMarkupPct)
+	}
+	if pl.MonthlyCreditsUSD != 15.0 {
+		t.Errorf("MonthlyCreditsUSD = %f, want 15.0", pl.MonthlyCreditsUSD)
+	}
+}
+
+func TestLimitsForPlan_UnknownFallsBackToFree(t *testing.T) {
+	pl := subscription.LimitsForPlan("unknown_plan")
+	freePl := subscription.LimitsForPlan(subscription.PlanFree)
+	if pl.MaxRequestsPerMin != freePl.MaxRequestsPerMin {
+		t.Errorf("unknown plan should fall back to free limits")
 	}
 }

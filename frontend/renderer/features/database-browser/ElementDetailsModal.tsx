@@ -341,7 +341,7 @@ export default function ElementDetailsModal({
   const [enumValues, setEnumValues] = useState<string[]>([]);
   const [enumLoading, setEnumLoading] = useState(false);
 
-  const supportsExplain = ['table', 'function', 'procedure', 'view'].includes(elementType);
+  const supportsExplain = ['table', 'function', 'procedure', 'view', 'type'].includes(elementType);
 
   const getObjectSchema = useCallback((): string => {
     if (!element) return 'public';
@@ -596,6 +596,19 @@ export default function ElementDetailsModal({
         return element.procedure_definition || `-- Procedure: ${element.procedure_name}`;
       case 'view':
         return element.view_definition || `-- View: ${element.view_name}`;
+      case 'type': {
+        const schema = element.schema || 'public';
+        const qn = `${schema}.${element.name}`;
+        const tt = element.typtype || element.type_type || element.type || '';
+        if (tt === 'e' || tt === 'enum' || (Array.isArray(element.enum_values) && element.enum_values.length > 0)) {
+          const vals = (element.enum_values ?? []).map((v: string) => `  '${v}'`).join(',\n');
+          return `CREATE TYPE ${qn} AS ENUM (\n${vals}\n);`;
+        }
+        if (tt === 'd' || tt === 'domain') {
+          return `CREATE DOMAIN ${qn} AS ${element.base_type || 'unknown'};`;
+        }
+        return `-- Type: ${qn} (kind: ${tt || 'composite'})`;
+      }
       default:
         return '';
     }
@@ -1939,7 +1952,7 @@ export default function ElementDetailsModal({
   const renderTypeDetails = () => {
     if (elementType !== 'type' || !element) return null;
 
-    const typeCategory = element.typtype || element.type || 'unknown';
+    const typeCategory = element.type_type || element.typtype || element.type || 'unknown';
     // Always try to load enum values — we may not know the category upfront
     const isEnum = typeCategory === 'enum' || typeCategory === 'e' || enumValues.length > 0;
 
@@ -1963,7 +1976,16 @@ export default function ElementDetailsModal({
                 <TableCell sx={labelCellSx}>Category</TableCell>
                 <TableCell>
                   <Chip
-                    label={isEnum ? 'ENUM' : (typeCategory === 'unknown' ? 'COMPOSITE' : typeCategory.toUpperCase())}
+                    label={
+                      isEnum ? 'ENUM'
+                        : typeCategory === 'd' ? 'DOMAIN'
+                        : typeCategory === 'c' ? 'COMPOSITE'
+                        : typeCategory === 'r' ? 'RANGE'
+                        : typeCategory === 'b' ? 'BASE'
+                        : typeCategory === 'p' ? 'PSEUDO'
+                        : typeCategory === 'unknown' ? 'COMPOSITE'
+                        : typeCategory.toUpperCase()
+                    }
                     size="small"
                     variant="outlined"
                     sx={{

@@ -14,11 +14,16 @@ import {
 } from '@mui/material';
 import {
   Close as CloseIcon,
-  AccountBalanceWallet as WalletIcon,
+  CreditCard as CreditCardIcon,
 } from '@mui/icons-material';
 import { useTranslation } from '@/shared/i18n/LanguageContext';
-import { createPaymentInvoice, fetchBalance } from '@/features/auth/auth';
-import { BalanceInfo } from '@/shared/types';
+import {
+  createPaymentInvoice,
+  fetchUsage,
+  fetchQuota,
+  fetchExchangeRate,
+} from '@/features/auth/auth';
+import { UsageInfo, QuotaInfo } from '@/shared/types';
 
 interface BalanceTopUpModalProps {
   open: boolean;
@@ -28,30 +33,48 @@ interface BalanceTopUpModalProps {
 const PRESET_AMOUNTS = [100, 500, 1000, 5000, 10000] as const;
 const MIN_AMOUNT = 100;
 const MAX_AMOUNT = 50000;
+const DEFAULT_USD_TO_RUB = 90;
+const DEFAULT_MARKUP_PCT = 50;
+
+function formatUsd(n: number): string {
+  if (!isFinite(n)) return '$0.00';
+  if (Math.abs(n) >= 0.01 || n === 0) return `$${n.toFixed(2)}`;
+  return `$${n.toFixed(4)}`;
+}
 
 export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalProps) {
   const { t, language } = useTranslation();
 
-  const [balance, setBalance] = React.useState<BalanceInfo | null>(null);
+  const [usage, setUsage] = React.useState<UsageInfo | null>(null);
+  const [quota, setQuota] = React.useState<QuotaInfo | null>(null);
+  const [usdToRub, setUsdToRub] = React.useState<number>(DEFAULT_USD_TO_RUB);
   const [selectedAmount, setSelectedAmount] = React.useState<number | null>(null);
   const [customAmount, setCustomAmount] = React.useState('');
   const [showCustomInput, setShowCustomInput] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [balanceLoading, setBalanceLoading] = React.useState(false);
+  const [infoLoading, setInfoLoading] = React.useState(false);
 
-  // Fetch current balance when modal opens
+  // Fetch balance, quota (markup) and exchange rate when modal opens
   React.useEffect(() => {
     if (!open) return;
-    setBalanceLoading(true);
+    setInfoLoading(true);
     setError(null);
     setSelectedAmount(null);
     setCustomAmount('');
     setShowCustomInput(false);
-    fetchBalance()
-      .then(setBalance)
-      .catch(() => setBalance(null))
-      .finally(() => setBalanceLoading(false));
+
+    Promise.all([
+      fetchUsage().catch(() => null),
+      fetchQuota().catch(() => null),
+      fetchExchangeRate().catch(() => DEFAULT_USD_TO_RUB),
+    ])
+      .then(([u, q, rate]) => {
+        setUsage(u);
+        setQuota(q);
+        setUsdToRub(rate || DEFAULT_USD_TO_RUB);
+      })
+      .finally(() => setInfoLoading(false));
   }, [open]);
 
   const effectiveAmount = selectedAmount ?? (customAmount ? Number(customAmount) : 0);
@@ -59,6 +82,17 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
     customAmount === '' ||
     (Number(customAmount) >= MIN_AMOUNT && Number(customAmount) <= MAX_AMOUNT && !isNaN(Number(customAmount)));
   const canSubmit = effectiveAmount >= MIN_AMOUNT && effectiveAmount <= MAX_AMOUNT && !loading;
+
+  // Compute USD credits for a given RUB amount accounting for the plan markup.
+  // Formula: rub -> usd via exchange rate, then credits_usd = usd / (1 + markup_pct/100).
+  const computeCreditsUsd = React.useCallback((rubAmount: number): number => {
+    if (!rubAmount || !usdToRub) return 0;
+    const markupPct = quota?.balance_markup_pct ?? DEFAULT_MARKUP_PCT;
+    const usd = rubAmount / usdToRub;
+    return usd / (1 + markupPct / 100);
+  }, [usdToRub, quota]);
+
+  const previewCreditsUsd = computeCreditsUsd(effectiveAmount);
 
   const handlePresetClick = (amount: number) => {
     setSelectedAmount(amount);
@@ -155,35 +189,31 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
       </DialogTitle>
 
       <DialogContent sx={{ pt: 1, pb: 3 }}>
-        {/* Current balance */}
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            mb: 2.5,
-            p: 1.5,
-            borderRadius: 2,
-            bgcolor: 'rgba(99,102,241,0.06)',
-            border: '1px solid',
-            borderColor: 'rgba(99,102,241,0.15)',
-          }}
-        >
-          <WalletIcon sx={{ fontSize: 20, color: '#6366f1' }} />
-          <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-            {t('balance.currentBalance')}:
+        {/* Compact "available" line — the full balance card already lives in SettingsPanel. */}
+        {!infoLoading && usage && (
+          <Typography
+            variant="caption"
+            sx={{
+              display: 'block',
+              color: 'text.secondary',
+              mb: 2,
+              fontSize: '0.75rem',
+            }}
+          >
+            {t('balance.currentBalance')}:{' '}
+            <Box component="span" sx={{ fontWeight: 700, color: '#6366f1' }}>
+              {formatUsd(usage.balance_usd)}
+            </Box>{' '}
+            <Box component="span" sx={{ color: 'text.disabled' }}>
+              {`(≈ ${Math.round(usage.balance_usd * usdToRub)}\u00A0\u20BD)`}
+            </Box>
           </Typography>
-          {balanceLoading ? (
-            <CircularProgress size={16} sx={{ color: '#6366f1', ml: 'auto' }} />
-          ) : (
-            <Typography
-              variant="body2"
-              sx={{ fontWeight: 700, ml: 'auto', color: '#6366f1' }}
-            >
-              {balance ? `${balance.balance.toFixed(2)} ${language === 'ru' ? '\u20BD' : 'RUB'}` : '\u2014'}
-            </Typography>
-          )}
-        </Box>
+        )}
+        {infoLoading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+            <CircularProgress size={16} sx={{ color: '#6366f1' }} />
+          </Box>
+        )}
 
         {/* Select amount label */}
         <Typography
@@ -251,13 +281,44 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
           />
         )}
 
-        {/* Top up button */}
+        {/* Credits preview (USD after markup) */}
+        {effectiveAmount > 0 && isCustomValid && (
+          <Box
+            sx={{
+              mb: 2,
+              p: 1.25,
+              borderRadius: 2,
+              border: '1px dashed',
+              borderColor: 'rgba(139,92,246,0.3)',
+              bgcolor: 'rgba(139,92,246,0.04)',
+            }}
+          >
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.7rem' }}>
+              {language === 'ru' ? 'Вы получите' : "You'll receive"}
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700, color: '#8b5cf6' }}>
+              {language === 'ru'
+                ? `Получите ${formatUsd(previewCreditsUsd)} кредитов`
+                : `${formatUsd(previewCreditsUsd)} credits`}
+            </Typography>
+            {quota && (
+              <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.65rem' }}>
+                {language === 'ru'
+                  ? `наценка ${quota.balance_markup_pct}% • курс ~${usdToRub.toFixed(0)}\u20BD/$`
+                  : `markup ${quota.balance_markup_pct}% • rate ~${usdToRub.toFixed(0)}\u20BD/$`}
+              </Typography>
+            )}
+          </Box>
+        )}
+
+        {/* Top up button — same credit-card icon as the BalanceCard primary CTA */}
         <Box sx={{ mb: 2 }}>
           <Button
             fullWidth
             variant="contained"
             disabled={loading || !canSubmit}
             onClick={() => handleTopUp()}
+            startIcon={!loading ? <CreditCardIcon sx={{ fontSize: 18 }} /> : undefined}
             sx={{
               textTransform: 'none',
               fontWeight: 700,
@@ -265,6 +326,7 @@ export default function BalanceTopUpModal({ open, onClose }: BalanceTopUpModalPr
               fontSize: '1rem',
               color: '#fff',
               background: (loading || !canSubmit) ? undefined : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              '& .MuiButton-startIcon': { mr: 1 },
               '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
             }}
           >

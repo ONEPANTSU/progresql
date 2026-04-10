@@ -94,7 +94,7 @@ type AgentResponsePayload struct {
 
 	// Cost/quota info (populated when quota system is active).
 	ModelTier    string  `json:"model_tier,omitempty"`
-	CostRUB      float64 `json:"cost_rub,omitempty"`
+	CostUSD      float64 `json:"cost_usd,omitempty"`
 	InputTokens  int     `json:"input_tokens,omitempty"`
 	OutputTokens int     `json:"output_tokens,omitempty"`
 }
@@ -155,25 +155,23 @@ const (
 	ErrCodeQuotaExhausted = "quota_exhausted"
 )
 
-// QuotaWarningPayload notifies the client that a quota is running low.
+// QuotaWarningPayload notifies the client that a quota/balance is running low or exhausted.
 type QuotaWarningPayload struct {
-	QuotaType       string `json:"quota_type"`       // "budget" or "premium"
-	UsedTokens      int64  `json:"used_tokens"`
-	LimitTokens     int64  `json:"limit_tokens"`
-	RemainingTokens int64  `json:"remaining_tokens"`
+	BalanceUSD float64 `json:"balance_usd"`
+	Message    string  `json:"message"`
 }
 
 // ModelFallbackPayload notifies the client that the model was switched.
 type ModelFallbackPayload struct {
 	FromModel string `json:"from_model"`
 	ToModel   string `json:"to_model"`
-	Reason    string `json:"reason"` // "quota_exhausted", "balance_depleted"
+	Reason    string `json:"reason"`
 }
 
 // BalanceLowPayload notifies the client that the balance is running low.
 type BalanceLowPayload struct {
 	Balance  float64 `json:"balance"`
-	Currency string  `json:"currency"` // "RUB"
+	Currency string  `json:"currency"` // "USD"
 }
 
 // ParseEnvelope unmarshals raw JSON into an Envelope.

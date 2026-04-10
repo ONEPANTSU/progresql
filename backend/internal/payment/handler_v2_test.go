@@ -11,7 +11,7 @@ func TestResolvePlanPrice(t *testing.T) {
 		expected float64
 	}{
 		{"pro plan price", "pro", 1999.0},
-		{"pro_plus plan price", "pro_plus", 5999.0},
+		{"pro_plus plan price", "pro_plus", 1999.0},
 		{"empty defaults to pro", "", 1999.0},
 		{"unknown defaults to pro", "unknown", 1999.0},
 	}

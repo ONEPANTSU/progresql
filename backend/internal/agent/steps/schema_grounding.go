@@ -181,7 +181,7 @@ func (s *SchemaGroundingStep) handleEmptyDatabase(ctx context.Context, pctx *age
 		if err != nil {
 			return fmt.Errorf("LLM sql generation for empty database failed: %w", err)
 		}
-		pctx.AddTokens(resp.Usage.TotalTokens)
+		pctx.AddTokensDetailed(resp.Usage)
 		pctx.ModelUsed = resp.Model
 
 		if len(resp.Choices) == 0 {
@@ -291,7 +291,7 @@ func (s *SchemaGroundingStep) selectRelevantTables(
 		return tableNames, nil
 	}
 
-	pctx.AddTokens(resp.Usage.TotalTokens)
+	pctx.AddTokensDetailed(resp.Usage)
 	pctx.ModelUsed = resp.Model
 
 	if len(resp.Choices) == 0 {

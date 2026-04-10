@@ -74,7 +74,7 @@ func (s *SQLGenerationStep) Execute(ctx context.Context, pctx *agent.PipelineCon
 		return fmt.Errorf("LLM sql generation failed: %w", err)
 	}
 
-	pctx.AddTokens(resp.Usage.TotalTokens)
+	pctx.AddTokensDetailed(resp.Usage)
 	pctx.ModelUsed = resp.Model
 
 	if len(resp.Choices) == 0 {

@@ -567,8 +567,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
               {message.inputTokens != null && message.outputTokens != null && (
                 <> · {message.inputTokens + message.outputTokens} tok</>
               )}
-              {message.costRUB != null && message.costRUB > 0 && (
-                <> · {message.costRUB.toFixed(2)}₽</>
+              {message.costUSD != null && message.costUSD > 0 && (
+                <> · ${message.costUSD >= 0.01 ? message.costUSD.toFixed(2) : message.costUSD.toFixed(4)}</>
               )}
             </Typography>
           )}

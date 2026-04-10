@@ -27,17 +27,10 @@ func NewChecker(resolver PlanResolver) *Checker {
 	return &Checker{resolver: resolver}
 }
 
-// CheckModel verifies that the user's plan allows the requested model.
-// Returns nil if the model is allowed or AllowedModels is empty (all allowed).
-func (c *Checker) CheckModel(sub *UserSubscription, modelID string) error {
-	limits := sub.Limits()
-	if len(limits.AllowedModels) == 0 {
+// CheckModelTier verifies that the user's plan allows the requested model tier.
+func (c *Checker) CheckModelTier(sub *UserSubscription, modelTier string) error {
+	if IsModelTierAllowed(sub.EffectivePlan(), modelTier) {
 		return nil
-	}
-	for _, m := range limits.AllowedModels {
-		if m == modelID {
-			return nil
-		}
 	}
 	return ErrFeatureNotInPlan
 }

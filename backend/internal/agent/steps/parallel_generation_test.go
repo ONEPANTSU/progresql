@@ -250,7 +250,7 @@ func TestParallelGeneration_CustomCandidatesCount(t *testing.T) {
 			Choices: []llm.Choice{
 				{Index: 0, Message: llm.Message{Role: "assistant", Content: fmt.Sprintf("SELECT %d", idx)}, FinishReason: "stop"},
 			},
-			Usage: llm.Usage{TotalTokens: 20},
+			Usage: llm.Usage{PromptTokens: 15, CompletionTokens: 5, TotalTokens: 20},
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)

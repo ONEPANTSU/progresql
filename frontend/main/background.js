@@ -568,17 +568,35 @@ ipcMain.handle('get-database-structure', async (event, connectionId, database) =
     }
 
     // Get indexes
+    // Indexes: join pg_index for the primary/unique flags and the ordered
+    // column list. We need these because the schema-sync table generator
+    // filters primary-key indexes out of DROP INDEX / CREATE INDEX emission
+    // (they live as constraints instead), and needs is_unique for the
+    // CREATE INDEX vs CREATE UNIQUE INDEX branch.
     let indexesResult;
     try {
       indexesResult = await client.query(`
         SELECT
-          indexname as index_name,
-          tablename as table_name,
-          schemaname as table_schema,
-          indexdef as index_definition
-        FROM pg_indexes
-        WHERE schemaname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
-        ORDER BY tablename, indexname
+          ic.relname AS index_name,
+          t.relname AS table_name,
+          n.nspname AS table_schema,
+          pg_get_indexdef(i.indexrelid) AS index_definition,
+          am.amname AS index_type,
+          i.indisunique AS is_unique,
+          i.indisprimary AS is_primary,
+          false AS is_clustered,
+          (
+            SELECT array_agg(a.attname ORDER BY k.ord)
+            FROM unnest(i.indkey) WITH ORDINALITY AS k(attnum, ord)
+            JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum
+          ) AS columns
+        FROM pg_index i
+        JOIN pg_class ic ON ic.oid = i.indexrelid
+        JOIN pg_class t ON t.oid = i.indrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        JOIN pg_am am ON am.oid = ic.relam
+        WHERE n.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+        ORDER BY n.nspname, t.relname, ic.relname
       `);
     } catch (error) {
       indexesResult = { rows: [] };
@@ -617,25 +635,29 @@ ipcMain.handle('get-database-structure', async (event, connectionId, database) =
     }
 
     // Get triggers
+    // Triggers: use information_schema.triggers because it already exposes
+    // the canonical event_manipulation / action_orientation / action_timing
+    // fields that schema-sync's trigger differ expects. We also keep
+    // table_name / table_schema as aliases for the older callers in the
+    // renderer that still use those names.
     let triggersResult;
     try {
       triggersResult = await client.query(`
         SELECT
-          tgname as trigger_name,
-          c.relname as table_name,
-          n.nspname as table_schema,
-          pg_get_triggerdef(t.oid) as action_statement,
-          CASE
-            WHEN t.tgtype & 66 = 2 THEN 'BEFORE'
-            WHEN t.tgtype & 66 = 64 THEN 'INSTEAD OF'
-            ELSE 'AFTER'
-          END as action_timing
-        FROM pg_trigger t
-        JOIN pg_class c ON t.tgrelid = c.oid
-        JOIN pg_namespace n ON c.relnamespace = n.oid
-        WHERE NOT t.tgisinternal
-          AND n.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
-        ORDER BY c.relname, tgname
+          trigger_name,
+          event_manipulation,
+          event_object_schema,
+          event_object_table,
+          event_object_schema as table_schema,
+          event_object_table as table_name,
+          action_statement,
+          action_timing,
+          action_orientation,
+          action_condition,
+          action_order
+        FROM information_schema.triggers
+        WHERE event_object_schema NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+        ORDER BY event_object_schema, event_object_table, trigger_name, event_manipulation
       `);
     } catch (error) {
       triggersResult = { rows: [] };
@@ -721,7 +743,25 @@ ipcMain.handle('get-database-structure', async (event, connectionId, database) =
       extensionsResult = { rows: [] };
     }
 
-    // Get types
+    // Get types.
+    //
+    // We surface user-defined domains (d), enums (e), composites (c) and
+    // ranges (r) — the four kinds the Explorer sidebar renders with
+    // distinct colour badges. Filters:
+    //
+    //   - typcategory <> 'A'    — skip the implicit _foo array row that
+    //                             Postgres creates alongside every type.
+    //   - NOT EXISTS(pg_class…) — skip composite rowtypes that exist only
+    //                             because a real table / view backs them;
+    //                             we only want standalone `CREATE TYPE …
+    //                             AS (…)` composites here.
+    //
+    // Fields surfaced for each type:
+    //   - enum_values  (text[]) — populated for enums, used by the sidebar
+    //                             tooltip and by schema-sync's enum differ
+    //   - base_type    (text)   — populated for domains (`format_type` on
+    //                             the underlying type), used for "over X"
+    //   - element_type (text)   — populated for ranges, shown as "of X"
     let typesResult;
     try {
       typesResult = await client.query(`
@@ -736,6 +776,14 @@ ipcMain.handle('get-database-structure', async (event, connectionId, database) =
             ELSE NULL
           END as base_type,
           CASE
+            WHEN t.typtype = 'r' THEN (
+              SELECT pg_catalog.format_type(rngsubtype, NULL)
+              FROM pg_catalog.pg_range
+              WHERE rngtypid = t.oid
+            )
+            ELSE NULL
+          END as element_type,
+          CASE
             WHEN t.typtype = 'e' THEN (
               SELECT array_agg(e.enumlabel ORDER BY e.enumsortorder)
               FROM pg_enum e
@@ -747,12 +795,44 @@ ipcMain.handle('get-database-structure', async (event, connectionId, database) =
         JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
         JOIN pg_catalog.pg_roles r ON t.typowner = r.oid
         WHERE n.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
-          AND t.typtype IN ('b', 'c', 'd', 'e', 'p', 'r')
+          AND t.typtype IN ('d', 'e', 'c', 'r')
+          AND t.typcategory <> 'A'
+          AND NOT EXISTS (
+            SELECT 1 FROM pg_catalog.pg_class c
+            WHERE c.reltype = t.oid
+              AND c.relkind IN ('r', 'v', 'm', 'p', 'f', 'i', 'S')
+          )
         ORDER BY n.nspname, t.typname
       `);
     } catch (error) {
       typesResult = { rows: [] };
     }
+
+    // Normalise type rows so the renderer always sees `enum_values` as a
+    // real JS array. node-postgres usually parses `text[]` array_agg results
+    // for us, but because the SELECT wraps it in a CASE expression Postgres
+    // loses the column type annotation and the driver sometimes returns the
+    // raw text literal "{a,b,c}" instead. Fix that here in one place so
+    // both the sidebar and schema-sync's enum differ don't have to guard.
+    typesResult = {
+      ...typesResult,
+      rows: (typesResult.rows || []).map((row) => {
+        let enumValues = row.enum_values;
+        if (typeof enumValues === 'string') {
+          // "{a,b,c}" → ["a","b","c"]. Labels that contain commas/quotes
+          // would need a proper parser, but enum labels in practice are
+          // plain identifiers, so the simple split is good enough.
+          enumValues = enumValues
+            .replace(/^\{|\}$/g, '')
+            .split(',')
+            .map((v) => v.trim().replace(/^"|"$/g, ''))
+            .filter((v) => v.length > 0);
+        } else if (!Array.isArray(enumValues)) {
+          enumValues = null;
+        }
+        return { ...row, enum_values: enumValues };
+      }),
+    };
 
     // Group columns, indexes, constraints, and triggers by table
     const tablesWithDetails = tablesResult.rows.map(table => {
@@ -778,6 +858,10 @@ ipcMain.handle('get-database-structure', async (event, connectionId, database) =
       };
     });
 
+    // schema-sync differs (triggers / indexes) read these arrays from the
+    // top-level DatabaseInfo, so expose the same rows that were nested
+    // under tablesWithDetails. This is a flat view — the per-table nesting
+    // is still preserved via `table.triggers` / `table.indexes`.
     const databaseInfo = {
       name: currentDb,
       schemas: schemasResult.rows,
@@ -788,6 +872,8 @@ ipcMain.handle('get-database-structure', async (event, connectionId, database) =
       sequences: sequencesResult.rows,
       types: typesResult.rows,
       extensions: extensionsResult.rows,
+      indexes: indexesResult.rows,
+      triggers: triggersResult.rows,
       constraints: constraintsResult.rows
     };
 
@@ -797,6 +883,8 @@ ipcMain.handle('get-database-structure', async (event, connectionId, database) =
       actualDb: finalDbResult.rows[0].name,
       tables: tablesResult.rows.length,
       schemas: schemasResult.rows.length,
+      types: typesResult.rows.length,
+      enumTypes: typesResult.rows.filter(r => Array.isArray(r.enum_values)).length,
       tableNames: tablesResult.rows.slice(0, 5).map(r => r.table_name),
     });
     if (constraintsResult.rows.length > 0) {

@@ -230,14 +230,14 @@ describe('auth service', () => {
             email: 'a@b.com',
             name: 'A',
             email_verified: true,
-            plan: 'pro_plus',
+            plan: 'pro',
           },
         }),
       }) as jest.Mock;
 
       const result = await authService.refreshUser();
       expect(result).not.toBeNull();
-      expect(result!.plan).toBe('pro_plus');
+      expect(result!.plan).toBe('pro');
       expect(localStorage.getItem(CURRENT_USER_KEY)).not.toBeNull();
     });
 
@@ -314,11 +314,6 @@ describe('auth service', () => {
       expect(getSubscriptionWarning(user)).toBeNull();
     });
 
-    it('returns "expired" for pro_plus plan with past expiry', () => {
-      const user = makeUser({ plan: 'pro_plus', planExpiresAt: pastDate(5) });
-      expect(getSubscriptionWarning(user)).toBe('expired');
-    });
-
     it('returns "expired" when trial has ended', () => {
       const user = makeUser({ plan: 'free', trialEndsAt: pastDate(1) });
       expect(getSubscriptionWarning(user)).toBe('expired');
@@ -354,16 +349,6 @@ describe('auth service', () => {
 
     it('returns false for pro plan with past expiry', () => {
       const user = makeUser({ plan: 'pro', planExpiresAt: pastDate(1) });
-      expect(isSubscriptionActive(user)).toBe(false);
-    });
-
-    it('returns true for pro_plus plan with future expiry', () => {
-      const user = makeUser({ plan: 'pro_plus', planExpiresAt: futureDate(5) });
-      expect(isSubscriptionActive(user)).toBe(true);
-    });
-
-    it('returns false for pro_plus plan with past expiry', () => {
-      const user = makeUser({ plan: 'pro_plus', planExpiresAt: pastDate(3) });
       expect(isSubscriptionActive(user)).toBe(false);
     });
 

@@ -1,0 +1,34 @@
+services:
+  pg-source:
+    image: postgres:16-alpine
+    container_name: schema-sync-source
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: refdb
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./source-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d refdb"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  pg-target:
+    image: postgres:16-alpine
+    container_name: schema-sync-target
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: livedb
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./target-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d livedb"]
+      interval: 2s
+      timeout: 3s
+      retries: 20

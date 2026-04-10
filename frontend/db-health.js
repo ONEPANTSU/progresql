@@ -16,6 +16,8 @@ const { createLogger } = require('./logger');
 const log = createLogger('DBHealth');
 
 const HEALTH_CHECK_INTERVAL_MS = 30000; // 30 seconds
+const HEALTH_CHECK_RETRIES = 2; // retry before declaring lost
+const HEALTH_CHECK_RETRY_DELAY_MS = 1000; // 1 second between retries
 const MAX_RECONNECT_ATTEMPTS = 10;
 const BASE_RECONNECT_DELAY_MS = 2000;
 const MAX_RECONNECT_DELAY_MS = 60000;
@@ -59,21 +61,35 @@ function startHealthCheck(connectionId) {
       }
       return;
     }
-    try {
-      await client.query('SELECT 1');
-      // Ensure global.dbClient is synced (may have been nulled by error handler)
-      if (!global.dbClient) {
-        global.dbClient = client;
-        log.debug(`Health check: re-synced global.dbClient [${connectionId}]`);
+
+    // Retry SELECT 1 a few times before declaring connection lost —
+    // avoids false positives from transient network blips.
+    let lastErr = null;
+    for (let attempt = 0; attempt <= HEALTH_CHECK_RETRIES; attempt++) {
+      try {
+        await client.query('SELECT 1');
+        // Ensure global.dbClient is synced (may have been nulled by error handler)
+        if (!global.dbClient) {
+          global.dbClient = client;
+          log.debug(`Health check: re-synced global.dbClient [${connectionId}]`);
+        }
+        return; // success — exit early
+      } catch (err) {
+        lastErr = err;
+        if (attempt < HEALTH_CHECK_RETRIES) {
+          log.debug(`Health check attempt ${attempt + 1} failed [${connectionId}]: ${err.message}, retrying in ${HEALTH_CHECK_RETRY_DELAY_MS}ms`);
+          await new Promise(r => setTimeout(r, HEALTH_CHECK_RETRY_DELAY_MS));
+        }
       }
-    } catch (err) {
-      log.warn(`Health check failed [${connectionId}]:`, err.message);
-      global.dbClients.delete(connectionId);
-      if (global.dbClient === client) global.dbClient = null;
-      stopHealthCheck(connectionId);
-      notifyRenderer('db-connection-lost', { connectionId, message: err.message });
-      startAutoReconnect(connectionId);
     }
+
+    // All retries exhausted — connection is truly lost
+    log.warn(`Health check failed after ${HEALTH_CHECK_RETRIES + 1} attempts [${connectionId}]:`, lastErr.message);
+    global.dbClients.delete(connectionId);
+    if (global.dbClient === client) global.dbClient = null;
+    stopHealthCheck(connectionId);
+    notifyRenderer('db-connection-lost', { connectionId, message: lastErr.message });
+    startAutoReconnect(connectionId);
   }, HEALTH_CHECK_INTERVAL_MS);
 }
 
@@ -142,15 +158,14 @@ async function startAutoReconnect(connectionId) {
       });
 
       client.on('error', (err) => {
-        log.error(`Reconnected client error [${connectionId}]:`, err.message);
-        global.dbClients.delete(connectionId);
-        stopHealthCheck(connectionId);
-        notifyRenderer('db-connection-lost', { connectionId, message: err.message });
-        startAutoReconnect(connectionId);
+        // Log but don't immediately tear down — the next health check will
+        // detect a truly dead connection and start the reconnect cascade.
+        // This avoids false-positive reconnect storms from transient errors.
+        log.warn(`Client error [${connectionId}]: ${err.message}`);
       });
 
       client.on('end', () => {
-        log.debug(`Reconnected client ended [${connectionId}]`);
+        log.debug(`Client ended [${connectionId}]`);
         global.dbClients.delete(connectionId);
       });
 
@@ -285,15 +300,11 @@ async function tryImmediateReconnect(connectionId) {
     });
 
     client.on('error', (err) => {
-      log.error(`Reconnected client error [${connectionId}]:`, err.message);
-      global.dbClients.delete(connectionId);
-      stopHealthCheck(connectionId);
-      notifyRenderer('db-connection-lost', { connectionId, message: err.message });
-      startAutoReconnect(connectionId);
+      log.warn(`Client error [${connectionId}]: ${err.message}`);
     });
 
     client.on('end', () => {
-      log.debug(`Reconnected client ended [${connectionId}]`);
+      log.debug(`Client ended [${connectionId}]`);
       global.dbClients.delete(connectionId);
     });
 

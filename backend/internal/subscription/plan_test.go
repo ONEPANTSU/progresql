@@ -11,10 +11,10 @@ func TestValidPlan(t *testing.T) {
 		want bool
 	}{
 		{PlanFree, true},
-		{PlanTrial, true},
+		{Plan("trial"), true},
 		{PlanPro, true},
-		{PlanProPlus, true},
-		{PlanTeam, true},
+		{Plan("pro_plus"), true},
+		{Plan("team"), true},
 		{Plan("enterprise"), false},
 		{Plan(""), false},
 	}
@@ -94,7 +94,7 @@ func TestLimitsForPlan_UnknownFallsBackToFree(t *testing.T) {
 }
 
 func TestDefaultLimits_AllPlansPresent(t *testing.T) {
-	for _, p := range []Plan{PlanFree, PlanTrial, PlanPro, PlanProPlus, PlanTeam} {
+	for _, p := range []Plan{PlanFree, PlanPro} {
 		if _, ok := DefaultLimits[p]; !ok {
 			t.Errorf("DefaultLimits missing plan %q", p)
 		}
@@ -112,73 +112,35 @@ func TestDefaultLimits_ProGreaterThanFree(t *testing.T) {
 	}
 }
 
-func TestQuotaLimitsForPlan_KnownPlans(t *testing.T) {
+func TestNormalizePlan_DeprecatedAliases(t *testing.T) {
 	tests := []struct {
-		plan               Plan
-		wantBudgetTokens   int64
-		wantPremiumTokens  int64
-		wantPeriod         string
-		wantAutocomplete   bool
-		wantBalanceEnabled bool
+		input Plan
+		want  Plan
 	}{
-		{PlanFree, 50_000, 0, "daily", false, true},
-		{PlanTrial, 500_000, 0, "daily", true, true},
-		{PlanPro, 5_000_000, 200_000, "monthly", true, true},
-		{PlanProPlus, 10_000_000, 1_500_000, "monthly", true, true},
+		{Plan("trial"), PlanFree},
+		{Plan("pro_plus"), PlanPro},
+		{Plan("team"), PlanPro},
+		{PlanFree, PlanFree},
+		{PlanPro, PlanPro},
+		{Plan("unknown"), PlanFree},
 	}
 	for _, tt := range tests {
-		t.Run(string(tt.plan), func(t *testing.T) {
-			q := QuotaLimitsForPlan(tt.plan)
-			if q.BudgetTokensLimit != tt.wantBudgetTokens {
-				t.Errorf("BudgetTokensLimit = %d, want %d", q.BudgetTokensLimit, tt.wantBudgetTokens)
-			}
-			if q.PremiumTokensLimit != tt.wantPremiumTokens {
-				t.Errorf("PremiumTokensLimit = %d, want %d", q.PremiumTokensLimit, tt.wantPremiumTokens)
-			}
-			if q.PeriodType != tt.wantPeriod {
-				t.Errorf("PeriodType = %q, want %q", q.PeriodType, tt.wantPeriod)
-			}
-			if q.AutocompleteEnabled != tt.wantAutocomplete {
-				t.Errorf("AutocompleteEnabled = %v, want %v", q.AutocompleteEnabled, tt.wantAutocomplete)
-			}
-			if q.BalanceEnabled != tt.wantBalanceEnabled {
-				t.Errorf("BalanceEnabled = %v, want %v", q.BalanceEnabled, tt.wantBalanceEnabled)
+		t.Run(string(tt.input), func(t *testing.T) {
+			if got := NormalizePlan(tt.input); got != tt.want {
+				t.Errorf("NormalizePlan(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}
 }
 
-func TestQuotaLimitsForPlan_UnknownFallsBackToFree(t *testing.T) {
-	q := QuotaLimitsForPlan(Plan("unknown"))
-	freeQ := QuotaLimitsForPlan(PlanFree)
-	if q.BudgetTokensLimit != freeQ.BudgetTokensLimit {
-		t.Errorf("unknown plan should fall back to free quota limits")
+func TestIsModelTierAllowed(t *testing.T) {
+	if !IsModelTierAllowed(PlanFree, "budget") {
+		t.Error("free plan should allow budget tier")
 	}
-}
-
-func TestDefaultLimits_TrialSameAsFreeRateLimits(t *testing.T) {
-	free := DefaultLimits[PlanFree]
-	trial := DefaultLimits[PlanTrial]
-	if trial.MaxRequestsPerMin != free.MaxRequestsPerMin {
-		t.Errorf("trial MaxRequestsPerMin = %d, want %d (same as free)", trial.MaxRequestsPerMin, free.MaxRequestsPerMin)
+	if IsModelTierAllowed(PlanFree, "premium") {
+		t.Error("free plan should not allow premium tier")
 	}
-	if trial.MaxSessionsConcurrent != free.MaxSessionsConcurrent {
-		t.Errorf("trial MaxSessionsConcurrent = %d, want %d (same as free)", trial.MaxSessionsConcurrent, free.MaxSessionsConcurrent)
-	}
-	if trial.MaxTokensPerRequest != free.MaxTokensPerRequest {
-		t.Errorf("trial MaxTokensPerRequest = %d, want %d (same as free)", trial.MaxTokensPerRequest, free.MaxTokensPerRequest)
-	}
-}
-
-func TestDefaultLimits_ProPlusValues(t *testing.T) {
-	pp := DefaultLimits[PlanProPlus]
-	if pp.MaxRequestsPerMin != 120 {
-		t.Errorf("pro_plus MaxRequestsPerMin = %d, want 120", pp.MaxRequestsPerMin)
-	}
-	if pp.MaxSessionsConcurrent != 5 {
-		t.Errorf("pro_plus MaxSessionsConcurrent = %d, want 5", pp.MaxSessionsConcurrent)
-	}
-	if pp.MaxTokensPerRequest != 32768 {
-		t.Errorf("pro_plus MaxTokensPerRequest = %d, want 32768", pp.MaxTokensPerRequest)
+	if !IsModelTierAllowed(PlanPro, "premium") {
+		t.Error("pro plan should allow premium tier")
 	}
 }

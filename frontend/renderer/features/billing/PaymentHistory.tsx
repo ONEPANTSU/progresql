@@ -72,13 +72,24 @@ function formatPaymentType(type: string, plan: string, lang: string): string {
   if (type === 'balance_topup') {
     return lang === 'ru' ? 'Пополнение баланса' : 'Balance Top-Up';
   }
-  if (plan === 'pro_plus') {
-    return lang === 'ru' ? 'Подписка Pro Plus' : 'Pro Plus Subscription';
-  }
   if (plan === 'pro') {
     return lang === 'ru' ? 'Подписка Pro' : 'Pro Subscription';
   }
   return lang === 'ru' ? 'Платёж' : 'Payment';
+}
+
+/**
+ * Format an amount with the matching currency symbol.
+ * Backend uses ISO codes (RUB/USD) but may send lowercase too.
+ */
+function formatAmount(amount: number, currency: string, lang: string): string {
+  const currencyUpper = (currency || 'RUB').toUpperCase();
+  const formatted = amount.toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+  if (currencyUpper === 'USD') return `$${formatted}`;
+  return `${formatted}\u00A0\u20BD`;
 }
 
 function getStatusColor(status: string): { bg: string; color: string } {
@@ -282,11 +293,7 @@ export default function PaymentHistory({ open, onClose }: PaymentHistoryProps) {
                             {formatPaymentType(p.payment_type, p.plan, language)}
                           </TableCell>
                           <TableCell align="right" sx={{ fontSize: '0.8rem', fontFamily: 'monospace', fontWeight: 600 }}>
-                            {p.amount.toLocaleString(language === 'ru' ? 'ru-RU' : 'en-US', {
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 2,
-                            })}
-                            {'\u00A0'}₽
+                            {formatAmount(p.amount, p.currency, language)}
                           </TableCell>
                           <TableCell>
                             <Chip
@@ -386,8 +393,8 @@ export default function PaymentHistory({ open, onClose }: PaymentHistoryProps) {
             <>
               <Typography variant="body2" sx={{ mb: 1.5 }}>
                 {language === 'ru'
-                  ? `Вы уверены, что хотите оформить возврат на сумму ${refundTarget.amount.toLocaleString('ru-RU')} ₽?`
-                  : `Are you sure you want to refund ${refundTarget.amount.toLocaleString('en-US')} RUB?`}
+                  ? `Вы уверены, что хотите оформить возврат на сумму ${formatAmount(refundTarget.amount, refundTarget.currency, language)}?`
+                  : `Are you sure you want to refund ${formatAmount(refundTarget.amount, refundTarget.currency, language)}?`}
               </Typography>
               <Alert severity="warning" sx={{ mb: 2, fontSize: '0.8rem' }}>
                 {refundTarget.payment_type === 'balance_topup'

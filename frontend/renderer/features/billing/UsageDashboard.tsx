@@ -22,14 +22,12 @@ import {
   Close as CloseIcon,
   TrendingUp as TrendingUpIcon,
   Token as TokenIcon,
-  AttachMoney as MoneyIcon,
   Functions as FunctionsIcon,
 } from '@mui/icons-material';
 import { useTranslation } from '@/shared/i18n/LanguageContext';
 import { fetchUsageHistory, fetchUsage, fetchExchangeRate } from '@/features/auth/auth';
 import { UsageHistoryResponse, UsageInfo } from '@/shared/types';
 import { useModels, formatModelName } from '@/features/billing/useModels';
-import QuotaIndicator from './QuotaIndicator';
 
 interface UsageDashboardProps {
   open: boolean;
@@ -42,6 +40,11 @@ function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return String(n);
+}
+
+function formatUsdPrecise(n: number): string {
+  if (!isFinite(n)) return '$0.0000';
+  return `$${n.toFixed(4)}`;
 }
 
 function formatDate(dateStr: string, lang: string): string {
@@ -81,7 +84,7 @@ function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: s
 }
 
 export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
-  const { t, language } = useTranslation();
+  const { language } = useTranslation();
   const [loading, setLoading] = React.useState(true);
   const [history, setHistory] = React.useState<UsageHistoryResponse | null>(null);
   const [usage, setUsage] = React.useState<UsageInfo | null>(null);
@@ -148,33 +151,27 @@ export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
           </Box>
         ) : (
           <>
-            {/* Current quota */}
+            {/* Spending summary — only the numbers that belong on a "Usage & Spending"
+                page. Balance and plan credits live on the BalanceCard in SettingsPanel. */}
             {usage && (
-              <Box sx={{ mb: 3, border: 1, borderColor: 'divider', borderRadius: 2 }}>
-                <QuotaIndicator usage={usage} />
-              </Box>
-            )}
-
-            {/* Stats cards */}
-            {history?.stats && (
               <Box sx={{ display: 'flex', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
                 <StatCard
-                  icon={<FunctionsIcon sx={{ fontSize: 16, color: '#6366f1' }} />}
-                  label={language === 'ru' ? 'Запросов' : 'Requests'}
-                  value={String(history.stats.total_requests)}
-                  sub={language === 'ru' ? 'всего' : 'total'}
-                />
-                <StatCard
                   icon={<TokenIcon sx={{ fontSize: 16, color: '#f59e0b' }} />}
-                  label={language === 'ru' ? 'Токенов' : 'Tokens'}
-                  value={formatTokens(history.stats.total_tokens)}
-                  sub={`~${formatTokens(history.stats.avg_tokens_per_request)} / ${language === 'ru' ? 'запрос' : 'req'}`}
+                  label={language === 'ru' ? 'Всего потрачено' : 'Total Spent'}
+                  value={formatUsdPrecise(usage.cost_usd_total)}
+                  sub={`≈ ${(usage.cost_usd_total * usdToRub).toFixed(1)}\u00A0\u20BD`}
                 />
                 <StatCard
-                  icon={<MoneyIcon sx={{ fontSize: 16, color: '#10b981' }} />}
-                  label={language === 'ru' ? 'Стоимость' : 'Cost'}
-                  value={`$${history.stats.total_cost_usd.toFixed(4)}`}
-                  sub={`~${(history.stats.total_cost_usd * usdToRub).toFixed(1)}₽ | ~$${history.stats.avg_cost_per_request_usd.toFixed(4)}/${language === 'ru' ? 'запрос' : 'req'}`}
+                  icon={<FunctionsIcon sx={{ fontSize: 16, color: '#10b981' }} />}
+                  label={language === 'ru' ? 'Запросов' : 'Requests'}
+                  value={String(usage.requests_total)}
+                  sub={`${formatTokens(usage.tokens_total)} ${language === 'ru' ? 'токенов' : 'tokens'}`}
+                />
+                <StatCard
+                  icon={<TrendingUpIcon sx={{ fontSize: 16, color: '#6366f1' }} />}
+                  label={language === 'ru' ? 'Средняя стоимость' : 'Avg per Request'}
+                  value={formatUsdPrecise(usage.avg_cost_per_request_usd)}
+                  sub={language === 'ru' ? 'за запрос' : 'per request'}
                 />
               </Box>
             )}
@@ -302,7 +299,7 @@ export default function UsageDashboard({ open, onClose }: UsageDashboardProps) {
                               </Typography>
                             </TableCell>
                             <TableCell align="right" sx={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>
-                              ${r.cost_usd.toFixed(4)}
+                              {formatUsdPrecise(r.cost_usd)}
                             </TableCell>
                           </TableRow>
                         ))}

@@ -42,11 +42,12 @@ func candidateConfigs(n int) []candidateConfig {
 
 // candidateResult holds the result from one parallel LLM call.
 type candidateResult struct {
-	index  int
-	sql    string
-	tokens int
-	model  string
-	err    error
+	index            int
+	sql              string
+	promptTokens     int
+	completionTokens int
+	model            string
+	err              error
 }
 
 // ParallelSQLGenerationStep is step 2 of the generate_sql pipeline.
@@ -107,11 +108,13 @@ func (s *ParallelSQLGenerationStep) Execute(ctx context.Context, pctx *agent.Pip
 
 	// Collect successful candidates.
 	var candidates []string
-	totalTokens := 0
+	totalPrompt := 0
+	totalCompletion := 0
 	lastModel := ""
 
 	for _, r := range results {
-		totalTokens += r.tokens
+		totalPrompt += r.promptTokens
+		totalCompletion += r.completionTokens
 		if r.model != "" {
 			lastModel = r.model
 		}
@@ -125,7 +128,10 @@ func (s *ParallelSQLGenerationStep) Execute(ctx context.Context, pctx *agent.Pip
 		candidates = append(candidates, r.sql)
 	}
 
-	pctx.AddTokens(totalTokens)
+	pctx.AddTokensDetailed(llm.Usage{
+		PromptTokens:     totalPrompt,
+		CompletionTokens: totalCompletion,
+	})
 	if lastModel != "" {
 		pctx.ModelUsed = lastModel
 	}
@@ -137,7 +143,7 @@ func (s *ParallelSQLGenerationStep) Execute(ctx context.Context, pctx *agent.Pip
 	pctx.Logger.Info("parallel SQL generation completed",
 		zap.Int("successful", len(candidates)),
 		zap.Int("total", n),
-		zap.Int("tokens", totalTokens),
+		zap.Int("tokens", totalPrompt+totalCompletion),
 	)
 
 	pctx.Set(ContextKeySQLCandidates, candidates)
@@ -211,9 +217,10 @@ func (s *ParallelSQLGenerationStep) generateCandidate(
 	}
 
 	return candidateResult{
-		index:  idx,
-		sql:    sql,
-		tokens: resp.Usage.TotalTokens,
-		model:  resp.Model,
+		index:            idx,
+		sql:              sql,
+		promptTokens:     resp.Usage.PromptTokens,
+		completionTokens: resp.Usage.CompletionTokens,
+		model:            resp.Model,
 	}
 }

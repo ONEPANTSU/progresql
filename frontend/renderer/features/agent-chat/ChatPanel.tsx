@@ -90,7 +90,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
   const { t } = useTranslation();
   const subscriptionWarning = getSubscriptionWarning(user);
   const isSubscriptionExpired = subscriptionWarning === 'expired';
-  const isPaidPlan = user?.plan === 'pro' || user?.plan === 'pro_plus';
+  const isPaidPlan = user?.plan === 'pro';
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [attachedSQL, setAttachedSQL] = useState<string | null>(null);
@@ -290,7 +290,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
                   )}
                   <IconButton
                     size="small"
-                    onClick={(e) => { e.stopPropagation(); chat.handleDeleteChat(c.id); }}
+                    onClick={(e) => { e.stopPropagation(); agentMessages.cancelChatRequest(c.id); chat.handleDeleteChat(c.id); }}
                     aria-label={`Close chat: ${c.title}`}
                     sx={{
                       p: '1px',

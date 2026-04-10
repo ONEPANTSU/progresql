@@ -28,7 +28,6 @@ import {
   Logout as LogoutIcon,
   Person as PersonIcon,
   Shield as ShieldIcon,
-  WorkspacePremium as PremiumIcon,
   OpenInNew as OpenInNewIcon,
   Translate as TranslateIcon,
   Gavel as GavelIcon,
@@ -43,31 +42,19 @@ import { useAgent } from '@/features/agent-chat/AgentContext';
 import { useTheme } from '@/features/settings/ThemeContext';
 import { useTranslation } from '@/shared/i18n/LanguageContext';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { authService, createPaymentInvoice, getAuthToken } from '@/features/auth/auth';
+import { authService, createPaymentInvoice, getAuthToken, fetchUsage, fetchExchangeRate } from '@/features/auth/auth';
+import type { UsageInfo } from '@/shared/types';
 import { loadBackendUrl } from '@/shared/lib/secureSettingsStorage';
 import { useModels } from '@/features/billing/useModels';
 import PaymentModal from '@/features/billing/PaymentModal';
 import BalanceTopUpModal from '@/features/billing/BalanceTopUpModal';
 import UsageDashboard from '@/features/billing/UsageDashboard';
+import BalanceCard from '@/features/billing/BalanceCard';
 import PaymentHistory from '@/features/billing/PaymentHistory';
 
 interface SettingsPanelProps {
   open: boolean;
   onClose: () => void;
-}
-
-function getTrialDaysRemaining(trialEndsAt?: string): number {
-  if (!trialEndsAt) return 0;
-  const now = new Date();
-  const end = new Date(trialEndsAt);
-  const diff = end.getTime() - now.getTime();
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-}
-
-function formatPlanExpiryCompact(planExpiresAt?: string, lang?: string): string {
-  if (!planExpiresAt) return '';
-  const date = new Date(planExpiresAt);
-  return date.toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'short', day: 'numeric' });
 }
 
 const sectionCardSx = {
@@ -111,9 +98,12 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [currentPrice, setCurrentPrice] = React.useState<number>(1999);
   const [originalPrice, setOriginalPrice] = React.useState<number>(1999);
 
+  // Usage / balance state (Billing v2 — USD credits)
+  const [usage, setUsage] = React.useState<UsageInfo | null>(null);
+
   // Auto-close payment modal when user becomes Pro or Pro Plus (with active subscription)
   React.useEffect(() => {
-    const hasActivePlan = (user?.plan === 'pro' || user?.plan === 'pro_plus')
+    const hasActivePlan = user?.plan === 'pro'
       && user?.planExpiresAt && new Date(user.planExpiresAt) > new Date();
     if (hasActivePlan && paymentModalOpen) {
       setPaymentModalOpen(false);
@@ -148,16 +138,21 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     fetchPrice();
   }, [open, user]);
 
-  const trialDays = getTrialDaysRemaining(user?.trialEndsAt);
-  const isTrialActive = trialDays > 0;
-  const isPro = user?.plan === 'pro' && user?.planExpiresAt && new Date(user.planExpiresAt) > new Date();
-  const isProPlus = user?.plan === 'pro_plus' && user?.planExpiresAt && new Date(user.planExpiresAt) > new Date();
-  const isPaid = isPro || isProPlus;
+  // Fetch USD balance when panel opens. Exchange rate lives inside the
+  // top-up modal now — the balance card itself is USD-only.
+  React.useEffect(() => {
+    if (!open || !user) return;
+    let cancelled = false;
+    fetchUsage()
+      .catch(() => null)
+      .then((u) => {
+        if (!cancelled) setUsage(u);
+      });
+    return () => { cancelled = true; };
+  }, [open, user, balanceTopUpModalOpen]);
 
-  // Expired plan detection
-  const isExpiredPro = user?.plan === 'pro' && user?.planExpiresAt && new Date(user.planExpiresAt) <= new Date();
-  const isExpiredProPlus = user?.plan === 'pro_plus' && user?.planExpiresAt && new Date(user.planExpiresAt) <= new Date();
-  const isExpired = isExpiredPro || isExpiredProPlus;
+  const isPro = !!(user?.plan === 'pro' && user?.planExpiresAt && new Date(user.planExpiresAt) > new Date());
+  const isPaid = isPro;
 
   const openLegalLink = (url: string) => {
     if (window.electronAPI?.openExternal) {
@@ -227,137 +222,90 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       </Box>
 
       <Box sx={{ overflowY: 'auto', flex: 1, mx: -0.5, px: 0.5 }}>
-        {/* Subscription - compact with wrap */}
+        {/* Billing — shares the same visual frame as every other section
+            (LLM Model, Security, Theme, …). The BalanceCard is borderless
+            content that lives inside sectionCardSx. */}
         {user && (
-          <Box sx={{ ...sectionCardSx, pb: 1.25 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-              <PremiumIcon sx={{ fontSize: 16, color: isPaid ? '#a78bfa' : isTrialActive ? '#a78bfa' : isExpired ? 'warning.main' : 'text.disabled' }} />
-              <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
-                {t('settings.subscription')}
-              </Typography>
-              {isProPlus ? (
-                <>
-                  <Chip label="Pro Plus" size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff' }} />
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-                    {language === 'ru' ? 'до' : 'until'} {formatPlanExpiryCompact(user.planExpiresAt, language)}
-                  </Typography>
-                </>
-              ) : isPro ? (
-                <>
-                  <Chip label={t('settings.planPro')} size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff' }} />
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-                    {language === 'ru' ? 'до' : 'until'} {formatPlanExpiryCompact(user.planExpiresAt, language)}
-                  </Typography>
-                </>
-              ) : isExpiredProPlus ? (
-                <>
-                  <Chip label={`Pro Plus ${t('settings.planExpired')}`} size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20, bgcolor: 'rgba(245,158,11,0.15)', color: 'warning.main' }} />
-                  <Typography variant="caption" sx={{ color: 'warning.main', fontSize: '0.7rem' }}>
-                    {language === 'ru' ? 'истекла' : 'expired'} {formatPlanExpiryCompact(user.planExpiresAt, language)}
-                  </Typography>
-                </>
-              ) : isExpiredPro ? (
-                <>
-                  <Chip label={`Pro ${t('settings.planExpired')}`} size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20, bgcolor: 'rgba(245,158,11,0.15)', color: 'warning.main' }} />
-                  <Typography variant="caption" sx={{ color: 'warning.main', fontSize: '0.7rem' }}>
-                    {language === 'ru' ? 'истекла' : 'expired'} {formatPlanExpiryCompact(user.planExpiresAt, language)}
-                  </Typography>
-                </>
-              ) : isTrialActive ? (
-                <>
-                  <Chip label={t('settings.planTrial')} size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff' }} />
-                  <Typography variant="caption" sx={{ color: '#a78bfa', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
-                    {trialDays}{language === 'ru' ? 'д' : 'd'} {language === 'ru' ? 'ост.' : 'left'}
-                  </Typography>
-                </>
-              ) : (
-                <Chip label={t('settings.planFree')} size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20, bgcolor: 'action.selected', color: 'text.secondary' }} />
-              )}
-            </Box>
-            {!isPaid && (
-              <Button
-                variant="contained"
-                fullWidth
-                size="small"
-                onClick={() => setPaymentModalOpen(true)}
-                startIcon={<StarIcon sx={{ fontSize: 14, color: '#fff' }} />}
+          <Box sx={sectionCardSx}>
+            {/* Section header: icon + title on the left, plan chip on the right */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.25 }}>
+              <WalletIcon sx={{ fontSize: 16, color: '#a78bfa' }} />
+              <Typography
+                variant="caption"
                 sx={{
-                  mt: 1,
-                  textTransform: 'none',
                   fontWeight: 700,
-                  fontSize: '0.8rem',
-                  height: 32,
-                  color: '#fff',
-                  background: isExpired
-                    ? 'linear-gradient(135deg, #f59e0b, #f97316)'
-                    : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                  '&:hover': {
-                    background: isExpired
-                      ? 'linear-gradient(135deg, #d97706, #ea580c)'
-                      : 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-                  },
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: 'text.secondary',
+                  flexGrow: 1,
                 }}
               >
-                {isExpired ? t('settings.renewButton') : t('settings.upgradeButton')}
+                {language === 'ru' ? 'Подписка' : 'Subscription'}
+              </Typography>
+              <Chip
+                label={isPro ? 'PRO' : 'FREE'}
+                size="small"
+                sx={{
+                  height: 20,
+                  fontWeight: 800,
+                  fontSize: '0.62rem',
+                  letterSpacing: '0.08em',
+                  color: '#fff',
+                  background: isPro
+                    ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+                    : 'linear-gradient(135deg, #64748b, #475569)',
+                  '& .MuiChip-label': { px: 0.9 },
+                }}
+              />
+            </Box>
+
+            <BalanceCard
+              usage={usage}
+              loading={!usage}
+              onTopUp={() => setBalanceTopUpModalOpen(true)}
+              onManage={isPaid ? undefined : () => setPaymentModalOpen(true)}
+            />
+
+            {/* Secondary actions — fixed 32px, subtly smaller than the 40px
+                primary so the visual hierarchy reads cleanly. */}
+            <Box sx={{ display: 'flex', gap: 0.75, mt: 1.25 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                fullWidth
+                onClick={() => setPaymentHistoryOpen(true)}
+                startIcon={<ReceiptLongIcon sx={{ fontSize: 14 }} />}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.72rem',
+                  height: 32,
+                  borderColor: 'rgba(99,102,241,0.3)',
+                  color: '#6366f1',
+                  '&:hover': { borderColor: '#6366f1', bgcolor: 'rgba(99,102,241,0.06)' },
+                }}
+              >
+                {language === 'ru' ? 'История' : 'History'}
               </Button>
-            )}
-            <Button
-              variant="contained"
-              fullWidth
-              size="small"
-              onClick={() => setBalanceTopUpModalOpen(true)}
-              startIcon={<WalletIcon sx={{ fontSize: 14 }} />}
-              sx={{
-                mt: 1,
-                textTransform: 'none',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                height: 32,
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                color: '#fff',
-                '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
-              }}
-            >
-              {t('balance.topUp')}
-            </Button>
-            <Button
-              variant="outlined"
-              fullWidth
-              size="small"
-              onClick={() => setPaymentHistoryOpen(true)}
-              startIcon={<ReceiptLongIcon sx={{ fontSize: 14 }} />}
-              sx={{
-                mt: 0.75,
-                textTransform: 'none',
-                fontWeight: 600,
-                fontSize: '0.8rem',
-                height: 32,
-                borderColor: 'rgba(99,102,241,0.3)',
-                color: '#6366f1',
-                '&:hover': { borderColor: '#6366f1', bgcolor: 'rgba(99,102,241,0.06)' },
-              }}
-            >
-              {language === 'ru' ? 'История платежей' : 'Payment History'}
-            </Button>
-            <Button
-              variant="outlined"
-              fullWidth
-              size="small"
-              onClick={() => setUsageDashboardOpen(true)}
-              startIcon={<TrendingUpIcon sx={{ fontSize: 14 }} />}
-              sx={{
-                mt: 0.75,
-                textTransform: 'none',
-                fontWeight: 600,
-                fontSize: '0.8rem',
-                height: 32,
-                borderColor: 'rgba(99,102,241,0.3)',
-                color: '#6366f1',
-                '&:hover': { borderColor: '#6366f1', bgcolor: 'rgba(99,102,241,0.06)' },
-              }}
-            >
-              {language === 'ru' ? 'Использование и расходы' : 'Usage & Spending'}
-            </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                fullWidth
+                onClick={() => setUsageDashboardOpen(true)}
+                startIcon={<TrendingUpIcon sx={{ fontSize: 14 }} />}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.72rem',
+                  height: 32,
+                  borderColor: 'rgba(99,102,241,0.3)',
+                  color: '#6366f1',
+                  '&:hover': { borderColor: '#6366f1', bgcolor: 'rgba(99,102,241,0.06)' },
+                }}
+              >
+                {language === 'ru' ? 'Расходы' : 'Spending'}
+              </Button>
+            </Box>
           </Box>
         )}
 
@@ -393,13 +341,13 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               ))}
               {/* Premium Models */}
               <MenuItem disabled sx={{ opacity: 1, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', py: 0.5, mt: 1, minHeight: 'auto', letterSpacing: '0.05em' }}>
-                {language === 'ru' ? 'Премиум модели' : 'Premium Models'} — {(isPro || isProPlus) ? (language === 'ru' ? 'квота / баланс' : 'quota / balance') : (language === 'ru' ? 'только Pro' : 'Pro only')}
+                {language === 'ru' ? 'Премиум модели' : 'Premium Models'} — {isPro ? (language === 'ru' ? 'квота / баланс' : 'quota / balance') : (language === 'ru' ? 'только Pro' : 'Pro only')}
               </MenuItem>
               {premiumModels.map(m => (
-                <MenuItem key={m.id} value={m.id} disabled={!isPro && !isProPlus} sx={{ py: 0.75, opacity: (!isPro && !isProPlus) ? 0.5 : 1 }}>
+                <MenuItem key={m.id} value={m.id} disabled={!isPro} sx={{ py: 0.75, opacity: !isPro ? 0.5 : 1 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
                     <Typography variant="body2" sx={{ fontWeight: 500 }}>{m.name}</Typography>
-                    <Chip label={(!isPro && !isProPlus) ? (language === 'ru' ? 'Pro' : 'Pro') : (language === 'ru' ? 'Прем.' : 'Premium')} size="small" sx={{ fontSize: '0.6rem', height: 16, bgcolor: (!isPro && !isProPlus) ? 'rgba(99,102,241,0.12)' : 'rgba(245,158,11,0.12)', color: (!isPro && !isProPlus) ? '#6366f1' : 'warning.main' }} />
+                    <Chip label={!isPro ? (language === 'ru' ? 'Pro' : 'Pro') : (language === 'ru' ? 'Прем.' : 'Premium')} size="small" sx={{ fontSize: '0.6rem', height: 16, bgcolor: !isPro ? 'rgba(99,102,241,0.12)' : 'rgba(245,158,11,0.12)', color: !isPro ? '#6366f1' : 'warning.main' }} />
                   </Box>
                 </MenuItem>
               ))}
@@ -534,26 +482,24 @@ export default function SettingsPanel({ open, onClose }: SettingsPanelProps) {
           </ToggleButtonGroup>
         </Box>
 
-        {/* Language */}
+        {/* Language — same Select look as the LLM model section for visual rhythm */}
         <Box sx={sectionCardSx}>
           <SectionHeader
             icon={<TranslateIcon sx={{ fontSize: 16, color: '#a78bfa' }} />}
             title={t('settings.language')}
           />
-          <ToggleButtonGroup
-            value={language}
-            exclusive
-            onChange={(_, value) => { if (value) setLanguage(value); }}
-            size="small"
-            fullWidth
-          >
-            <ToggleButton value="en" aria-label="English">
-              English
-            </ToggleButton>
-            <ToggleButton value="ru" aria-label="Russian">
-              Русский
-            </ToggleButton>
-          </ToggleButtonGroup>
+          <FormControl fullWidth size="small">
+            <InputLabel id="settings-language-label">{t('settings.language')}</InputLabel>
+            <Select
+              labelId="settings-language-label"
+              value={language}
+              label={t('settings.language')}
+              onChange={(e) => setLanguage(e.target.value as 'en' | 'ru')}
+            >
+              <MenuItem value="en">English</MenuItem>
+              <MenuItem value="ru">Русский</MenuItem>
+            </Select>
+          </FormControl>
         </Box>
 
         {/* Legal */}

@@ -74,7 +74,7 @@ export interface AgentResponsePayload {
   model_used?: string;
   model_tier?: 'budget' | 'premium';
   tokens_used?: number;
-  cost_rub?: number;
+  cost_usd?: number;
   input_tokens?: number;
   output_tokens?: number;
 }
@@ -263,6 +263,16 @@ export class AgentService {
       return '';
     }
 
+    // Guard against stale WebSocket: state says 'connected' but socket is dead.
+    if (this.ws.readyState !== WebSocket.OPEN) {
+      log.warn('WebSocket is not OPEN (readyState=' + this.ws.readyState + '), triggering reconnect');
+      callbacks.onError?.({ code: 'connection_lost', message: 'Connection lost, reconnecting...' });
+      this.ws = null;
+      this.setConnectionState('reconnecting');
+      this.handleUnexpectedClose(new CloseEvent('close'));
+      return '';
+    }
+
     const requestId = generateRequestId();
 
     this.pendingRequests.set(requestId, callbacks);
@@ -307,6 +317,7 @@ export class AgentService {
    */
   sendAutocomplete(sql: string, cursorPos: number, schemaContext: string, callback: (completion: string) => void, model?: string): void {
     if (!this.ws || this.connectionState !== 'connected') return;
+    if (this.ws.readyState !== WebSocket.OPEN) return;
 
     // Cancel previous autocomplete if pending
     this.cancelAutocomplete();

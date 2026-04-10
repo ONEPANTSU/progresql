@@ -524,6 +524,18 @@ export default function DatabasePanel({
       case 'view': return obj.view_definition;
       case 'function': return obj.routine_definition;
       case 'procedure': return obj.procedure_definition;
+      case 'type': {
+        const schema = obj.schema || 'public';
+        const qn = `${schema}.${obj.name}`;
+        if (obj.type_type === 'e' || (Array.isArray(obj.enum_values) && obj.enum_values.length > 0)) {
+          const vals = (obj.enum_values ?? []).map((v: string) => `  '${v}'`).join(',\n');
+          return `CREATE TYPE ${qn} AS ENUM (\n${vals}\n);`;
+        }
+        if (obj.type_type === 'd') {
+          return `CREATE DOMAIN ${qn} AS ${obj.base_type || 'unknown'}${obj.default_value ? ` DEFAULT ${obj.default_value}` : ''};`;
+        }
+        return `-- Type: ${qn} (kind: ${obj.type_type || 'composite'})`;
+      }
       default: return undefined;
     }
   };
@@ -1480,19 +1492,151 @@ export default function DatabasePanel({
                                 <AccordionDetails sx={{ p: 0 }}>
                                   <List dense disablePadding>
                                     {(schemaDatabase.types?.filter(t => t.schema === schema.schema_name && !t.name.startsWith('_')) || [])
-                                      .map((type, index) => (
-                                        <ListItem key={`${type.name}-${index}`} disablePadding>
-                                          <ListItemButton sx={treeItemSx} onContextMenu={(e) => handleObjectContextMenu(e, type, 'type', schema.schema_name, connection.id)}>
-                                            <ListItemIcon sx={{ minWidth: '18px' }}>
-                                              <TypeIcon sx={{ fontSize: LEAF_ICON_SIZE, color: '#06b6d4' }} />
-                                            </ListItemIcon>
-                                            <ListItemText
-                                              primary={type.name}
-                                              primaryTypographyProps={leafTextProps}
-                                            />
-                                          </ListItemButton>
-                                        </ListItem>
-                                      ))}
+                                      // Group order: enums → composites → domains → ranges → base/pseudo.
+                                      // Inside a group, alphabetical by name.
+                                      .slice()
+                                      .sort((a, b) => {
+                                        const order = (tt?: string) =>
+                                          tt === 'e' ? 0 : tt === 'c' ? 1 : tt === 'd' ? 2 : tt === 'r' ? 3 : 4;
+                                        const oa = order(a.type_type);
+                                        const ob = order(b.type_type);
+                                        return oa !== ob ? oa - ob : a.name.localeCompare(b.name);
+                                      })
+                                      .map((type, index) => {
+                                        // Normalise enum_values into a real JS array. The backend
+                                        // introspector can return this field as either `string[]`
+                                        // (newer IPC) or as a Postgres array-literal string like
+                                        // `{free,pro,enterprise}` (older path), so we coerce here
+                                        // once and reuse the result below. An unexpected non-array
+                                        // non-string value degrades gracefully to `[]`.
+                                        const enumValues: string[] = Array.isArray(type.enum_values)
+                                          ? type.enum_values
+                                          : typeof type.enum_values === 'string'
+                                            ? (type.enum_values as string)
+                                                .replace(/^\{|\}$/g, '')
+                                                .split(',')
+                                                .map((v) => v.trim())
+                                                .filter(Boolean)
+                                            : [];
+
+                                        // Derive a short, colour-coded kind badge + tooltip body
+                                        // from pg_type.typtype. We deliberately surface enum /
+                                        // composite / domain / range separately because users
+                                        // treat them as different object classes even though
+                                        // PG lumps them under pg_type.
+                                        const kindMeta = (() => {
+                                          switch (type.type_type) {
+                                            case 'e':
+                                              return {
+                                                label: 'enum',
+                                                color: '#06b6d4', // cyan (matches parent Types icon)
+                                                iconColor: '#06b6d4',
+                                                summary: `${enumValues.length} values`,
+                                              };
+                                            case 'c':
+                                              return {
+                                                label: 'composite',
+                                                color: '#8b5cf6', // violet
+                                                iconColor: '#8b5cf6',
+                                                summary: 'composite row type',
+                                              };
+                                            case 'd':
+                                              return {
+                                                label: 'domain',
+                                                color: '#10b981', // emerald
+                                                iconColor: '#10b981',
+                                                summary: type.base_type ? `over ${type.base_type}` : 'domain',
+                                              };
+                                            case 'r':
+                                              return {
+                                                label: 'range',
+                                                color: '#3b82f6', // blue
+                                                iconColor: '#3b82f6',
+                                                summary: type.element_type ? `of ${type.element_type}` : 'range',
+                                              };
+                                            case 'm':
+                                              return {
+                                                label: 'multirange',
+                                                color: '#3b82f6',
+                                                iconColor: '#3b82f6',
+                                                summary: type.element_type ? `of ${type.element_type}` : 'multirange',
+                                              };
+                                            case 'p':
+                                              return {
+                                                label: 'pseudo',
+                                                color: '#94a3b8',
+                                                iconColor: '#94a3b8',
+                                                summary: 'pseudo-type',
+                                              };
+                                            default:
+                                              return {
+                                                label: 'base',
+                                                color: '#06b6d4', // cyan (existing default)
+                                                iconColor: '#06b6d4',
+                                                summary: 'base type',
+                                              };
+                                          }
+                                        })();
+
+                                        // Rich tooltip body — owner, base/element type, and
+                                        // the enum values list (truncated to 20 to keep the
+                                        // tooltip readable for very long enums).
+                                        const tooltipLines: string[] = [
+                                          `${type.schema}.${type.name}`,
+                                          `kind: ${kindMeta.label}`,
+                                        ];
+                                        if (type.owner) tooltipLines.push(`owner: ${type.owner}`);
+                                        if (type.type_type === 'd' && type.base_type) {
+                                          tooltipLines.push(`base: ${type.base_type}`);
+                                        }
+                                        if ((type.type_type === 'r' || type.type_type === 'm') && type.element_type) {
+                                          tooltipLines.push(`element: ${type.element_type}`);
+                                        }
+                                        if (type.type_type === 'e' && enumValues.length > 0) {
+                                          const vals = enumValues.slice(0, 20).join(', ');
+                                          const more = enumValues.length > 20 ? ` … (+${enumValues.length - 20})` : '';
+                                          tooltipLines.push(`values: ${vals}${more}`);
+                                        }
+
+                                        return (
+                                          <ListItem key={`${type.name}-${index}`} disablePadding>
+                                            <Tooltip
+                                              title={
+                                                <Box sx={{ whiteSpace: 'pre-line', fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                                                  {tooltipLines.join('\n')}
+                                                </Box>
+                                              }
+                                              placement="right"
+                                              enterDelay={400}
+                                            >
+                                              <ListItemButton sx={treeItemSx} onContextMenu={(e) => handleObjectContextMenu(e, type, 'type', schema.schema_name, connection.id)}>
+                                                <ListItemIcon sx={{ minWidth: '18px' }}>
+                                                  <TypeIcon sx={{ fontSize: LEAF_ICON_SIZE, color: kindMeta.iconColor }} />
+                                                </ListItemIcon>
+                                                <ListItemText
+                                                  primary={type.name}
+                                                  primaryTypographyProps={leafTextProps}
+                                                />
+                                                <Chip
+                                                  label={kindMeta.label}
+                                                  size="small"
+                                                  sx={{
+                                                    height: 14,
+                                                    fontSize: '0.55rem',
+                                                    fontWeight: 600,
+                                                    ml: 0.5,
+                                                    bgcolor: 'transparent',
+                                                    border: '1px solid',
+                                                    borderColor: kindMeta.color,
+                                                    color: kindMeta.color,
+                                                    '& .MuiChip-label': { px: 0.5 },
+                                                  }}
+                                                />
+                                              </ListItemButton>
+                                            </Tooltip>
+                                          </ListItem>
+                                        );
+                                      })}
                                   </List>
                                 </AccordionDetails>
                               </Accordion>
@@ -2038,6 +2182,13 @@ export default function DatabasePanel({
             <ListItemIcon><CopyIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
             {t('db.copyName')}
           </MenuItem>,
+          onExplainObject && <Divider key="div-explain" />,
+          onExplainObject && (
+            <MenuItem key="explain_ai" onClick={() => handleObjectMenuAction('explain_ai')}>
+              <ListItemIcon><AnalyzeIcon sx={{ fontSize: TREE_ICON_SIZE }} /></ListItemIcon>
+              Explain
+            </MenuItem>
+          ),
           <Divider key="div1" />,
           <MenuItem key="drop_type" onClick={() => handleObjectMenuAction('drop_type')} sx={{ color: 'error.main' }}>
             <ListItemIcon><DeleteIcon sx={{ fontSize: TREE_ICON_SIZE, color: 'error.main' }} /></ListItemIcon>
