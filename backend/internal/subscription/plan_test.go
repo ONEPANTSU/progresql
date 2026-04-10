@@ -13,6 +13,7 @@ func TestValidPlan(t *testing.T) {
 		{PlanFree, true},
 		{Plan("trial"), true},
 		{PlanPro, true},
+		{PlanProYearly, true},
 		{Plan("pro_plus"), true},
 		{Plan("team"), true},
 		{Plan("enterprise"), false},
@@ -38,6 +39,8 @@ func TestUserSubscription_IsActive(t *testing.T) {
 		{"pro with future expiry", UserSubscription{Plan: PlanPro, ExpiresAt: &future}, true},
 		{"pro with past expiry", UserSubscription{Plan: PlanPro, ExpiresAt: &past}, false},
 		{"pro with nil expiry", UserSubscription{Plan: PlanPro, ExpiresAt: nil}, false},
+		{"pro_yearly with future expiry", UserSubscription{Plan: PlanProYearly, ExpiresAt: &future}, true},
+		{"pro_yearly with past expiry", UserSubscription{Plan: PlanProYearly, ExpiresAt: &past}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -60,11 +63,13 @@ func TestUserSubscription_EffectivePlan(t *testing.T) {
 		{"free plan", UserSubscription{Plan: PlanFree}, PlanFree},
 		{"active pro", UserSubscription{Plan: PlanPro, ExpiresAt: &future}, PlanPro},
 		{"expired pro falls back to free", UserSubscription{Plan: PlanPro, ExpiresAt: &past}, PlanFree},
+		{"active pro_yearly", UserSubscription{Plan: PlanProYearly, ExpiresAt: &future}, PlanProYearly},
+		{"expired pro_yearly falls back to free", UserSubscription{Plan: PlanProYearly, ExpiresAt: &past}, PlanFree},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.sub.EffectivePlan(); got != tt.want {
-				t.Errorf("EffectivePlan() = %v, want %v", got, tt.want)
+				t.Errorf("EffectivePlan() = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -83,6 +88,12 @@ func TestUserSubscription_Limits(t *testing.T) {
 	if limits.MaxRequestsPerMin != 60 {
 		t.Errorf("pro plan MaxRequestsPerMin = %d, want 60", limits.MaxRequestsPerMin)
 	}
+
+	sub = UserSubscription{Plan: PlanProYearly, ExpiresAt: &future}
+	limits = sub.Limits()
+	if limits.BalanceMarkupPct != 15 {
+		t.Errorf("pro_yearly plan BalanceMarkupPct = %d, want 15", limits.BalanceMarkupPct)
+	}
 }
 
 func TestLimitsForPlan_UnknownFallsBackToFree(t *testing.T) {
@@ -94,7 +105,7 @@ func TestLimitsForPlan_UnknownFallsBackToFree(t *testing.T) {
 }
 
 func TestDefaultLimits_AllPlansPresent(t *testing.T) {
-	for _, p := range []Plan{PlanFree, PlanPro} {
+	for _, p := range []Plan{PlanFree, PlanPro, PlanProYearly} {
 		if _, ok := DefaultLimits[p]; !ok {
 			t.Errorf("DefaultLimits missing plan %q", p)
 		}
@@ -112,6 +123,14 @@ func TestDefaultLimits_ProGreaterThanFree(t *testing.T) {
 	}
 }
 
+func TestDefaultLimits_ProYearlyMarkup(t *testing.T) {
+	pro := DefaultLimits[PlanPro]
+	proYearly := DefaultLimits[PlanProYearly]
+	if proYearly.BalanceMarkupPct >= pro.BalanceMarkupPct {
+		t.Error("pro_yearly should have lower markup than monthly pro")
+	}
+}
+
 func TestNormalizePlan_DeprecatedAliases(t *testing.T) {
 	tests := []struct {
 		input Plan
@@ -122,6 +141,7 @@ func TestNormalizePlan_DeprecatedAliases(t *testing.T) {
 		{Plan("team"), PlanPro},
 		{PlanFree, PlanFree},
 		{PlanPro, PlanPro},
+		{PlanProYearly, PlanProYearly},
 		{Plan("unknown"), PlanFree},
 	}
 	for _, tt := range tests {
@@ -142,5 +162,8 @@ func TestIsModelTierAllowed(t *testing.T) {
 	}
 	if !IsModelTierAllowed(PlanPro, "premium") {
 		t.Error("pro plan should allow premium tier")
+	}
+	if !IsModelTierAllowed(PlanProYearly, "premium") {
+		t.Error("pro_yearly plan should allow premium tier")
 	}
 }

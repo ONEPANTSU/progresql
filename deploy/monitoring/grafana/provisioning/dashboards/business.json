@@ -1,8 +1,8 @@
 {
   "id": null,
   "uid": "progressql-business",
-  "title": "ProgreSQL \u2014 Business Metrics",
-  "description": "User counts, registrations, payments, and subscription metrics",
+  "title": "ProgreSQL — Business Metrics",
+  "description": "User counts, revenue, credits, AI usage, and subscription metrics",
   "tags": [
     "progressql",
     "business"
@@ -43,12 +43,7 @@
   "panels": [
     {
       "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
       "id": 100,
       "title": "Users",
       "type": "row"
@@ -57,41 +52,18 @@
       "id": 1,
       "title": "Total Users",
       "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 0,
-        "y": 1
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#6366f1"
-          },
+          "color": { "mode": "fixed", "fixedColor": "#6366f1" },
           "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#6366f1",
-                "value": null
-              }
-            ]
-          }
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#6366f1", "value": null }] }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
+        "reduceOptions": { "calcs": ["lastNotNull"] },
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
@@ -99,10 +71,7 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
+          "datasource": { "type": "postgres", "uid": "postgres" },
           "rawSql": "SELECT COUNT(*) AS \"Total Users\" FROM users",
           "format": "table",
           "refId": "A"
@@ -111,43 +80,20 @@
     },
     {
       "id": 2,
-      "title": "Pro Users",
+      "title": "Pro Monthly Users",
       "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 8,
-        "y": 1
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#8b5cf6"
-          },
+          "color": { "mode": "fixed", "fixedColor": "#8b5cf6" },
           "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#8b5cf6",
-                "value": null
-              }
-            ]
-          }
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#8b5cf6", "value": null }] }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
+        "reduceOptions": { "calcs": ["lastNotNull"] },
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
@@ -155,11 +101,8 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
-          "rawSql": "SELECT COUNT(*) AS \"Pro Users\" FROM users WHERE plan='pro' AND plan_expires_at > NOW()",
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "rawSql": "SELECT COUNT(*) AS \"Pro Monthly\" FROM users WHERE plan='pro' AND plan_expires_at > NOW()",
           "format": "table",
           "refId": "A"
         }
@@ -167,43 +110,20 @@
     },
     {
       "id": 3,
-      "title": "Trial Users",
+      "title": "Pro Yearly Users",
       "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 16,
-        "y": 1
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#06b6d4"
-          },
+          "color": { "mode": "fixed", "fixedColor": "#06b6d4" },
           "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#06b6d4",
-                "value": null
-              }
-            ]
-          }
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#06b6d4", "value": null }] }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
+        "reduceOptions": { "calcs": ["lastNotNull"] },
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
@@ -211,11 +131,38 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
-          "rawSql": "SELECT COUNT(*) AS \"Trial Users\" FROM users WHERE plan='free' AND trial_ends_at > NOW()",
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "rawSql": "SELECT COUNT(*) AS \"Pro Yearly\" FROM users WHERE plan='pro_yearly' AND plan_expires_at > NOW()",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Active Today",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "#10b981" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#10b981", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "rawSql": "SELECT COUNT(DISTINCT user_id) AS \"Active Today\" FROM token_usage WHERE created_at > NOW() - INTERVAL '24 hours'",
           "format": "table",
           "refId": "A"
         }
@@ -223,148 +170,68 @@
     },
     {
       "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 6
-      },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
       "id": 101,
-      "title": "Growth & Revenue",
+      "title": "Revenue",
       "type": "row"
     },
     {
-      "id": 4,
-      "title": "Registrations (24h)",
-      "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 0,
-        "y": 7
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#10b981"
-          },
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "increase(user_registrations_total[1d])",
-          "legendFormat": "Registrations",
-          "refId": "A"
-        }
-      ]
-    },
-    {
       "id": 5,
-      "title": "Payments Confirmed (30d)",
-      "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 6,
-        "y": 7
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "title": "Revenue by Plan",
+      "description": "Cumulative revenue broken down by plan (pro, pro_yearly, balance_topup)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#f59e0b"
-          },
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#f59e0b",
-                "value": null
-              }
-            ]
+          "unit": "currencyUSD",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 60,
+            "gradientMode": "opacity",
+            "stacking": { "mode": "normal", "group": "A" },
+            "showPoints": "never",
+            "spanNulls": true
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "pro" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#8b5cf6" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "pro_yearly" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#6366f1" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "balance_topup" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#06b6d4" } }]
+          }
+        ]
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "textMode": "auto"
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(payments_total{status=\"confirmed\"}[30d]))",
-          "legendFormat": "Payments",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "increase(revenue_by_plan_total[1h])",
+          "legendFormat": "{{plan}}",
           "refId": "A"
         }
       ]
     },
     {
       "id": 6,
-      "title": "Subscriptions Activated",
+      "title": "Payments by Status",
+      "description": "Payment events by status (created, confirmed, failed)",
       "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 7
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#8b5cf6"
-          },
           "unit": "short",
           "custom": {
             "drawStyle": "line",
@@ -376,82 +243,330 @@
             "spanNulls": true
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "confirmed" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#10b981" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "created" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#f59e0b" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "failed" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ef4444" } }]
+          }
+        ]
       },
       "options": {
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "increase(user_subscriptions_activated_total[1h])",
-          "legendFormat": "Subscriptions activated",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "increase(payments_total[5m])",
+          "legendFormat": "{{status}}",
           "refId": "A"
         }
       ]
     },
     {
       "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 15
-      },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
       "id": 200,
-      "title": "Financials",
+      "title": "Credits & Balance",
       "type": "row"
     },
     {
-      "id": 201,
-      "title": "LLM Cost (30d)",
-      "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 0,
-        "y": 16
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
+      "id": 7,
+      "title": "Credits: Granted vs Used vs Expired",
+      "description": "USD credits granted, consumed, and expired over time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#ef4444"
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Granted" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#10b981" } }]
           },
+          {
+            "matcher": { "id": "byName", "options": "Used" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#8b5cf6" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Expired" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ef4444" } }]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "increase(credits_granted_usd_total[5m])",
+          "legendFormat": "Granted",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "increase(credits_used_usd_total[5m])",
+          "legendFormat": "Used",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "increase(credits_expired_usd_total[5m])",
+          "legendFormat": "Expired",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Balance Charges (beyond credits)",
+      "description": "USD charged from user balance after credits are exhausted",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 50,
+            "gradientMode": "opacity",
+            "stacking": { "mode": "normal", "group": "A" },
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "free" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#f59e0b" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "pro" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#8b5cf6" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "pro_yearly" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#6366f1" } }]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "increase(balance_charged_usd_total[5m])",
+          "legendFormat": "{{plan}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Total Platform Balance",
+      "description": "Sum of all user balances in USD",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "#10b981" },
           "unit": "currencyUSD",
           "decimals": 2,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#ef4444",
-                "value": null
-              }
-            ]
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#10b981", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "total_balance_usd",
+          "legendFormat": "Total Balance",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+      "id": 300,
+      "title": "AI Usage",
+      "type": "row"
+    },
+    {
+      "id": 10,
+      "title": "Requests per Plan",
+      "description": "Agent requests broken down by plan",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 25 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "free" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#f59e0b" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "pro" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#8b5cf6" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "pro_yearly" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#6366f1" } }]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (action) (increase(agent_requests_total[5m]))",
+          "legendFormat": "{{action}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Cost per Request Distribution",
+      "description": "Histogram of individual AI request costs in USD",
+      "type": "histogram",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 25 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "#8b5cf6" },
+          "unit": "currencyUSD",
+          "custom": {
+            "fillOpacity": 60,
+            "gradientMode": "opacity"
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+        "tooltip": { "mode": "single", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "bucketSize": 0,
+        "combine": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(increase(request_cost_usd_bucket[1h])) by (le)",
+          "legendFormat": "{{le}}",
+          "format": "heatmap",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Top Models by Cost",
+      "description": "Models ranked by total cost in USD",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 25 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto", "displayMode": "auto" }
         },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "cost_usd" },
+            "properties": [
+              { "id": "unit", "value": "currencyUSD" },
+              { "id": "decimals", "value": 4 }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "cost_usd", "desc": true }]
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "rawSql": "SELECT model, COUNT(*) as requests, SUM(total_tokens) as tokens, ROUND(SUM(cost_usd)::numeric, 4) as cost_usd FROM token_usage WHERE created_at > NOW() - INTERVAL '30 days' GROUP BY model ORDER BY cost_usd DESC LIMIT 10",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 33 },
+      "id": 400,
+      "title": "Financials",
+      "type": "row"
+    },
+    {
+      "id": 13,
+      "title": "LLM Cost (30d)",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 34 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "#ef4444" },
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#ef4444", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
@@ -459,10 +574,7 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
+          "datasource": { "type": "postgres", "uid": "postgres" },
           "rawSql": "SELECT COALESCE(SUM(cost_usd), 0) as \"LLM Cost ($)\" FROM token_usage WHERE created_at > NOW() - INTERVAL '30 days'",
           "format": "table",
           "refId": "A"
@@ -470,157 +582,22 @@
       ]
     },
     {
-      "id": 202,
-      "title": "LLM Cost / Day",
-      "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 6,
-        "y": 16
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#ef4444"
-          },
-          "unit": "currencyUSD",
-          "decimals": 4,
-          "custom": {
-            "drawStyle": "bars",
-            "lineWidth": 1,
-            "fillOpacity": 40,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "spanNulls": true
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
-          "rawSql": "SELECT DATE(created_at) as time, SUM(cost_usd) as \"Daily Cost\" FROM token_usage WHERE $__timeFilter(created_at) GROUP BY DATE(created_at) ORDER BY 1",
-          "format": "time_series",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 203,
-      "title": "Avg Cost per User (30d)",
-      "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 18,
-        "y": 16
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#f97316"
-          },
-          "unit": "currencyUSD",
-          "decimals": 4,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#f97316",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
-          "rawSql": "SELECT ROUND(COALESCE(SUM(cost_usd) / NULLIF(COUNT(DISTINCT user_id), 0), 0)::numeric, 4) as \"Avg Cost/User\" FROM token_usage WHERE created_at > NOW() - INTERVAL '30 days'",
-          "format": "table",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 204,
+      "id": 14,
       "title": "Revenue (30d)",
       "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 0,
-        "y": 24
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 34 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#10b981"
-          },
+          "color": { "mode": "fixed", "fixedColor": "#10b981" },
           "unit": "currencyUSD",
           "decimals": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          }
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#10b981", "value": null }] }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
+        "reduceOptions": { "calcs": ["lastNotNull"] },
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
@@ -628,10 +605,7 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
+          "datasource": { "type": "postgres", "uid": "postgres" },
           "rawSql": "SELECT COALESCE(SUM(amount), 0) as \"Revenue ($)\" FROM payments WHERE status = 'confirmed' AND created_at > NOW() - INTERVAL '30 days'",
           "format": "table",
           "refId": "A"
@@ -639,48 +613,28 @@
       ]
     },
     {
-      "id": 205,
+      "id": 15,
       "title": "Profit/Loss (30d)",
       "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 6,
-        "y": 24
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 34 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
+          "color": { "mode": "thresholds" },
           "unit": "currencyUSD",
           "decimals": 2,
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {
-                "color": "#ef4444",
-                "value": null
-              },
-              {
-                "color": "#10b981",
-                "value": 0
-              }
+              { "color": "#ef4444", "value": null },
+              { "color": "#10b981", "value": 0 }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
+        "reduceOptions": { "calcs": ["lastNotNull"] },
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
@@ -688,10 +642,7 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
+          "datasource": { "type": "postgres", "uid": "postgres" },
           "rawSql": "SELECT (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'confirmed' AND created_at > NOW() - INTERVAL '30 days') - (SELECT COALESCE(SUM(cost_usd), 0) FROM token_usage WHERE created_at > NOW() - INTERVAL '30 days') as \"Profit/Loss ($)\"",
           "format": "table",
           "refId": "A"
@@ -699,60 +650,32 @@
       ]
     },
     {
-      "id": 206,
+      "id": 16,
       "title": "Top Token Users",
       "type": "table",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 24
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 34 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
       "fieldConfig": {
         "defaults": {
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto"
-          }
+          "custom": { "align": "auto", "displayMode": "auto" }
         },
         "overrides": [
           {
-            "matcher": {
-              "id": "byName",
-              "options": "cost_usd"
-            },
+            "matcher": { "id": "byName", "options": "cost_usd" },
             "properties": [
-              {
-                "id": "unit",
-                "value": "currencyUSD"
-              },
-              {
-                "id": "decimals",
-                "value": 4
-              }
+              { "id": "unit", "value": "currencyUSD" },
+              { "id": "decimals", "value": 4 }
             ]
           }
         ]
       },
       "options": {
         "showHeader": true,
-        "sortBy": [
-          {
-            "displayName": "cost_usd",
-            "desc": true
-          }
-        ]
+        "sortBy": [{ "displayName": "cost_usd", "desc": true }]
       },
       "targets": [
         {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
+          "datasource": { "type": "postgres", "uid": "postgres" },
           "rawSql": "SELECT u.email, COUNT(*) as requests, SUM(t.total_tokens) as tokens, ROUND(SUM(t.cost_usd)::numeric, 4) as cost_usd FROM token_usage t JOIN users u ON t.user_id::text = u.id::text GROUP BY u.email ORDER BY cost_usd DESC LIMIT 10",
           "format": "table",
           "refId": "A"
@@ -760,112 +683,28 @@
       ]
     },
     {
-      "id": 207,
-      "title": "Promo Codes Used (30d)",
-      "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 0,
-        "y": 29
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#a78bfa"
-          },
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#a78bfa",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
-          "rawSql": "SELECT COUNT(*) as \"Promos Applied\" FROM promo_code_uses WHERE applied_at > NOW() - INTERVAL '30 days'",
-          "format": "table",
-          "refId": "A"
-        }
-      ]
-    },
-    {
       "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 34
-      },
-      "id": 300,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
+      "id": 500,
       "title": "Engagement & Retention",
       "type": "row"
     },
     {
-      "id": 301,
-      "title": "DAU (Daily Active Users)",
+      "id": 17,
+      "title": "DAU",
       "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 0,
-        "y": 35
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 43 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#6366f1"
-          },
+          "color": { "mode": "fixed", "fixedColor": "#6366f1" },
           "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#6366f1",
-                "value": null
-              }
-            ]
-          }
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#6366f1", "value": null }] }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
+        "reduceOptions": { "calcs": ["lastNotNull"] },
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
@@ -873,10 +712,7 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
+          "datasource": { "type": "postgres", "uid": "postgres" },
           "rawSql": "SELECT COUNT(DISTINCT user_id) as \"DAU\" FROM token_usage WHERE created_at > NOW() - INTERVAL '1 day'",
           "format": "table",
           "refId": "A"
@@ -884,44 +720,21 @@
       ]
     },
     {
-      "id": 302,
-      "title": "WAU (Weekly Active Users)",
+      "id": 18,
+      "title": "WAU",
       "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 4,
-        "y": 35
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 43 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#8b5cf6"
-          },
+          "color": { "mode": "fixed", "fixedColor": "#8b5cf6" },
           "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#8b5cf6",
-                "value": null
-              }
-            ]
-          }
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#8b5cf6", "value": null }] }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
+        "reduceOptions": { "calcs": ["lastNotNull"] },
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
@@ -929,10 +742,7 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
+          "datasource": { "type": "postgres", "uid": "postgres" },
           "rawSql": "SELECT COUNT(DISTINCT user_id) as \"WAU\" FROM token_usage WHERE created_at > NOW() - INTERVAL '7 days'",
           "format": "table",
           "refId": "A"
@@ -940,44 +750,21 @@
       ]
     },
     {
-      "id": 303,
-      "title": "MAU (Monthly Active Users)",
+      "id": 19,
+      "title": "MAU",
       "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 8,
-        "y": 35
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 43 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#06b6d4"
-          },
+          "color": { "mode": "fixed", "fixedColor": "#06b6d4" },
           "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#06b6d4",
-                "value": null
-              }
-            ]
-          }
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#06b6d4", "value": null }] }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
+        "reduceOptions": { "calcs": ["lastNotNull"] },
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
@@ -985,10 +772,7 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
+          "datasource": { "type": "postgres", "uid": "postgres" },
           "rawSql": "SELECT COUNT(DISTINCT user_id) as \"MAU\" FROM token_usage WHERE created_at > NOW() - INTERVAL '30 days'",
           "format": "table",
           "refId": "A"
@@ -996,156 +780,21 @@
       ]
     },
     {
-      "id": 304,
-      "title": "Avg Requests per User (daily)",
-      "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 12,
-        "y": 35
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#6366f1"
-          },
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#6366f1",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
-          "rawSql": "SELECT ROUND(COUNT(*)::numeric / NULLIF(COUNT(DISTINCT user_id), 0), 1) as \"Avg Req/User\" FROM token_usage WHERE created_at > NOW() - INTERVAL '1 day'",
-          "format": "table",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 305,
-      "title": "Avg Tokens per Request",
-      "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 16,
-        "y": 35
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#8b5cf6"
-          },
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#8b5cf6",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
-          "rawSql": "SELECT ROUND(AVG(total_tokens)::numeric, 0) as \"Avg Tokens/Req\" FROM token_usage WHERE created_at > NOW() - INTERVAL '30 days'",
-          "format": "table",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 306,
+      "id": 20,
       "title": "Retention Rate (week over week)",
       "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 20,
-        "y": 35
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
+      "gridPos": { "h": 5, "w": 4, "x": 12, "y": 43 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#10b981"
-          },
+          "color": { "mode": "fixed", "fixedColor": "#10b981" },
           "unit": "percent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          }
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#10b981", "value": null }] }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
+        "reduceOptions": { "calcs": ["lastNotNull"] },
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
@@ -1153,10 +802,7 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
+          "datasource": { "type": "postgres", "uid": "postgres" },
           "rawSql": "SELECT ROUND(COUNT(DISTINCT this_week.user_id)::numeric * 100 / NULLIF(COUNT(DISTINCT last_week.user_id), 0), 1) as \"Retention %\" FROM (SELECT DISTINCT user_id FROM token_usage WHERE created_at > NOW() - INTERVAL '7 days') this_week JOIN (SELECT DISTINCT user_id FROM token_usage WHERE created_at BETWEEN NOW() - INTERVAL '14 days' AND NOW() - INTERVAL '7 days') last_week ON this_week.user_id = last_week.user_id",
           "format": "table",
           "refId": "A"
@@ -1164,44 +810,22 @@
       ]
     },
     {
-      "id": 307,
-      "title": "Churn Rate (30d)",
+      "id": 21,
+      "title": "ARPU (30d)",
       "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 0,
-        "y": 40
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 43 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#ef4444"
-          },
-          "unit": "percent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#ef4444",
-                "value": null
-              }
-            ]
-          }
+          "color": { "mode": "fixed", "fixedColor": "#10b981" },
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#10b981", "value": null }] }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
+        "reduceOptions": { "calcs": ["lastNotNull"] },
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
@@ -1209,36 +833,22 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
-          "rawSql": "SELECT ROUND(COUNT(*)::numeric * 100 / NULLIF((SELECT COUNT(*) FROM users), 0), 1) as \"Churn %\" FROM users WHERE plan = 'free' AND trial_ends_at < NOW() AND plan_expires_at IS NULL",
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "rawSql": "SELECT ROUND(COALESCE(SUM(p.amount) / NULLIF(COUNT(DISTINCT p.user_id), 0), 0)::numeric, 2) as \"ARPU ($)\" FROM payments p WHERE p.status = 'confirmed' AND p.created_at > NOW() - INTERVAL '30 days'",
           "format": "table",
           "refId": "A"
         }
       ]
     },
     {
-      "id": 308,
+      "id": 22,
       "title": "DAU Over Time",
       "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 16,
-        "x": 4,
-        "y": 40
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
+      "gridPos": { "h": 8, "w": 20, "x": 0, "y": 48 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#6366f1"
-          },
+          "color": { "mode": "fixed", "fixedColor": "#6366f1" },
           "unit": "short",
           "custom": {
             "drawStyle": "line",
@@ -1253,80 +863,14 @@
         "overrides": []
       },
       "options": {
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
+        "tooltip": { "mode": "single", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
       },
       "targets": [
         {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
+          "datasource": { "type": "postgres", "uid": "postgres" },
           "rawSql": "SELECT DATE(created_at) as time, COUNT(DISTINCT user_id) as \"DAU\" FROM token_usage WHERE $__timeFilter(created_at) GROUP BY DATE(created_at) ORDER BY 1",
           "format": "time_series",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 309,
-      "title": "ARPU (Average Revenue Per User)",
-      "type": "stat",
-      "gridPos": {
-        "h": 5,
-        "w": 4,
-        "x": 20,
-        "y": 40
-      },
-      "datasource": {
-        "type": "postgres",
-        "uid": "postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#10b981"
-          },
-          "unit": "currencyUSD",
-          "decimals": 2,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "postgres"
-          },
-          "rawSql": "SELECT ROUND(COALESCE(SUM(p.amount) / NULLIF(COUNT(DISTINCT p.user_id), 0), 0)::numeric, 2) as \"ARPU ($)\" FROM payments p WHERE p.status = 'confirmed' AND p.created_at > NOW() - INTERVAL '30 days'",
-          "format": "table",
           "refId": "A"
         }
       ]

@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/onepantsu/progressql/backend/internal/balance"
+	"github.com/onepantsu/progressql/backend/internal/metrics"
 	"github.com/onepantsu/progressql/backend/internal/subscription"
 )
 
@@ -105,6 +106,8 @@ func (c *Creditor) processFreeUsers(today time.Time) {
 		if err := c.balanceSvc.ExpireDailyCredits(ctx, uid, dailyCredits); err != nil {
 			c.logger.Warn("creditor: expire daily credits failed",
 				zap.String("user_id", uid), zap.Error(err))
+		} else {
+			metrics.CreditsExpiredTotal.WithLabelValues("free").Add(dailyCredits)
 		}
 
 		// Grant new daily credits.
@@ -114,6 +117,7 @@ func (c *Creditor) processFreeUsers(today time.Time) {
 				zap.String("user_id", uid), zap.Error(err))
 			continue
 		}
+		metrics.CreditsGrantedTotal.WithLabelValues("free", "daily").Add(dailyCredits)
 
 		// Update period markers.
 		tomorrow := today.Add(24 * time.Hour)
@@ -138,63 +142,69 @@ func (c *Creditor) processProRenewals(now time.Time) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	limits := subscription.LimitsForPlan(subscription.PlanPro)
-	monthlyCredits := limits.MonthlyCreditsUSD
+	// Process both pro and pro_yearly users.
+	for _, plan := range []subscription.Plan{subscription.PlanPro, subscription.PlanProYearly} {
+		limits := subscription.LimitsForPlan(plan)
+		monthlyCredits := limits.MonthlyCreditsUSD
+		planStr := string(plan)
 
-	// Find Pro users whose credits_period_end has passed (need renewal).
-	rows, err := c.db.Query(ctx,
-		`SELECT id FROM users
-		 WHERE plan = 'pro'
-		   AND plan_expires_at > NOW()
-		   AND (credits_period_end IS NULL OR credits_period_end <= $1)`,
-		now)
-	if err != nil {
-		c.logger.Error("creditor: query pro users failed", zap.Error(err))
-		return
-	}
-	defer rows.Close()
-
-	var userIDs []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			continue
-		}
-		userIDs = append(userIDs, id)
-	}
-
-	for _, uid := range userIDs {
-		// No rollover: expire unused credits from the previous period before
-		// granting new ones. This ensures the user doesn't accumulate months
-		// of unused credits.
-		if err := c.balanceSvc.ExpireDailyCredits(ctx, uid, monthlyCredits); err != nil {
-			c.logger.Warn("creditor: expire pro credits failed",
-				zap.String("user_id", uid), zap.Error(err))
-			// Continue anyway — better to grant new credits than to skip the user.
-		}
-
-		if err := c.balanceSvc.CreditSubscription(ctx, uid, monthlyCredits,
-			fmt.Sprintf("Pro monthly credits: $%.2f", monthlyCredits)); err != nil {
-			c.logger.Warn("creditor: grant monthly credits failed",
-				zap.String("user_id", uid), zap.Error(err))
-			continue
-		}
-
-		// Set next period: 30 days from now.
-		periodStart := now
-		periodEnd := now.Add(30 * 24 * time.Hour)
-		_, err := c.db.Exec(ctx,
-			`UPDATE users SET credits_period_start = $1, credits_period_end = $2 WHERE id = $3`,
-			periodStart, periodEnd, uid)
+		rows, err := c.db.Query(ctx,
+			`SELECT id FROM users
+			 WHERE plan = $1
+			   AND plan_expires_at > NOW()
+			   AND (credits_period_end IS NULL OR credits_period_end <= $2)`,
+			planStr, now)
 		if err != nil {
-			c.logger.Warn("creditor: update pro period failed",
-				zap.String("user_id", uid), zap.Error(err))
+			c.logger.Error("creditor: query pro users failed",
+				zap.String("plan", planStr), zap.Error(err))
+			continue
 		}
-	}
 
-	if len(userIDs) > 0 {
-		c.logger.Info("creditor: processed pro renewals",
-			zap.Int("count", len(userIDs)),
-			zap.Float64("monthly_credits", monthlyCredits))
+		var userIDs []string
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				continue
+			}
+			userIDs = append(userIDs, id)
+		}
+		rows.Close()
+
+		for _, uid := range userIDs {
+			// No rollover: expire unused credits from the previous period before
+			// granting new ones.
+			if err := c.balanceSvc.ExpireDailyCredits(ctx, uid, monthlyCredits); err != nil {
+				c.logger.Warn("creditor: expire pro credits failed",
+					zap.String("user_id", uid), zap.Error(err))
+			} else {
+				metrics.CreditsExpiredTotal.WithLabelValues(planStr).Add(monthlyCredits)
+			}
+
+			if err := c.balanceSvc.CreditSubscription(ctx, uid, monthlyCredits,
+				fmt.Sprintf("Pro monthly credits: $%.2f", monthlyCredits)); err != nil {
+				c.logger.Warn("creditor: grant monthly credits failed",
+					zap.String("user_id", uid), zap.Error(err))
+				continue
+			}
+			metrics.CreditsGrantedTotal.WithLabelValues(planStr, "monthly").Add(monthlyCredits)
+
+			// Set next period: 30 days from now.
+			periodStart := now
+			periodEnd := now.Add(30 * 24 * time.Hour)
+			_, err := c.db.Exec(ctx,
+				`UPDATE users SET credits_period_start = $1, credits_period_end = $2 WHERE id = $3`,
+				periodStart, periodEnd, uid)
+			if err != nil {
+				c.logger.Warn("creditor: update pro period failed",
+					zap.String("user_id", uid), zap.Error(err))
+			}
+		}
+
+		if len(userIDs) > 0 {
+			c.logger.Info("creditor: processed pro renewals",
+				zap.String("plan", planStr),
+				zap.Int("count", len(userIDs)),
+				zap.Float64("monthly_credits", monthlyCredits))
+		}
 	}
 }
