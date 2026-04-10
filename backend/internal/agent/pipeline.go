@@ -54,6 +54,8 @@ type PipelineContext struct {
 	Model            string
 	SecurityMode     string // "safe", "data", or "execute". Default: "safe".
 	Language         string // User's UI language: "ru" or "en".
+	ConnectionID     string // which saved connection to query
+	Database         string // selected database name
 
 	// ConversationHistory holds previous user/assistant messages for multi-turn context.
 	ConversationHistory []llm.Message
@@ -393,6 +395,8 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		pctx.ActiveTable = payload.Context.ActiveTable
 		pctx.UserDescriptions = payload.Context.UserDescriptions
 		pctx.Language = payload.Context.Language
+		pctx.ConnectionID = payload.Context.ConnectionID
+		pctx.Database = payload.Context.Database
 	}
 	pctx.SecurityMode = resolveSecurityMode(payload.Context)
 	if pctx.Language == "" {

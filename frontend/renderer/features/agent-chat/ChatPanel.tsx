@@ -125,6 +125,11 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
     connectionId: chatConnectionId ?? null,
   });
 
+  // Keep tool call handler's connectionId in sync with the chat's connection
+  useEffect(() => {
+    agent.setToolConnectionId(chatConnectionId ?? null);
+  }, [chatConnectionId]);
+
   // Stamp active chat with connectionId when it doesn't have one yet
   useEffect(() => {
     if (chat.activeChatId && activeConnection?.id) {

@@ -12,6 +12,7 @@ export interface ToolRequest {
   requestId: string;
   toolName: string;
   arguments: Record<string, unknown>;
+  connectionId?: string;
 }
 
 /** Database connection config for connectDatabase IPC call. */
