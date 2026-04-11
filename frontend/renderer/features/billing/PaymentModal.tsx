@@ -60,6 +60,8 @@ export default function PaymentModal({
   const [promoSuccess, setPromoSuccess] = React.useState<string | null>(null);
   const [promoError, setPromoError] = React.useState<string | null>(null);
   const [proPrice, setProPrice] = React.useState(1999);
+  const [proYearlyPrice, setProYearlyPrice] = React.useState(19990);
+  const [selectedPlan, setSelectedPlan] = React.useState<'pro' | 'pro_yearly'>('pro');
   const [monthlyCreditsUsd, setMonthlyCreditsUsd] = React.useState<number>(PRO_FEATURES.monthlyCreditsUsd);
 
   // Fetch prices from API
@@ -76,6 +78,7 @@ export default function PaymentModal({
           const data = await resp.json();
           for (const plan of data.plans || []) {
             if (plan.plan === 'pro') setProPrice(plan.price);
+            if (plan.plan === 'pro_yearly') setProYearlyPrice(plan.price);
           }
         }
       } catch {
@@ -159,54 +162,117 @@ export default function PaymentModal({
 
       <DialogContent sx={{ pt: 1, pb: 3 }}>
 
-        {/* Pro Plan Card */}
-        <Box
-          sx={{
-            p: 2,
-            mb: 2.5,
-            borderRadius: 2,
-            border: '2px solid #6366f1',
-            position: 'relative',
-            background: 'linear-gradient(135deg, rgba(99,102,241,0.05), rgba(139,92,246,0.05))',
-          }}
-        >
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>Pro</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-            <Typography sx={{ fontSize: '2rem', fontWeight: 800, color: '#6366f1', lineHeight: 1 }}>
-              {proPrice}₽
+        {/* Plan selection: two cards side by side */}
+        <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5 }}>
+          {/* Monthly card */}
+          <Box
+            onClick={() => setSelectedPlan('pro')}
+            sx={{
+              flex: 1,
+              p: 2,
+              borderRadius: 2,
+              border: selectedPlan === 'pro' ? '2px solid #6366f1' : '2px solid',
+              borderColor: selectedPlan === 'pro' ? '#6366f1' : 'divider',
+              position: 'relative',
+              cursor: 'pointer',
+              background: selectedPlan === 'pro'
+                ? 'linear-gradient(135deg, rgba(99,102,241,0.05), rgba(139,92,246,0.05))'
+                : 'transparent',
+              transition: 'all 0.2s',
+              '&:hover': { borderColor: '#6366f1' },
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+              {language === 'ru' ? 'Ежемесячно' : 'Monthly'}
             </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {language === 'ru' ? '/мес' : '/month'}
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+              <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, color: '#6366f1', lineHeight: 1 }}>
+                {proPrice}₽
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {language === 'ru' ? '/мес' : '/mo'}
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Yearly card */}
+          <Box
+            onClick={() => setSelectedPlan('pro_yearly')}
+            sx={{
+              flex: 1,
+              p: 2,
+              borderRadius: 2,
+              border: selectedPlan === 'pro_yearly' ? '2px solid #10b981' : '2px solid',
+              borderColor: selectedPlan === 'pro_yearly' ? '#10b981' : 'divider',
+              position: 'relative',
+              cursor: 'pointer',
+              background: selectedPlan === 'pro_yearly'
+                ? 'linear-gradient(135deg, rgba(16,185,129,0.05), rgba(5,150,105,0.05))'
+                : 'transparent',
+              transition: 'all 0.2s',
+              '&:hover': { borderColor: '#10b981' },
+            }}
+          >
+            {/* Savings badge */}
+            <Box sx={{
+              position: 'absolute',
+              top: -10,
+              right: 8,
+              bgcolor: '#10b981',
+              color: '#fff',
+              px: 1,
+              py: 0.2,
+              borderRadius: 1,
+              fontSize: '0.65rem',
+              fontWeight: 700,
+            }}>
+              {language === 'ru' ? 'Экономия 17%' : 'Save 17%'}
+            </Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+              {language === 'ru' ? 'Ежегодно' : 'Yearly'}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+              <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, color: '#10b981', lineHeight: 1 }}>
+                {proYearlyPrice}₽
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {language === 'ru' ? '/год' : '/yr'}
+              </Typography>
+            </Box>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
+              ~{Math.round(proYearlyPrice / 12)}₽{language === 'ru' ? '/мес' : '/mo'}
             </Typography>
           </Box>
-          <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <FeatureLine
-              text={language === 'ru'
-                ? `$${monthlyCreditsUsd.toFixed(2)} кредитов ежемесячно`
-                : `$${monthlyCreditsUsd.toFixed(2)} credits per month`}
-              highlight
-            />
-            <FeatureLine
-              text={language === 'ru'
-                ? 'Доступ к премиум моделям (Claude, GPT-4.1, o4)'
-                : 'Premium models access (Claude, GPT-4.1, o4)'}
-            />
-            <FeatureLine
-              text={language === 'ru'
-                ? `${PRO_FEATURES.requestsPerMin} запросов в минуту`
-                : `${PRO_FEATURES.requestsPerMin} requests per minute`}
-            />
-            <FeatureLine
-              text={language === 'ru'
-                ? 'AI-автодополнение в редакторе'
-                : 'AI autocomplete in editor'}
-            />
-            <FeatureLine
-              text={language === 'ru'
-                ? `Пополнение баланса (наценка ${PRO_FEATURES.markupPct}%)`
-                : `Balance top-ups (${PRO_FEATURES.markupPct}% markup)`}
-            />
-          </Box>
+        </Box>
+
+        {/* Features list */}
+        <Box sx={{ mb: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <FeatureLine
+            text={language === 'ru'
+              ? `$${monthlyCreditsUsd.toFixed(2)} кредитов ежемесячно`
+              : `$${monthlyCreditsUsd.toFixed(2)} credits per month`}
+            highlight
+          />
+          <FeatureLine
+            text={language === 'ru'
+              ? 'Доступ к премиум моделям (Claude, GPT-4.1, o4)'
+              : 'Premium models access (Claude, GPT-4.1, o4)'}
+          />
+          <FeatureLine
+            text={language === 'ru'
+              ? `${PRO_FEATURES.requestsPerMin} запросов в минуту`
+              : `${PRO_FEATURES.requestsPerMin} requests per minute`}
+          />
+          <FeatureLine
+            text={language === 'ru'
+              ? 'AI-автодополнение в редакторе'
+              : 'AI autocomplete in editor'}
+          />
+          <FeatureLine
+            text={language === 'ru'
+              ? `Пополнение баланса (наценка ${selectedPlan === 'pro_yearly' ? '15' : PRO_FEATURES.markupPct}%)`
+              : `Balance top-ups (${selectedPlan === 'pro_yearly' ? '15' : PRO_FEATURES.markupPct}% markup)`}
+          />
         </Box>
 
         {/* Pay button */}
@@ -215,21 +281,27 @@ export default function PaymentModal({
             fullWidth
             variant="contained"
             disabled={paymentLoading}
-            onClick={() => onSelectMethod('card', 'pro')}
+            onClick={() => onSelectMethod('card', selectedPlan)}
             sx={{
               textTransform: 'none',
               fontWeight: 700,
               py: 1.5,
               fontSize: '1rem',
               color: '#fff',
-              background: paymentLoading ? undefined : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
+              background: paymentLoading ? undefined : selectedPlan === 'pro_yearly'
+                ? 'linear-gradient(135deg, #10b981, #059669)'
+                : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              '&:hover': { background: selectedPlan === 'pro_yearly'
+                ? 'linear-gradient(135deg, #059669, #047857)'
+                : 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
             }}
           >
             {paymentLoading ? (
               <CircularProgress size={22} sx={{ color: '#fff' }} />
             ) : (
-              language === 'ru' ? 'Оплатить' : 'Pay'
+              language === 'ru'
+                ? `Оплатить ${selectedPlan === 'pro_yearly' ? proYearlyPrice : proPrice}₽`
+                : `Pay ${selectedPlan === 'pro_yearly' ? proYearlyPrice : proPrice}₽`
             )}
           </Button>
         </Box>
