@@ -20,13 +20,17 @@ import (
 // Plan prices in RUB.
 const (
 	PriceProRUB     = 1999.0
-	PriceProPlusRUB = 1999.0 // deprecated: alias for Pro
-	MinBalanceTopUp = 100.0
-	MaxBalanceTopUp = 50000.0
+	PriceProPlusRUB   = 1999.0  // deprecated: alias for Pro
+	PriceProYearlyRUB = 19990.0 // yearly plan (~1666₽/month)
+	MinBalanceTopUp   = 100.0
+	MaxBalanceTopUp   = 50000.0
 )
 
 // resolvePlanPrice returns the price in RUB for the given subscription plan.
 func resolvePlanPrice(plan string) float64 {
+	if plan == "pro_yearly" {
+		return PriceProYearlyRUB
+	}
 	return PriceProRUB
 }
 
@@ -66,7 +70,18 @@ func parseOrderPayload(payload string) (*orderPayloadResult, error) {
 	// Subscription: sub_<plan>_<userID>
 	if strings.HasPrefix(payload, "sub_") {
 		rest := payload[4:]
-		// Handle pro_plus first (contains underscore in plan name).
+		// Handle multi-word plans first (those containing underscores).
+		if strings.HasPrefix(rest, "pro_yearly_") {
+			userID := rest[11:] // len("pro_yearly_") = 11
+			if userID == "" {
+				return nil, fmt.Errorf("invalid subscription payload: empty user ID")
+			}
+			return &orderPayloadResult{
+				PaymentType: "subscription",
+				Plan:        "pro_yearly",
+				UserID:      userID,
+			}, nil
+		}
 		if strings.HasPrefix(rest, "pro_plus_") {
 			userID := rest[9:] // len("pro_plus_") = 9
 			if userID == "" {
@@ -199,9 +214,9 @@ func CreateInvoiceHandlerV2(client *PlategaClient, userStore *auth.UserStore, db
 		switch reqBody.PaymentType {
 		case "subscription":
 			// Validate plan.
-			if reqBody.Plan != "pro" && reqBody.Plan != "pro_plus" {
+			if reqBody.Plan != "pro" && reqBody.Plan != "pro_plus" && reqBody.Plan != "pro_yearly" {
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(errorResponse{Error: "invalid plan: must be 'pro' or 'pro_plus'"})
+				json.NewEncoder(w).Encode(errorResponse{Error: "invalid plan: must be 'pro', 'pro_plus', or 'pro_yearly'"})
 				return
 			}
 			invoiceAmount = resolvePlanPrice(reqBody.Plan)
@@ -373,7 +388,11 @@ func WebhookHandlerV2(planUpdater PlanUpdater, balanceSvc BalanceTopUpHandler, d
 
 		switch parsed.PaymentType {
 		case "subscription":
-			expiresAt := time.Now().UTC().Add(30 * 24 * time.Hour).Format(time.RFC3339)
+			duration := 30 * 24 * time.Hour // monthly
+			if parsed.Plan == "pro_yearly" {
+				duration = 365 * 24 * time.Hour
+			}
+			expiresAt := time.Now().UTC().Add(duration).Format(time.RFC3339)
 
 			if err := planUpdater.SetPlan(parsed.UserID, parsed.Plan, &expiresAt); err != nil {
 				log.Error("failed to update user plan",
@@ -457,6 +476,11 @@ func PriceHandlerV2(db *pgxpool.Pool) http.HandlerFunc {
 			proPrice = applyDiscount(r.Context(), db, userID, PriceProRUB)
 		}
 
+		proYearlyPrice := PriceProYearlyRUB
+		if userID != "" {
+			proYearlyPrice = applyDiscount(r.Context(), db, userID, PriceProYearlyRUB)
+		}
+
 		json.NewEncoder(w).Encode(pricesResponse{
 			Plans: []planPrice{
 				{
@@ -465,6 +489,13 @@ func PriceHandlerV2(db *pgxpool.Pool) http.HandlerFunc {
 					OriginalPrice: PriceProRUB,
 					Currency:      "RUB",
 					Period:        "month",
+				},
+				{
+					Plan:          "pro_yearly",
+					Price:         proYearlyPrice,
+					OriginalPrice: PriceProYearlyRUB,
+					Currency:      "RUB",
+					Period:        "year",
 				},
 			},
 			MinBalanceTopUp: MinBalanceTopUp,
