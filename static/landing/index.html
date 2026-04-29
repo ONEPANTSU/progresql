@@ -427,6 +427,13 @@ h2 {
   padding: 0;
 }
 
+.browser-body video {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #0d1117;
+}
+
 .browser-body span {
   color: var(--text-disabled);
   font-size: 1rem;
@@ -1305,7 +1312,18 @@ h2 {
           <div class="browser-title">ProgreSQL — AI for PostgreSQL</div>
         </div>
         <div class="browser-body">
-          <img src="/screenshot.png?v=2" alt="ProgreSQL — AI SQL Assistant" style="width:100%;display:block;">
+          <video
+            src="/progresql.mp4?v=1"
+            poster="/screenshot.png?v=2"
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="metadata"
+            aria-label="ProgreSQL demo video"
+          >
+            Your browser does not support the video tag.
+          </video>
         </div>
       </div>
     </div>

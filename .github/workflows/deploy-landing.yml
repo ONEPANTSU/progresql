@@ -49,6 +49,12 @@ jobs:
             static/landing/screenshot.png \
             root@progresql.com:/var/www/progresql/screenshot.png
 
+      - name: Copy landing demo video
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            static/progresql.mp4 \
+            root@progresql.com:/var/www/progresql/landing/progresql.mp4
+
       - name: Deploy nginx config and reload
         run: |
           scp -i ~/.ssh/deploy_key \
