@@ -51,8 +51,9 @@ jobs:
 
       - name: Copy landing demo video
         run: |
+          gh release download "${{ github.ref_name }}" -p "progresql.mp4" -O "/tmp/progresql.mp4"
           scp -i ~/.ssh/deploy_key \
-            static/progresql.mp4 \
+            /tmp/progresql.mp4 \
             root@progresql.com:/var/www/progresql/landing/progresql.mp4
 
       - name: Deploy nginx config and reload

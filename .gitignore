@@ -26,3 +26,6 @@ _fix_menu.mjs
 .claude/
 deploy/.env.production
 backend/progresql-server
+
+# Landing demo video is stored as a GitHub Release asset (not in git)
+static/progresql.mp4
