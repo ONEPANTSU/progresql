@@ -484,35 +484,6 @@ h2 {
   .pain-grid { grid-template-columns: 1fr; gap: 16px; }
 }
 
-/* ========== DEMO ========== */
-.demo-section {
-  padding: 40px 0 80px;
-}
-
-.demo-wrapper {
-  max-width: 1440px;
-  margin: 0 auto;
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  box-shadow: 0 16px 60px rgba(99, 102, 241, 0.1);
-}
-
-.demo-wrapper iframe {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border: none;
-}
-
-.demo-caption {
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  margin-top: 24px;
-  line-height: 1.6;
-}
-
 /* ========== FEATURES ========== */
 .features-section {
   padding: 100px 0;
@@ -783,7 +754,7 @@ h2 {
 }
 
 .pricing-card.pro-yearly .pricing-badge {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: var(--accent-gradient);
 }
 
 .pricing-grid {
@@ -1350,23 +1321,6 @@ h2 {
     </div>
   </section>
 
-  <!-- Demo -->
-  <section class="demo-section" id="demo">
-    <div class="container">
-      <h2 class="fade-in" data-en="See it in action" data-ru="Смотрите в действии">See it in action</h2>
-      <div class="demo-wrapper fade-in">
-        <iframe
-          src="https://www.youtube.com/embed/3r1YW259LFo?enablejsapi=1&origin=https://progresql.com"
-          title="ProgreSQL Demo"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen
-          loading="lazy"
-        ></iframe>
-      </div>
-      <p class="demo-caption fade-in" data-en="Works with your real database. No data leaves your machine — only schema metadata is used." data-ru="Работает с вашей реальной базой данных. Данные не покидают ваш компьютер — используются только метаданные схемы.">Works with your real database. No data leaves your machine — only schema metadata is used.</p>
-    </div>
-  </section>
-
   <!-- Features -->
   <section class="features-section" id="features">
     <div class="container">
@@ -1895,8 +1849,6 @@ h2 {
       var pct=Math.round((window.scrollY+window.innerHeight)/document.body.scrollHeight*100);
       [25,50,75,100].forEach(function(m){if(pct>=m&&!sm[m]){sm[m]=true;
         send({event:'scroll_depth',scroll_percent:m})}});tk=false})});
-  window.addEventListener('message',function(e){try{var d=JSON.parse(e.data);
-    if(d.event==='onStateChange'&&d.info===1)send({event:'video_play',video_action:'play'})}catch(r){}});
 })();
 </script>
 </body>
