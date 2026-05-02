@@ -241,7 +241,7 @@ func (s *Session) readPump() {
 		if s.hub != nil {
 			s.hub.Unregister(s.id)
 		}
-		s.Close()
+		_ = s.Close()
 		metrics.WebSocketDisconnectionsTotal.WithLabelValues("read_pump_exit").Inc()
 	}()
 
@@ -364,7 +364,7 @@ func (s *Session) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		s.Close()
+		_ = s.Close()
 	}()
 
 	for {

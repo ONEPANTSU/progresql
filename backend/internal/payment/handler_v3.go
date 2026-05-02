@@ -48,21 +48,19 @@ func CreateInvoiceHandlerV3(client *TBankClient, userStore *auth.UserStore, db *
 		claims := auth.ClaimsFromContext(r.Context())
 		if claims == nil || claims.UserID == "" {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
 			return
 		}
 
 		user, err := userStore.GetByID(claims.UserID)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(errorResponse{Error: "user not found"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "user not found"})
 			return
 		}
 
 		var reqBody createInvoiceRequestV2
-		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-			// Defaults applied below.
-		}
+		_ = json.NewDecoder(r.Body).Decode(&reqBody)
 		if reqBody.Currency == "" {
 			reqBody.Currency = "RUB"
 		}
@@ -93,7 +91,7 @@ func CreateInvoiceHandlerV3(client *TBankClient, userStore *auth.UserStore, db *
 			}
 			if reqBody.Plan != "pro" {
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(errorResponse{Error: "invalid plan: must be 'pro'"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid plan: must be 'pro'"})
 				return
 			}
 			invoiceAmount = resolvePlanPrice(reqBody.Plan)
@@ -106,14 +104,14 @@ func CreateInvoiceHandlerV3(client *TBankClient, userStore *auth.UserStore, db *
 		case "balance_topup":
 			if reqBody.Amount < MinBalanceTopUp {
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(errorResponse{
+				_ = json.NewEncoder(w).Encode(errorResponse{
 					Error: fmt.Sprintf("minimum top-up amount is %.0f₽", MinBalanceTopUp),
 				})
 				return
 			}
 			if reqBody.Amount > MaxBalanceTopUp {
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(errorResponse{
+				_ = json.NewEncoder(w).Encode(errorResponse{
 					Error: fmt.Sprintf("maximum top-up amount is %.0f₽", MaxBalanceTopUp),
 				})
 				return
@@ -124,7 +122,7 @@ func CreateInvoiceHandlerV3(client *TBankClient, userStore *auth.UserStore, db *
 
 		default:
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid payment_type: must be 'subscription' or 'balance_topup'"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid payment_type: must be 'subscription' or 'balance_topup'"})
 			return
 		}
 
@@ -164,7 +162,7 @@ func CreateInvoiceHandlerV3(client *TBankClient, userStore *auth.UserStore, db *
 			zap.L().Error("v3/create-invoice: TBank error",
 				zap.Error(err), zap.String("payment_type", reqBody.PaymentType))
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to create invoice"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to create invoice"})
 			return
 		}
 
@@ -196,7 +194,7 @@ func CreateInvoiceHandlerV3(client *TBankClient, userStore *auth.UserStore, db *
 		metrics.PaymentsAmountTotal.WithLabelValues(reqBody.Currency).Add(invoiceAmount)
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(createInvoiceHandlerResponse{
+		_ = json.NewEncoder(w).Encode(createInvoiceHandlerResponse{
 			PaymentURL: result.PaymentURL,
 		})
 	}
@@ -229,14 +227,14 @@ func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc B
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
 			return
 		}
 
 		var payload tbankWebhookPayload
 		if err := json.Unmarshal(bodyBytes, &payload); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
 			return
 		}
 
@@ -249,7 +247,7 @@ func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc B
 		var rawMap map[string]json.RawMessage
 		if err := json.Unmarshal(bodyBytes, &rawMap); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
 			return
 		}
 
@@ -276,7 +274,7 @@ func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc B
 		if !client.VerifyNotificationToken(params, payload.Token) {
 			log.Warn("TBank token verification failed", zap.String("order_id", payload.OrderId))
 			w.WriteHeader(http.StatusForbidden)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid webhook token"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid webhook token"})
 			return
 		}
 
@@ -295,7 +293,7 @@ func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc B
 				metrics.PaymentsTotal.WithLabelValues(StatusFailed, "RUB").Inc()
 			}
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"status": "ignored"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "ignored"})
 			return
 		}
 
@@ -304,7 +302,7 @@ func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc B
 		if db == nil {
 			log.Error("database not configured for webhook")
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "database not configured"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "database not configured"})
 			return
 		}
 
@@ -324,7 +322,7 @@ func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc B
 					zap.String("payment_id", paymentIDStr),
 					zap.String("order_id", payload.OrderId), zap.Error(err))
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(errorResponse{Error: "payment not found"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "payment not found"})
 				return
 			}
 		}
@@ -337,7 +335,7 @@ func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc B
 				log.Error("failed to update user plan",
 					zap.String("user_id", userID), zap.String("plan", plan), zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(errorResponse{Error: "failed to update user plan"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to update user plan"})
 				return
 			}
 
@@ -351,7 +349,7 @@ func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc B
 			if balanceSvc == nil {
 				log.Error("balance service not configured")
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(errorResponse{Error: "balance service not available"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "balance service not available"})
 				return
 			}
 
@@ -390,7 +388,7 @@ func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc B
 					zap.Float64("amount_rub", amountRUB),
 					zap.Float64("amount_usd", amountUSD), zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(errorResponse{Error: "failed to credit balance"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to credit balance"})
 				return
 			}
 
@@ -429,7 +427,7 @@ func WebhookHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceSvc B
 		metrics.PaymentsTotal.WithLabelValues(StatusConfirmed, "RUB").Inc()
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}
 }
 
@@ -442,7 +440,7 @@ func GetPaymentStatusHandlerV3(client *TBankClient) http.HandlerFunc {
 		paymentID := r.PathValue("payment_id")
 		if paymentID == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "missing payment_id"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "missing payment_id"})
 			return
 		}
 
@@ -451,12 +449,12 @@ func GetPaymentStatusHandlerV3(client *TBankClient) http.HandlerFunc {
 			zap.L().Error("v3/payment-status: TBank error",
 				zap.Error(err), zap.String("payment_id", paymentID))
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to get payment status"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to get payment status"})
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(result)
+		_ = json.NewEncoder(w).Encode(result)
 	}
 }
 
@@ -491,7 +489,7 @@ func PaymentHistoryHandlerV3(db *pgxpool.Pool) http.HandlerFunc {
 		claims := auth.ClaimsFromContext(r.Context())
 		if claims == nil || claims.UserID == "" {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
 			return
 		}
 		userID := claims.UserID
@@ -524,13 +522,13 @@ func PaymentHistoryHandlerV3(db *pgxpool.Pool) http.HandlerFunc {
 		if err != nil {
 			zap.L().Error("v3/payments/history: count error", zap.Error(err))
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to fetch payment history"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to fetch payment history"})
 			return
 		}
 
 		if total == 0 {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(paymentHistoryResponse{
+			_ = json.NewEncoder(w).Encode(paymentHistoryResponse{
 				Payments: []paymentHistoryItem{},
 				Total:    0,
 			})
@@ -552,7 +550,7 @@ func PaymentHistoryHandlerV3(db *pgxpool.Pool) http.HandlerFunc {
 		if err != nil {
 			zap.L().Error("v3/payments/history: query error", zap.Error(err))
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to fetch payment history"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to fetch payment history"})
 			return
 		}
 		defer rows.Close()
@@ -608,7 +606,7 @@ func PaymentHistoryHandlerV3(db *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(paymentHistoryResponse{
+		_ = json.NewEncoder(w).Encode(paymentHistoryResponse{
 			Payments: payments,
 			Total:    total,
 		})
@@ -691,7 +689,7 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 		claims := auth.ClaimsFromContext(r.Context())
 		if claims == nil || claims.UserID == "" {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
 			return
 		}
 		userID := claims.UserID
@@ -699,12 +697,12 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 		var reqBody refundRequest
 		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
 			return
 		}
 		if reqBody.PaymentID == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "payment_id is required"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "payment_id is required"})
 			return
 		}
 
@@ -734,7 +732,7 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 		if err != nil {
 			log.Error("payment not found", zap.Error(err))
 			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(errorResponse{Error: "payment not found"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "payment not found"})
 			return
 		}
 
@@ -743,7 +741,7 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 			log.Warn("payment does not belong to user",
 				zap.String("payment_owner", paymentUserID))
 			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(errorResponse{Error: "payment not found"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "payment not found"})
 			return
 		}
 
@@ -754,7 +752,7 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 		if !refundable {
 			log.Info("refund denied", zap.String("reason", reason))
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			json.NewEncoder(w).Encode(errorResponse{Error: reason})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: reason})
 			return
 		}
 
@@ -786,7 +784,7 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 			if err := balanceRefund.DeductForRefund(ctx, userID, usdToDeduct, description); err != nil {
 				log.Error("failed to deduct balance for refund", zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(errorResponse{Error: "failed to reverse balance: " + err.Error()})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to reverse balance: " + err.Error()})
 				return
 			}
 			log.Info("balance reversed for refund",
@@ -806,7 +804,7 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 			if err != nil {
 				log.Error("failed to calculate token costs", zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(errorResponse{Error: "failed to calculate refund amount"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to calculate refund amount"})
 				return
 			}
 
@@ -831,7 +829,7 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 
 			if refundAmount == 0 {
 				w.WriteHeader(http.StatusUnprocessableEntity)
-				json.NewEncoder(w).Encode(errorResponse{
+				_ = json.NewEncoder(w).Encode(errorResponse{
 					Error: fmt.Sprintf("token usage costs (%.2f₽) exceed payment amount (%.2f₽), no refund available", tokenCostRUB, amount),
 				})
 				return
@@ -840,7 +838,7 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 			if err := planUpdater.SetPlan(userID, "free", nil); err != nil {
 				log.Error("failed to downgrade plan for refund", zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(errorResponse{Error: "failed to downgrade subscription"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to downgrade subscription"})
 				return
 			}
 			log.Info("subscription downgraded to free for refund", zap.String("previous_plan", plan))
@@ -860,7 +858,7 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 					zap.String("invoice_id", invoiceID),
 					zap.Int64("refund_kopecks", refundKopecks))
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(errorResponse{Error: "failed to process refund with payment provider"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to process refund with payment provider"})
 				return
 			}
 			log.Info("TBank payment refunded", zap.String("invoice_id", invoiceID),
@@ -877,7 +875,7 @@ func RefundHandlerV3(client *TBankClient, planUpdater PlanUpdater, balanceRefund
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":        "refunded",
 			"refund_amount": refundAmount,
 			"deducted":      amount - refundAmount,

@@ -103,11 +103,11 @@ func (c *Client) doStreamRequest(ctx context.Context, body []byte, onChunk Strea
 	if err != nil {
 		return nil, fmt.Errorf("llm: send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		var buf bytes.Buffer
-		buf.ReadFrom(resp.Body)
+		_, _ = buf.ReadFrom(resp.Body)
 		return nil, &APIError{
 			StatusCode: resp.StatusCode,
 			Body:       buf.String(),

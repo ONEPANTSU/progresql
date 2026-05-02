@@ -112,7 +112,7 @@ func (e *EmailService) SendVerificationEmail(toEmail, code string) error {
 
 	client, err := smtp.NewClient(conn, e.host)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return fmt.Errorf("SMTP client: %w", err)
 	}
 	defer client.Quit()
@@ -159,9 +159,9 @@ func buildVerificationEmail(from, to, code string) string {
 	var b strings.Builder
 
 	// Headers
-	b.WriteString(fmt.Sprintf("From: ProgreSQL <%s>\r\n", from))
-	b.WriteString(fmt.Sprintf("To: %s\r\n", to))
-	b.WriteString(fmt.Sprintf("Subject: =?UTF-8?B?%s?=\r\n", base64Encode(subject)))
+	_, _ = fmt.Fprintf(&b, "From: ProgreSQL <%s>\r\n", from)
+	_, _ = fmt.Fprintf(&b, "To: %s\r\n", to)
+	_, _ = fmt.Fprintf(&b, "Subject: =?UTF-8?B?%s?=\r\n", base64Encode(subject))
 	b.WriteString("MIME-Version: 1.0\r\n")
 	b.WriteString("X-Mailer: ProgreSQL/1.0\r\n")
 	b.WriteString("X-Priority: 3\r\n")
@@ -363,7 +363,7 @@ func (e *EmailService) SendPasswordResetEmail(toEmail, code string) error {
 
 	client, err := smtp.NewClient(conn, e.host)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return fmt.Errorf("SMTP client: %w", err)
 	}
 	defer client.Quit()
@@ -552,7 +552,7 @@ func (e *EmailService) sendRawEmail(toEmail, msg string) error {
 
 	client, err := smtp.NewClient(conn, e.host)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return fmt.Errorf("SMTP client: %w", err)
 	}
 	defer client.Quit()

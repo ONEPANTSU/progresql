@@ -179,21 +179,19 @@ func CreateInvoiceHandlerV2(client *PlategaClient, userStore *auth.UserStore, db
 		claims := auth.ClaimsFromContext(r.Context())
 		if claims == nil || claims.UserID == "" {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
 			return
 		}
 
 		user, err := userStore.GetByID(claims.UserID)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(errorResponse{Error: "user not found"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "user not found"})
 			return
 		}
 
 		var reqBody createInvoiceRequestV2
-		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-			// Defaults applied below.
-		}
+		_ = json.NewDecoder(r.Body).Decode(&reqBody)
 		if reqBody.Currency == "" {
 			reqBody.Currency = "RUB"
 		}
@@ -216,7 +214,7 @@ func CreateInvoiceHandlerV2(client *PlategaClient, userStore *auth.UserStore, db
 			// Validate plan.
 			if reqBody.Plan != "pro" && reqBody.Plan != "pro_plus" && reqBody.Plan != "pro_yearly" {
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(errorResponse{Error: "invalid plan: must be 'pro', 'pro_plus', or 'pro_yearly'"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid plan: must be 'pro', 'pro_plus', or 'pro_yearly'"})
 				return
 			}
 			invoiceAmount = resolvePlanPrice(reqBody.Plan)
@@ -228,14 +226,14 @@ func CreateInvoiceHandlerV2(client *PlategaClient, userStore *auth.UserStore, db
 		case "balance_topup":
 			if reqBody.Amount < MinBalanceTopUp {
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(errorResponse{
+				_ = json.NewEncoder(w).Encode(errorResponse{
 					Error: fmt.Sprintf("minimum top-up amount is %.0f₽", MinBalanceTopUp),
 				})
 				return
 			}
 			if reqBody.Amount > MaxBalanceTopUp {
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(errorResponse{
+				_ = json.NewEncoder(w).Encode(errorResponse{
 					Error: fmt.Sprintf("maximum top-up amount is %.0f₽", MaxBalanceTopUp),
 				})
 				return
@@ -245,7 +243,7 @@ func CreateInvoiceHandlerV2(client *PlategaClient, userStore *auth.UserStore, db
 
 		default:
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid payment_type: must be 'subscription' or 'balance_topup'"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid payment_type: must be 'subscription' or 'balance_topup'"})
 			return
 		}
 
@@ -257,7 +255,7 @@ func CreateInvoiceHandlerV2(client *PlategaClient, userStore *auth.UserStore, db
 			zap.L().Error("v2/create-invoice: Platega error",
 				zap.Error(err), zap.String("payment_type", reqBody.PaymentType))
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to create invoice"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to create invoice"})
 			return
 		}
 
@@ -280,7 +278,7 @@ func CreateInvoiceHandlerV2(client *PlategaClient, userStore *auth.UserStore, db
 		metrics.PaymentsAmountTotal.WithLabelValues(reqBody.Currency).Add(invoiceAmount)
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(createInvoiceHandlerResponse{
+		_ = json.NewEncoder(w).Encode(createInvoiceHandlerResponse{
 			PaymentURL: invoice.Redirect,
 		})
 	}
@@ -316,7 +314,7 @@ func WebhookHandlerV2(planUpdater PlanUpdater, balanceSvc BalanceTopUpHandler, d
 		// Verify Platega credentials from headers.
 		if merchantID == "" || secret == "" {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "webhook secret not configured"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "webhook secret not configured"})
 			return
 		}
 
@@ -328,7 +326,7 @@ func WebhookHandlerV2(planUpdater PlanUpdater, balanceSvc BalanceTopUpHandler, d
 				zap.Bool("merchant_id_match", headerMerchantID == merchantID),
 				zap.Bool("secret_match", headerSecret == secret))
 			w.WriteHeader(http.StatusForbidden)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid webhook credentials"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid webhook credentials"})
 			return
 		}
 
@@ -336,14 +334,14 @@ func WebhookHandlerV2(planUpdater PlanUpdater, balanceSvc BalanceTopUpHandler, d
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
 			return
 		}
 
 		var payload plategaWebhookPayload
 		if err := json.Unmarshal(bodyBytes, &payload); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
 			return
 		}
 
@@ -367,7 +365,7 @@ func WebhookHandlerV2(planUpdater PlanUpdater, balanceSvc BalanceTopUpHandler, d
 				metrics.PaymentsTotal.WithLabelValues(StatusFailed, currency).Inc()
 			}
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"status": "ignored"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "ignored"})
 			return
 		}
 
@@ -377,7 +375,7 @@ func WebhookHandlerV2(planUpdater PlanUpdater, balanceSvc BalanceTopUpHandler, d
 			log.Error("failed to parse order payload",
 				zap.String("payload", payload.Payload), zap.Error(err))
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid order_id format"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid order_id format"})
 			return
 		}
 
@@ -398,7 +396,7 @@ func WebhookHandlerV2(planUpdater PlanUpdater, balanceSvc BalanceTopUpHandler, d
 				log.Error("failed to update user plan",
 					zap.String("user_id", parsed.UserID), zap.String("plan", parsed.Plan), zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(errorResponse{Error: "failed to update user plan"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to update user plan"})
 				return
 			}
 
@@ -412,7 +410,7 @@ func WebhookHandlerV2(planUpdater PlanUpdater, balanceSvc BalanceTopUpHandler, d
 			if balanceSvc == nil {
 				log.Error("balance service not configured")
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(errorResponse{Error: "balance service not available"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "balance service not available"})
 				return
 			}
 
@@ -422,7 +420,7 @@ func WebhookHandlerV2(planUpdater PlanUpdater, balanceSvc BalanceTopUpHandler, d
 					zap.String("user_id", parsed.UserID),
 					zap.Float64("amount", parsed.Amount), zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(errorResponse{Error: "failed to credit balance"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to credit balance"})
 				return
 			}
 
@@ -449,7 +447,7 @@ func WebhookHandlerV2(planUpdater PlanUpdater, balanceSvc BalanceTopUpHandler, d
 		metrics.PaymentsTotal.WithLabelValues(StatusConfirmed, currency).Inc()
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}
 }
 
@@ -481,7 +479,7 @@ func PriceHandlerV2(db *pgxpool.Pool) http.HandlerFunc {
 			proYearlyPrice = applyDiscount(r.Context(), db, userID, PriceProYearlyRUB)
 		}
 
-		json.NewEncoder(w).Encode(pricesResponse{
+		_ = json.NewEncoder(w).Encode(pricesResponse{
 			Plans: []planPrice{
 				{
 					Plan:          "pro",

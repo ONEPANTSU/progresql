@@ -127,7 +127,7 @@ func (s *Service) ChargeRequest(ctx context.Context, userID string, modelID stri
 	if err != nil {
 		return 0, fmt.Errorf("quota: begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Lock and read balance, plan, and credits_used_usd.
 	var currentBalance float64

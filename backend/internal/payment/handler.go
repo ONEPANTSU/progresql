@@ -111,14 +111,14 @@ func CreateInvoiceHandler(client *PlategaClient, userStore *auth.UserStore, db *
 		claims := auth.ClaimsFromContext(r.Context())
 		if claims == nil || claims.UserID == "" {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
 			return
 		}
 
 		user, err := userStore.GetByID(claims.UserID)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(errorResponse{Error: "user not found"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "user not found"})
 			return
 		}
 
@@ -141,7 +141,7 @@ func CreateInvoiceHandler(client *PlategaClient, userStore *auth.UserStore, db *
 		)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to create invoice"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to create invoice"})
 			return
 		}
 
@@ -162,7 +162,7 @@ func CreateInvoiceHandler(client *PlategaClient, userStore *auth.UserStore, db *
 		metrics.PaymentsAmountTotal.WithLabelValues(reqBody.Currency).Add(reqBody.Amount)
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(createInvoiceHandlerResponse{
+		_ = json.NewEncoder(w).Encode(createInvoiceHandlerResponse{
 			PaymentURL: invoice.Redirect,
 		})
 	}
@@ -209,7 +209,7 @@ func WebhookHandler(planUpdater PlanUpdater, db *pgxpool.Pool, merchantID, secre
 		// Verify Platega credentials from headers.
 		if merchantID == "" || secret == "" {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "webhook secret not configured"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "webhook secret not configured"})
 			return
 		}
 
@@ -221,7 +221,7 @@ func WebhookHandler(planUpdater PlanUpdater, db *pgxpool.Pool, merchantID, secre
 				zap.Bool("merchant_id_match", headerMerchantID == merchantID),
 				zap.Bool("secret_match", headerSecret == secret))
 			w.WriteHeader(http.StatusForbidden)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid webhook credentials"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid webhook credentials"})
 			return
 		}
 
@@ -229,14 +229,14 @@ func WebhookHandler(planUpdater PlanUpdater, db *pgxpool.Pool, merchantID, secre
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
 			return
 		}
 
 		var payload plategaWebhookPayload
 		if err := json.Unmarshal(bodyBytes, &payload); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
 			return
 		}
 
@@ -261,7 +261,7 @@ func WebhookHandler(planUpdater PlanUpdater, db *pgxpool.Pool, merchantID, secre
 				metrics.PaymentsTotal.WithLabelValues(StatusFailed, currency).Inc()
 			}
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"status": "ignored"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "ignored"})
 			return
 		}
 
@@ -269,7 +269,7 @@ func WebhookHandler(planUpdater PlanUpdater, db *pgxpool.Pool, merchantID, secre
 		orderID := payload.Payload
 		if len(orderID) <= 5 || orderID[:5] != "user_" {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid order_id format"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid order_id format"})
 			return
 		}
 		userID := orderID[5:]
@@ -278,7 +278,7 @@ func WebhookHandler(planUpdater PlanUpdater, db *pgxpool.Pool, merchantID, secre
 
 		if err := planUpdater.SetPlan(userID, "pro", &expiresAt); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to update user plan"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to update user plan"})
 			return
 		}
 
@@ -305,6 +305,6 @@ func WebhookHandler(planUpdater PlanUpdater, db *pgxpool.Pool, merchantID, secre
 			zap.String("plan", "pro"), zap.String("transaction_id", payload.ID))
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}
 }

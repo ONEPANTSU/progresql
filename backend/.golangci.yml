@@ -7,3 +7,7 @@ linters:
       - path: '_test\.go$'
         linters:
           - errcheck
+      # Shared test helpers / mocks (no _test.go suffix).
+      - path: 'internal/testutil/.*\.go$'
+        linters:
+          - errcheck

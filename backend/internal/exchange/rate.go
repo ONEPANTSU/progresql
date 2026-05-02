@@ -117,7 +117,7 @@ func fetchRate() (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var data cbrResponse
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {

@@ -176,7 +176,7 @@ func registerHandler(jwtSvc *auth.JWTService, userStore *auth.UserStore, emailSv
 		var req registerRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
 			return
 		}
 
@@ -185,16 +185,16 @@ func registerHandler(jwtSvc *auth.JWTService, userStore *auth.UserStore, emailSv
 			switch {
 			case errors.Is(err, auth.ErrEmailAlreadyVerified):
 				w.WriteHeader(http.StatusConflict)
-				json.NewEncoder(w).Encode(errorResponse{Error: "Email already registered"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "Email already registered"})
 			case errors.Is(err, auth.ErrUserExists):
 				w.WriteHeader(http.StatusConflict)
-				json.NewEncoder(w).Encode(errorResponse{Error: "Email already registered"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "Email already registered"})
 			case errors.Is(err, auth.ErrInvalidInput):
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(errorResponse{Error: err.Error()})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: err.Error()})
 			default:
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(errorResponse{Error: "failed to register user"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to register user"})
 			}
 			return
 		}
@@ -206,21 +206,23 @@ func registerHandler(jwtSvc *auth.JWTService, userStore *auth.UserStore, emailSv
 		if !user.EmailVerified && emailSvc != nil && emailSvc.IsConfigured() {
 			code, codeErr := emailSvc.GenerateCode(user.ID, user.Email)
 			if codeErr == nil {
-				go emailSvc.SendVerificationEmail(user.Email, code)
+				go func() {
+					_ = emailSvc.SendVerificationEmail(user.Email, code)
+				}()
 			}
 		}
 
 		token, err := jwtSvc.GenerateUserToken(user)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to generate token"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to generate token"})
 			return
 		}
 
 		expiresAt := time.Now().Add(auth.TokenTTL).UTC().Format(time.RFC3339)
 
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(authUserResponse{
+		_ = json.NewEncoder(w).Encode(authUserResponse{
 			Token:     token,
 			ExpiresAt: expiresAt,
 			User:      userInfoFromUser(user),
