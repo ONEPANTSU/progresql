@@ -95,7 +95,7 @@ func (c *PlategaClient) CreateInvoice(amount float64, currency, orderID, email, 
 	if err != nil {
 		return nil, fmt.Errorf("sending request to Platega: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)

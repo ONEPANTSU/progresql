@@ -73,7 +73,7 @@ func (c *CryptoCloudClient) CreateInvoice(amount float64, currency, orderID, ema
 	if err != nil {
 		return nil, fmt.Errorf("sending request to CryptoCloud: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("CryptoCloud returned status %d", resp.StatusCode)

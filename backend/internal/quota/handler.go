@@ -109,7 +109,7 @@ func (h *Handler) GetUsageHandler(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 	if userID == "" {
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(errorResp{Error: "missing authentication"})
+		_ = json.NewEncoder(w).Encode(errorResp{Error: "missing authentication"})
 		return
 	}
 
@@ -118,7 +118,7 @@ func (h *Handler) GetUsageHandler(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("failed to get usage",
 			zap.String("user_id", userID), zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(errorResp{Error: "failed to get usage"})
+		_ = json.NewEncoder(w).Encode(errorResp{Error: "failed to get usage"})
 		return
 	}
 
@@ -135,7 +135,7 @@ func (h *Handler) GetUsageHandler(w http.ResponseWriter, r *http.Request) {
 	rate := h.rateSvc.GetUSDToRUB()
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(usageResponse{
+	_ = json.NewEncoder(w).Encode(usageResponse{
 		BalanceUSD:          usage.BalanceUSD,
 		BalanceRUB:          usage.BalanceUSD * rate,
 		Plan:                usage.Plan,
@@ -158,7 +158,7 @@ func (h *Handler) GetQuotaHandler(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 	if userID == "" {
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(errorResp{Error: "missing authentication"})
+		_ = json.NewEncoder(w).Encode(errorResp{Error: "missing authentication"})
 		return
 	}
 
@@ -173,7 +173,7 @@ func (h *Handler) GetQuotaHandler(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("failed to get user plan",
 			zap.String("user_id", userID), zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(errorResp{Error: "failed to get plan info"})
+		_ = json.NewEncoder(w).Encode(errorResp{Error: "failed to get plan info"})
 		return
 	}
 
@@ -181,7 +181,7 @@ func (h *Handler) GetQuotaHandler(w http.ResponseWriter, r *http.Request) {
 	pl := subscription.LimitsForPlan(plan)
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(quotaResponse{
+	_ = json.NewEncoder(w).Encode(quotaResponse{
 		Plan:                string(plan),
 		AllowedModelTiers:   pl.AllowedModelTiers,
 		AutocompleteEnabled: pl.AutocompleteEnabled,
@@ -201,7 +201,7 @@ func (h *Handler) GetUsageHistoryHandler(w http.ResponseWriter, r *http.Request)
 	userID := auth.UserIDFromContext(r.Context())
 	if userID == "" {
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(errorResp{Error: "missing authentication"})
+		_ = json.NewEncoder(w).Encode(errorResp{Error: "missing authentication"})
 		return
 	}
 
@@ -224,12 +224,12 @@ func (h *Handler) GetUsageHistoryHandler(w http.ResponseWriter, r *http.Request)
 		h.logger.Error("failed to get usage history",
 			zap.String("user_id", userID), zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(errorResp{Error: "failed to get usage history"})
+		_ = json.NewEncoder(w).Encode(errorResp{Error: "failed to get usage history"})
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(usageHistoryResponse{
+	_ = json.NewEncoder(w).Encode(usageHistoryResponse{
 		Records: records,
 		Stats:   stats,
 		Total:   total,
@@ -272,7 +272,7 @@ func (h *Handler) GetModelPricingHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(modelPricingResponse{
+	_ = json.NewEncoder(w).Encode(modelPricingResponse{
 		Models:   pricingModels,
 		UsdToRub: h.rateSvc.GetUSDToRUB(),
 	})
@@ -312,7 +312,7 @@ func (h *Handler) GetTopUpOptionsHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(topupOptionsResponse{
+	_ = json.NewEncoder(w).Encode(topupOptionsResponse{
 		MarkupPct: markupPct,
 		UsdToRub:  rate,
 		Options:   options,

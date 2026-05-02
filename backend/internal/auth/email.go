@@ -115,7 +115,7 @@ func (e *EmailService) SendVerificationEmail(toEmail, code string) error {
 		_ = conn.Close()
 		return fmt.Errorf("SMTP client: %w", err)
 	}
-	defer client.Quit()
+	defer func() { _ = client.Quit() }()
 
 	auth := smtp.PlainAuth("", e.user, e.password, e.host)
 	if err := client.Auth(auth); err != nil {
@@ -166,11 +166,11 @@ func buildVerificationEmail(from, to, code string) string {
 	b.WriteString("X-Mailer: ProgreSQL/1.0\r\n")
 	b.WriteString("X-Priority: 3\r\n")
 	b.WriteString("List-Unsubscribe: <mailto:" + from + "?subject=unsubscribe>\r\n")
-	b.WriteString(fmt.Sprintf("Content-Type: multipart/alternative; boundary=\"%s\"\r\n", mimeBoundary))
+	_, _ = fmt.Fprintf(&b, "Content-Type: multipart/alternative; boundary=\"%s\"\r\n", mimeBoundary)
 	b.WriteString("\r\n")
 
 	// Plain text part
-	b.WriteString(fmt.Sprintf("--%s\r\n", mimeBoundary))
+	_, _ = fmt.Fprintf(&b, "--%s\r\n", mimeBoundary)
 	b.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
 	b.WriteString("Content-Transfer-Encoding: quoted-printable\r\n")
 	b.WriteString("\r\n")
@@ -178,7 +178,7 @@ func buildVerificationEmail(from, to, code string) string {
 	b.WriteString("\r\n")
 
 	// HTML part
-	b.WriteString(fmt.Sprintf("--%s\r\n", mimeBoundary))
+	_, _ = fmt.Fprintf(&b, "--%s\r\n", mimeBoundary)
 	b.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
 	b.WriteString("Content-Transfer-Encoding: quoted-printable\r\n")
 	b.WriteString("\r\n")
@@ -186,7 +186,7 @@ func buildVerificationEmail(from, to, code string) string {
 	b.WriteString("\r\n")
 
 	// Closing boundary
-	b.WriteString(fmt.Sprintf("--%s--\r\n", mimeBoundary))
+	_, _ = fmt.Fprintf(&b, "--%s--\r\n", mimeBoundary)
 
 	return b.String()
 }
@@ -366,7 +366,7 @@ func (e *EmailService) SendPasswordResetEmail(toEmail, code string) error {
 		_ = conn.Close()
 		return fmt.Errorf("SMTP client: %w", err)
 	}
-	defer client.Quit()
+	defer func() { _ = client.Quit() }()
 
 	auth := smtp.PlainAuth("", e.user, e.password, e.host)
 	if err := client.Auth(auth); err != nil {
@@ -438,30 +438,30 @@ func buildPasswordResetEmail(from, to, code string) string {
 	htmlBody := buildPasswordResetHTML(code, ttlMinutes)
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("From: ProgreSQL <%s>\r\n", from))
-	b.WriteString(fmt.Sprintf("To: %s\r\n", to))
-	b.WriteString(fmt.Sprintf("Subject: =?UTF-8?B?%s?=\r\n", base64Encode(subject)))
+	_, _ = fmt.Fprintf(&b, "From: ProgreSQL <%s>\r\n", from)
+	_, _ = fmt.Fprintf(&b, "To: %s\r\n", to)
+	_, _ = fmt.Fprintf(&b, "Subject: =?UTF-8?B?%s?=\r\n", base64Encode(subject))
 	b.WriteString("MIME-Version: 1.0\r\n")
 	b.WriteString("X-Mailer: ProgreSQL/1.0\r\n")
 	b.WriteString("X-Priority: 3\r\n")
-	b.WriteString(fmt.Sprintf("Content-Type: multipart/alternative; boundary=\"%s\"\r\n", mimeBoundary))
+	_, _ = fmt.Fprintf(&b, "Content-Type: multipart/alternative; boundary=\"%s\"\r\n", mimeBoundary)
 	b.WriteString("\r\n")
 
-	b.WriteString(fmt.Sprintf("--%s\r\n", mimeBoundary))
+	_, _ = fmt.Fprintf(&b, "--%s\r\n", mimeBoundary)
 	b.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
 	b.WriteString("Content-Transfer-Encoding: quoted-printable\r\n")
 	b.WriteString("\r\n")
 	b.WriteString(plainBody)
 	b.WriteString("\r\n")
 
-	b.WriteString(fmt.Sprintf("--%s\r\n", mimeBoundary))
+	_, _ = fmt.Fprintf(&b, "--%s\r\n", mimeBoundary)
 	b.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
 	b.WriteString("Content-Transfer-Encoding: quoted-printable\r\n")
 	b.WriteString("\r\n")
 	b.WriteString(htmlBody)
 	b.WriteString("\r\n")
 
-	b.WriteString(fmt.Sprintf("--%s--\r\n", mimeBoundary))
+	_, _ = fmt.Fprintf(&b, "--%s--\r\n", mimeBoundary)
 
 	return b.String()
 }
@@ -555,7 +555,7 @@ func (e *EmailService) sendRawEmail(toEmail, msg string) error {
 		_ = conn.Close()
 		return fmt.Errorf("SMTP client: %w", err)
 	}
-	defer client.Quit()
+	defer func() { _ = client.Quit() }()
 
 	smtpAuth := smtp.PlainAuth("", e.user, e.password, e.host)
 	if err := client.Auth(smtpAuth); err != nil {
@@ -651,30 +651,30 @@ func buildTrialExpiryEmail(from, to string, daysLeft int) string {
 </html>`, accentColor, heading, message)
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("From: ProgreSQL <%s>\r\n", from))
-	b.WriteString(fmt.Sprintf("To: %s\r\n", to))
-	b.WriteString(fmt.Sprintf("Subject: =?UTF-8?B?%s?=\r\n", base64Encode(subject)))
+	_, _ = fmt.Fprintf(&b, "From: ProgreSQL <%s>\r\n", from)
+	_, _ = fmt.Fprintf(&b, "To: %s\r\n", to)
+	_, _ = fmt.Fprintf(&b, "Subject: =?UTF-8?B?%s?=\r\n", base64Encode(subject))
 	b.WriteString("MIME-Version: 1.0\r\n")
 	b.WriteString("X-Mailer: ProgreSQL/1.0\r\n")
 	b.WriteString("X-Priority: 3\r\n")
-	b.WriteString(fmt.Sprintf("Content-Type: multipart/alternative; boundary=\"%s\"\r\n", mimeBoundary))
+	_, _ = fmt.Fprintf(&b, "Content-Type: multipart/alternative; boundary=\"%s\"\r\n", mimeBoundary)
 	b.WriteString("\r\n")
 
-	b.WriteString(fmt.Sprintf("--%s\r\n", mimeBoundary))
+	_, _ = fmt.Fprintf(&b, "--%s\r\n", mimeBoundary)
 	b.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
 	b.WriteString("Content-Transfer-Encoding: quoted-printable\r\n")
 	b.WriteString("\r\n")
 	b.WriteString(plainBody)
 	b.WriteString("\r\n")
 
-	b.WriteString(fmt.Sprintf("--%s\r\n", mimeBoundary))
+	_, _ = fmt.Fprintf(&b, "--%s\r\n", mimeBoundary)
 	b.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
 	b.WriteString("Content-Transfer-Encoding: quoted-printable\r\n")
 	b.WriteString("\r\n")
 	b.WriteString(htmlBody)
 	b.WriteString("\r\n")
 
-	b.WriteString(fmt.Sprintf("--%s--\r\n", mimeBoundary))
+	_, _ = fmt.Fprintf(&b, "--%s--\r\n", mimeBoundary)
 
 	return b.String()
 }
