@@ -99,7 +99,7 @@ func (c *PlategaClient) CreateInvoice(amount float64, currency, orderID, email, 
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Platega returned status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("platega returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	var result PlategaTransactionResponse

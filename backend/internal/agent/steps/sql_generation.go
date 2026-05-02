@@ -106,39 +106,39 @@ func (s *SQLGenerationStep) Execute(ctx context.Context, pctx *agent.PipelineCon
 func buildSchemaDescription(sc *SchemaContext) string {
 	var sb strings.Builder
 	for _, table := range sc.Tables {
-		sb.WriteString(fmt.Sprintf("Table: %s.%s\n", table.Schema, table.Table))
+		fmt.Fprintf(&sb, "Table: %s.%s\n", table.Schema, table.Table)
 		var details map[string]any
 		if err := json.Unmarshal(table.Details, &details); err == nil {
 			if cols, ok := details["columns"]; ok {
 				colJSON, _ := json.MarshalIndent(cols, "  ", "  ")
-				sb.WriteString(fmt.Sprintf("  Columns: %s\n", string(colJSON)))
+				fmt.Fprintf(&sb, "  Columns: %s\n", string(colJSON))
 			}
 			if indexes, ok := details["indexes"]; ok {
 				idxJSON, _ := json.MarshalIndent(indexes, "  ", "  ")
-				sb.WriteString(fmt.Sprintf("  Indexes: %s\n", string(idxJSON)))
+				fmt.Fprintf(&sb, "  Indexes: %s\n", string(idxJSON))
 			}
 			if fks, ok := details["foreign_keys"]; ok {
 				fkJSON, _ := json.MarshalIndent(fks, "  ", "  ")
-				sb.WriteString(fmt.Sprintf("  Foreign Keys: %s\n", string(fkJSON)))
+				fmt.Fprintf(&sb, "  Foreign Keys: %s\n", string(fkJSON))
 			}
 			if checks, ok := details["check_constraints"]; ok {
 				checkJSON, _ := json.MarshalIndent(checks, "  ", "  ")
-				sb.WriteString(fmt.Sprintf("  CHECK Constraints (allowed values): %s\n", string(checkJSON)))
+				fmt.Fprintf(&sb, "  CHECK Constraints (allowed values): %s\n", string(checkJSON))
 			}
 			if triggers, ok := details["triggers"]; ok {
 				trigJSON, _ := json.MarshalIndent(triggers, "  ", "  ")
-				sb.WriteString(fmt.Sprintf("  Triggers: %s\n", string(trigJSON)))
+				fmt.Fprintf(&sb, "  Triggers: %s\n", string(trigJSON))
 			}
 			if keys, ok := details["key_constraints"]; ok {
 				keyJSON, _ := json.MarshalIndent(keys, "  ", "  ")
-				sb.WriteString(fmt.Sprintf("  Key Constraints (PK/UNIQUE): %s\n", string(keyJSON)))
+				fmt.Fprintf(&sb, "  Key Constraints (PK/UNIQUE): %s\n", string(keyJSON))
 			}
 			if enums, ok := details["enum_columns"]; ok {
 				enumJSON, _ := json.MarshalIndent(enums, "  ", "  ")
-				sb.WriteString(fmt.Sprintf("  ENUM Columns (ONLY use these exact values, NEVER invent new ones): %s\n", string(enumJSON)))
+				fmt.Fprintf(&sb, "  ENUM Columns (ONLY use these exact values, NEVER invent new ones): %s\n", string(enumJSON))
 			}
 		} else {
-			sb.WriteString(fmt.Sprintf("  Details: %s\n", string(table.Details)))
+			fmt.Fprintf(&sb, "  Details: %s\n", string(table.Details))
 		}
 		sb.WriteString("\n")
 	}

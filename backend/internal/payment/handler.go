@@ -39,9 +39,9 @@ func PriceHandler(db *pgxpool.Pool) http.HandlerFunc {
 		if claims := auth.ClaimsFromContext(r.Context()); claims != nil && claims.UserID != "" {
 			price = applyDiscount(r.Context(), db, claims.UserID, basePrice)
 		}
-		json.NewEncoder(w).Encode(map[string]float64{
-			"price":          price,
-			"original_price": basePrice,
+		_ = json.NewEncoder(w).Encode(priceResponse{
+			Price:         price,
+			OriginalPrice: basePrice,
 		})
 	}
 }
@@ -125,14 +125,7 @@ func CreateInvoiceHandler(client *PlategaClient, userStore *auth.UserStore, db *
 		orderID := fmt.Sprintf("user_%s", user.ID)
 
 		// Parse amount from request body, default to 20 USD.
-		var reqBody struct {
-			Amount             float64 `json:"amount"`
-			Currency           string  `json:"currency"`
-			PaymentMethod      int     `json:"payment_method"`
-			PromoCode          string  `json:"promo_code"`
-			SuccessRedirectURL string  `json:"success_redirect_url"`
-			FailRedirectURL    string  `json:"fail_redirect_url"`
-		}
+		var reqBody createInvoiceRequest
 		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil || reqBody.Amount <= 0 {
 			reqBody.Amount = 20.0
 		}

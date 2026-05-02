@@ -228,10 +228,7 @@ func TestSession_HubUnregisterOnClose(t *testing.T) {
 
 	// Wait for hub to reflect the removal.
 	deadline := time.After(2 * time.Second)
-	for {
-		if hub.Get("hub-test") == nil {
-			break
-		}
+	for hub.Get("hub-test") != nil {
 		select {
 		case <-deadline:
 			t.Fatal("timeout: session not removed from hub after client close")

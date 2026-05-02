@@ -167,17 +167,11 @@ func promoApplyHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Handler
 			// Record usage now, payment handler will look up active discount.
 			metrics.PromoCodesApplied.WithLabelValues(code, promoType).Inc()
 
-			_, err = db.Exec(ctx,
+			_, _ = db.Exec(ctx,
 				`UPDATE promo_codes SET used_count = used_count + 1 WHERE id = $1`, promoID)
-			if err != nil {
-				// Non-fatal.
-			}
-			_, err = db.Exec(ctx,
+			_, _ = db.Exec(ctx,
 				`INSERT INTO promo_code_uses (promo_code_id, user_id) VALUES ($1, $2::uuid)`,
 				promoID, claims.UserID)
-			if err != nil {
-				// Non-fatal.
-			}
 
 			var msg string
 			if discountPercent > 0 {
@@ -201,19 +195,13 @@ func promoApplyHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Handler
 		}
 
 		// 7. Increment used_count.
-		_, err = db.Exec(ctx,
+		_, _ = db.Exec(ctx,
 			`UPDATE promo_codes SET used_count = used_count + 1 WHERE id = $1`, promoID)
-		if err != nil {
-			// Non-fatal: log but don't fail the request.
-		}
 
 		// 8. Insert into promo_code_uses.
-		_, err = db.Exec(ctx,
+		_, _ = db.Exec(ctx,
 			`INSERT INTO promo_code_uses (promo_code_id, user_id) VALUES ($1, $2::uuid)`,
 			promoID, claims.UserID)
-		if err != nil {
-			// Non-fatal: the promo was already applied.
-		}
 
 		// 9. Prometheus metric.
 		metrics.PromoCodesApplied.WithLabelValues(code, promoType).Inc()

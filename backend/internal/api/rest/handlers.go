@@ -332,10 +332,6 @@ func profileHandler(userStore *auth.UserStore, db *pgxpool.Pool) http.HandlerFun
 	}
 }
 
-type sendVerificationRequest struct {
-	// empty — uses JWT claims to determine user
-}
-
 type sendVerificationResponse struct {
 	Message string `json:"message"`
 }

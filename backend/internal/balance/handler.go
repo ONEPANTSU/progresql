@@ -60,7 +60,7 @@ func (h *Handler) GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 	if userID == "" {
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(errorResp{Error: "missing authentication"})
+		_ = json.NewEncoder(w).Encode(errorResp{Error: "missing authentication"})
 		return
 	}
 
@@ -69,12 +69,12 @@ func (h *Handler) GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("failed to get balance",
 			zap.String("user_id", userID), zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(errorResp{Error: "failed to get balance"})
+		_ = json.NewEncoder(w).Encode(errorResp{Error: "failed to get balance"})
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(balanceResponse{
+	_ = json.NewEncoder(w).Encode(balanceResponse{
 		Balance:  balance,
 		Currency: "RUB",
 	})
@@ -100,7 +100,7 @@ func (h *Handler) GetHistoryHandler(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 	if userID == "" {
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(errorResp{Error: "missing authentication"})
+		_ = json.NewEncoder(w).Encode(errorResp{Error: "missing authentication"})
 		return
 	}
 
@@ -123,12 +123,12 @@ func (h *Handler) GetHistoryHandler(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("failed to get balance history",
 			zap.String("user_id", userID), zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(errorResp{Error: "failed to get balance history"})
+		_ = json.NewEncoder(w).Encode(errorResp{Error: "failed to get balance history"})
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(historyResponse{
+	_ = json.NewEncoder(w).Encode(historyResponse{
 		Transactions: transactions,
 		Total:        total,
 		Limit:        limit,

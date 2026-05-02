@@ -661,20 +661,6 @@ func (p *Pipeline) sendQuotaExhausted(session *websocket.Session, requestID stri
 	p.sendError(session, requestID, websocket.ErrCodeQuotaExhausted, result.Reason)
 }
 
-// sendModelFallback sends a model.fallback notification to the client.
-func (p *Pipeline) sendModelFallback(session *websocket.Session, requestID, fromModel, toModel, reason string) {
-	env, err := websocket.NewEnvelopeWithID(websocket.TypeModelFallback, requestID, "", websocket.ModelFallbackPayload{
-		FromModel: fromModel,
-		ToModel:   toModel,
-		Reason:    reason,
-	})
-	if err != nil {
-		p.logger.Error("failed to marshal model.fallback", zap.Error(err))
-		return
-	}
-	_ = session.SendEnvelope(env)
-}
-
 // getModelTier returns the tier ("budget" or "premium") for the given model ID.
 // Handles OpenRouter model ID aliasing (e.g. "anthropic/claude-4-opus-20250522"
 // returned by the API vs "anthropic/claude-opus-4" in our config).
@@ -1051,15 +1037,6 @@ func findModelFuzzy(modelID string) *config.ModelInfo {
 	}
 	return nil
 }
-// calcCostUSDFromDB estimates cost using the database-driven model service.
-// Falls back to the config-based calcCostUSD if the service is not available.
-func (p *Pipeline) calcCostUSDFromDB(modelID string, totalTokens int) float64 {
-	if p.modelsSvc != nil {
-		return p.modelsSvc.CalcCostUSDTotal(context.Background(), modelID, totalTokens)
-	}
-	return calcCostUSD(modelID, totalTokens)
-}
-
 
 // recordTokenUsage inserts a row into the token_usage table after a successful pipeline run.
 // costUSD is the actual amount charged (0 if covered by quota).

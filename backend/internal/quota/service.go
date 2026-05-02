@@ -182,11 +182,9 @@ func (s *Service) ChargeRequest(ctx context.Context, userID string, modelID stri
 	// Record balance transaction (only if real balance was touched).
 	_, _ = tx.Exec(ctx, "SAVEPOINT bt_insert")
 	txType := "model_charge"
-	chargeAmount := -costUSD
+	var chargeAmount float64
 	if coveredByBalance > 0 {
 		chargeAmount = -coveredByBalance
-	} else {
-		chargeAmount = 0 // fully covered by credits — no balance change
 	}
 	_, btErr := tx.Exec(ctx,
 		`INSERT INTO balance_transactions (id, user_id, amount, balance_after, tx_type, model_id, tokens_input, tokens_output, description)

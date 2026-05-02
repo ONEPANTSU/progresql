@@ -35,8 +35,6 @@ func stripCodeFences(s string) string {
 			s = strings.TrimPrefix(s, "```")
 		}
 	}
-	if strings.HasSuffix(s, "```") {
-		s = strings.TrimSuffix(s, "```")
-	}
+	s = strings.TrimSuffix(s, "```")
 	return strings.TrimSpace(s)
 }

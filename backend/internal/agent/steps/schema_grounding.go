@@ -52,11 +52,6 @@ func (s *SchemaGroundingStep) Execute(ctx context.Context, pctx *agent.PipelineC
 	}
 
 	// Step 2: Call list_tables for each schema and collect all tables with their schema prefix.
-	type schemaTable struct {
-		Schema string
-		Table  string
-	}
-	var allTables []schemaTable
 	var tableNames []string // "schema.table" format for LLM
 
 	for _, schema := range schemas {
@@ -81,7 +76,6 @@ func (s *SchemaGroundingStep) Execute(ctx context.Context, pctx *agent.PipelineC
 		}
 
 		for _, name := range names {
-			allTables = append(allTables, schemaTable{Schema: schema, Table: name})
 			tableNames = append(tableNames, schema+"."+name)
 		}
 	}

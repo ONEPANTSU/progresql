@@ -64,7 +64,7 @@ func (s *Service) TopUp(ctx context.Context, userID string, amount float64, desc
 	if err != nil {
 		return fmt.Errorf("balance: begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Lock user row and read current balance.
 	var currentBalance float64
@@ -119,7 +119,7 @@ func (s *Service) Charge(ctx context.Context, userID string, amount float64, mod
 	if err != nil {
 		return fmt.Errorf("balance: begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Lock user row and get current balance.
 	var currentBalance float64
@@ -178,7 +178,7 @@ func (s *Service) ChargeOverQuota(ctx context.Context, userID string, amount flo
 	if err != nil {
 		return fmt.Errorf("balance: begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var currentBalance float64
 	err = tx.QueryRow(ctx,
@@ -233,7 +233,7 @@ func (s *Service) Refund(ctx context.Context, userID string, amount float64, des
 	if err != nil {
 		return fmt.Errorf("balance: begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var currentBalance float64
 	err = tx.QueryRow(ctx,
@@ -285,7 +285,7 @@ func (s *Service) DeductForRefund(ctx context.Context, userID string, amount flo
 	if err != nil {
 		return fmt.Errorf("balance: begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var currentBalance float64
 	err = tx.QueryRow(ctx,
@@ -402,7 +402,7 @@ func (s *Service) CreditSubscription(ctx context.Context, userID string, amount 
 	if err != nil {
 		return fmt.Errorf("balance: begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var currentBalance float64
 	err = tx.QueryRow(ctx,
@@ -448,7 +448,7 @@ func (s *Service) ExpireDailyCredits(ctx context.Context, userID string, dailyAm
 	if err != nil {
 		return fmt.Errorf("balance: begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var currentBalance float64
 	var creditsUsed float64

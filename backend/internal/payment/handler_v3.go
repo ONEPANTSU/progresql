@@ -26,22 +26,6 @@ type BalanceRefundHandler interface {
 // refundPolicyDays is the number of days after payment within which a refund is allowed.
 const refundPolicyDays = 14
 
-// stripTimestampSuffix removes the trailing _<unix_timestamp> suffix from an
-// order ID so that it can be parsed by parseOrderPayload.
-// Example: "sub_pro_abc123_1711929600" -> "sub_pro_abc123"
-func stripTimestampSuffix(orderID string) string {
-	idx := strings.LastIndex(orderID, "_")
-	if idx < 0 {
-		return orderID
-	}
-	suffix := orderID[idx+1:]
-	// Check that the suffix is numeric (unix timestamp).
-	if _, err := strconv.ParseInt(suffix, 10, 64); err != nil {
-		return orderID
-	}
-	return orderID[:idx]
-}
-
 // resolveDescription returns a human-readable payment description for T-Bank.
 func resolveDescription(paymentType, plan string) string {
 	switch paymentType {
