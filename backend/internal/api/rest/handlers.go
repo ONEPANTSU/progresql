@@ -250,28 +250,28 @@ func loginHandler(jwtSvc *auth.JWTService, userStore *auth.UserStore) http.Handl
 		var req loginRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
 			return
 		}
 
 		user, err := userStore.Authenticate(req.Email, req.Password)
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(errorResponse{Error: "Неверный email или пароль"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "Неверный email или пароль"})
 			return
 		}
 
 		token, err := jwtSvc.GenerateUserToken(user)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to generate token"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to generate token"})
 			return
 		}
 
 		expiresAt := time.Now().Add(auth.TokenTTL).UTC().Format(time.RFC3339)
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(authUserResponse{
+		_ = json.NewEncoder(w).Encode(authUserResponse{
 			Token:     token,
 			ExpiresAt: expiresAt,
 			User:      userInfoFromUser(user),
@@ -296,7 +296,7 @@ func profileHandler(userStore *auth.UserStore, db *pgxpool.Pool) http.HandlerFun
 		claims := auth.ClaimsFromContext(r.Context())
 		if claims == nil {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
 			return
 		}
 
@@ -318,14 +318,14 @@ func profileHandler(userStore *auth.UserStore, db *pgxpool.Pool) http.HandlerFun
 					}
 				}
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(userInfoFromUser(user))
+				_ = json.NewEncoder(w).Encode(userInfoFromUser(user))
 				return
 			}
 		}
 
 		// Fallback to claims (anonymous sessions, etc.).
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(userInfo{
+		_ = json.NewEncoder(w).Encode(userInfo{
 			ID:    claims.UserID,
 			Email: claims.Email,
 			Name:  claims.Name,
@@ -359,44 +359,44 @@ func sendVerificationHandler(jwtSvc *auth.JWTService, userStore *auth.UserStore,
 		claims := auth.ClaimsFromContext(r.Context())
 		if claims == nil {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
 			return
 		}
 
 		user, err := userStore.GetByID(claims.UserID)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(errorResponse{Error: "user not found"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "user not found"})
 			return
 		}
 
 		if user.EmailVerified {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "email already verified"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "email already verified"})
 			return
 		}
 
 		if !emailSvc.IsConfigured() {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			json.NewEncoder(w).Encode(errorResponse{Error: "email service not configured"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "email service not configured"})
 			return
 		}
 
 		code, err := emailSvc.GenerateCode(user.ID, user.Email)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to generate verification code"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to generate verification code"})
 			return
 		}
 
 		if err := emailSvc.SendVerificationEmail(user.Email, code); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to send verification email"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to send verification email"})
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(sendVerificationResponse{
+		_ = json.NewEncoder(w).Encode(sendVerificationResponse{
 			Message: fmt.Sprintf("Verification code sent to %s", user.Email),
 		})
 	}
@@ -431,31 +431,31 @@ func verifyCodeHandler(userStore *auth.UserStore, emailSvc *auth.EmailService) h
 		claims := auth.ClaimsFromContext(r.Context())
 		if claims == nil {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
 			return
 		}
 
 		var req verifyCodeRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "code is required"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "code is required"})
 			return
 		}
 
 		if err := emailSvc.VerifyCode(claims.UserID, req.Code); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: err.Error()})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: err.Error()})
 			return
 		}
 
 		if err := userStore.SetEmailVerified(claims.UserID); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to update verification status"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to update verification status"})
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(verifyCodeResponse{Verified: true})
+		_ = json.NewEncoder(w).Encode(verifyCodeResponse{Verified: true})
 	}
 }
 
@@ -483,7 +483,7 @@ func forgotPasswordHandler(userStore *auth.UserStore, emailSvc *auth.EmailServic
 		var req forgotPasswordRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "email is required"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "email is required"})
 			return
 		}
 
@@ -491,31 +491,31 @@ func forgotPasswordHandler(userStore *auth.UserStore, emailSvc *auth.EmailServic
 		user, err := userStore.GetByEmail(req.Email)
 		if err != nil {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"message": "If this email is registered, a reset code has been sent"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"message": "If this email is registered, a reset code has been sent"})
 			return
 		}
 
 		if !emailSvc.IsConfigured() {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			json.NewEncoder(w).Encode(errorResponse{Error: "email service not configured"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "email service not configured"})
 			return
 		}
 
 		code, err := emailSvc.GenerateResetCode(user.Email)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to generate reset code"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to generate reset code"})
 			return
 		}
 
 		if err := emailSvc.SendPasswordResetEmail(user.Email, code); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to send reset email"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to send reset email"})
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"message": "If this email is registered, a reset code has been sent"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"message": "If this email is registered, a reset code has been sent"})
 	}
 }
 
@@ -545,26 +545,26 @@ func resetPasswordHandler(userStore *auth.UserStore, emailSvc *auth.EmailService
 		var req resetPasswordRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
 			return
 		}
 
 		if req.Email == "" || req.Code == "" || req.NewPassword == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "email, code, and new_password are required"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "email, code, and new_password are required"})
 			return
 		}
 
 		if err := emailSvc.VerifyResetCode(req.Email, req.Code); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: err.Error()})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: err.Error()})
 			return
 		}
 
 		user, err := userStore.GetByEmail(req.Email)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(errorResponse{Error: "user not found"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "user not found"})
 			return
 		}
 
@@ -574,12 +574,12 @@ func resetPasswordHandler(userStore *auth.UserStore, emailSvc *auth.EmailService
 			} else {
 				w.WriteHeader(http.StatusInternalServerError)
 			}
-			json.NewEncoder(w).Encode(errorResponse{Error: err.Error()})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: err.Error()})
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"message": "Password updated successfully"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"message": "Password updated successfully"})
 	}
 }
 
@@ -620,14 +620,14 @@ func createSessionHandler(hub *websocket.Hub, serverPort string, userStore *auth
 		claims := auth.ClaimsFromContext(r.Context())
 		if claims == nil {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "missing authentication"})
 			return
 		}
 
 		var req createSessionRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
 			return
 		}
 
@@ -668,7 +668,7 @@ func createSessionHandler(hub *websocket.Hub, serverPort string, userStore *auth
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(createSessionResponse{
+		_ = json.NewEncoder(w).Encode(createSessionResponse{
 			SessionID:           sessionID,
 			WSURL:               wsURL,
 			SubscriptionWarning: warning,
@@ -722,7 +722,7 @@ func modelsHandler(models []config.ModelInfo, defaultModel string) http.HandlerF
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}
 }
 
@@ -790,7 +790,7 @@ func modelsHandlerV2(modelsSvc *models.Service, defaultModel string) http.Handle
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}
 }
 
@@ -842,13 +842,13 @@ func legalDocumentHandler(db *pgxpool.Pool) http.HandlerFunc {
 		docType := r.PathValue("type")
 		if docType == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "missing document type"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "missing document type"})
 			return
 		}
 
 		if db == nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "database not configured"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "database not configured"})
 			return
 		}
 
@@ -874,7 +874,7 @@ func legalDocumentHandler(db *pgxpool.Pool) http.HandlerFunc {
 			).Scan(&doc.ID, &doc.DocType, &doc.Version, &doc.Title, &doc.Language, &doc.ContentHTML, &publishedAt, &effectiveAt)
 			if err != nil {
 				w.WriteHeader(http.StatusNotFound)
-				json.NewEncoder(w).Encode(errorResponse{Error: "document not found"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "document not found"})
 				return
 			}
 		} else {
@@ -889,7 +889,7 @@ func legalDocumentHandler(db *pgxpool.Pool) http.HandlerFunc {
 			).Scan(&doc.ID, &doc.DocType, &doc.Version, &doc.Title, &doc.Language, &doc.ContentHTML, &publishedAt, &effectiveAt)
 			if err != nil {
 				w.WriteHeader(http.StatusNotFound)
-				json.NewEncoder(w).Encode(errorResponse{Error: "document not found"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "document not found"})
 				return
 			}
 		}
@@ -904,7 +904,7 @@ func legalDocumentHandler(db *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(doc)
+		_ = json.NewEncoder(w).Encode(doc)
 	}
 }
 
@@ -940,26 +940,26 @@ func legalAcceptHandler(db *pgxpool.Pool) http.HandlerFunc {
 		claims := auth.ClaimsFromContext(r.Context())
 		if claims == nil || claims.UserID == "" {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(errorResponse{Error: "authentication required"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "authentication required"})
 			return
 		}
 
 		var req legalAcceptRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid request body"})
 			return
 		}
 
 		if req.DocType == "" || req.DocVersion == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "doc_type and doc_version are required"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "doc_type and doc_version are required"})
 			return
 		}
 
 		if db == nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "database not configured"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "database not configured"})
 			return
 		}
 
@@ -984,12 +984,12 @@ func legalAcceptHandler(db *pgxpool.Pool) http.HandlerFunc {
 		)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to record acceptance"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to record acceptance"})
 			return
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(legalAcceptResponse{Accepted: true})
+		_ = json.NewEncoder(w).Encode(legalAcceptResponse{Accepted: true})
 	}
 }
 
@@ -1008,7 +1008,7 @@ func adminMiddleware(adminIDs []string, next http.Handler) http.Handler {
 		if claims == nil || claims.UserID == "" || !allowed[claims.UserID] {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusForbidden)
-			json.NewEncoder(w).Encode(errorResponse{Error: "admin access required"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "admin access required"})
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -1051,7 +1051,7 @@ func analyticsUsersHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Han
 
 		if db == nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "database not configured"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "database not configured"})
 			return
 		}
 
@@ -1079,7 +1079,7 @@ func analyticsUsersHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Han
 		rows, err := db.Query(ctx, query, args...)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to query analytics"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to query analytics"})
 			return
 		}
 		defer rows.Close()
@@ -1089,7 +1089,7 @@ func analyticsUsersHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Han
 			var s analyticsUserSummary
 			if err := rows.Scan(&s.UserID, &s.TotalRequests, &s.TotalTokens, &s.PromptTokens, &s.CompletionTokens, &s.TotalCostUSD); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(errorResponse{Error: "failed to scan row"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to scan row"})
 				return
 			}
 			// Enrich with user info from store.
@@ -1101,7 +1101,7 @@ func analyticsUsersHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Han
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(analyticsUsersResponse{Users: users, Month: month})
+		_ = json.NewEncoder(w).Encode(analyticsUsersResponse{Users: users, Month: month})
 	}
 }
 
@@ -1147,13 +1147,13 @@ func analyticsUserDetailHandler(db *pgxpool.Pool, userStore *auth.UserStore) htt
 		userID := r.PathValue("id")
 		if userID == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "missing user_id in path"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "missing user_id in path"})
 			return
 		}
 
 		if db == nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "database not configured"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "database not configured"})
 			return
 		}
 
@@ -1180,7 +1180,7 @@ func analyticsUserDetailHandler(db *pgxpool.Pool, userStore *auth.UserStore) htt
 		)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to query user totals"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to query user totals"})
 			return
 		}
 
@@ -1204,7 +1204,7 @@ func analyticsUserDetailHandler(db *pgxpool.Pool, userStore *auth.UserStore) htt
 		rows, err := db.Query(ctx, monthQuery, userID)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to query monthly breakdown"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to query monthly breakdown"})
 			return
 		}
 		defer rows.Close()
@@ -1213,13 +1213,13 @@ func analyticsUserDetailHandler(db *pgxpool.Pool, userStore *auth.UserStore) htt
 			var m analyticsMonthBreakdown
 			if err := rows.Scan(&m.Month, &m.TotalRequests, &m.TotalTokens, &m.PromptTokens, &m.CompletionTokens, &m.TotalCostUSD); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(errorResponse{Error: "failed to scan month row"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to scan month row"})
 				return
 			}
 			resp.Months = append(resp.Months, m)
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}
 }
