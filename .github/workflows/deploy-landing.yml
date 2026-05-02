@@ -29,48 +29,49 @@ jobs:
       - name: Create target directories on server
         run: |
           ssh -i ~/.ssh/deploy_key root@progresql.com \
-            "mkdir -p /var/www/progresql/landing /var/www/progresql/payment /var/www/progresql/legal"
+            "mkdir -p /var/www/postgresql/landing /var/www/postgresql/payment /var/www/postgresql/legal"
 
       - name: Deploy landing static files
         run: |
           rsync -avz --delete --exclude='legal/' --exclude='downloads/' -e "ssh -i ~/.ssh/deploy_key" \
             static/landing/ \
-            root@progresql.com:/var/www/progresql/landing/
+            root@progresql.com:/var/www/postgresql/landing/
 
       - name: Deploy legal pages (under landing)
         run: |
           rsync -avz -e "ssh -i ~/.ssh/deploy_key" \
             static/legal/ \
-            root@progresql.com:/var/www/progresql/landing/legal/
+            root@progresql.com:/var/www/postgresql/landing/legal/
 
       - name: Deploy payment static files
         run: |
           rsync -avz -e "ssh -i ~/.ssh/deploy_key" \
             static/payment/ \
-            root@progresql.com:/var/www/progresql/payment/
+            root@progresql.com:/var/www/postgresql/payment/
 
       - name: Copy screenshot to web root
         run: |
           scp -i ~/.ssh/deploy_key \
             static/landing/screenshot.png \
-            root@progresql.com:/var/www/progresql/screenshot.png
+            root@progresql.com:/var/www/postgresql/screenshot.png
 
-      - name: Copy landing demo video (when asset exists on tagged release)
+      - name: Copy landing demo video from Release
         run: |
-          set -euo pipefail
-          if gh release download "${{ github.ref_name }}" -p "progresql.mp4" -O "/tmp/progresql.mp4" 2>/dev/null; then
-            scp -i ~/.ssh/deploy_key \
-              /tmp/progresql.mp4 \
-              root@progresql.com:/var/www/progresql/landing/progresql.mp4
+          # Video >100MB cannot live in git; attach 'progresql.mp4' to GitHub Release for this tag (assets ~2GB).
+          set -uo pipefail
+          DEST=/var/www/postgresql/landing/progresql.mp4
+          if gh release download "${{ github.ref_name }}" -p "progresql.mp4" -O /tmp/progresql.mp4 2>/dev/null; then
+            scp -i ~/.ssh/deploy_key /tmp/progresql.mp4 \
+              root@progresql.com:"${DEST}"
           else
-            echo "Skipping: no progresql.mp4 attached to ${{ github.ref_name }}"
+            echo "No Release asset 'progresql.mp4' for ${{ github.ref_name }} — upload to GitHub Release, then Re-run."
           fi
 
       - name: Deploy nginx config and reload
         run: |
           scp -i ~/.ssh/deploy_key \
             deploy/nginx/progresql.conf \
-            root@progresql.com:/etc/nginx/sites-available/progresql
+            root@progresql.com:/etc/nginx/sites-available/postgresql
           ssh -i ~/.ssh/deploy_key root@progresql.com \
             "nginx -t && nginx -s reload"
 
@@ -78,4 +79,4 @@ jobs:
         run: |
           echo "Landing deployed from tag ${{ github.ref_name }}"
           ssh -i ~/.ssh/deploy_key root@progresql.com \
-            "ls -lh /var/www/progresql/landing/"
+            "ls -lh /var/www/postgresql/landing/"

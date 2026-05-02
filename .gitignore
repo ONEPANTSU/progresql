@@ -27,5 +27,5 @@ _fix_menu.mjs
 deploy/.env.production
 backend/progresql-server
 
-# Landing demo video is stored as a GitHub Release asset (not in git)
+# Landing demo video: Git rejects files >100MB in git blobs — хранится как Release-ассет (см. deploy-landing).
 static/progresql.mp4
