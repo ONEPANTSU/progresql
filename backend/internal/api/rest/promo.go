@@ -48,20 +48,20 @@ func promoApplyHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Handler
 		claims := auth.ClaimsFromContext(r.Context())
 		if claims == nil || claims.UserID == "" {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(errorResponse{Error: "authentication required"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "authentication required"})
 			return
 		}
 
 		if db == nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "database not configured"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "database not configured"})
 			return
 		}
 
 		var req applyPromoRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Code) == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "code is required"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "code is required"})
 			return
 		}
 
@@ -89,28 +89,28 @@ func promoApplyHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Handler
 			&maxUses, &usedCount, &expiresAt, &isActive)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid or expired promo code"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid or expired promo code"})
 			return
 		}
 
 		// 2. Validate: is_active.
 		if !isActive {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid or expired promo code"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid or expired promo code"})
 			return
 		}
 
 		// 3. Validate: not expired.
 		if expiresAt != nil && expiresAt.Before(time.Now()) {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "invalid or expired promo code"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "invalid or expired promo code"})
 			return
 		}
 
 		// 4. Validate: max_uses not reached.
 		if maxUses != nil && usedCount >= *maxUses {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(errorResponse{Error: "promo code usage limit reached"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "promo code usage limit reached"})
 			return
 		}
 
@@ -122,12 +122,12 @@ func promoApplyHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Handler
 		).Scan(&alreadyUsed)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to check promo code usage"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to check promo code usage"})
 			return
 		}
 		if alreadyUsed > 0 {
 			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(errorResponse{Error: "promo code already used"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "promo code already used"})
 			return
 		}
 
@@ -141,7 +141,7 @@ func promoApplyHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Handler
 			expStr := newExpiresAt.Format(time.RFC3339)
 			if err := userStore.SetPlan(claims.UserID, "pro", &expStr); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(errorResponse{Error: "failed to apply promo code"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to apply promo code"})
 				return
 			}
 		case "trial_extension":
@@ -153,7 +153,7 @@ func promoApplyHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Handler
 			)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(errorResponse{Error: "failed to extend trial"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to extend trial"})
 				return
 			}
 			// Fetch the updated trial_ends_at for the response.
@@ -181,7 +181,7 @@ func promoApplyHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Handler
 			}
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(applyPromoResponse{
+			_ = json.NewEncoder(w).Encode(applyPromoResponse{
 				Success:         true,
 				DiscountPercent: discountPercent,
 				DiscountAmount:  discountAmount,
@@ -190,7 +190,7 @@ func promoApplyHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Handler
 			return
 		default:
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "unknown promo code type"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "unknown promo code type"})
 			return
 		}
 
@@ -207,7 +207,7 @@ func promoApplyHandler(db *pgxpool.Pool, userStore *auth.UserStore) http.Handler
 		metrics.PromoCodesApplied.WithLabelValues(code, promoType).Inc()
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(applyPromoResponse{
+		_ = json.NewEncoder(w).Encode(applyPromoResponse{
 			Success:   true,
 			Plan:      resultPlan,
 			ExpiresAt: newExpiresAt.Format(time.RFC3339),
