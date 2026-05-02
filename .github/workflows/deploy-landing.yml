@@ -5,9 +5,15 @@ on:
     tags:
       - 'landing-v*'
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    env:
+      GH_TOKEN: ${{ github.token }}
 
     steps:
       - name: Checkout
@@ -49,12 +55,16 @@ jobs:
             static/landing/screenshot.png \
             root@progresql.com:/var/www/progresql/screenshot.png
 
-      - name: Copy landing demo video
+      - name: Copy landing demo video (when asset exists on tagged release)
         run: |
-          gh release download "${{ github.ref_name }}" -p "progresql.mp4" -O "/tmp/progresql.mp4"
-          scp -i ~/.ssh/deploy_key \
-            /tmp/progresql.mp4 \
-            root@progresql.com:/var/www/progresql/landing/progresql.mp4
+          set -euo pipefail
+          if gh release download "${{ github.ref_name }}" -p "progresql.mp4" -O "/tmp/progresql.mp4" 2>/dev/null; then
+            scp -i ~/.ssh/deploy_key \
+              /tmp/progresql.mp4 \
+              root@progresql.com:/var/www/progresql/landing/progresql.mp4
+          else
+            echo "Skipping: no progresql.mp4 attached to ${{ github.ref_name }}"
+          fi
 
       - name: Deploy nginx config and reload
         run: |
