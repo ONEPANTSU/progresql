@@ -36,7 +36,7 @@ func healthHandler(version string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(healthResponse{
+		_ = json.NewEncoder(w).Encode(healthResponse{
 			Status:  "ok",
 			Version: version,
 		})
@@ -70,14 +70,14 @@ func authTokenHandler(jwtSvc *auth.JWTService) http.HandlerFunc {
 		token, err := jwtSvc.GenerateToken(sessionID)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(errorResponse{Error: "failed to generate token"})
+			_ = json.NewEncoder(w).Encode(errorResponse{Error: "failed to generate token"})
 			return
 		}
 
 		expiresAt := time.Now().Add(auth.TokenTTL).UTC().Format(time.RFC3339)
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(authTokenResponse{
+		_ = json.NewEncoder(w).Encode(authTokenResponse{
 			Token:     token,
 			ExpiresAt: expiresAt,
 		})

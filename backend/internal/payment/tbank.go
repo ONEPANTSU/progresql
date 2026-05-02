@@ -302,7 +302,7 @@ func (c *TBankClient) doRequest(ctx context.Context, endpoint string, body []byt
 	if err != nil {
 		return fmt.Errorf("sending request to TBank %s: %w", endpoint, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
