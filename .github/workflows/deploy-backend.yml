@@ -18,11 +18,13 @@ jobs:
           cache: true
           cache-dependency-path: backend/go.sum
 
+      # go.mod uses go 1.25 — golangci-lint v1.x binaries are built with Go 1.24 and refuse to load.
+      # Require v2.4+ (v2 officially supports Go 1.25 in release binaries).
       - name: Go Lint
         uses: golangci/golangci-lint-action@v8
         with:
-          install-mode: goinstall
-          version: latest
+          version: v2.12.1
+          install-mode: binary
           working-directory: backend
 
       - name: Run backend tests
