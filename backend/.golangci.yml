@@ -1,8 +1,9 @@
 version: "2"
 
-issues:
-  exclude-rules:
-    # Test helpers often omit error checks deliberately; lint production code strictly.
-    - path: '_test\.go$'
-      linters:
-        - errcheck
+linters:
+  exclusions:
+    rules:
+      # Tests often omit deliberate error checks; keep errcheck strict for production code only.
+      - path: '_test\.go$'
+        linters:
+          - errcheck
