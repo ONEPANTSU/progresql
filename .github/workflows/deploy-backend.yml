@@ -69,5 +69,7 @@ jobs:
             rm -f /tmp/progresql-backend.tar.gz
             cd /opt/progresql
             sed -i "s/PROGRESSQL_VERSION=.*/PROGRESSQL_VERSION=${{ steps.version.outputs.VERSION }}/" .env
-            docker compose up -d --force-recreate backend
+            # Monitoring stack (+ Grafana stack). Omit postgres — DB is external / managed separately.
+            docker compose pull prometheus grafana loki promtail node-exporter
+            docker compose up -d --force-recreate backend prometheus loki node-exporter promtail grafana
             docker system prune -f
