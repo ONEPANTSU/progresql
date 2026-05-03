@@ -174,7 +174,7 @@ func exchangeRateHandler(rateSvc *exchange.RateService) func(http.ResponseWriter
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response{
+		_ = json.NewEncoder(w).Encode(response{
 			UsdToRub: rateSvc.GetUSDToRUB(),
 		})
 	}
