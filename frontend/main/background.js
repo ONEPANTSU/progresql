@@ -1473,14 +1473,14 @@ ipcMain.handle('get-env', async (event, key) => {
 ipcMain.handle('encrypt-password', async (event, plaintext) => {
   try {
     if (!safeStorage.isEncryptionAvailable()) {
-      log.warn('safeStorage encryption not available, returning plaintext');
-      return { encrypted: false, data: plaintext };
+      log.warn('safeStorage encryption not available; refusing to persist password');
+      return { encrypted: false, data: '' };
     }
     const encrypted = safeStorage.encryptString(plaintext);
     return { encrypted: true, data: encrypted.toString('base64') };
   } catch (error) {
     log.error('encrypt-password error:', error);
-    return { encrypted: false, data: plaintext };
+    return { encrypted: false, data: '' };
   }
 });
 

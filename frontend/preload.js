@@ -11,7 +11,14 @@ const ASSETS_DIR = path.join(APP_DIR, 'assets');
 contextBridge.exposeInMainWorld('electronAPI', {
   connectDatabase: async (config) => {
     try {
-      log.debug('connectDatabase called', config);
+      log.debug('connectDatabase called', {
+        host: config?.host,
+        port: config?.port,
+        username: config?.username,
+        database: config?.database,
+        connectionName: config?.connectionName,
+        hasPassword: Boolean(config?.password),
+      });
       const result = await ipcRenderer.invoke('connect-database', config);
       log.debug('connectDatabase result:', result);
       return result;
@@ -22,9 +29,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   executeQuery: async (connectionId, query) => {
     try {
-      log.debug('executeQuery called', { connectionId, query });
+      log.debug('executeQuery called', { connectionId, queryLength: query ? query.length : 0 });
       const result = await ipcRenderer.invoke('execute-query', { connectionId, query });
-      log.debug('executeQuery result:', result);
+      log.debug('executeQuery result:', { success: result?.success, rowCount: result?.rowCount, fieldCount: result?.fields?.length || 0 });
       return result;
     } catch (error) {
       log.error('executeQuery error:', error);
@@ -197,7 +204,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return await ipcRenderer.invoke('encrypt-password', plaintext);
     } catch (error) {
       log.error('encryptPassword error:', error);
-      return { encrypted: false, data: plaintext };
+      return { encrypted: false, data: '' };
     }
   },
   decryptPassword: async (encryptedBase64) => {

@@ -49,10 +49,8 @@ func (s *DiagnosticRetryStep) Execute(ctx context.Context, pctx *agent.PipelineC
 	// In safe/data modes, block DDL/DML entirely — don't show it, don't execute it.
 	// Instead, set a user-friendly message explaining the restriction.
 	if isDDL && pctx.SecurityMode != agent.SecurityModeExecute {
-		pctx.Logger.Info("diagnostic_retry blocked: DDL/DML not allowed in current mode",
-			zap.String("security_mode", pctx.SecurityMode),
-			zap.String("sql_prefix", candidates[0][:min(len(candidates[0]), 40)]),
-		)
+		fields := append([]zap.Field{zap.String("security_mode", pctx.SecurityMode)}, sqlLogFields(candidates[0])...)
+		pctx.Logger.Info("diagnostic_retry blocked: DDL/DML not allowed in current mode", fields...)
 		pctx.Set(ContextKeySQLCandidates, candidates)
 		pctx.Set(ContextKeySQLCandidate, candidates[0])
 		pctx.Result.SQL = candidates[0]
@@ -129,10 +127,8 @@ func (s *DiagnosticRetryStep) Execute(ctx context.Context, pctx *agent.PipelineC
 			bestError = "SQL validation failed after retries"
 		}
 
-		pctx.Logger.Warn("all candidates failed EXPLAIN, sending best-effort SQL with error",
-			zap.String("last_sql", bestSQL),
-			zap.String("last_error", bestError),
-		)
+		fields := append(sqlLogFields(bestSQL), zap.String("last_error", bestError))
+		pctx.Logger.Warn("all candidates failed EXPLAIN, sending best-effort SQL with error", fields...)
 		pctx.Set(ContextKeySQLCandidates, []string{bestSQL})
 		pctx.Set(ContextKeySQLCandidate, bestSQL)
 		pctx.Result.SQL = bestSQL

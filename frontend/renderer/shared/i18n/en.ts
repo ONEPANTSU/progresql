@@ -335,7 +335,6 @@ const en = {
   // ── WS Notification Toasts ──
   'notify.ws.quotaWarning': 'Quota is running low ({percent}% used). Consider upgrading your plan.',
   'notify.ws.quotaExhausted': 'Your quota has been exhausted. Top up your balance or upgrade your plan.',
-  'notify.ws.modelFallback': 'Model switched from {from_model} to {to_model} due to quota limits.',
   'notify.ws.balanceLow': 'Low balance: {amount} RUB remaining. Top up to continue using AI.',
 
   // ── Subscription Warnings ──
@@ -523,7 +522,6 @@ const en = {
   'quota.exhausted': 'Quota exhausted',
   'quota.balanceFallback': 'Using balance',
   'quota.warning': 'Quota is running low ({percent}% used)',
-  'quota.modelFallback': 'Switched to {model} (quota limit)',
 
   'balance.title': 'Balance',
   'balance.topup': 'Top up',

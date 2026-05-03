@@ -138,7 +138,7 @@ export interface AgentContextValue {
   usage: UsageInfo | null;
   /** Refresh usage data from backend */
   refreshUsage: () => void;
-  /** Last server notification (quota.warning, model.fallback, etc.) */
+  /** Last server notification (quota.warning, quota.exhausted, balance.low, etc.) */
   lastNotification: ServerNotification | null;
   /** Pending tool approval request (shown inline in chat) */
   pendingApproval: PendingApproval | null;
@@ -177,6 +177,8 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
   const autoApproveRef = useRef(false); // "accept always" for this session
   const toolConnectionIdRef = useRef<string | null>(null);
+  const securityModeRef = useRef<SecurityMode>(securityMode);
+  securityModeRef.current = securityMode;
 
   // Reset both renderer ref and tool-server auto-approval flag
   const resetAutoApproval = useCallback(() => {
@@ -241,7 +243,7 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
         }
       }
-      return handleToolCall(toolName, args, toolConnectionIdRef.current);
+      return handleToolCall(toolName, args, toolConnectionIdRef.current, securityModeRef.current);
     });
 
     // Subscribe to server push notifications

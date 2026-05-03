@@ -13,6 +13,7 @@ export interface ToolRequest {
   toolName: string;
   arguments: Record<string, unknown>;
   connectionId?: string;
+  security_mode?: 'safe' | 'data' | 'execute';
 }
 
 /** Database connection config for connectDatabase IPC call. */

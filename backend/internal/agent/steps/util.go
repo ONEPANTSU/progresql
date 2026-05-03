@@ -1,6 +1,13 @@
 package steps
 
-import "strings"
+import (
+	"crypto/sha256"
+	"fmt"
+	"strings"
+	"unicode"
+
+	"go.uber.org/zap"
+)
 
 // stripThinkingTags removes <think>...</think> blocks that reasoning models
 // (e.g. Qwen, DeepSeek) prepend to their responses before the actual content.
@@ -37,4 +44,30 @@ func stripCodeFences(s string) string {
 	}
 	s = strings.TrimSuffix(s, "```")
 	return strings.TrimSpace(s)
+}
+
+func sqlLogFields(sql string) []zap.Field {
+	trimmed := strings.TrimSpace(sql)
+	return []zap.Field{
+		zap.Int("sql_length", len(trimmed)),
+		zap.String("sql_hash", fmt.Sprintf("%x", sha256.Sum256([]byte(trimmed)))[:12]),
+		zap.String("sql_command", firstSQLCommand(trimmed)),
+	}
+}
+
+func firstSQLCommand(sql string) string {
+	for _, field := range strings.Fields(sql) {
+		var b strings.Builder
+		for _, r := range field {
+			if unicode.IsLetter(r) || r == '_' {
+				b.WriteRune(unicode.ToUpper(r))
+			} else if b.Len() > 0 {
+				break
+			}
+		}
+		if b.Len() > 0 {
+			return b.String()
+		}
+	}
+	return ""
 }

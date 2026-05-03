@@ -192,7 +192,7 @@ func (s *SchemaGroundingStep) handleEmptyDatabase(ctx context.Context, pctx *age
 			return fmt.Errorf("LLM returned empty SQL for empty database")
 		}
 
-		pctx.Logger.Info("generated SQL for empty database", zap.String("sql", sql))
+		pctx.Logger.Info("generated SQL for empty database", sqlLogFields(sql)...)
 		pctx.Result.SQL = sql
 		pctx.Result.Candidates = []string{sql}
 		pctx.Set(ContextKeySQLCandidates, []string{sql})
@@ -374,4 +374,3 @@ func parseTableNames(data json.RawMessage) ([]string, error) {
 
 	return nil, fmt.Errorf("unexpected list_tables format: %s", string(data))
 }
-

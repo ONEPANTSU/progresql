@@ -312,19 +312,7 @@ Both flows use a single v2 webhook handler that routes based on the `payment_typ
 ## Notification System
 
 - **Email templates** — Quota warning (80%/100% usage), balance low, subscription expiry, trial expiry. Sent via SMTP with deduplication via `email_notifications` table.
-- **WebSocket push notifications** — Real-time in-app alerts pushed to connected clients: quota warnings, balance charges, model fallback events. Delivered through the existing WebSocket hub.
-
-## Mid-Generation Fallback
-
-When a premium model request would exceed the user's quota or balance mid-generation:
-
-1. The agent pipeline detects quota/balance exhaustion during streaming
-2. The current generation is halted with a user-visible notification
-3. The system automatically retries the request with the default budget model (Qwen 3 Coder)
-4. A `ModelFallbackTotal` Prometheus counter is incremented
-5. The user receives a WebSocket notification explaining the fallback
-
-This ensures uninterrupted AI assistance even when premium resources are exhausted.
+- **WebSocket push notifications** — Real-time in-app alerts pushed to connected clients: quota warnings and balance charges. Delivered through the existing WebSocket hub.
 
 ## Monitoring Architecture
 

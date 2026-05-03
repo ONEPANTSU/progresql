@@ -16,7 +16,8 @@ function isEncryptedPassword(password: string): boolean {
 
 /**
  * Encrypt a single password via Electron safeStorage IPC.
- * Returns "enc:<base64>" on success, or plaintext if encryption is unavailable.
+ * Returns "enc:<base64>" on success. If encryption is unavailable, returns
+ * an empty string so localStorage never receives a plaintext password.
  */
 async function encryptPassword(plaintext: string): Promise<string> {
   if (!plaintext || isEncryptedPassword(plaintext)) {
@@ -28,11 +29,12 @@ async function encryptPassword(plaintext: string): Promise<string> {
       if (result.encrypted) {
         return ENCRYPTED_PREFIX + result.data;
       }
+      log.warn('Password encryption unavailable — password will not be saved');
     }
   } catch (error) {
     log.error('Failed to encrypt password:', error);
   }
-  return plaintext;
+  return '';
 }
 
 /**

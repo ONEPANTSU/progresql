@@ -12,8 +12,8 @@ import { ServerNotification } from '@/features/agent-chat/AgentService';
  * Must be rendered inside both AgentProvider and NotificationProvider.
  */
 export default function NotificationBridge() {
-  const { lastNotification, setModel } = useAgent();
-  const { showWarning, showError, showInfo } = useNotifications();
+  const { lastNotification } = useAgent();
+  const { showWarning, showError } = useNotifications();
   const { t } = useTranslation();
 
   // Track which notification we already handled to avoid duplicate toasts
@@ -37,16 +37,6 @@ export default function NotificationBridge() {
         showError(t('notify.ws.quotaExhausted'));
         break;
       }
-      case 'model.fallback': {
-        const from_model = String(payload.from_model ?? '');
-        const to_model = String(payload.to_model ?? '');
-        showInfo(t('notify.ws.modelFallback', { from_model, to_model }));
-        // Update selected model in UI to reflect the fallback
-        if (to_model) {
-          setModel(to_model);
-        }
-        break;
-      }
       case 'balance.low': {
         const amount = String(payload.amount ?? '');
         showWarning(t('notify.ws.balanceLow', { amount }));
@@ -55,7 +45,7 @@ export default function NotificationBridge() {
       default:
         break;
     }
-  }, [lastNotification, showWarning, showError, showInfo, setModel, t]);
+  }, [lastNotification, showWarning, showError, t]);
 
   return null;
 }

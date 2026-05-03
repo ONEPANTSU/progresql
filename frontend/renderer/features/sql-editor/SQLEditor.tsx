@@ -546,11 +546,16 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
                 lastAutocompletePos.current = currentPos;
                 const dbInfo = databaseInfoRef.current;
                 const schemaCtx = dbInfo
-                  ? Object.entries(dbInfo.schemas || {}).map(([schema, info]: [string, any]) =>
-                      `Schema "${schema}":\n` + (info.tables || []).map((t: any) =>
-                        `  ${schema}.${t.name}(${(t.columns || []).map((c: any) => `${c.name} ${c.type || ''}`).join(', ')})`
-                      ).join('\n')
-                    ).join('\n')
+                  ? (dbInfo.tables || []).map((table: any) => {
+                      const schema = table.table_schema || 'public';
+                      const name = table.table_name || table.name;
+                      const columns = (table.columns || []).map((column: any) => {
+                        const columnName = column.column_name || column.name;
+                        const columnType = column.data_type || column.type || '';
+                        return `${columnName} ${columnType}`.trim();
+                      }).join(', ');
+                      return `${schema}.${name}(${columns})`;
+                    }).join('\n')
                   : '';
                 const doc = viewRef.current.state.doc.toString();
                 agentRef.current.sendAutocomplete(doc, currentPos, schemaCtx, (completion) => {

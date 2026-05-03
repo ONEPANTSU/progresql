@@ -18,7 +18,6 @@ const (
 	// Quota and billing notification types.
 	TypeQuotaWarning   = "quota.warning"
 	TypeQuotaExhausted = "quota.exhausted"
-	TypeModelFallback  = "model.fallback"
 	TypeBalanceLow     = "balance.low"
 )
 
@@ -38,7 +37,7 @@ type AgentRequestPayload struct {
 	Action      string               `json:"action"`
 	UserMessage string               `json:"user_message,omitempty"`
 	Model       string               `json:"model,omitempty"` // per-request model override from client
-	Context     *AgentRequestContext  `json:"context,omitempty"`
+	Context     *AgentRequestContext `json:"context,omitempty"`
 }
 
 // AgentRequestContext provides optional context for an agent request.
@@ -48,9 +47,9 @@ type AgentRequestContext struct {
 	UserDescriptions string  `json:"user_descriptions,omitempty"`
 	SafeMode         *bool   `json:"safe_mode,omitempty"`     // deprecated, kept for backward compat
 	SecurityMode     *string `json:"security_mode,omitempty"` // "safe", "data", "execute"
-	Language         string  `json:"language,omitempty"`       // "ru" or "en"
-	ConnectionID     string  `json:"connection_id,omitempty"`  // which saved connection to use
-	Database         string  `json:"database,omitempty"`       // selected database name
+	Language         string  `json:"language,omitempty"`      // "ru" or "en"
+	ConnectionID     string  `json:"connection_id,omitempty"` // which saved connection to use
+	Database         string  `json:"database,omitempty"`      // selected database name
 }
 
 // ToolResultPayload is the client's response to a tool.call.
@@ -161,13 +160,6 @@ const (
 type QuotaWarningPayload struct {
 	BalanceUSD float64 `json:"balance_usd"`
 	Message    string  `json:"message"`
-}
-
-// ModelFallbackPayload notifies the client that the model was switched.
-type ModelFallbackPayload struct {
-	FromModel string `json:"from_model"`
-	ToModel   string `json:"to_model"`
-	Reason    string `json:"reason"`
 }
 
 // BalanceLowPayload notifies the client that the balance is running low.

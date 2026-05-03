@@ -55,7 +55,7 @@ func (s *AutoExecuteStep) Execute(ctx context.Context, pctx *agent.PipelineConte
 		}
 	}
 
-	pctx.Logger.Info("auto-executing generated SQL", zap.String("sql", sql))
+	pctx.Logger.Info("auto-executing generated SQL", sqlLogFields(sql)...)
 
 	args, _ := json.Marshal(map[string]any{
 		"sql":   sql,
@@ -89,7 +89,7 @@ func (s *AutoExecuteStep) Execute(ctx context.Context, pctx *agent.PipelineConte
 
 	pctx.Result.QueryResult = result.Data
 
-	pctx.Logger.Info("auto_execute completed", zap.Int("result_size", len(result.Data)))
+	pctx.Logger.Info("auto_execute completed", zap.Int("result_bytes", len(result.Data)))
 
 	// Stream a summarization of the results to the user.
 	return s.summarizeResults(ctx, pctx, sql, result.Data)

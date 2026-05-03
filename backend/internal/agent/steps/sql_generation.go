@@ -91,10 +91,8 @@ func (s *SQLGenerationStep) Execute(ctx context.Context, pctx *agent.PipelineCon
 		return fmt.Errorf("LLM returned empty SQL")
 	}
 
-	pctx.Logger.Info("SQL candidate generated",
-		zap.String("sql", sql),
-		zap.Int("tokens", resp.Usage.TotalTokens),
-	)
+	fields := append(sqlLogFields(sql), zap.Int("tokens", resp.Usage.TotalTokens))
+	pctx.Logger.Info("SQL candidate generated", fields...)
 
 	pctx.Set(ContextKeySQLCandidate, sql)
 	pctx.Result.SQL = sql

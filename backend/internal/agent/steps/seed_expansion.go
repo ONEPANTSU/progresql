@@ -166,10 +166,8 @@ func (s *SeedExpansionStep) generateVariation(
 		return "", fmt.Errorf("LLM variation %d returned empty SQL", variationIndex)
 	}
 
-	pctx.Logger.Info("generated seed expansion variation",
-		zap.Int("variation_index", variationIndex),
-		zap.String("sql", sql),
-	)
+	fields := append([]zap.Field{zap.Int("variation_index", variationIndex)}, sqlLogFields(sql)...)
+	pctx.Logger.Info("generated seed expansion variation", fields...)
 
 	return sql, nil
 }

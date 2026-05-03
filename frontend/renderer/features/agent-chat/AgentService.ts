@@ -86,7 +86,7 @@ export interface AgentErrorPayload {
 
 // ── Server push notification types ──
 
-export type NotificationType = 'quota.warning' | 'quota.exhausted' | 'model.fallback' | 'balance.low';
+export type NotificationType = 'quota.warning' | 'quota.exhausted' | 'balance.low';
 
 export interface ServerNotification {
   type: NotificationType;
@@ -358,7 +358,7 @@ export class AgentService {
 
   /**
    * Register a listener for server push notifications
-   * (quota.warning, quota.exhausted, model.fallback, balance.low).
+   * (quota.warning, quota.exhausted, balance.low).
    */
   onNotification(cb: NotificationCallback): () => void {
     this.notificationCallbacks.push(cb);
@@ -504,7 +504,7 @@ export class AgentService {
     }
 
     // Server push notifications (no request_id)
-    const notificationTypes: NotificationType[] = ['quota.warning', 'quota.exhausted', 'model.fallback', 'balance.low'];
+    const notificationTypes: NotificationType[] = ['quota.warning', 'quota.exhausted', 'balance.low'];
     if (notificationTypes.includes(envelope.type as NotificationType)) {
       const notification: ServerNotification = {
         type: envelope.type as NotificationType,

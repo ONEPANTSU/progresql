@@ -26,16 +26,36 @@ func IsSQLBlocked(err error) bool {
 
 // blockedCommands is the set of SQL commands that are not allowed in safe/data modes.
 var blockedCommands = map[string]bool{
-	"INSERT":   true,
-	"UPDATE":   true,
-	"DELETE":   true,
-	"DROP":     true,
-	"TRUNCATE": true,
-	"ALTER":    true,
-	"CREATE":   true,
-	"GRANT":    true,
-	"REVOKE":   true,
-	"COPY":     true,
+	"INSERT":     true,
+	"UPDATE":     true,
+	"DELETE":     true,
+	"MERGE":      true,
+	"DROP":       true,
+	"TRUNCATE":   true,
+	"ALTER":      true,
+	"CREATE":     true,
+	"GRANT":      true,
+	"REVOKE":     true,
+	"DENY":       true,
+	"COPY":       true,
+	"CALL":       true,
+	"DO":         true,
+	"EXECUTE":    true,
+	"VACUUM":     true,
+	"REFRESH":    true,
+	"REINDEX":    true,
+	"CLUSTER":    true,
+	"COMMENT":    true,
+	"SECURITY":   true,
+	"DISCARD":    true,
+	"LISTEN":     true,
+	"NOTIFY":     true,
+	"UNLISTEN":   true,
+	"SET":        true,
+	"RESET":      true,
+	"LOCK":       true,
+	"IMPORT":     true,
+	"CREATEUSER": true,
 }
 
 // allowedCommands is the set of SQL commands that are permitted in safe/data modes.
@@ -89,6 +109,14 @@ func CheckSQL(sql string) error {
 		}
 	}
 
+	if command := findBlockedCommand(sql); command != "" {
+		return &SQLBlockedError{
+			SQL:     sql,
+			Command: command,
+			Message: fmt.Sprintf("SQL command %s is not allowed; only SELECT and EXPLAIN are permitted", command),
+		}
+	}
+
 	// Split by semicolons to handle multi-statement queries
 	statements := splitStatements(sql)
 
@@ -119,6 +147,155 @@ func CheckSQL(sql string) error {
 	}
 
 	return nil
+}
+
+// findBlockedCommand scans the whole SQL text after replacing comments,
+// string literals, and quoted identifiers with whitespace. This catches
+// nested mutating statements such as WITH x AS (DELETE ... RETURNING ...)
+// SELECT ... that would otherwise look like a harmless WITH statement.
+func findBlockedCommand(sql string) string {
+	sanitized := sanitizeSQLForKeywordScan(sql)
+	var token strings.Builder
+
+	flush := func() string {
+		if token.Len() == 0 {
+			return ""
+		}
+		word := strings.ToUpper(token.String())
+		token.Reset()
+		if blockedCommands[word] {
+			return word
+		}
+		return ""
+	}
+
+	for _, r := range sanitized {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' {
+			token.WriteRune(r)
+			continue
+		}
+		if command := flush(); command != "" {
+			return command
+		}
+	}
+	return flush()
+}
+
+func sanitizeSQLForKeywordScan(sql string) string {
+	var out strings.Builder
+	out.Grow(len(sql))
+
+	for i := 0; i < len(sql); i++ {
+		ch := sql[i]
+
+		if ch == '-' && i+1 < len(sql) && sql[i+1] == '-' {
+			out.WriteString("  ")
+			i += 2
+			for i < len(sql) && sql[i] != '\n' {
+				out.WriteByte(' ')
+				i++
+			}
+			if i < len(sql) {
+				out.WriteByte(sql[i])
+			}
+			continue
+		}
+
+		if ch == '/' && i+1 < len(sql) && sql[i+1] == '*' {
+			out.WriteString("  ")
+			i += 2
+			for i < len(sql) {
+				if sql[i] == '*' && i+1 < len(sql) && sql[i+1] == '/' {
+					out.WriteString("  ")
+					i++
+					break
+				}
+				if sql[i] == '\n' {
+					out.WriteByte('\n')
+				} else {
+					out.WriteByte(' ')
+				}
+				i++
+			}
+			continue
+		}
+
+		if ch == '\'' {
+			out.WriteByte(' ')
+			for i++; i < len(sql); i++ {
+				out.WriteByte(' ')
+				if sql[i] == '\'' {
+					if i+1 < len(sql) && sql[i+1] == '\'' {
+						i++
+						out.WriteByte(' ')
+						continue
+					}
+					break
+				}
+			}
+			continue
+		}
+
+		if ch == '"' {
+			out.WriteByte(' ')
+			for i++; i < len(sql); i++ {
+				out.WriteByte(' ')
+				if sql[i] == '"' {
+					if i+1 < len(sql) && sql[i+1] == '"' {
+						i++
+						out.WriteByte(' ')
+						continue
+					}
+					break
+				}
+			}
+			continue
+		}
+
+		if ch == '$' {
+			if end := readDollarQuoteTag(sql, i); end > i {
+				tag := sql[i:end]
+				out.WriteString(strings.Repeat(" ", len(tag)))
+				i = end
+				bodyStart := i
+				closeIdx := strings.Index(sql[bodyStart:], tag)
+				if closeIdx == -1 {
+					out.WriteString(strings.Repeat(" ", len(sql)-bodyStart))
+					return out.String()
+				}
+				for _, r := range sql[bodyStart : bodyStart+closeIdx] {
+					if r == '\n' {
+						out.WriteRune('\n')
+					} else {
+						out.WriteByte(' ')
+					}
+				}
+				out.WriteString(strings.Repeat(" ", len(tag)))
+				i = bodyStart + closeIdx + len(tag) - 1
+				continue
+			}
+		}
+
+		out.WriteByte(ch)
+	}
+
+	return out.String()
+}
+
+func readDollarQuoteTag(sql string, start int) int {
+	if start >= len(sql) || sql[start] != '$' {
+		return -1
+	}
+	for i := start + 1; i < len(sql); i++ {
+		ch := sql[i]
+		if ch == '$' {
+			return i + 1
+		}
+		if !(unicode.IsLetter(rune(ch)) || unicode.IsDigit(rune(ch)) || ch == '_') {
+			return -1
+		}
+	}
+	return -1
 }
 
 // extractCommand returns the first SQL keyword from a statement,

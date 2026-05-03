@@ -356,3 +356,77 @@ func TestCheckSQLWithSecurityMode_ExecuteMode(t *testing.T) {
 		t.Error("execute mode empty SQL: got nil, want error")
 	}
 }
+
+func TestCheckSQL_BlocksNestedDMLDDL(t *testing.T) {
+	tests := []struct {
+		name        string
+		sql         string
+		wantCommand string
+	}{
+		{
+			name:        "delete inside writable cte",
+			sql:         "WITH removed AS (DELETE FROM users WHERE id = 1 RETURNING id) SELECT * FROM removed",
+			wantCommand: "DELETE",
+		},
+		{
+			name:        "update inside cte",
+			sql:         "WITH changed AS (UPDATE users SET name = 'x' RETURNING id) SELECT id FROM changed",
+			wantCommand: "UPDATE",
+		},
+		{
+			name:        "insert inside cte",
+			sql:         "WITH created AS (INSERT INTO users(name) VALUES ('x') RETURNING id) SELECT id FROM created",
+			wantCommand: "INSERT",
+		},
+		{
+			name:        "ddl inside second statement",
+			sql:         "SELECT 1; CREATE TABLE audit_log(id int)",
+			wantCommand: "CREATE",
+		},
+		{
+			name:        "dcl after select",
+			sql:         "SELECT 1; GRANT SELECT ON users TO analyst",
+			wantCommand: "GRANT",
+		},
+		{
+			name:        "do block blocked even though body is dollar quoted",
+			sql:         "DO $$ BEGIN DELETE FROM users; END $$",
+			wantCommand: "DO",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := CheckSQL(tt.sql)
+			if err == nil {
+				t.Fatalf("CheckSQL(%q) returned nil, want error", tt.sql)
+			}
+			sqlErr, ok := err.(*SQLBlockedError)
+			if !ok {
+				t.Fatalf("expected *SQLBlockedError, got %T", err)
+			}
+			if sqlErr.Command != tt.wantCommand {
+				t.Errorf("got command %q, want %q", sqlErr.Command, tt.wantCommand)
+			}
+		})
+	}
+}
+
+func TestCheckSQL_IgnoresBlockedWordsInLiteralsCommentsAndIdentifiers(t *testing.T) {
+	tests := []string{
+		"SELECT 'DELETE FROM users' AS text_value",
+		"SELECT $$UPDATE users SET name = 'x'$$ AS body",
+		"SELECT \"delete\" FROM metrics",
+		"SELECT 1 -- DROP TABLE users\n",
+		"SELECT /* INSERT INTO users VALUES (1) */ 1",
+		`SELECT "quoted""update" FROM metrics`,
+	}
+
+	for _, sql := range tests {
+		t.Run(sql, func(t *testing.T) {
+			if err := CheckSQL(sql); err != nil {
+				t.Fatalf("CheckSQL(%q) returned error: %v, want nil", sql, err)
+			}
+		})
+	}
+}

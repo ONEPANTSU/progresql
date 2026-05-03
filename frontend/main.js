@@ -1087,6 +1087,46 @@ ipcMain.handle('mcp-get-constraints', async (event, schema, table) => {
 });
 
 // Distributed tool calling handler
+function resolveDbClient(connectionId) {
+  if (connectionId && global.dbClients && global.dbClients.has(connectionId)) {
+    return global.dbClients.get(connectionId);
+  }
+  if (connectionId) {
+    throw new Error(`No database connection for connection_id=${connectionId}`);
+  }
+  if (global.dbClients && global.dbClients.size === 1) {
+    return global.dbClients.values().next().value;
+  }
+  if (global.dbClient) {
+    return global.dbClient;
+  }
+  if (global.dbClients && global.dbClients.size > 1) {
+    throw new Error('Tool request is missing connection_id while multiple database connections are active');
+  }
+  throw new Error('No database connection');
+}
+
+async function executeInReadOnlyTransaction(client, sql) {
+  let inTransaction = false;
+  try {
+    await client.query('BEGIN READ ONLY');
+    inTransaction = true;
+    const result = await client.query(sql);
+    await client.query('COMMIT');
+    inTransaction = false;
+    return result;
+  } catch (error) {
+    if (inTransaction) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        log.warn('read-only transaction rollback failed:', rollbackError.message);
+      }
+    }
+    throw error;
+  }
+}
+
 ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
   const startTime = Date.now();
   // ToolRequest и ToolResult - это просто интерфейсы, не нужны для выполнения
@@ -1104,18 +1144,22 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
     let result;
     const toolName = toolRequest.toolName;
     const args = toolRequest.arguments || {};
-
-    // Ensure global.dbClient is available — recover from Map if nulled
-    if (!global.dbClient && global.dbClients && global.dbClients.size > 0) {
-      global.dbClient = global.dbClients.values().next().value;
-      log.info('Recovered global.dbClient from dbClients Map in tool.call handler');
+    const connectionId = toolRequest.connectionId || args.connection_id || args.connectionId;
+    let client = null;
+    try {
+      client = resolveDbClient(connectionId);
+    } catch (resolveError) {
+      if (connectionId || (global.dbClients && global.dbClients.size > 1) || !safeApi) {
+        throw resolveError;
+      }
     }
+    const securityMode = toolRequest.security_mode || toolRequest.securityMode || args.security_mode || args.securityMode || 'safe';
 
-    // Route to appropriate handler — prefer direct SQL (global.dbClient) for reliability,
+    // Route to appropriate handler — prefer direct SQL for reliability,
     // fall back to MCP safeApi only when needed. MCP may not support all tools.
     if (toolName === 'list_schemas') {
-      if (global.dbClient) {
-        const r = await global.dbClient.query("SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('pg_toast','pg_catalog','information_schema') ORDER BY schema_name");
+      if (client) {
+        const r = await client.query("SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('pg_toast','pg_catalog','information_schema') ORDER BY schema_name");
         result = r.rows.map(row => row.schema_name);
       } else if (safeApi) {
         result = await safeApi.getSchemas();
@@ -1124,8 +1168,8 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
       }
     } else if (toolName === 'list_tables') {
       const schema = args.schema || 'public';
-      if (global.dbClient) {
-        const r = await global.dbClient.query(
+      if (client) {
+        const r = await client.query(
           "SELECT table_name as name, table_type as type FROM information_schema.tables WHERE table_schema = $1 ORDER BY table_name",
           [schema]
         );
@@ -1137,8 +1181,8 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
       }
     } else if (toolName === 'table_columns') {
       const schema = args.schema || 'public';
-      if (global.dbClient) {
-        const r = await global.dbClient.query(
+      if (client) {
+        const r = await client.query(
           "SELECT column_name as name, data_type as type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position",
           [schema, args.table]
         );
@@ -1149,17 +1193,17 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
         throw new Error('No database connection');
       }
     } else if (toolName === 'describe_table') {
-      if (global.dbClient) {
+      if (client) {
         const schema = args.schema || 'public';
         const table = args.table;
         // Columns
-        const colRes = await global.dbClient.query(
+        const colRes = await client.query(
           "SELECT column_name as name, data_type as type, is_nullable, column_default as default_value FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position",
           [schema, table]
         );
         const columns = colRes.rows.map(row => ({ name: row.name, type: row.type, nullable: row.is_nullable === 'YES', default: row.default_value }));
         // Indexes
-        const idxRes = await global.dbClient.query(
+        const idxRes = await client.query(
           "SELECT indexname as name, indexdef as definition FROM pg_indexes WHERE schemaname = $1 AND tablename = $2 ORDER BY indexname",
           [schema, table]
         );
@@ -1169,7 +1213,7 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
           return { name: row.name, columns: cols, unique: row.definition ? row.definition.includes('UNIQUE') : false };
         });
         // Foreign keys
-        const fkRes = await global.dbClient.query(
+        const fkRes = await client.query(
           `SELECT tc.constraint_name as name, kcu.column_name, ccu.table_name AS referenced_table, ccu.column_name AS referenced_column
            FROM information_schema.table_constraints tc
            JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
@@ -1191,9 +1235,9 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
         throw new Error('No database connection');
       }
     } else if (toolName === 'explain_query' || toolName === 'explain') {
-      if (global.dbClient) {
+      if (client) {
         const sql = args.query || args.sql;
-        const r = await global.dbClient.query(`EXPLAIN (FORMAT JSON) ${sql}`);
+        const r = await client.query(`EXPLAIN (FORMAT JSON) ${sql}`);
         result = r.rows;
       } else if (safeApi) {
         result = await safeApi.explainQuery(args.query || args.sql, args.format || 'json');
@@ -1201,7 +1245,7 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
         throw new Error('No database connection');
       }
     } else if (toolName === 'execute_query') {
-      if (global.dbClient) {
+      if (client) {
         const sql = args.sql || args.query;
         const trimmedUpper = sql.trim().toUpperCase();
         // DDL/DML statements should not have LIMIT appended
@@ -1211,14 +1255,16 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
           const limit = args.limit || 100;
           finalSql = sql.toLowerCase().includes('limit') ? sql : `${sql} LIMIT ${limit}`;
         }
-        const r = await global.dbClient.query(finalSql);
+        const r = securityMode === 'data'
+          ? await executeInReadOnlyTransaction(client, finalSql)
+          : await client.query(finalSql);
         result = { rows: r.rows || [], columns: r.fields ? r.fields.map(f => f.name) : [], rowCount: r.rowCount };
       } else {
         throw new Error('No database connection');
       }
     } else if (toolName === 'list_indexes') {
       // Get indexes directly from database (MCP server doesn't provide this)
-      if (!global.dbClient) {
+      if (!client) {
         throw new Error('No database connection');
       }
       const schema = args.schema || 'public';
@@ -1227,7 +1273,7 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
         ? `SELECT indexname as name, indexdef as definition, indexname as index_name FROM pg_indexes WHERE schemaname = $1 AND tablename = $2 ORDER BY indexname`
         : `SELECT indexname as name, tablename as table_name, indexdef as definition, indexname as index_name FROM pg_indexes WHERE schemaname = $1 ORDER BY tablename, indexname`;
       const params = table ? [schema, table] : [schema];
-      const indexResult = await global.dbClient.query(query, params);
+      const indexResult = await client.query(query, params);
       result = indexResult.rows.map(row => ({
         name: row.name || row.index_name,
         table: row.table_name || table,
@@ -1236,7 +1282,7 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
       }));
     } else if (toolName === 'list_constraints') {
       // Get constraints directly from database (MCP server doesn't provide this)
-      if (!global.dbClient) {
+      if (!client) {
         throw new Error('No database connection');
       }
       const schema = args.schema || 'public';
@@ -1245,7 +1291,7 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
         ? `SELECT conname as name, contype as type, a.attname as column_name FROM pg_constraint co JOIN pg_class c ON co.conrelid = c.oid JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(co.conkey) JOIN pg_namespace n ON c.relnamespace = n.oid WHERE n.nspname = $1 AND c.relname = $2 ORDER BY conname`
         : `SELECT conname as name, c.relname as table_name, contype as type, a.attname as column_name FROM pg_constraint co JOIN pg_class c ON co.conrelid = c.oid JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(co.conkey) JOIN pg_namespace n ON c.relnamespace = n.oid WHERE n.nspname = $1 ORDER BY c.relname, conname`;
       const params = table ? [schema, table] : [schema];
-      const constraintResult = await global.dbClient.query(query, params);
+      const constraintResult = await client.query(query, params);
       result = constraintResult.rows.map(row => ({
         name: row.name,
         type: row.type === 'p' ? 'PRIMARY KEY' : row.type === 'f' ? 'FOREIGN KEY' : row.type === 'u' ? 'UNIQUE' : row.type === 'c' ? 'CHECK' : row.type,
@@ -1255,24 +1301,24 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
       }));
     } else if (toolName === 'list_views') {
       // Get views directly from database (MCP server doesn't provide this)
-      if (!global.dbClient) {
+      if (!client) {
         throw new Error('No database connection');
       }
       const schema = args.schema || 'public';
       const query = `SELECT table_name as name FROM information_schema.views WHERE table_schema = $1 ORDER BY table_name`;
-      const viewResult = await global.dbClient.query(query, [schema]);
+      const viewResult = await client.query(query, [schema]);
       result = viewResult.rows.map(row => ({
         name: row.name,
         schema: schema,
       }));
     } else if (toolName === 'list_functions') {
       // Get functions directly from database (MCP server doesn't provide this)
-      if (!global.dbClient) {
+      if (!client) {
         throw new Error('No database connection');
       }
       const schema = args.schema || 'public';
       const query = `SELECT p.proname as name, pg_get_function_result(p.oid) as return_type, pg_get_function_arguments(p.oid) as arguments FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = $1 ORDER BY p.proname`;
-      const functionResult = await global.dbClient.query(query, [schema]);
+      const functionResult = await client.query(query, [schema]);
       result = functionResult.rows.map(row => ({
         name: row.name,
         return_type: row.return_type,
@@ -1281,23 +1327,23 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
       }));
     } else if (toolName === 'list_sequences') {
       // Get sequences directly from database (MCP server doesn't provide this)
-      if (!global.dbClient) {
+      if (!client) {
         throw new Error('No database connection');
       }
       const schema = args.schema || 'public';
       const query = `SELECT sequence_name as name FROM information_schema.sequences WHERE sequence_schema = $1 ORDER BY sequence_name`;
-      const sequenceResult = await global.dbClient.query(query, [schema]);
+      const sequenceResult = await client.query(query, [schema]);
       result = sequenceResult.rows.map(row => ({
         name: row.name,
         schema: schema,
       }));
     } else if (toolName === 'list_extensions') {
       // Get extensions directly from database
-      if (!global.dbClient) {
+      if (!client) {
         throw new Error('No database connection');
       }
       const query = `SELECT extname as name, extversion as version, extnamespace::regnamespace::text as schema FROM pg_extension ORDER BY extname`;
-      const extensionResult = await global.dbClient.query(query);
+      const extensionResult = await client.query(query);
       result = extensionResult.rows.map(row => ({
         name: row.name,
         version: row.version,
@@ -1305,7 +1351,7 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
       }));
     } else if (toolName === 'list_types' || toolName === 'list_enums') {
       // Get types/enums directly from database
-      if (!global.dbClient) {
+      if (!client) {
         throw new Error('No database connection');
       }
       const schema = args.schema || 'public';
@@ -1342,7 +1388,7 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
           ))
         )
       ORDER BY t.typname`;
-      const typeResult = await global.dbClient.query(query, [schema]);
+      const typeResult = await client.query(query, [schema]);
       result = typeResult.rows.map(row => ({
         name: row.name,
         schema: row.schema,
@@ -1351,7 +1397,7 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
       }));
     } else if (toolName === 'list_triggers') {
       // Get triggers directly from database
-      if (!global.dbClient) {
+      if (!client) {
         throw new Error('No database connection');
       }
       const schema = args.schema || 'public';
@@ -1360,7 +1406,7 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
         ? `SELECT tgname as name, c.relname as table_name, pg_get_triggerdef(t.oid) as definition, CASE WHEN t.tgtype & 66 = 2 THEN 'BEFORE' WHEN t.tgtype & 66 = 64 THEN 'INSTEAD OF' ELSE 'AFTER' END as timing FROM pg_trigger t JOIN pg_class c ON t.tgrelid = c.oid JOIN pg_namespace n ON c.relnamespace = n.oid WHERE NOT t.tgisinternal AND n.nspname = $1 AND c.relname = $2 ORDER BY tgname`
         : `SELECT tgname as name, c.relname as table_name, pg_get_triggerdef(t.oid) as definition, CASE WHEN t.tgtype & 66 = 2 THEN 'BEFORE' WHEN t.tgtype & 66 = 64 THEN 'INSTEAD OF' ELSE 'AFTER' END as timing FROM pg_trigger t JOIN pg_class c ON t.tgrelid = c.oid JOIN pg_namespace n ON c.relnamespace = n.oid WHERE NOT t.tgisinternal AND n.nspname = $1 ORDER BY c.relname, tgname`;
       const params = table ? [schema, table] : [schema];
-      const triggerResult = await global.dbClient.query(query, params);
+      const triggerResult = await client.query(query, params);
       result = triggerResult.rows.map(row => ({
         name: row.name,
         table: row.table_name || table,
@@ -1370,12 +1416,12 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
       }));
     } else if (toolName === 'list_procedures') {
       // Get procedures directly from database
-      if (!global.dbClient) {
+      if (!client) {
         throw new Error('No database connection');
       }
       const schema = args.schema || 'public';
       const query = `SELECT p.proname as name, pg_get_functiondef(p.oid) as definition FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = $1 AND p.prokind = 'p' ORDER BY p.proname`;
-      const procedureResult = await global.dbClient.query(query, [schema]);
+      const procedureResult = await client.query(query, [schema]);
       result = procedureResult.rows.map(row => ({
         name: row.name,
         definition: row.definition,
@@ -1385,9 +1431,9 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
       if (safeApi) {
         result = await safeApi.callToolSafe(toolName, args);
         result = safeApi.extractResult(result);
-      } else if (global.dbClient) {
+      } else if (client) {
         const sql = args.query || args.sql;
-        const r = await global.dbClient.query(`EXPLAIN ANALYZE ${sql}`);
+        const r = await client.query(`EXPLAIN ANALYZE ${sql}`);
         result = r.rows;
       } else {
         throw new Error('No database connection');
@@ -1600,14 +1646,14 @@ ipcMain.handle('get-env', async (event, key) => {
 ipcMain.handle('encrypt-password', async (event, plaintext) => {
   try {
     if (!safeStorage.isEncryptionAvailable()) {
-      log.warn('safeStorage encryption not available, returning plaintext');
-      return { encrypted: false, data: plaintext };
+      log.warn('safeStorage encryption not available; refusing to persist password');
+      return { encrypted: false, data: '' };
     }
     const encrypted = safeStorage.encryptString(plaintext);
     return { encrypted: true, data: encrypted.toString('base64') };
   } catch (error) {
     log.error('encrypt-password error:', error);
-    return { encrypted: false, data: plaintext };
+    return { encrypted: false, data: '' };
   }
 });
 

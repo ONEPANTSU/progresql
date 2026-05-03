@@ -322,7 +322,6 @@ Login: admin / zaq1@WSXcde3
 | `progresql_balance_topups_total` | Counter | Total balance top-ups (labels: `plan`) |
 | `progresql_balance_charges_total` | Counter | Total balance charges for model usage (labels: `plan`, `model`) |
 | `progresql_quota_exceeded_total` | Counter | Number of times quota was exceeded (labels: `plan`, `tier`) |
-| `progresql_model_fallback_total` | Counter | Premium-to-budget model fallback events (labels: `from_model`, `to_model`) |
 | `progresql_revenue_by_plan_total` | Counter | Revenue in RUB (labels: `plan`, `payment_type`) |
 
 These metrics are available on the **Business Metrics** and **AI Agent** Grafana dashboards. Use them to monitor:
