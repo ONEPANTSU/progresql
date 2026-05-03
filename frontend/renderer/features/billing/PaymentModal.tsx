@@ -163,13 +163,14 @@ export default function PaymentModal({
       <DialogContent sx={{ pt: 1, pb: 3 }}>
 
         {/* Plan selection: two cards side by side */}
-        <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5 }}>
+        <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, pt: 0.5 }}>
           {/* Monthly card */}
           <Box
             onClick={() => setSelectedPlan('pro')}
             sx={{
               flex: 1,
               p: 2,
+              pt: 2.25,
               borderRadius: 2,
               border: selectedPlan === 'pro' ? '2px solid #6366f1' : '2px solid',
               borderColor: selectedPlan === 'pro' ? '#6366f1' : 'divider',
@@ -201,30 +202,33 @@ export default function PaymentModal({
             sx={{
               flex: 1,
               p: 2,
+              pt: 2.25,
               borderRadius: 2,
-              border: selectedPlan === 'pro_yearly' ? '2px solid #10b981' : '2px solid',
-              borderColor: selectedPlan === 'pro_yearly' ? '#10b981' : 'divider',
+              border: selectedPlan === 'pro_yearly' ? '2px solid #6366f1' : '2px solid',
+              borderColor: selectedPlan === 'pro_yearly' ? '#6366f1' : 'divider',
               position: 'relative',
               cursor: 'pointer',
               background: selectedPlan === 'pro_yearly'
-                ? 'linear-gradient(135deg, rgba(16,185,129,0.05), rgba(5,150,105,0.05))'
+                ? 'linear-gradient(135deg, rgba(99,102,241,0.05), rgba(139,92,246,0.05))'
                 : 'transparent',
               transition: 'all 0.2s',
-              '&:hover': { borderColor: '#10b981' },
+              '&:hover': { borderColor: '#6366f1' },
             }}
           >
-            {/* Savings badge */}
+            {/* Savings badge — inside card so Paper overflow does not clip */}
             <Box sx={{
               position: 'absolute',
-              top: -10,
+              top: 8,
               right: 8,
-              bgcolor: '#10b981',
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
               color: '#fff',
               px: 1,
-              py: 0.2,
+              py: 0.35,
               borderRadius: 1,
               fontSize: '0.65rem',
               fontWeight: 700,
+              lineHeight: 1.2,
+              zIndex: 1,
             }}>
               {language === 'ru' ? 'Экономия 17%' : 'Save 17%'}
             </Box>
@@ -232,7 +236,7 @@ export default function PaymentModal({
               {language === 'ru' ? 'Ежегодно' : 'Yearly'}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-              <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, color: '#10b981', lineHeight: 1 }}>
+              <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, color: '#6366f1', lineHeight: 1 }}>
                 {proYearlyPrice}₽
               </Typography>
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
@@ -257,21 +261,25 @@ export default function PaymentModal({
             text={language === 'ru'
               ? 'Доступ к премиум моделям (Claude, GPT-4.1, o4)'
               : 'Premium models access (Claude, GPT-4.1, o4)'}
+            accent
           />
           <FeatureLine
             text={language === 'ru'
               ? `${PRO_FEATURES.requestsPerMin} запросов в минуту`
               : `${PRO_FEATURES.requestsPerMin} requests per minute`}
+            accent
           />
           <FeatureLine
             text={language === 'ru'
               ? 'AI-автодополнение в редакторе'
               : 'AI autocomplete in editor'}
+            accent
           />
           <FeatureLine
             text={language === 'ru'
               ? `Пополнение баланса (наценка ${selectedPlan === 'pro_yearly' ? '15' : PRO_FEATURES.markupPct}%)`
               : `Balance top-ups (${selectedPlan === 'pro_yearly' ? '15' : PRO_FEATURES.markupPct}% markup)`}
+            accent
           />
         </Box>
 
@@ -288,12 +296,8 @@ export default function PaymentModal({
               py: 1.5,
               fontSize: '1rem',
               color: '#fff',
-              background: paymentLoading ? undefined : selectedPlan === 'pro_yearly'
-                ? 'linear-gradient(135deg, #10b981, #059669)'
-                : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              '&:hover': { background: selectedPlan === 'pro_yearly'
-                ? 'linear-gradient(135deg, #059669, #047857)'
-                : 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
+              background: paymentLoading ? undefined : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
             }}
           >
             {paymentLoading ? (
@@ -394,11 +398,12 @@ export default function PaymentModal({
   );
 }
 
-function FeatureLine({ text, highlight }: { text: string; highlight?: boolean }) {
+function FeatureLine({ text, highlight, accent }: { text: string; highlight?: boolean; accent?: boolean }) {
+  const useAccent = highlight || accent;
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      <CheckIcon sx={{ fontSize: 14, color: highlight ? '#8b5cf6' : 'success.main' }} />
-      <Typography variant="caption" sx={{ color: highlight ? '#8b5cf6' : 'text.secondary', fontWeight: highlight ? 700 : 500, fontSize: '0.75rem' }}>
+      <CheckIcon sx={{ fontSize: 14, color: useAccent ? '#8b5cf6' : 'text.secondary' }} />
+      <Typography variant="caption" sx={{ color: useAccent ? '#8b5cf6' : 'text.secondary', fontWeight: highlight ? 700 : 500, fontSize: '0.75rem' }}>
         {text}
       </Typography>
     </Box>
