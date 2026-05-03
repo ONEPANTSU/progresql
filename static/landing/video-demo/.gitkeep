@@ -1,2 +1,0 @@
-# Директория под URL /video-demo/progresql.mp4.
-# Сам ролик не в git; CI создаёт symlink на ../progresql.mp4 после rsync.

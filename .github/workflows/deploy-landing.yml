@@ -69,22 +69,23 @@ jobs:
             echo "No Release asset 'progresql.mp4' for ${{ github.ref_name }} — upload to GitHub Release, then Re-run."
           fi
 
-      # HTML отдаёт /video-demo/progresql.mp4; rsync не копирует сам mp4 в подкаталог — делаем symlink после выкладки файла.
-      - name: Symlink demo video for /video-demo/ URL
-        run: |
-          ssh -i ~/.ssh/deploy_key root@progresql.com \
-            "ln -sf ../progresql.mp4 /var/www/progresql/landing/video-demo/progresql.mp4 && ls -la /var/www/progresql/landing/video-demo/"
-
       - name: Deploy nginx config and reload
         run: |
           scp -i ~/.ssh/deploy_key \
             deploy/nginx/progresql.conf \
             root@progresql.com:/etc/nginx/sites-available/postgresql
           ssh -i ~/.ssh/deploy_key root@progresql.com \
-            "nginx -t && nginx -s reload"
+            "ln -sf /etc/nginx/sites-available/postgresql /etc/nginx/sites-enabled/postgresql && nginx -t && nginx -s reload"
 
       - name: Verify deployment
         run: |
           echo "Landing deployed from tag ${{ github.ref_name }}"
           ssh -i ~/.ssh/deploy_key root@progresql.com \
             "ls -lh /var/www/progresql/landing/ && ls -lh /var/www/progresql/legal/"
+
+      - name: Verify demo video is video/mp4
+        run: |
+          CT=$(curl -fsSI "https://progresql.com/video-demo/progresql.mp4?cache_bust=$GITHUB_RUN_ID" | tr -d '\r' || true)
+          echo "$CT"
+          echo "$CT" | grep -qiE '^content-type:[[:space:]]*video/mp4' || \
+            { echo '::error::Expected Content-Type video/mp4 for /video-demo/progresql.mp4 (still HTML?). Is progresql.mp4 on the server?' ; exit 1; }
