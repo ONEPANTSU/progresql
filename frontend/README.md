@@ -124,7 +124,7 @@ make dev-backend  # Бэкенд (Go)
 
 ### Сборка
 ```bash
-make release-mac  # macOS DMG + GitHub Release + тег для Woodpecker
+make release-mac  # macOS DMG + GitHub Release + тег для CI
 ```
 
 ### Тесты

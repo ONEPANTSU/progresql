@@ -48,6 +48,12 @@ jobs:
         run: |
           scp -i ~/.ssh/deploy_key /tmp/progresql-backend.tar.gz root@progresql.com:/tmp/progresql-backend.tar.gz
 
+      # Keep server stack definition in sync with the repo (compose paths reference ./monitoring/).
+      - name: Sync compose and monitoring to server
+        run: |
+          scp -i ~/.ssh/deploy_key deploy/docker-compose.prod.yml root@progresql.com:/opt/progresql/docker-compose.yml
+          scp -i ~/.ssh/deploy_key -r deploy/monitoring root@progresql.com:/opt/progresql/
+
       - name: Extract version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF_NAME#backend-v}" >> $GITHUB_OUTPUT

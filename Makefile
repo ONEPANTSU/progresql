@@ -31,23 +31,23 @@ build-win: ## Build Windows EXE (requires Wine or run on server)
 build-backend: ## Build backend Docker image
 	docker buildx build --file deploy/Dockerfile.backend --tag progresql-backend:latest --load .
 
-# --- Release (tags trigger Woodpecker CI) ---
+# --- Release (tags trigger CI) ---
 
 .PHONY: release-mac
-release-mac: ## Build macOS DMG + upload to GitHub Release → triggers Woodpecker
+release-mac: ## Build macOS DMG + upload to GitHub Release → triggers 
 	bash scripts/release.sh
 
 .PHONY: release-backend
 release-backend: ## Tag and push backend release
 	git tag -a "backend-v$(VERSION)" -m "Backend release $(VERSION)"
 	git push origin "backend-v$(VERSION)"
-	@echo "Tagged backend-v$(VERSION) — Woodpecker deploys backend"
+	@echo "Tagged backend-v$(VERSION) — GitHub Actions deploys backend (.github/workflows/deploy-backend.yml)"
 
 .PHONY: release-landing
 release-landing: ## Tag and push landing release
 	git tag -a "landing-v$(VERSION)" -m "Landing release $(VERSION)"
 	git push origin "landing-v$(VERSION)"
-	@echo "Tagged landing-v$(VERSION) — Woodpecker deploys static"
+	@echo "Tagged landing-v$(VERSION) — CI deploys static"
 
 .PHONY: release-all
 release-all: release-backend release-landing release-mac ## Release everything
