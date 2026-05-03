@@ -69,6 +69,12 @@ jobs:
             echo "No Release asset 'progresql.mp4' for ${{ github.ref_name }} — upload to GitHub Release, then Re-run."
           fi
 
+      # HTML отдаёт /video-demo/progresql.mp4; rsync не копирует сам mp4 в подкаталог — делаем symlink после выкладки файла.
+      - name: Symlink demo video for /video-demo/ URL
+        run: |
+          ssh -i ~/.ssh/deploy_key root@progresql.com \
+            "ln -sf ../progresql.mp4 /var/www/progresql/landing/video-demo/progresql.mp4 && ls -la /var/www/progresql/landing/video-demo/"
+
       - name: Deploy nginx config and reload
         run: |
           scp -i ~/.ssh/deploy_key \
