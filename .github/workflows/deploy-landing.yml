@@ -33,8 +33,11 @@ jobs:
 
       - name: Deploy landing static files
         run: |
-          # progresql.mp4 is not in git; do not delete it when rsync prunes the remote tree.
-          rsync -avz --delete --exclude='legal/' --exclude='downloads/' --exclude='progresql.mp4' -e "ssh -i ~/.ssh/deploy_key" \
+          # progresql.mp4 is not in git — never delete an existing remote copy during --delete sync.
+          rsync -avz --delete \
+            --filter='protect progresql.mp4' \
+            --exclude='legal/' --exclude='downloads/' --exclude='progresql.mp4' \
+            -e "ssh -i ~/.ssh/deploy_key" \
             static/landing/ \
             root@progresql.com:/var/www/progresql/landing/
 
@@ -57,23 +60,25 @@ jobs:
             static/landing/screenshot.png \
             root@progresql.com:/var/www/progresql/screenshot.png
 
-      - name: Copy landing demo video from Release
+      # Optional overwrite: только если хотите заменить ролик — приложите progresql.mp4 к релизу с ЭТИМ тегом.
+      # Если ассета нет, на сервере остаётся уже залитый файл с прошлых деплоев.
+      - name: Optionally overwrite demo video from Release
         run: |
-          # Video >100MB cannot live in git; attach 'progresql.mp4' to GitHub Release for this tag (assets ~2GB).
           set -uo pipefail
           DEST=/var/www/progresql/landing/progresql.mp4
           if gh release download "${{ github.ref_name }}" -p "progresql.mp4" -O /tmp/progresql.mp4 2>/dev/null; then
             scp -i ~/.ssh/deploy_key /tmp/progresql.mp4 \
               root@progresql.com:"${DEST}"
+            echo "Replaced demo video from Release ${{ github.ref_name }}."
           else
-            echo "No Release asset 'progresql.mp4' for ${{ github.ref_name }} — upload to GitHub Release, then Re-run."
+            echo "No progresql.mp4 on Release ${{ github.ref_name }} — keeping existing file on server (if any)."
           fi
 
       - name: Fail if demo mp4 missing on server
         run: |
           ssh -i ~/.ssh/deploy_key root@progresql.com \
             "test -s /var/www/progresql/landing/progresql.mp4" || \
-            { echo '::error::/var/www/progresql/landing/progresql.mp4 missing or empty. Attach progresql.mp4 to this Release and re-run workflow.'; exit 1; }
+            { echo '::error::/var/www/progresql/landing/progresql.mp4 missing or empty (first deploy?). Upload once via Release+workflow or scp manually, then redeploy.'; exit 1; }
 
       - name: Deploy nginx config and reload
         run: |
