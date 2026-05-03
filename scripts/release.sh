@@ -127,7 +127,11 @@ echo ""
 echo "==> Updating download links on progresql.com..."
 DOWNLOAD_DIR="/opt/progresql/downloads"
 GITHUB_DL="https://github.com/ONEPANTSU/progresql/releases/download/${TAG}"
-ssh -i ~/.ssh/progresql_server root@147.45.198.0 "cd ${DOWNLOAD_DIR} && \
+DOWNLOAD_HOST="${PROGRESSQL_DOWNLOAD_HOST:-147.45.198.0}"
+# After server reinstall / key rotation, drop stale host keys so SSH does not abort.
+ssh-keygen -R "${DOWNLOAD_HOST}" 2>/dev/null || true
+ssh-keyscan -H "${DOWNLOAD_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+ssh -i ~/.ssh/progresql_server root@${DOWNLOAD_HOST} "cd ${DOWNLOAD_DIR} && \
   curl -sL '${GITHUB_DL}/ProgreSQL-${VERSION}-arm64.dmg' -o ProgreSQL-${VERSION}-arm64.dmg && \
   curl -sL '${GITHUB_DL}/ProgreSQL.Setup.${VERSION}.exe' -o ProgreSQL.Setup.${VERSION}.exe && \
   curl -sL '${GITHUB_DL}/ProgreSQL-${VERSION}.AppImage' -o ProgreSQL-${VERSION}.AppImage && \

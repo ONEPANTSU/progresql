@@ -33,7 +33,8 @@ jobs:
 
       - name: Deploy landing static files
         run: |
-          rsync -avz --delete --exclude='legal/' --exclude='downloads/' -e "ssh -i ~/.ssh/deploy_key" \
+          # progresql.mp4 is not in git; do not delete it when rsync prunes the remote tree.
+          rsync -avz --delete --exclude='legal/' --exclude='downloads/' --exclude='progresql.mp4' -e "ssh -i ~/.ssh/deploy_key" \
             static/landing/ \
             root@progresql.com:/var/www/progresql/landing/
 

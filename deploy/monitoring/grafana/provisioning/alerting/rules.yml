@@ -48,7 +48,9 @@ groups:
           severity: critical
         annotations:
           summary: "Backend is down"
-          description: "The backend service has been unreachable for more than 1 minute. Scrape target up{job=\"backend\"} == 0."
+          description: >
+            Критично: Prometheus не достучался до /metrics бекенда (up{job="backend"} == 0) ≥1 мин.
+            Обычно процесс упал, порт недоступен или сеть Docker между prometheus и контейнером backend.
         isPaused: false
 
       # -----------------------------------------------------------------------
@@ -65,7 +67,7 @@ groups:
               to: 0
             model:
               expr: >
-                sum(rate(http_requests_total{job="backend",status=~"5.."}[5m]))
+                sum(rate(http_requests_total{job="backend",status_code=~"5.."}[5m]))
                 /
                 sum(rate(http_requests_total{job="backend"}[5m]))
               intervalMs: 1000
@@ -96,7 +98,12 @@ groups:
           severity: critical
         annotations:
           summary: "High HTTP 5xx error rate"
-          description: "More than 5 % of HTTP responses are 5xx errors over the last 5 minutes."
+          description: >
+            Critical for users: сервер массово отвечает ошибками (http_requests_total, label status_code).
+            Порог 5 проц. за 5 мин — исключает единичные сбои. Если нет HTTP-трафика, выражение пустое (noData=OK).
+        # No backend metrics (e.g. scrape down) must not emit false DatasourceNoData with this summary.
+        noDataState: OK
+        execErrState: OK
         isPaused: false
 
       # -----------------------------------------------------------------------
@@ -144,7 +151,11 @@ groups:
           severity: warning
         annotations:
           summary: "P95 response latency is above 5 s"
-          description: "The 95th-percentile HTTP request duration has exceeded 5 seconds for more than 5 minutes."
+          description: >
+            Деградация UX/SLA по HTTP (histogram http_request_duration_seconds). Не включает длительные WS-чаты как отдельный сценарий.
+            5 сек по P95 ≥5 мин — заметное замедление API.
+        noDataState: OK
+        execErrState: OK
         isPaused: false
 
       # -----------------------------------------------------------------------
@@ -161,10 +172,12 @@ groups:
               to: 0
             model:
               expr: >
-                100 - (
-                  avg by (instance) (
-                    rate(node_cpu_seconds_total{mode="idle"}[5m])
-                  ) * 100
+                max by () (
+                  100 - (
+                    avg by (instance) (
+                      rate(node_cpu_seconds_total{mode="idle"}[5m])
+                    ) * 100
+                  )
                 )
               intervalMs: 1000
               maxDataPoints: 43200
@@ -194,7 +207,10 @@ groups:
           severity: warning
         annotations:
           summary: "CPU utilisation is above 90 %"
-          description: "Host CPU usage has been above 90 % for more than 10 minutes."
+          description: >
+            Загрузка хоста (node_exporter idle). Долгое >90 %% — риск throttling ответов; при росте трафика проверять масштаб/профиль.
+        noDataState: OK
+        execErrState: OK
         isPaused: false
 
       # -----------------------------------------------------------------------
@@ -211,13 +227,15 @@ groups:
               to: 0
             model:
               expr: >
-                (
-                  1 - (
-                    node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}
-                    /
-                    node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}
-                  )
-                ) * 100
+                max by () (
+                  (
+                    1 - (
+                      node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}
+                      /
+                      node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}
+                    )
+                  ) * 100
+                )
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -246,7 +264,9 @@ groups:
           severity: warning
         annotations:
           summary: "Disk usage is above 85 %"
-          description: "Filesystem usage has exceeded 85 %. Free up space or expand the volume."
+          description: >
+            По данным node_filesystem_* (без tmpfs/overlay). Близко к переполнению — Логи, БД, образы могут упасть; расширить диск или чистить.
+        execErrState: OK
         isPaused: false
 
       # -----------------------------------------------------------------------
@@ -294,7 +314,11 @@ groups:
           severity: warning
         annotations:
           summary: "LLM / AI agent error rate spike"
-          description: "The AI agent error rate has exceeded 20 % over the last 5 minutes."
+          description: >
+            Доля ошибок пайплайна агента (agent_requests_total, status error) среди всех запросов агента выше 20 проц. за 5 мин.
+            Качество продукта/провайдер LLM/API; пользователи видят ошибки генерации.
+        noDataState: OK
+        execErrState: OK
         isPaused: false
 
       # -----------------------------------------------------------------------
@@ -311,11 +335,11 @@ groups:
               to: 0
             model:
               expr: >
-                db_pool_active_connections{job="backend"}
+                db_pool_connections_active{job="backend"}
                 /
                 (
-                  db_pool_active_connections{job="backend"}
-                  + db_pool_idle_connections{job="backend"}
+                  db_pool_connections_active{job="backend"}
+                  + db_pool_connections_idle{job="backend"}
                 )
               intervalMs: 1000
               maxDataPoints: 43200
@@ -345,7 +369,11 @@ groups:
           severity: warning
         annotations:
           summary: "Database connection pool is near exhaustion"
-          description: "Active DB connections exceed 90 % of the pool capacity (active / (active + idle) > 0.9)."
+          description: >
+            Риск таймаутов и 5xx под нагрузкой: доля активных коннектов к пулу (db_pool_connections_active / (active+idle)) > 0.9.
+            Не означает «полный диск» — см. алерт по диску.
+        noDataState: OK
+        execErrState: OK
         isPaused: false
 
       # -----------------------------------------------------------------------
@@ -362,13 +390,15 @@ groups:
               to: 0
             model:
               expr: >
-                (
-                  1 - (
-                    node_memory_MemAvailable_bytes
-                    /
-                    node_memory_MemTotal_bytes
-                  )
-                ) * 100
+                max by () (
+                  (
+                    1 - (
+                      node_memory_MemAvailable_bytes
+                      /
+                      node_memory_MemTotal_bytes
+                    )
+                  ) * 100
+                )
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -397,5 +427,8 @@ groups:
           severity: warning
         annotations:
           summary: "Memory usage is above 90 %"
-          description: "Host memory utilisation has been above 90 % for more than 5 minutes."
+          description: >
+            MemAvailable против MemTotal (node_exporter). Долго высокое использование — риск OOM killer на хосте; не путать с лимитами контейнера.
+        noDataState: OK
+        execErrState: OK
         isPaused: false
