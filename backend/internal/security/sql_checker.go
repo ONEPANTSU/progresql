@@ -291,7 +291,7 @@ func readDollarQuoteTag(sql string, start int) int {
 		if ch == '$' {
 			return i + 1
 		}
-		if !(unicode.IsLetter(rune(ch)) || unicode.IsDigit(rune(ch)) || ch == '_') {
+		if !unicode.IsLetter(rune(ch)) && !unicode.IsDigit(rune(ch)) && ch != '_' {
 			return -1
 		}
 	}
