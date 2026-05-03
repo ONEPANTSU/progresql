@@ -70,8 +70,8 @@ class Handler(BaseHTTPRequestHandler):
         Map production-like URLs to repo files.
 
         Prod nginx serves "/" from /var/www/progresql/landing/,
-        but also serves "/screenshot.png" from web root and "/progresql.mp4"
-        from the landing directory.
+        but also maps "/video-demo/" to that directory (demo mp4 lives there on server),
+        serves "/screenshot.png" from web root, "/progresql.mp4" redirects at the edge.
         """
         if req_path in ("", "/"):
             return LANDING_DIR / "index.html"
@@ -79,7 +79,7 @@ class Handler(BaseHTTPRequestHandler):
         # Special-case assets referenced via absolute root in the landing HTML.
         if req_path == "/screenshot.png":
             return LANDING_DIR / "screenshot.png"
-        if req_path == "/progresql.mp4":
+        if req_path in ("/progresql.mp4", "/video-demo/progresql.mp4"):
             return STATIC_DIR / "progresql.mp4"
         if req_path in ("/favicon.png", "/icon.png"):
             return LANDING_DIR / req_path.lstrip("/")
