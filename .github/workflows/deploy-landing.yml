@@ -80,7 +80,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key root@progresql.com \
             "test -s /var/www/progresql/landing/progresql.mp4" || \
-            { echo '::error::/var/www/progresql/landing/progresql.mp4 missing or empty (first deploy?). Upload once via Release+workflow or scp manually, then redeploy.'; exit 1; }
+            { echo '::error::Missing /var/www/progresql/landing/progresql.mp4 — attach to Release or: scp static/progresql.mp4 server:/var/www/progresql/landing/ then chmod 644 that file'; exit 1; }
 
       - name: Deploy nginx config and reload
         run: |
@@ -96,9 +96,20 @@ jobs:
           ssh -i ~/.ssh/deploy_key root@progresql.com \
             "ls -lh /var/www/progresql/landing/ && ls -lh /var/www/progresql/legal/"
 
-      - name: Verify demo video is video/mp4
+      # Проверяем с самого сервера (127.0.0.1 + SNI): нет CDN/DNS-кэша, видно состояние сразу после reload.
+      - name: Verify demo video is video/mp4 (origin)
         run: |
-          CT=$(curl -fsSI "https://progresql.com/video-demo/progresql.mp4?cache_bust=$GITHUB_RUN_ID" | tr -d '\r' || true)
-          echo "$CT"
-          echo "$CT" | grep -qiE '^content-type:[[:space:]]*video/mp4' || \
-            { echo '::error::Expected Content-Type video/mp4 for /video-demo/progresql.mp4 (still HTML?). Is progresql.mp4 on the server?' ; exit 1; }
+          set -euo pipefail
+          URLPATH="video-demo/progresql.mp4?t=${GITHUB_RUN_ID:-local}"
+          for i in 1 2 3 4 5 6; do
+            CT=$(ssh -i ~/.ssh/deploy_key root@progresql.com \
+              "curl -sSI --resolve progresql.com:443:127.0.0.1 'https://progresql.com/${URLPATH}'" | tr -d '\r' || true)
+            echo "--- attempt ${i} ---"
+            echo "$CT"
+            if echo "$CT" | grep -qiE '^content-type:[[:space:]]*video/mp4'; then
+              exit 0
+            fi
+            sleep 4
+          done
+          echo '::error::Origin still does not return video/mp4 (check file + chmod 644 on /var/www/progresql/landing/progresql.mp4).'
+          exit 1
