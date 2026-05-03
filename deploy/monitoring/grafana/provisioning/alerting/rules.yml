@@ -120,8 +120,11 @@ groups:
               to: 0
             model:
               expr: >
-                histogram_quantile(0.95,
-                  sum by (le) (rate(http_request_duration_seconds_bucket{job="backend"}[5m]))
+                histogram_quantile(
+                  0.95,
+                  sum by (le) (
+                    rate(http_request_duration_seconds_bucket{job="backend"}[5m])
+                  )
                 )
               intervalMs: 1000
               maxDataPoints: 43200
@@ -172,10 +175,10 @@ groups:
               to: 0
             model:
               expr: >
-                max by () (
+                max(
                   100 - (
                     avg by (instance) (
-                      rate(node_cpu_seconds_total{mode="idle"}[5m])
+                      rate(node_cpu_seconds_total{job="node-exporter", mode="idle"}[5m])
                     ) * 100
                   )
                 )
@@ -208,7 +211,7 @@ groups:
         annotations:
           summary: "CPU utilisation is above 90 %"
           description: >
-            Загрузка хоста (node_exporter idle). Долгое >90 %% — риск throttling ответов; при росте трафика проверять масштаб/профиль.
+            Загрузка хоста (node_exporter idle). Долгое >90 проц. — риск throttling ответов; при росте трафика проверять масштаб/профиль.
         noDataState: OK
         execErrState: OK
         isPaused: false
@@ -227,12 +230,12 @@ groups:
               to: 0
             model:
               expr: >
-                max by () (
+                max(
                   (
                     1 - (
-                      node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}
+                      node_filesystem_avail_bytes{job="node-exporter", fstype!~"tmpfs|overlay|squashfs"}
                       /
-                      node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}
+                      node_filesystem_size_bytes{job="node-exporter", fstype!~"tmpfs|overlay|squashfs"}
                     )
                   ) * 100
                 )
@@ -266,6 +269,7 @@ groups:
           summary: "Disk usage is above 85 %"
           description: >
             По данным node_filesystem_* (без tmpfs/overlay). Близко к переполнению — Логи, БД, образы могут упасть; расширить диск или чистить.
+        noDataState: OK
         execErrState: OK
         isPaused: false
 
@@ -390,12 +394,12 @@ groups:
               to: 0
             model:
               expr: >
-                max by () (
+                max(
                   (
                     1 - (
-                      node_memory_MemAvailable_bytes
+                      node_memory_MemAvailable_bytes{job="node-exporter"}
                       /
-                      node_memory_MemTotal_bytes
+                      node_memory_MemTotal_bytes{job="node-exporter"}
                     )
                   ) * 100
                 )
