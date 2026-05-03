@@ -69,6 +69,12 @@ jobs:
             echo "No Release asset 'progresql.mp4' for ${{ github.ref_name }} — upload to GitHub Release, then Re-run."
           fi
 
+      - name: Fail if demo mp4 missing on server
+        run: |
+          ssh -i ~/.ssh/deploy_key root@progresql.com \
+            "test -s /var/www/progresql/landing/progresql.mp4" || \
+            { echo '::error::/var/www/progresql/landing/progresql.mp4 missing or empty. Attach progresql.mp4 to this Release and re-run workflow.'; exit 1; }
+
       - name: Deploy nginx config and reload
         run: |
           scp -i ~/.ssh/deploy_key \
