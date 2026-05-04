@@ -43,19 +43,19 @@ func (s *DiagnosticRetryStep) Execute(ctx context.Context, pctx *agent.PipelineC
 		return fmt.Errorf("no SQL candidates to validate")
 	}
 
-	// Check if any candidate contains DDL/DML (CREATE, ALTER, DROP, INSERT, etc.).
-	isDDL := security.CheckSQLWithSecurityMode(candidates[0], "safe") != nil
-
-	// In safe/data modes, block DDL/DML entirely — don't show it, don't execute it.
-	// Instead, set a user-friendly message explaining the restriction.
-	if isDDL && pctx.SecurityMode != agent.SecurityModeExecute {
-		fields := append([]zap.Field{zap.String("security_mode", pctx.SecurityMode)}, sqlLogFields(candidates[0])...)
-		pctx.Logger.Info("diagnostic_retry blocked: DDL/DML not allowed in current mode", fields...)
-		pctx.Set(ContextKeySQLCandidates, candidates)
-		pctx.Set(ContextKeySQLCandidate, candidates[0])
-		pctx.Result.SQL = candidates[0]
-		pctx.Result.Candidates = candidates
+	candidates, blockedCandidates := filterSecurityBlockedCandidates(pctx, candidates)
+	if len(blockedCandidates) > 0 {
+		pctx.Logger.Info("diagnostic_retry removed security-blocked candidates",
+			zap.String("security_mode", pctx.SecurityMode),
+			zap.Int("blocked", len(blockedCandidates)),
+			zap.Int("remaining", len(candidates)),
+		)
+	}
+	if len(candidates) == 0 {
+		pctx.Set(ContextKeySQLCandidates, []string{})
+		pctx.Result.Candidates = blockedCandidates
 		pctx.Result.SecurityBlocked = true
+		pctx.Result.Explanation = "SQL candidates were blocked by the current security mode."
 		return nil
 	}
 
@@ -85,6 +85,7 @@ func (s *DiagnosticRetryStep) Execute(ctx context.Context, pctx *agent.PipelineC
 	}
 
 	model := pctx.Model
+	schemaCtx := getSchemaContext(pctx)
 
 	pctx.Logger.Info("starting diagnostic retry",
 		zap.Int("candidates", len(candidates)),
@@ -94,7 +95,7 @@ func (s *DiagnosticRetryStep) Execute(ctx context.Context, pctx *agent.PipelineC
 	var validated []string
 
 	for i, sql := range candidates {
-		validSQL, err := s.validateCandidate(ctx, pctx, sql, i, maxRetries, model, schemaDesc)
+		validSQL, err := s.validateCandidate(ctx, pctx, sql, i, maxRetries, model, schemaDesc, schemaCtx)
 		if err != nil {
 			pctx.Logger.Warn("candidate discarded after retries",
 				zap.Int("candidate_index", i),
@@ -155,6 +156,7 @@ func (s *DiagnosticRetryStep) validateCandidate(
 	maxRetries int,
 	model string,
 	schemaDesc string,
+	schemaCtx *SchemaContext,
 ) (string, error) {
 	currentSQL := sql
 
@@ -165,6 +167,20 @@ func (s *DiagnosticRetryStep) validateCandidate(
 				zap.Int("attempt", attempt),
 			)
 		}
+
+		processedSQL, status := postprocessCandidateSQL(currentSQL, schemaCtx)
+		if !status.Valid {
+			if attempt == maxRetries {
+				return "", fmt.Errorf("candidate postprocess failed after %d retries: %s", maxRetries, status.Error)
+			}
+			newSQL, retryErr := s.regenerateSQL(ctx, pctx, currentSQL, status.Error, model, schemaDesc, candidateIndex)
+			if retryErr != nil {
+				return "", fmt.Errorf("retry generation failed: %w", retryErr)
+			}
+			currentSQL = newSQL
+			continue
+		}
+		currentSQL = processedSQL
 
 		// Call explain_query tool.
 		explainArgs, _ := json.Marshal(tools.ExplainQueryArgs{SQL: currentSQL})
@@ -215,6 +231,31 @@ func (s *DiagnosticRetryStep) validateCandidate(
 
 	// Should not reach here, but just in case.
 	return "", fmt.Errorf("validation failed for candidate %d", candidateIndex)
+}
+
+func filterSecurityBlockedCandidates(pctx *agent.PipelineContext, candidates []string) ([]string, []string) {
+	if pctx.SecurityMode == agent.SecurityModeExecute {
+		return candidates, nil
+	}
+	var safe []string
+	var blocked []string
+	for _, sql := range candidates {
+		if err := security.CheckSQLWithSecurityMode(sql, pctx.SecurityMode); err != nil {
+			blocked = append(blocked, sql)
+			continue
+		}
+		safe = append(safe, sql)
+	}
+	return safe, blocked
+}
+
+func getSchemaContext(pctx *agent.PipelineContext) *SchemaContext {
+	if scVal, ok := pctx.Get(ContextKeySchemaContext); ok {
+		if sc, ok := scVal.(*SchemaContext); ok {
+			return sc
+		}
+	}
+	return nil
 }
 
 // regenerateSQL asks the LLM to fix the SQL based on the error from EXPLAIN.

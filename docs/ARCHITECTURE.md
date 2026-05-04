@@ -277,7 +277,7 @@ The quota service (`backend/internal/quota/`) enforces per-plan token limits on 
 
 - **Token tracking** — Every AI request records input/output tokens against the user's current period usage (budget and premium tracked separately)
 - **Period management** — Periods are `daily` (Free plan) or `monthly` (Pro/Pro Plus). A new period is auto-created when the current one expires.
-- **Quota enforcement** — Before each LLM call, the pipeline checks remaining quota. If budget quota is exhausted, the system attempts to charge the user's balance. If premium quota is exhausted, mid-generation fallback triggers.
+- **Quota enforcement** — Before each LLM call, the pipeline checks remaining quota. If quota is exhausted, the current implementation blocks the request or charges the user's balance when the plan/balance logic allows it.
 - **Plan limits** — Configured per plan: Free (50K budget/day), Trial (500K budget/day), Pro (5M budget + 200K premium/month), Pro Plus (10M budget + 1.5M premium/month)
 
 ## Balance Service

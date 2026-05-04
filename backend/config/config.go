@@ -15,25 +15,26 @@ type ModelInfo struct {
 	ID              string  `json:"id"                        mapstructure:"id"`
 	Name            string  `json:"name"                      mapstructure:"name"`
 	Provider        string  `json:"provider"                  mapstructure:"provider"`
-	Tier            string  `json:"tier"                      mapstructure:"tier"`                           // "budget" or "premium"
-	InputPricePerM  float64 `json:"input_price_per_m"         mapstructure:"input_price_per_m"`              // USD per 1M tokens
-	OutputPricePerM float64 `json:"output_price_per_m"        mapstructure:"output_price_per_m"`             // USD per 1M tokens
+	Tier            string  `json:"tier"                      mapstructure:"tier"`               // "budget" or "premium"
+	InputPricePerM  float64 `json:"input_price_per_m"         mapstructure:"input_price_per_m"`  // USD per 1M tokens
+	OutputPricePerM float64 `json:"output_price_per_m"        mapstructure:"output_price_per_m"` // USD per 1M tokens
 	IsDefault       bool    `json:"is_default,omitempty"       mapstructure:"is_default"`
 }
 
 // Config holds all application configuration.
 type Config struct {
-	ServerPort         string      `mapstructure:"server_port"`
-	JWTSecret          string      `mapstructure:"jwt_secret"`
-	OpenRouterAPIKey   string      `mapstructure:"openrouter_api_key"`
-	HTTPBaseURL        string      `mapstructure:"http_base_url"`
-	HTTPModel          string      `mapstructure:"http_model"`
-	LogLevel           string      `mapstructure:"log_level"`
-	Environment        string      `mapstructure:"environment"`
-	Version            string      `mapstructure:"version"`
-	RateLimitPerMin    int         `mapstructure:"rate_limit_per_min"`
-	ToolCallTimeoutSec int         `mapstructure:"tool_call_timeout"`
-	AvailableModels    []ModelInfo `mapstructure:"available_models"`
+	ServerPort                 string      `mapstructure:"server_port"`
+	JWTSecret                  string      `mapstructure:"jwt_secret"`
+	OpenRouterAPIKey           string      `mapstructure:"openrouter_api_key"`
+	HTTPBaseURL                string      `mapstructure:"http_base_url"`
+	HTTPModel                  string      `mapstructure:"http_model"`
+	LogLevel                   string      `mapstructure:"log_level"`
+	Environment                string      `mapstructure:"environment"`
+	Version                    string      `mapstructure:"version"`
+	RateLimitPerMin            int         `mapstructure:"rate_limit_per_min"`
+	ToolCallTimeoutSec         int         `mapstructure:"tool_call_timeout"`
+	GenerateSQLCandidatesCount int         `mapstructure:"generate_sql_candidates_count"`
+	AvailableModels            []ModelInfo `mapstructure:"available_models"`
 
 	// PostgreSQL connection string.
 	DatabaseURL string `mapstructure:"database_url"`
@@ -76,6 +77,7 @@ func LoadConfig(configPath ...string) (*Config, error) {
 	v.SetDefault("version", "0.1.0")
 	v.SetDefault("rate_limit_per_min", 10)
 	v.SetDefault("tool_call_timeout", 15)
+	v.SetDefault("generate_sql_candidates_count", 5)
 	v.SetDefault("database_url", "postgres://progressql:progressql@postgres:5432/progressql?sslmode=disable")
 	v.SetDefault("smtp_host", "smtp.yandex.ru")
 	v.SetDefault("smtp_port", 465)

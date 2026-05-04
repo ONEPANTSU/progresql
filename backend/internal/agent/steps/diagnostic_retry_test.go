@@ -276,9 +276,9 @@ func TestDiagnosticRetry_MixedCandidates(t *testing.T) {
 
 	llmClient := llm.NewClient("test-key", llm.WithBaseURL(mockLLM.URL), llm.WithMaxRetries(0))
 	candidates := []string{
-		"SELECT * FROM users",          // passes first try
-		"SELECT * FROM nonexistent",    // always fails
-		"SELECT bad_col FROM users",    // fails first, fixed on retry
+		"SELECT * FROM users",       // passes first try
+		"SELECT * FROM nonexistent", // always fails
+		"SELECT bad_col FROM users", // fails first, fixed on retry
 	}
 	pctx := buildDiagnosticContext(t, session, llmClient, candidates)
 
@@ -411,4 +411,43 @@ func TestDiagnosticRetry_DefaultMaxRetries(t *testing.T) {
 		t.Errorf("unexpected name: %q", step.Name())
 	}
 	// MaxRetries=0 should default to 2 during execution (tested via behavior).
+}
+
+func TestDiagnosticRetry_FiltersSecurityBlockedCandidates(t *testing.T) {
+	hub := websocket.NewHub()
+	session, client := wsDialer(t, hub)
+	llmClient := llm.NewClient("test-key")
+	candidates := []string{
+		"SELECT * FROM users LIMIT 10",
+		"WITH deleted AS (DELETE FROM users RETURNING id) SELECT * FROM deleted",
+	}
+	pctx := buildDiagnosticContext(t, session, llmClient, candidates)
+	pctx.SecurityMode = agent.SecurityModeData
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- (&DiagnosticRetryStep{}).Execute(context.Background(), pctx)
+	}()
+
+	toolCallEnv := readEnvelope(t, client)
+	var payload websocket.ToolCallPayload
+	toolCallEnv.DecodePayload(&payload)
+	if payload.ToolName != "explain_query" {
+		t.Fatalf("expected explain_query, got %s", payload.ToolName)
+	}
+	sendToolResult(t, client, "req-diag", toolCallEnv.CallID, true, tools.ExplainQueryResult{Plan: "Seq Scan"})
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("step failed: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+	val, _ := pctx.Get(ContextKeySQLCandidates)
+	validated := val.([]string)
+	if len(validated) != 1 || strings.Contains(validated[0], "DELETE") {
+		t.Fatalf("security-blocked candidate reached validated pool: %v", validated)
+	}
 }

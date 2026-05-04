@@ -1094,14 +1094,14 @@ function resolveDbClient(connectionId) {
   if (connectionId) {
     throw new Error(`No database connection for connection_id=${connectionId}`);
   }
+  if (global.dbClients && global.dbClients.size > 1) {
+    throw new Error('Tool request is missing connection_id while multiple database connections are active');
+  }
   if (global.dbClients && global.dbClients.size === 1) {
     return global.dbClients.values().next().value;
   }
   if (global.dbClient) {
     return global.dbClient;
-  }
-  if (global.dbClients && global.dbClients.size > 1) {
-    throw new Error('Tool request is missing connection_id while multiple database connections are active');
   }
   throw new Error('No database connection');
 }

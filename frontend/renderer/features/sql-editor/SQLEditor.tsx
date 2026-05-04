@@ -546,7 +546,10 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
                 lastAutocompletePos.current = currentPos;
                 const dbInfo = databaseInfoRef.current;
                 const schemaCtx = dbInfo
-                  ? (dbInfo.tables || []).map((table: any) => {
+                  ? [
+                    `Database: ${dbInfo.name || activeConnection?.activeDatabase || activeConnection?.database || ''}`,
+                    `Active schema: public`,
+                    ...(dbInfo.tables || []).map((table: any) => {
                       const schema = table.table_schema || 'public';
                       const name = table.table_name || table.name;
                       const columns = (table.columns || []).map((column: any) => {
@@ -554,8 +557,20 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQLEditor
                         const columnType = column.data_type || column.type || '';
                         return `${columnName} ${columnType}`.trim();
                       }).join(', ');
-                      return `${schema}.${name}(${columns})`;
-                    }).join('\n')
+                      return `TABLE ${schema}.${name}(${columns})`;
+                    }),
+                    ...(dbInfo.views || []).map((view: any) => {
+                      const schema = view.view_schema || 'public';
+                      const name = view.view_name || view.name;
+                      return `VIEW ${schema}.${name}`;
+                    }),
+                    ...(dbInfo.functions || []).map((fn: any) => {
+                      const schema = fn.routine_schema || 'public';
+                      const name = fn.routine_name || fn.name;
+                      const returnType = fn.data_type || fn.return_type || '';
+                      return `FUNCTION ${schema}.${name} -> ${returnType}`.trim();
+                    }),
+                  ].filter(Boolean).join('\n')
                   : '';
                 const doc = viewRef.current.state.doc.toString();
                 agentRef.current.sendAutocomplete(doc, currentPos, schemaCtx, (completion) => {

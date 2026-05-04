@@ -265,7 +265,8 @@ func TestExtractLastSQLBlock(t *testing.T) {
 
 func TestBuildAggregationPrompt(t *testing.T) {
 	candidates := []string{"SELECT * FROM users", "SELECT name FROM users"}
-	prompt := buildAggregationPrompt(candidates, "show users")
+	promptCtx := agent.NewPipelineContext()
+	prompt := buildAggregationPrompt(candidates, "show users", promptCtx)
 
 	if !strings.Contains(prompt, "show users") {
 		t.Error("prompt should contain user message")

@@ -32,6 +32,14 @@ func (s *SeedExpansionStep) Execute(ctx context.Context, pctx *agent.PipelineCon
 		pctx.Logger.Info("seed expansion skipped: SQL has validation error")
 		return nil
 	}
+	if pctx.Result.SecurityBlocked {
+		pctx.Logger.Info("seed expansion skipped: SQL blocked by security mode")
+		return nil
+	}
+	if skip, _ := pctx.Get(ContextKeySkipSeedExpansion); skip == true {
+		pctx.Logger.Info("seed expansion skipped: early voting consensus")
+		return nil
+	}
 
 	val, ok := pctx.Get(ContextKeySQLCandidates)
 	if !ok {
@@ -84,6 +92,17 @@ func (s *SeedExpansionStep) Execute(ctx context.Context, pctx *agent.PipelineCon
 				zap.Error(err),
 			)
 			continue
+		}
+		if schemaCtx := getSchemaContext(pctx); schemaCtx != nil {
+			processed, status := postprocessCandidateSQL(variation, schemaCtx)
+			if !status.Valid {
+				pctx.Logger.Warn("seed expansion variation rejected",
+					zap.Int("variation_index", i),
+					zap.String("reason", status.Error),
+				)
+				continue
+			}
+			variation = processed
 		}
 		candidates = append(candidates, variation)
 	}

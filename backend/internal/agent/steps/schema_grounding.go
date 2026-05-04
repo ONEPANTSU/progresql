@@ -16,6 +16,7 @@ import (
 // ContextKeySchemaContext is the key used to store the enriched schema context
 // in PipelineContext.values for downstream steps.
 const ContextKeySchemaContext = "schema_context"
+const ContextKeyGroundingPlan = "grounding_plan"
 
 // SchemaGroundingStep is step 1 of the generate_sql pipeline.
 // It discovers relevant tables via tool calls and builds an enriched schema context.
@@ -34,6 +35,15 @@ type TableInfo struct {
 // and consumed by downstream steps (SQL generation, etc.).
 type SchemaContext struct {
 	Tables []TableInfo `json:"tables"`
+}
+
+type GroundingPlan struct {
+	RelevantTables  []string `json:"relevant_tables"`
+	RelevantColumns []string `json:"relevant_columns"`
+	PossibleJoins   []string `json:"possible_joins"`
+	Filters         []string `json:"filters"`
+	Aggregations    []string `json:"aggregations"`
+	AmbiguityNotes  []string `json:"ambiguity_notes"`
 }
 
 func (s *SchemaGroundingStep) Execute(ctx context.Context, pctx *agent.PipelineContext) error {
@@ -141,6 +151,7 @@ func (s *SchemaGroundingStep) Execute(ctx context.Context, pctx *agent.PipelineC
 
 	// Step 5: Store the enriched schema context for downstream steps.
 	pctx.Set(ContextKeySchemaContext, &schemaCtx)
+	pctx.Set(ContextKeyGroundingPlan, buildGroundingPlan(&schemaCtx, pctx.UserMessage, pctx.UserDescriptions))
 
 	return nil
 }
@@ -373,4 +384,91 @@ func parseTableNames(data json.RawMessage) ([]string, error) {
 	}
 
 	return nil, fmt.Errorf("unexpected list_tables format: %s", string(data))
+}
+
+func buildGroundingPlan(sc *SchemaContext, userMessage, userDescriptions string) GroundingPlan {
+	plan := GroundingPlan{}
+	msg := strings.ToLower(userMessage + "\n" + userDescriptions)
+	for _, table := range sc.Tables {
+		fullName := table.Schema + "." + table.Table
+		plan.RelevantTables = append(plan.RelevantTables, fullName)
+		var details struct {
+			Columns     []any `json:"columns"`
+			ForeignKeys []struct {
+				Columns           []string `json:"columns"`
+				Column            string   `json:"column"`
+				ReferencedTable   string   `json:"referenced_table"`
+				ReferencedColumns []string `json:"referenced_columns"`
+			} `json:"foreign_keys"`
+		}
+		if err := json.Unmarshal(table.Details, &details); err != nil {
+			plan.AmbiguityNotes = append(plan.AmbiguityNotes, "Could not parse details for "+fullName)
+			continue
+		}
+		for _, raw := range details.Columns {
+			name := ""
+			switch col := raw.(type) {
+			case string:
+				name = col
+			case map[string]any:
+				if v, ok := col["name"].(string); ok {
+					name = v
+				} else if v, ok := col["column_name"].(string); ok {
+					name = v
+				}
+			}
+			if name == "" {
+				continue
+			}
+			qualified := fullName + "." + name
+			plan.RelevantColumns = append(plan.RelevantColumns, qualified)
+			lower := strings.ToLower(name)
+			if strings.Contains(msg, lower) {
+				plan.Filters = append(plan.Filters, qualified)
+			}
+			if strings.Contains(lower, "count") || strings.Contains(lower, "total") || strings.Contains(lower, "amount") || strings.Contains(lower, "sum") {
+				plan.Aggregations = append(plan.Aggregations, qualified)
+			}
+		}
+		for _, fk := range details.ForeignKeys {
+			if fk.ReferencedTable != "" {
+				column := fk.Column
+				if column == "" && len(fk.Columns) > 0 {
+					column = fk.Columns[0]
+				}
+				refColumn := ""
+				if len(fk.ReferencedColumns) > 0 {
+					refColumn = "." + fk.ReferencedColumns[0]
+				}
+				plan.PossibleJoins = append(plan.PossibleJoins, fullName+"."+column+" -> "+fk.ReferencedTable+refColumn)
+			}
+		}
+	}
+	if len(plan.Filters) == 0 {
+		plan.AmbiguityNotes = append(plan.AmbiguityNotes, "No explicit filter columns matched the user request.")
+	}
+	return plan
+}
+
+func buildGroundingPlanDescription(plan GroundingPlan) string {
+	var b strings.Builder
+	writeList := func(label string, values []string) {
+		if len(values) == 0 {
+			return
+		}
+		b.WriteString(label)
+		b.WriteString(":\n")
+		for _, value := range values {
+			b.WriteString("- ")
+			b.WriteString(value)
+			b.WriteString("\n")
+		}
+	}
+	writeList("Relevant tables", plan.RelevantTables)
+	writeList("Relevant columns", plan.RelevantColumns)
+	writeList("Possible joins", plan.PossibleJoins)
+	writeList("Potential filters", plan.Filters)
+	writeList("Potential aggregations", plan.Aggregations)
+	writeList("Ambiguity notes", plan.AmbiguityNotes)
+	return strings.TrimSpace(b.String())
 }

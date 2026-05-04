@@ -17,7 +17,7 @@ import (
 const ContextKeySQLCandidates = "sql_candidates"
 
 // DefaultCandidatesCount is the default number of parallel SQL candidates to generate.
-const DefaultCandidatesCount = 3
+const DefaultCandidatesCount = 5
 
 // candidateConfig defines prompt variation for each parallel LLM call.
 type candidateConfig struct {
@@ -82,6 +82,12 @@ func (s *ParallelSQLGenerationStep) Execute(ctx context.Context, pctx *agent.Pip
 	}
 
 	schemaDesc := buildSchemaDescription(schemaCtx)
+	groundingDesc := ""
+	if gpVal, ok := pctx.Get(ContextKeyGroundingPlan); ok {
+		if gp, ok := gpVal.(GroundingPlan); ok {
+			groundingDesc = buildGroundingPlanDescription(gp)
+		}
+	}
 	model := pctx.Model
 
 	configs := candidateConfigs(n)
@@ -100,14 +106,15 @@ func (s *ParallelSQLGenerationStep) Execute(ctx context.Context, pctx *agent.Pip
 		wg.Add(1)
 		go func(idx int, cfg candidateConfig) {
 			defer wg.Done()
-			results[idx] = s.generateCandidate(ctx, pctx, model, schemaDesc, cfg, idx)
+			results[idx] = s.generateCandidate(ctx, pctx, model, schemaDesc, groundingDesc, cfg, idx)
 		}(i, configs[i])
 	}
 
 	wg.Wait()
 
-	// Collect successful candidates.
+	// Collect successful, postprocessed candidates.
 	var candidates []string
+	var statuses []CandidateStatus
 	totalPrompt := 0
 	totalCompletion := 0
 	lastModel := ""
@@ -125,7 +132,17 @@ func (s *ParallelSQLGenerationStep) Execute(ctx context.Context, pctx *agent.Pip
 			)
 			continue
 		}
-		candidates = append(candidates, r.sql)
+		sql, status := postprocessCandidateSQL(r.sql, schemaCtx)
+		status.Stage = "parallel_generation"
+		statuses = append(statuses, status)
+		if !status.Valid {
+			pctx.Logger.Warn("candidate rejected during postprocess",
+				zap.Int("candidate_index", r.index),
+				zap.String("reason", status.Error),
+			)
+			continue
+		}
+		candidates = append(candidates, sql)
 	}
 
 	pctx.AddTokensDetailed(llm.Usage{
@@ -147,6 +164,7 @@ func (s *ParallelSQLGenerationStep) Execute(ctx context.Context, pctx *agent.Pip
 	)
 
 	pctx.Set(ContextKeySQLCandidates, candidates)
+	pctx.Set(ContextKeyCandidateStatuses, statuses)
 	// Also set the first candidate as the primary result for compatibility.
 	pctx.Set(ContextKeySQLCandidate, candidates[0])
 	pctx.Result.SQL = candidates[0]
@@ -159,7 +177,7 @@ func (s *ParallelSQLGenerationStep) Execute(ctx context.Context, pctx *agent.Pip
 func (s *ParallelSQLGenerationStep) generateCandidate(
 	ctx context.Context,
 	pctx *agent.PipelineContext,
-	model, schemaDesc string,
+	model, schemaDesc, groundingDesc string,
 	cfg candidateConfig,
 	idx int,
 ) candidateResult {
@@ -181,10 +199,12 @@ func (s *ParallelSQLGenerationStep) generateCandidate(
 			"- %s\n\n"+
 			"%s"+
 			"Database schema:\n%s\n\n"+
+			"Grounding plan:\n%s\n\n"+
 			"User request: %s",
 		cfg.suffix,
 		userDescSection,
 		schemaDesc,
+		groundingDesc,
 		pctx.UserMessage,
 	)
 

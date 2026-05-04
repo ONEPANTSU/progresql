@@ -19,6 +19,10 @@ type ResultAggregationStep struct{}
 func (s *ResultAggregationStep) Name() string { return "result_aggregation" }
 
 func (s *ResultAggregationStep) Execute(ctx context.Context, pctx *agent.PipelineContext) error {
+	if pctx.Result.SecurityBlocked {
+		pctx.Logger.Info("result aggregation skipped: SQL blocked by security mode")
+		return nil
+	}
 	val, ok := pctx.Get(ContextKeySQLCandidates)
 	if !ok {
 		return fmt.Errorf("sql_candidates not found: previous steps must run first")
@@ -30,6 +34,19 @@ func (s *ResultAggregationStep) Execute(ctx context.Context, pctx *agent.Pipelin
 
 	if len(candidates) == 0 {
 		return fmt.Errorf("no SQL candidates for aggregation")
+	}
+
+	if votingVal, ok := pctx.Get(ContextKeyVotingResult); ok {
+		if voting, ok := votingVal.(VotingResult); ok && voting.Consensus && voting.WinnerSQL != "" {
+			pctx.Logger.Info("result aggregation using execution voting winner",
+				zap.Int("candidate_groups", len(voting.GroupSizes)),
+				zap.String("signature", voting.WinnerGroupKey),
+			)
+			pctx.Result.SQL = voting.WinnerSQL
+			pctx.Result.Candidates = candidates
+			pctx.Result.Explanation = "Execution voting selected the strongest read-only candidate."
+			return nil
+		}
 	}
 
 	// Single candidate — no need for LLM selection.
@@ -45,7 +62,7 @@ func (s *ResultAggregationStep) Execute(ctx context.Context, pctx *agent.Pipelin
 
 	model := pctx.Model
 
-	prompt := buildAggregationPrompt(candidates, pctx.UserMessage)
+	prompt := buildAggregationPrompt(candidates, pctx.UserMessage, pctx)
 
 	req := llm.ChatRequest{
 		Model: model,
@@ -94,7 +111,7 @@ func (s *ResultAggregationStep) Execute(ctx context.Context, pctx *agent.Pipelin
 // buildAggregationPrompt constructs the LLM prompt for selecting the best SQL candidate.
 // The prompt instructs the LLM to produce a short, user-friendly explanation
 // (no mention of "candidates") and the chosen SQL in a code block.
-func buildAggregationPrompt(candidates []string, userMessage string) string {
+func buildAggregationPrompt(candidates []string, userMessage string, pctx *agent.PipelineContext) string {
 	var b strings.Builder
 
 	b.WriteString("You are an expert PostgreSQL assistant. You are given multiple SQL query candidates that attempt to answer a user's request. ")
@@ -109,9 +126,14 @@ func buildAggregationPrompt(candidates []string, userMessage string) string {
 	b.WriteString(userMessage)
 	b.WriteString("\n\n")
 
-	b.WriteString("SQL candidates (internal, do not expose to user):\n")
+	b.WriteString("SQL candidates (internal, do not expose to user). All listed candidates passed security and EXPLAIN validation unless noted:\n")
 	for i, c := range candidates {
 		fmt.Fprintf(&b, "\n--- Candidate %d ---\n```sql\n%s\n```\n", i+1, c)
+	}
+	if votingVal, ok := pctx.Get(ContextKeyVotingResult); ok {
+		if voting, ok := votingVal.(VotingResult); ok {
+			fmt.Fprintf(&b, "\nExecution voting: consensus=%v, group_sizes=%v, winner_signature=%s\n", voting.Consensus, voting.GroupSizes, voting.WinnerGroupKey)
+		}
 	}
 
 	return b.String()
