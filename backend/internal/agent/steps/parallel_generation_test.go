@@ -342,6 +342,60 @@ func TestParallelGeneration_StripCodeFences(t *testing.T) {
 	}
 }
 
+func TestParallelGeneration_IncludesGroundingPlanInPrompt(t *testing.T) {
+	var captured llm.ChatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&captured); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		resp := llm.ChatResponse{
+			Model: "test-model",
+			Choices: []llm.Choice{{
+				Message:      llm.Message{Role: "assistant", Content: "SELECT status, COUNT(*) FROM orders GROUP BY status ORDER BY COUNT(*) DESC LIMIT 100"},
+				FinishReason: "stop",
+			}},
+			Usage: llm.Usage{TotalTokens: 10},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	t.Cleanup(srv.Close)
+
+	llmClient := llm.NewClient("test-key", llm.WithBaseURL(srv.URL))
+	pctx := buildParallelGenContext(t, llmClient)
+	pctx.Set(ContextKeyGroundingPlan, GroundingPlan{
+		RelevantTables:  []string{"public.orders"},
+		RelevantColumns: []string{"public.orders.status"},
+		Filters:         []GroundingFilter{{Column: "public.orders.created_at", Operation: "date range", Reason: "recent orders"}},
+		Aggregations:    []GroundingAggregation{{Expression: "COUNT(*)", GroupBy: []string{"public.orders.status"}, Reason: "distribution"}},
+		Ordering:        []GroundingOrdering{{Expression: "COUNT(*) DESC", Reason: "most frequent first"}},
+		Ambiguities:     []string{"The request does not specify the time period."},
+		Confidence:      0.82,
+	})
+
+	step := &ParallelSQLGenerationStep{CandidatesCount: 1}
+	if err := step.Execute(context.Background(), pctx); err != nil {
+		t.Fatalf("step failed: %v", err)
+	}
+
+	if len(captured.Messages) == 0 {
+		t.Fatal("expected captured prompt")
+	}
+	prompt := captured.Messages[len(captured.Messages)-1].Content
+	for _, want := range []string{
+		"Schema grounding plan:",
+		"Use these tables first",
+		"public.orders.status",
+		"Apply these filters if relevant",
+		"Aggregations expected",
+		"Ambiguities to resolve conservatively",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("prompt missing %q:\n%s", want, prompt)
+		}
+	}
+}
+
 func TestCandidateConfigs(t *testing.T) {
 	configs := candidateConfigs(3)
 	if len(configs) != 3 {

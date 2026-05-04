@@ -199,7 +199,7 @@ func (s *ParallelSQLGenerationStep) generateCandidate(
 			"- %s\n\n"+
 			"%s"+
 			"Database schema:\n%s\n\n"+
-			"Grounding plan:\n%s\n\n"+
+			"Schema grounding plan:\n%s\n\n"+
 			"User request: %s",
 		cfg.suffix,
 		userDescSection,

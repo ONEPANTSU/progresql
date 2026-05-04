@@ -143,8 +143,8 @@ func TestSchemaGrounding_SmallSchema_SkipsLLM(t *testing.T) {
 	hub := websocket.NewHub()
 	session, client := wsDialer(t, hub)
 
-	// LLM server not needed for small schemas, but provide one that would fail.
-	llmClient := llm.NewClient("test-key", llm.WithBaseURL("http://localhost:1"))
+	// LLM server not needed for table selection on small schemas; grounding falls back if unavailable.
+	llmClient := llm.NewClient("test-key", llm.WithBaseURL("http://localhost:1"), llm.WithMaxRetries(0))
 	pctx := buildPipelineContext(t, session, llmClient)
 
 	step := &SchemaGroundingStep{}
@@ -275,9 +275,9 @@ func TestSchemaGrounding_LargeSchema_UsesLLM(t *testing.T) {
 		t.Fatalf("expected 2 tables, got %d", len(sc.Tables))
 	}
 
-	// Verify tokens were tracked from LLM call.
-	if pctx.TokensUsed != 60 {
-		t.Errorf("expected 60 tokens, got %d", pctx.TokensUsed)
+	// Verify tokens were tracked from LLM calls.
+	if pctx.TokensUsed < 60 {
+		t.Errorf("expected at least 60 tokens, got %d", pctx.TokensUsed)
 	}
 }
 
@@ -327,7 +327,7 @@ func TestSchemaGrounding_DescribeTablePartialFailure(t *testing.T) {
 	hub := websocket.NewHub()
 	session, client := wsDialer(t, hub)
 
-	llmClient := llm.NewClient("test-key", llm.WithBaseURL("http://localhost:1"))
+	llmClient := llm.NewClient("test-key", llm.WithBaseURL("http://localhost:1"), llm.WithMaxRetries(0))
 	pctx := buildPipelineContext(t, session, llmClient)
 
 	step := &SchemaGroundingStep{}
@@ -424,6 +424,62 @@ func TestSchemaGrounding_LLMReturnsCodeFencedJSON(t *testing.T) {
 	}
 }
 
+func TestSchemaGrounding_StoresLLMGroundingPlan(t *testing.T) {
+	hub := websocket.NewHub()
+	session, client := wsDialer(t, hub)
+
+	llmSrv := newMockLLMServer(t, `{
+		"relevant_tables":["public.orders"],
+		"relevant_columns":["public.orders.id","public.orders.status"],
+		"joins":[],
+		"filters":[{"column":"public.orders.status","operation":"equals","reason":"status requested"}],
+		"aggregations":[],
+		"ordering":[],
+		"ambiguities":[],
+		"confidence":0.8
+	}`)
+	llmClient := llm.NewClient("test-key", llm.WithBaseURL(llmSrv.URL))
+	pctx := buildPipelineContext(t, session, llmClient)
+
+	step := &SchemaGroundingStep{}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- step.Execute(context.Background(), pctx)
+	}()
+
+	schemasEnv := readEnvelope(t, client)
+	sendToolResult(t, client, schemasEnv.RequestID, schemasEnv.CallID, true, []string{"public"})
+
+	tablesEnv := readEnvelope(t, client)
+	sendToolResult(t, client, tablesEnv.RequestID, tablesEnv.CallID, true, []string{"orders"})
+
+	desc := readEnvelope(t, client)
+	sendToolResult(t, client, desc.RequestID, desc.CallID, true,
+		map[string]any{"columns": []string{"id", "status"}})
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("step failed: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("step timed out")
+	}
+
+	val, ok := pctx.Get(ContextKeyGroundingPlan)
+	if !ok {
+		t.Fatal("grounding_plan not stored")
+	}
+	plan := val.(GroundingPlan)
+	if len(plan.RelevantTables) != 1 || plan.RelevantTables[0] != "public.orders" {
+		t.Fatalf("unexpected grounding plan: %#v", plan)
+	}
+	if len(plan.Filters) != 1 || plan.Filters[0].Column != "public.orders.status" {
+		t.Fatalf("unexpected filters: %#v", plan.Filters)
+	}
+}
+
 // --- unit tests for utility functions ---
 
 func TestParseTableNames_StringArray(t *testing.T) {
@@ -498,12 +554,149 @@ func TestStripThinkingTags(t *testing.T) {
 	}
 }
 
+func TestSchemaGrounding_LLMGroundingPlanValidJSON(t *testing.T) {
+	sc := testGroundingSchemaContext()
+	response := `{
+		"relevant_tables":["public.orders"],
+		"relevant_columns":["public.orders.id","public.orders.created_at"],
+		"joins":[{"from":"public.orders.customer_id","to":"public.customers.id","reason":"orders link to customers"}],
+		"filters":[{"column":"public.orders.created_at","operation":"date range","reason":"recent orders"}],
+		"aggregations":[{"expression":"COUNT(*)","group_by":["public.orders.status"],"reason":"distribution"}],
+		"ordering":[{"expression":"COUNT(*) DESC","reason":"most frequent first"}],
+		"ambiguities":["The request does not specify a period."],
+		"confidence":0.82
+	}`
+	srv := newMockLLMServer(t, response)
+	pctx := agent.NewPipelineContext()
+	pctx.UserMessage = "recent orders by status"
+	pctx.LLMClient = llm.NewClient("test-key", llm.WithBaseURL(srv.URL))
+	pctx.Logger = zap.NewNop()
+
+	plan := (&SchemaGroundingStep{}).buildLLMGroundingPlan(context.Background(), pctx, sc)
+	if plan == nil {
+		t.Fatal("expected LLM grounding plan")
+	}
+	if len(plan.RelevantTables) != 1 || plan.RelevantTables[0] != "public.orders" {
+		t.Fatalf("unexpected tables: %#v", plan.RelevantTables)
+	}
+	if len(plan.Joins) != 1 || plan.Joins[0].To != "public.customers.id" {
+		t.Fatalf("unexpected joins: %#v", plan.Joins)
+	}
+	if plan.Confidence != 0.82 {
+		t.Fatalf("unexpected confidence: %v", plan.Confidence)
+	}
+}
+
+func TestSchemaGrounding_LLMGroundingInvalidJSONUsesHeuristicFallback(t *testing.T) {
+	sc := testGroundingSchemaContext()
+	srv := newMockLLMServer(t, `{not json`)
+	pctx := agent.NewPipelineContext()
+	pctx.UserMessage = "orders"
+	pctx.LLMClient = llm.NewClient("test-key", llm.WithBaseURL(srv.URL))
+	pctx.Logger = zap.NewNop()
+
+	plan := (&SchemaGroundingStep{}).buildLLMGroundingPlan(context.Background(), pctx, sc)
+	if plan != nil {
+		t.Fatalf("expected invalid JSON to return nil for fallback, got %#v", plan)
+	}
+	fallback := buildHeuristicGroundingPlan(sc, pctx.UserMessage, "")
+	if len(fallback.RelevantTables) == 0 {
+		t.Fatal("expected heuristic fallback to include tables")
+	}
+}
+
+func TestSchemaGrounding_LLMGroundingDropsUnknownColumn(t *testing.T) {
+	sc := testGroundingSchemaContext()
+	plan, warnings := validateGroundingPlan(GroundingPlan{
+		RelevantTables:  []string{"public.orders"},
+		RelevantColumns: []string{"public.orders.id", "public.orders.missing"},
+		Filters:         []GroundingFilter{{Column: "public.orders.missing", Operation: "equals"}},
+		Confidence:      0.9,
+	}, sc)
+	if plan == nil {
+		t.Fatal("expected partially valid plan")
+	}
+	if len(plan.RelevantColumns) != 1 || plan.RelevantColumns[0] != "public.orders.id" {
+		t.Fatalf("unexpected columns: %#v", plan.RelevantColumns)
+	}
+	if len(plan.Filters) != 0 {
+		t.Fatalf("expected invalid filter dropped: %#v", plan.Filters)
+	}
+	if len(warnings) == 0 {
+		t.Fatal("expected validation warning")
+	}
+}
+
+func TestSchemaGrounding_LowConfidenceUsesFallback(t *testing.T) {
+	sc := testGroundingSchemaContext()
+	plan, _ := validateGroundingPlan(GroundingPlan{
+		RelevantTables: []string{"public.orders"},
+		Confidence:     0.2,
+	}, sc)
+	if plan != nil {
+		t.Fatalf("expected low-confidence plan to be rejected: %#v", plan)
+	}
+}
+
+func TestSchemaGrounding_UserDescriptionsInGroundingPrompt(t *testing.T) {
+	sc := testGroundingSchemaContext()
+	var captured llm.ChatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&captured); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		resp := llm.ChatResponse{
+			Model: "test-model",
+			Choices: []llm.Choice{{
+				Message: llm.Message{Role: "assistant", Content: `{"relevant_tables":["public.orders"],"relevant_columns":["public.orders.status"],"joins":[],"filters":[],"aggregations":[],"ordering":[],"ambiguities":[],"confidence":0.8}`},
+			}},
+			Usage: llm.Usage{TotalTokens: 10},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	t.Cleanup(srv.Close)
+
+	pctx := agent.NewPipelineContext()
+	pctx.UserMessage = "status distribution"
+	pctx.UserDescriptions = "orders.status is a business lifecycle state"
+	pctx.LLMClient = llm.NewClient("test-key", llm.WithBaseURL(srv.URL))
+	pctx.Logger = zap.NewNop()
+
+	plan := (&SchemaGroundingStep{}).buildLLMGroundingPlan(context.Background(), pctx, sc)
+	if plan == nil {
+		t.Fatal("expected valid plan")
+	}
+	if len(captured.Messages) == 0 || !strings.Contains(captured.Messages[len(captured.Messages)-1].Content, pctx.UserDescriptions) {
+		t.Fatalf("grounding prompt missing user descriptions: %#v", captured.Messages)
+	}
+}
+
+func testGroundingSchemaContext() *SchemaContext {
+	return &SchemaContext{Tables: []TableInfo{
+		{
+			Schema: "public",
+			Table:  "orders",
+			Details: json.RawMessage(`{
+				"columns":["id","customer_id","created_at","status"],
+				"foreign_keys":[{"column":"customer_id","referenced_table":"public.customers","referenced_columns":["id"]}],
+				"indexes":[{"name":"idx_orders_created_at","columns":["created_at"]}]
+			}`),
+		},
+		{
+			Schema:  "public",
+			Table:   "customers",
+			Details: json.RawMessage(`{"columns":["id","email"]}`),
+		},
+	}}
+}
+
 func TestSchemaGrounding_ObjectTableFormat(t *testing.T) {
 	// Test that list_tables returning objects with table_name field works.
 	hub := websocket.NewHub()
 	session, client := wsDialer(t, hub)
 
-	llmClient := llm.NewClient("test-key", llm.WithBaseURL("http://localhost:1"))
+	llmClient := llm.NewClient("test-key", llm.WithBaseURL("http://localhost:1"), llm.WithMaxRetries(0))
 	pctx := buildPipelineContext(t, session, llmClient)
 
 	step := &SchemaGroundingStep{}
