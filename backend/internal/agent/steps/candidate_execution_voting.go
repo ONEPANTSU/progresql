@@ -17,6 +17,7 @@ import (
 const (
 	ContextKeyVotingResult      = "candidate_execution_voting"
 	ContextKeySkipSeedExpansion = "skip_seed_expansion"
+	maxVotingCandidates         = 3
 )
 
 type VotingResult struct {
@@ -30,7 +31,7 @@ type CandidateExecutionVotingStep struct{}
 
 func (s *CandidateExecutionVotingStep) Name() string { return "candidate_execution_voting" }
 
-func (s *CandidateExecutionVotingStep) Execute(_ context.Context, pctx *agent.PipelineContext) error {
+func (s *CandidateExecutionVotingStep) Execute(ctx context.Context, pctx *agent.PipelineContext) error {
 	if pctx.SecurityMode != agent.SecurityModeData {
 		pctx.Logger.Info("candidate execution voting skipped: not data mode",
 			zap.String("security_mode", pctx.SecurityMode))
@@ -44,10 +45,20 @@ func (s *CandidateExecutionVotingStep) Execute(_ context.Context, pctx *agent.Pi
 	if !ok || len(candidates) < 2 {
 		return nil
 	}
+	if len(candidates) > maxVotingCandidates {
+		pctx.Logger.Info("candidate execution voting capped",
+			zap.Int("candidates", len(candidates)),
+			zap.Int("cap", maxVotingCandidates),
+		)
+		candidates = candidates[:maxVotingCandidates]
+	}
 
 	groups := make(map[string][]string)
 	groupSizes := make(map[string]int)
 	for _, sql := range candidates {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		args, _ := json.Marshal(map[string]any{"sql": sql, "limit": 100, "security_mode": agent.SecurityModeData})
 		result, err := pctx.DispatchTool(tools.ToolExecuteQuery, args)
 		if err != nil || !result.Success {

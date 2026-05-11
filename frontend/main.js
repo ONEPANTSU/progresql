@@ -1111,6 +1111,7 @@ async function executeInReadOnlyTransaction(client, sql) {
   try {
     await client.query('BEGIN READ ONLY');
     inTransaction = true;
+    await client.query("SET LOCAL statement_timeout = '10000ms'");
     const result = await client.query(sql);
     await client.query('COMMIT');
     inTransaction = false;

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -17,6 +18,11 @@ import (
 // in PipelineContext.values for downstream steps.
 const ContextKeySchemaContext = "schema_context"
 const ContextKeyGroundingPlan = "grounding_plan"
+
+const (
+	tableSelectionLLMTimeout = 8 * time.Second
+	groundingPlanLLMTimeout  = 8 * time.Second
+)
 
 // SchemaGroundingStep is step 1 of the generate_sql pipeline.
 // It discovers relevant tables via tool calls and builds an enriched schema context.
@@ -323,7 +329,9 @@ func (s *SchemaGroundingStep) selectRelevantTables(
 		),
 	}
 
-	resp, err := pctx.LLMClient.ChatCompletion(ctx, req)
+	llmCtx, cancel := context.WithTimeout(ctx, tableSelectionLLMTimeout)
+	defer cancel()
+	resp, err := pctx.LLMClient.ChatCompletion(llmCtx, req)
 	if err != nil {
 		// Fallback: if LLM fails, use all tables (capped at 10).
 		pctx.Logger.Warn("LLM table selection failed, using all tables", zap.Error(err))
@@ -457,7 +465,9 @@ func (s *SchemaGroundingStep) buildLLMGroundingPlan(ctx context.Context, pctx *a
 			llm.Message{Role: "user", Content: prompt},
 		),
 	}
-	resp, err := pctx.LLMClient.ChatCompletion(ctx, req)
+	llmCtx, cancel := context.WithTimeout(ctx, groundingPlanLLMTimeout)
+	defer cancel()
+	resp, err := pctx.LLMClient.ChatCompletion(llmCtx, req)
 	if err != nil {
 		pctx.Logger.Warn("LLM grounding plan failed, using heuristic fallback", zap.Error(err))
 		return nil
