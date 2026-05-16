@@ -60,6 +60,91 @@ func TestPostprocessCandidateSQLPreservesSchemaQualifiedTables(t *testing.T) {
 	}
 }
 
+func TestPostprocessCandidateSQLRepairsSchemaQualifiedTableOnlyInTableReference(t *testing.T) {
+	sc := f1SchemaContext()
+
+	got, status := postprocessCandidateSQL("SELECT * FROM public.circuts c", sc)
+	if !status.Valid {
+		t.Fatalf("expected valid candidate, got %s", status.Error)
+	}
+	if got != "SELECT * FROM public.circuits c" {
+		t.Fatalf("expected schema-qualified table repair, got %q", got)
+	}
+
+	got, status = postprocessCandidateSQL("SELECT * FROM public . circuts c", sc)
+	if !status.Valid {
+		t.Fatalf("expected valid candidate, got %s", status.Error)
+	}
+	if got != "SELECT * FROM public . circuits c" {
+		t.Fatalf("expected spaced schema-qualified table repair, got %q", got)
+	}
+
+	sql := "SELECT public.race_count() FROM public.races"
+	got, status = postprocessCandidateSQL(sql, sc)
+	if !status.Valid {
+		t.Fatalf("expected valid candidate, got %s", status.Error)
+	}
+	if got != sql {
+		t.Fatalf("schema-qualified function calls should not be repaired, got %q", got)
+	}
+}
+
+func TestPostprocessCandidateSQLRepairsColumnsOnlyForKnownQualifiers(t *testing.T) {
+	sc := f1SchemaContext()
+
+	got, status := postprocessCandidateSQL("SELECT r.yaer FROM public.races r", sc)
+	if !status.Valid {
+		t.Fatalf("expected valid candidate, got %s", status.Error)
+	}
+	if got != "SELECT r.year FROM public.races r" {
+		t.Fatalf("expected alias-qualified column repair, got %q", got)
+	}
+
+	sql := "SELECT unknown.yaer FROM public.races r"
+	got, status = postprocessCandidateSQL(sql, sc)
+	if !status.Valid {
+		t.Fatalf("expected valid candidate, got %s", status.Error)
+	}
+	if got != sql {
+		t.Fatalf("unknown qualifiers should not be repaired, got %q", got)
+	}
+}
+
+func TestPostprocessCandidateSQLDoesNotRepairCTENamesAsTables(t *testing.T) {
+	sc := f1SchemaContext()
+	sql := "WITH reces AS (SELECT 1 AS year) SELECT * FROM reces"
+	got, status := postprocessCandidateSQL(sql, sc)
+	if !status.Valid {
+		t.Fatalf("expected valid candidate, got %s", status.Error)
+	}
+	if got != sql {
+		t.Fatalf("CTE table references should not be repaired, got %q", got)
+	}
+}
+
+func TestPostprocessCandidateSQLPrefersAliasOverSchemaName(t *testing.T) {
+	sc := f1SchemaContext()
+	got, status := postprocessCandidateSQL("SELECT public.yaer FROM public.races public", sc)
+	if !status.Valid {
+		t.Fatalf("expected valid candidate, got %s", status.Error)
+	}
+	if got != "SELECT public.year FROM public.races public" {
+		t.Fatalf("alias named like a schema should qualify columns, got %q", got)
+	}
+}
+
+func TestPostprocessCandidateSQLPreservesQuotedIdentifiers(t *testing.T) {
+	sc := f1SchemaContext()
+	sql := `SELECT "r"."yaer" FROM public."races" "r"`
+	got, status := postprocessCandidateSQL(sql, sc)
+	if !status.Valid {
+		t.Fatalf("expected valid candidate, got %s", status.Error)
+	}
+	if got != sql {
+		t.Fatalf("quoted identifiers should not be repaired, got %q", got)
+	}
+}
+
 func TestValidateSQLSyntaxRejectsUnbalancedParens(t *testing.T) {
 	if err := ValidateSQLSyntax("SELECT (1"); err == nil {
 		t.Fatal("expected syntax error")
@@ -71,4 +156,19 @@ func TestPostprocessCandidateSQLAllowsPostgresCast(t *testing.T) {
 	if !status.Valid {
 		t.Fatalf("expected postgres cast to be valid, got %s", status.Error)
 	}
+}
+
+func f1SchemaContext() *SchemaContext {
+	return &SchemaContext{Tables: []TableInfo{
+		{
+			Schema:  "public",
+			Table:   "races",
+			Details: json.RawMessage(`{"columns":[{"name":"raceid"},{"name":"year"},{"name":"circuitid"}]}`),
+		},
+		{
+			Schema:  "public",
+			Table:   "circuits",
+			Details: json.RawMessage(`{"columns":[{"name":"circuitid"},{"name":"location"}]}`),
+		},
+	}}
 }

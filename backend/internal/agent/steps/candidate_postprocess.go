@@ -183,6 +183,7 @@ func repairSchemaNames(sql string, schemaCtx *SchemaContext) (string, bool, stri
 	}
 
 	tokens := sqlTokens(sql)
+	scope := buildSQLRepairScope(tokens, schemaCtx)
 	var out strings.Builder
 	changed := false
 	var reasons []string
@@ -190,18 +191,24 @@ func repairSchemaNames(sql string, schemaCtx *SchemaContext) (string, bool, stri
 		replacement := token.text
 		if token.kind == tokenWord {
 			upper := strings.ToUpper(token.text)
-			if i > 0 && tokens[i-1].text == "." {
-				prev := previousWord(tokens, i-1)
-				lookupSet := columns
-				if schemas[strings.ToLower(prev)] {
-					lookupSet = tables
+			prevIdx := previousNonSpaceIndex(tokens, i-1)
+			if prevIdx >= 0 && tokens[prevIdx].text == "." {
+				prev := previousWord(tokens, prevIdx)
+				prevLower := strings.ToLower(prev)
+				if schemas[prevLower] && isSchemaQualifiedTableReference(tokens, i) {
+					if nearest, ok := nearestIdentifier(token.text, tables); ok && nearest != token.text {
+						replacement = nearest
+						changed = true
+						reasons = append(reasons, token.text+"->"+nearest)
+					}
+				} else if scope.qualifiers[prevLower] {
+					if nearest, ok := nearestIdentifier(token.text, columns); ok && nearest != token.text {
+						replacement = nearest
+						changed = true
+						reasons = append(reasons, token.text+"->"+nearest)
+					}
 				}
-				if nearest, ok := nearestIdentifier(token.text, lookupSet); ok && nearest != token.text {
-					replacement = nearest
-					changed = true
-					reasons = append(reasons, token.text+"->"+nearest)
-				}
-			} else if tableReferenceKeywords[previousWord(tokens, i)] && !sqlKeywords[upper] {
+			} else if tableReferenceKeywords[previousWord(tokens, i)] && !sqlKeywords[upper] && !scope.ctes[strings.ToLower(token.text)] && !isSchemaQualifier(tokens, i, schemas) {
 				if nearest, ok := nearestIdentifier(token.text, tables); ok && nearest != token.text {
 					replacement = nearest
 					changed = true
@@ -214,19 +221,163 @@ func repairSchemaNames(sql string, schemaCtx *SchemaContext) (string, bool, stri
 	return out.String(), changed, strings.Join(reasons, ", ")
 }
 
-func previousWord(tokens []sqlToken, idx int) string {
-	for i := idx - 1; i >= 0; i-- {
-		if tokens[i].kind == tokenWord {
-			return strings.ToUpper(tokens[i].text)
-		}
-		if strings.TrimSpace(tokens[i].text) != "" {
-			return ""
+type sqlRepairScope struct {
+	qualifiers map[string]bool
+	ctes       map[string]bool
+}
+
+func buildSQLRepairScope(tokens []sqlToken, schemaCtx *SchemaContext) sqlRepairScope {
+	scope := sqlRepairScope{
+		qualifiers: make(map[string]bool),
+		ctes:       make(map[string]bool),
+	}
+	if schemaCtx != nil {
+		for _, table := range schemaCtx.Tables {
+			if table.Table != "" {
+				scope.qualifiers[strings.ToLower(table.Table)] = true
+			}
 		}
 	}
-	return ""
+	collectCTENames(tokens, scope.ctes)
+	collectTableAliases(tokens, scope.qualifiers)
+	return scope
+}
+
+func collectCTENames(tokens []sqlToken, ctes map[string]bool) {
+	inWith := false
+	expectName := false
+	depth := 0
+	for i, token := range tokens {
+		if token.text == "(" {
+			depth++
+			continue
+		}
+		if token.text == ")" {
+			if depth > 0 {
+				depth--
+			}
+			continue
+		}
+		if token.kind == tokenWord {
+			upper := strings.ToUpper(token.text)
+			if upper == "WITH" {
+				inWith = true
+				expectName = true
+				continue
+			}
+			if !inWith {
+				continue
+			}
+			if depth == 0 && upper == "SELECT" {
+				return
+			}
+			if depth == 0 && expectName {
+				ctes[strings.ToLower(token.text)] = true
+				expectName = false
+				continue
+			}
+		}
+		if inWith && depth == 0 && token.text == "," && i > 0 {
+			expectName = true
+		}
+	}
+}
+
+func collectTableAliases(tokens []sqlToken, qualifiers map[string]bool) {
+	for i, token := range tokens {
+		if token.kind != tokenWord || !tableReferenceKeywords[strings.ToUpper(token.text)] {
+			continue
+		}
+		tableIdx := nextNonSpaceIndex(tokens, i+1)
+		if tableIdx < 0 || tokens[tableIdx].kind != tokenWord {
+			continue
+		}
+		endIdx := tableIdx
+		if dotIdx := nextNonSpaceIndex(tokens, tableIdx+1); dotIdx >= 0 && tokens[dotIdx].text == "." {
+			if nameIdx := nextNonSpaceIndex(tokens, dotIdx+1); nameIdx >= 0 && tokens[nameIdx].kind == tokenWord {
+				endIdx = nameIdx
+			}
+		}
+		qualifiers[strings.ToLower(tokens[endIdx].text)] = true
+
+		aliasIdx := nextNonSpaceIndex(tokens, endIdx+1)
+		if aliasIdx >= 0 && tokens[aliasIdx].kind == tokenWord && strings.ToUpper(tokens[aliasIdx].text) == "AS" {
+			aliasIdx = nextNonSpaceIndex(tokens, aliasIdx+1)
+		}
+		if aliasIdx >= 0 && tokens[aliasIdx].kind == tokenWord {
+			upperAlias := strings.ToUpper(tokens[aliasIdx].text)
+			if !sqlKeywords[upperAlias] && !joinClauseKeywords[upperAlias] {
+				qualifiers[strings.ToLower(tokens[aliasIdx].text)] = true
+			}
+		}
+	}
+}
+
+func isSchemaQualifiedTableReference(tokens []sqlToken, idx int) bool {
+	dotIdx := previousNonSpaceIndex(tokens, idx-1)
+	if dotIdx < 0 || tokens[dotIdx].text != "." {
+		return false
+	}
+	schemaIdx := previousWordIndex(tokens, dotIdx)
+	if schemaIdx < 0 {
+		return false
+	}
+	return tableReferenceKeywords[previousWord(tokens, schemaIdx)]
+}
+
+func isSchemaQualifier(tokens []sqlToken, idx int, schemas map[string]bool) bool {
+	if !schemas[strings.ToLower(tokens[idx].text)] {
+		return false
+	}
+	dotIdx := nextNonSpaceIndex(tokens, idx+1)
+	return dotIdx >= 0 && tokens[dotIdx].text == "."
+}
+
+func previousWord(tokens []sqlToken, idx int) string {
+	wordIdx := previousWordIndex(tokens, idx)
+	if wordIdx < 0 {
+		return ""
+	}
+	return strings.ToUpper(tokens[wordIdx].text)
+}
+
+func previousWordIndex(tokens []sqlToken, idx int) int {
+	for i := idx - 1; i >= 0; i-- {
+		if tokens[i].kind == tokenWord {
+			return i
+		}
+		if strings.TrimSpace(tokens[i].text) != "" {
+			return -1
+		}
+	}
+	return -1
+}
+
+func previousNonSpaceIndex(tokens []sqlToken, idx int) int {
+	for i := idx; i >= 0; i-- {
+		if strings.TrimSpace(tokens[i].text) != "" {
+			return i
+		}
+	}
+	return -1
+}
+
+func nextNonSpaceIndex(tokens []sqlToken, idx int) int {
+	for i := idx; i < len(tokens); i++ {
+		if strings.TrimSpace(tokens[i].text) != "" {
+			return i
+		}
+	}
+	return -1
 }
 
 var tableReferenceKeywords = map[string]bool{"FROM": true, "JOIN": true, "UPDATE": true, "INTO": true}
+
+var joinClauseKeywords = map[string]bool{
+	"ON": true, "USING": true, "WHERE": true, "JOIN": true, "LEFT": true, "RIGHT": true,
+	"INNER": true, "OUTER": true, "FULL": true, "CROSS": true, "GROUP": true, "ORDER": true,
+	"LIMIT": true, "OFFSET": true, "UNION": true,
+}
 
 func schemaIdentifierSets(schemaCtx *SchemaContext) (map[string]string, map[string]string, map[string]bool) {
 	tables := make(map[string]string)
