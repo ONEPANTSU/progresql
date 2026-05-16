@@ -177,7 +177,7 @@ func maskSQLLiteralsCommentsAndQuotedIdentifiers(sql string) string {
 }
 
 func repairSchemaNames(sql string, schemaCtx *SchemaContext) (string, bool, string) {
-	tables, columns := schemaIdentifierSets(schemaCtx)
+	tables, columns, schemas := schemaIdentifierSets(schemaCtx)
 	if len(tables) == 0 && len(columns) == 0 {
 		return sql, false, ""
 	}
@@ -191,7 +191,12 @@ func repairSchemaNames(sql string, schemaCtx *SchemaContext) (string, bool, stri
 		if token.kind == tokenWord {
 			upper := strings.ToUpper(token.text)
 			if i > 0 && tokens[i-1].text == "." {
-				if nearest, ok := nearestIdentifier(token.text, columns); ok && nearest != token.text {
+				prev := previousWord(tokens, i-1)
+				lookupSet := columns
+				if schemas[strings.ToLower(prev)] {
+					lookupSet = tables
+				}
+				if nearest, ok := nearestIdentifier(token.text, lookupSet); ok && nearest != token.text {
 					replacement = nearest
 					changed = true
 					reasons = append(reasons, token.text+"->"+nearest)
@@ -223,10 +228,14 @@ func previousWord(tokens []sqlToken, idx int) string {
 
 var tableReferenceKeywords = map[string]bool{"FROM": true, "JOIN": true, "UPDATE": true, "INTO": true}
 
-func schemaIdentifierSets(schemaCtx *SchemaContext) (map[string]string, map[string]string) {
+func schemaIdentifierSets(schemaCtx *SchemaContext) (map[string]string, map[string]string, map[string]bool) {
 	tables := make(map[string]string)
 	columns := make(map[string]string)
+	schemas := make(map[string]bool)
 	for _, table := range schemaCtx.Tables {
+		if table.Schema != "" {
+			schemas[strings.ToLower(table.Schema)] = true
+		}
 		tables[strings.ToLower(table.Table)] = table.Table
 		tables[strings.ToLower(table.Schema+"."+table.Table)] = table.Schema + "." + table.Table
 		var details struct {
@@ -247,7 +256,7 @@ func schemaIdentifierSets(schemaCtx *SchemaContext) (map[string]string, map[stri
 			}
 		}
 	}
-	return tables, columns
+	return tables, columns, schemas
 }
 
 type tokenKind int

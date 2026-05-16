@@ -36,6 +36,30 @@ func TestPostprocessCandidateSQLRepairsSchemaNames(t *testing.T) {
 	}
 }
 
+func TestPostprocessCandidateSQLPreservesSchemaQualifiedTables(t *testing.T) {
+	sc := &SchemaContext{Tables: []TableInfo{
+		{
+			Schema:  "public",
+			Table:   "races",
+			Details: json.RawMessage(`{"columns":[{"name":"raceid"},{"name":"year"},{"name":"circuitid"}]}`),
+		},
+		{
+			Schema:  "public",
+			Table:   "circuits",
+			Details: json.RawMessage(`{"columns":[{"name":"circuitid"},{"name":"location"}]}`),
+		},
+	}}
+
+	sql := "SELECT DISTINCT r.year FROM public.races r JOIN public.circuits c ON r.circuitid = c.circuitid WHERE c.location ILIKE '%Shanghai%' ORDER BY r.year"
+	got, status := postprocessCandidateSQL(sql, sc)
+	if !status.Valid {
+		t.Fatalf("expected valid candidate, got %s", status.Error)
+	}
+	if got != sql {
+		t.Fatalf("schema-qualified table names should be preserved, got %q", got)
+	}
+}
+
 func TestValidateSQLSyntaxRejectsUnbalancedParens(t *testing.T) {
 	if err := ValidateSQLSyntax("SELECT (1"); err == nil {
 		t.Fatal("expected syntax error")
