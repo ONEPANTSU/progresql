@@ -1165,6 +1165,7 @@ function friendlyConfluenceError(error) {
   const message = String(error?.message || error || '');
   if (message.includes('(401)')) return 'Confluence rejected the credentials. Check email/token and auth type.';
   if (message.includes('(403)')) return 'Confluence credentials do not have permission to read this scope.';
+  if (message.includes('(400)')) return `Confluence rejected the CQL/scope filter. ${message}`;
   if (message.includes('(404)')) return 'Confluence page or API path was not found. Check base URL, deployment type, and root page.';
   if (message.includes('(429)')) return 'Confluence rate limit reached. Try again later or narrow the scope.';
   if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|fetch failed/i.test(message)) return 'Cannot reach Confluence. Check VPN/network access and Base URL.';
@@ -1247,7 +1248,7 @@ async function collectConfluencePages(source) {
   let cql = '';
   if (scope.mode === 'spaces') {
     const spaceClause = (scope.spaceKeys || []).map(key => `space="${String(key).replace(/"/g, '\\"')}"`).join(' OR ');
-    cql = `type=page AND (${spaceClause || 'space is not EMPTY'}) AND archived=false`;
+    cql = `type=page AND (${spaceClause || 'space is not EMPTY'})`;
   } else if (scope.mode === 'cql') {
     cql = scope.cql || 'type=page';
   } else if (scope.mode === 'page_tree') {

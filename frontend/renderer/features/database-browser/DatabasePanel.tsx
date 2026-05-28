@@ -822,11 +822,81 @@ export default function DatabasePanel({
     }
   };
 
+  const renderKnowledgeSourcesSection = (connection: DatabaseServer) => {
+    const knowledgeSources = connection.knowledgeSources || [];
+    const expanded = expandedSections.has(`${connection.id}-knowledge-sources`);
+
+    return (
+      <Box sx={{ mt: 0.25 }}>
+        <ListItemButton
+          onClick={() => toggleSectionExpansion(connection.id, 'knowledge-sources')}
+          onContextMenu={(e) => handleConnectionContextMenu(e, connection)}
+          sx={{
+            ...treeItemSx,
+            ml: 0.5,
+            mr: 0.5,
+            bgcolor: expanded ? 'rgba(20, 184, 166, 0.06)' : 'transparent',
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: '20px' }}>
+            <KnowledgeIcon sx={{ fontSize: TREE_ICON_SIZE, color: knowledgeSources.length > 0 ? '#14b8a6' : 'text.disabled' }} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Knowledge Sources"
+            primaryTypographyProps={{ sx: { fontSize: '0.75rem', fontWeight: 500, lineHeight: 1.3, color: 'text.secondary' } }}
+          />
+          {knowledgeSources.length > 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5, fontSize: '0.68rem' }}>
+              {knowledgeSources.length}
+            </Typography>
+          )}
+          {expanded ? (
+            <ExpandLessIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} />
+          ) : (
+            <ExpandMoreIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} />
+          )}
+        </ListItemButton>
+        <Collapse in={expanded} timeout={200} unmountOnExit sx={collapseSx}>
+          <Box sx={{ pl: 2 }}>
+            {knowledgeSources.length === 0 ? (
+              <ListItemButton
+                sx={{ ...leafItemSx, color: 'text.secondary' }}
+                onClick={() => { setKnowledgeConnection(connection); setKnowledgeDialogOpen(true); }}
+              >
+                <ListItemIcon sx={{ minWidth: '18px' }}>
+                  <AddIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} />
+                </ListItemIcon>
+                <ListItemText primary="Add source" primaryTypographyProps={leafTextProps} />
+              </ListItemButton>
+            ) : (
+              knowledgeSources.map(source => (
+                <ListItemButton
+                  key={source.id}
+                  sx={{ ...leafItemSx, color: source.enabled ? 'text.primary' : 'text.disabled' }}
+                  onClick={() => { setKnowledgeConnection(connection); setKnowledgeDialogOpen(true); }}
+                >
+                  <ListItemIcon sx={{ minWidth: '18px' }}>
+                    <KnowledgeIcon sx={{ fontSize: LEAF_ICON_SIZE, color: source.enabled ? '#14b8a6' : 'text.disabled' }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={source.name}
+                    secondary={source.index?.lastSyncedAt ? `${source.index.documents.length} pages synced` : 'Not synced'}
+                    primaryTypographyProps={leafTextProps}
+                    secondaryTypographyProps={{ sx: { fontSize: '0.63rem', lineHeight: 1, color: 'text.secondary' } }}
+                  />
+                </ListItemButton>
+              ))
+            )}
+          </Box>
+        </Collapse>
+      </Box>
+    );
+  };
+
 
   const renderConnectionItem = (connection: DatabaseServer) => {
     const isConnecting = connectingId === connection.id;
     const connError = connectionErrors[connection.id];
-    const knowledgeSources = connection.knowledgeSources || [];
 
     return (
     <Box key={connection.id}>
@@ -909,48 +979,6 @@ export default function DatabasePanel({
         sx={collapseSx}
       >
         <Box sx={{ pl: 0.5 }}>
-          <Accordion
-            expanded={expandedSections.has(`${connection.id}-knowledge-sources`)}
-            onChange={() => toggleSectionExpansion(connection.id, 'knowledge-sources')}
-            sx={accordionSx}
-            disableGutters
-          >
-            <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ fontSize: TREE_ICON_SIZE }} />} sx={sectionSummarySx}>
-              <ListItemIcon sx={{ minWidth: '20px' }}>
-                <KnowledgeIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#14b8a6' }} />
-              </ListItemIcon>
-              <ListItemText
-                primary="Knowledge Sources"
-                primaryTypographyProps={sectionHeaderTypography}
-              />
-              <Chip label={knowledgeSources.length} size="small" sx={counterChipSx} />
-            </AccordionSummary>
-            <AccordionDetails sx={{ p: 0 }}>
-              {knowledgeSources.length === 0 ? (
-                <ListItemButton sx={leafItemSx} onClick={() => { setKnowledgeConnection(connection); setKnowledgeDialogOpen(true); }}>
-                  <ListItemIcon sx={{ minWidth: '20px' }}>
-                    <AddIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} />
-                  </ListItemIcon>
-                  <ListItemText primary="Add source" primaryTypographyProps={leafTextProps} />
-                </ListItemButton>
-              ) : (
-                knowledgeSources.map(source => (
-                  <ListItemButton key={source.id} sx={leafItemSx} onClick={() => { setKnowledgeConnection(connection); setKnowledgeDialogOpen(true); }}>
-                    <ListItemIcon sx={{ minWidth: '20px' }}>
-                      <KnowledgeIcon sx={{ fontSize: LEAF_ICON_SIZE, color: source.enabled ? '#14b8a6' : 'text.disabled' }} />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={source.name}
-                      secondary={source.index?.lastSyncedAt ? `Synced ${source.index.documents.length} pages` : 'Not synced'}
-                      primaryTypographyProps={leafTextProps}
-                      secondaryTypographyProps={{ sx: { fontSize: '0.65rem', lineHeight: 1, color: 'text.secondary' } }}
-                    />
-                  </ListItemButton>
-                ))
-              )}
-            </AccordionDetails>
-          </Accordion>
-
           {/* Available databases list (all DBs on this server) */}
           {connection.availableDatabases && connection.availableDatabases.length > 0 ? (
             connection.availableDatabases.map((availDb) => {
@@ -1747,6 +1775,7 @@ export default function DatabasePanel({
               </Typography>
             </Box>
           )}
+          {renderKnowledgeSourcesSection(connection)}
         </Box>
       </Collapse>
     </Box>
