@@ -10,6 +10,7 @@
 import { createLogger } from '@/shared/lib/logger';
 import type { ToolResultPayload } from './AgentService';
 import type { ToolRequest } from '@/shared/types/electronAPI';
+import { loadConnections } from '@/entities/database/connectionStorage';
 
 const log = createLogger('ToolHandler');
 
@@ -149,6 +150,22 @@ export async function handleToolCall(
   const { electronAPI } = window;
 
   try {
+    if (toolName === 'knowledge.search' || toolName === 'knowledge_search') {
+      const allConnections = await loadConnections();
+      const connection = connectionId ? allConnections.find(c => c.id === connectionId) : null;
+      if (!connection) {
+        return { success: false, error: 'Knowledge search requires a database connection_id.' };
+      }
+      args = {
+        ...args,
+        sources: (connection.knowledgeSources || []).filter(source =>
+          source.enabled &&
+          source.permissions?.useInSqlGeneration &&
+          !(Array.isArray(args.disabled_source_ids) && args.disabled_source_ids.includes(source.id))
+        ),
+      };
+    }
+
     // Use the existing executeToolRequest handler in main.js
     // which already routes all tool names to the correct database queries
     const request: ToolRequest = {
@@ -316,6 +333,10 @@ function transformResult(toolName: string, raw: unknown): TransformResult {
       const obj = raw as { functions?: { name: string; args: string; return_type: string }[] };
       return { functions: obj.functions || [] };
     }
+
+    case 'knowledge.search':
+    case 'knowledge_search':
+      return raw;
 
     default:
       // For unknown tools, pass through as-is

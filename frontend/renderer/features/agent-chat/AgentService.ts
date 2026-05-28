@@ -35,6 +35,8 @@ export interface AgentRequestPayload {
     security_mode?: 'safe' | 'data' | 'execute';
     language?: string;
     connection_id?: string;
+    knowledge_enabled?: boolean;
+    disabled_knowledge_source_ids?: string[];
   };
 }
 

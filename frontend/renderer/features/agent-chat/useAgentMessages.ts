@@ -139,6 +139,7 @@ interface UseAgentMessagesArgs {
   attachedSQL?: string | null;
   setAttachedSQL?: (v: string | null) => void;
   connectionId?: string | null;
+  disabledKnowledgeSourceIds?: string[];
 }
 
 export function useAgentMessages({
@@ -152,6 +153,7 @@ export function useAgentMessages({
   attachedSQL,
   setAttachedSQL,
   connectionId,
+  disabledKnowledgeSourceIds = [],
 }: UseAgentMessagesArgs): UseAgentMessagesReturn {
   const { showError } = useNotifications();
   const agent = useAgent();
@@ -223,6 +225,8 @@ export function useAgentMessages({
           security_mode: agent.securityMode,
           language: language,
           ...(connectionId ? { connection_id: connectionId } : {}),
+          knowledge_enabled: Boolean(connectionId),
+          disabled_knowledge_source_ids: disabledKnowledgeSourceIds,
         },
       };
 
@@ -286,7 +290,7 @@ export function useAgentMessages({
       activeRequestIdRef.current = requestId;
       activeRequestChatIdRef.current = chatId;
     },
-    [agent, setChats, setIsTyping, showError, streaming, t, connectionId],
+    [agent, setChats, setIsTyping, showError, streaming, t, connectionId, disabledKnowledgeSourceIds],
   );
 
   const sendViaAgent = useCallback(

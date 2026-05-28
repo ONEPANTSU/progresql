@@ -10,11 +10,13 @@ import (
 
 	"github.com/onepantsu/progressql/backend/internal/agent"
 	"github.com/onepantsu/progressql/backend/internal/llm"
+	"github.com/onepantsu/progressql/backend/internal/tools"
 )
 
 // ContextKeySQLCandidate is the key used to store the generated SQL candidate
 // in PipelineContext.values for downstream steps.
 const ContextKeySQLCandidate = "sql_candidate"
+const ContextKeyKnowledgeContext = "knowledge_context"
 
 // SQLGenerationStep is step 2 of the generate_sql pipeline.
 // It takes user_message + schema context from step 1 and generates one SQL candidate via LLM.
@@ -33,6 +35,7 @@ func (s *SQLGenerationStep) Execute(ctx context.Context, pctx *agent.PipelineCon
 	}
 
 	schemaDesc := buildSchemaDescription(schemaCtx)
+	knowledgeContext := s.searchKnowledgeContext(pctx)
 
 	model := pctx.Model
 
@@ -50,9 +53,11 @@ func (s *SQLGenerationStep) Execute(ctx context.Context, pctx *agent.PipelineCon
 			"- Add LIMIT 100 if the query could return many rows\n"+
 			"- Return ONLY the SQL query, no explanations or markdown\n\n"+
 			"%s"+
+			"%s"+
 			"Database schema:\n%s\n\n"+
 			"User request: %s",
 		userDescSection,
+		knowledgeContext,
 		schemaDesc,
 		pctx.UserMessage,
 	)
@@ -98,6 +103,49 @@ func (s *SQLGenerationStep) Execute(ctx context.Context, pctx *agent.PipelineCon
 	pctx.Result.SQL = sql
 
 	return nil
+}
+
+func (s *SQLGenerationStep) searchKnowledgeContext(pctx *agent.PipelineContext) string {
+	if pctx.ToolDispatcher == nil || !pctx.KnowledgeEnabled {
+		return ""
+	}
+	args, _ := json.Marshal(map[string]any{
+		"query":               pctx.UserMessage,
+		"limit":               8,
+		"disabled_source_ids": pctx.DisabledKnowledgeSourceIDs,
+	})
+	result, err := pctx.DispatchTool(tools.ToolKnowledgeSearch, args)
+	if err != nil || !result.Success {
+		if err != nil {
+			pctx.Logger.Warn("knowledge_search failed", zap.Error(err))
+		} else {
+			pctx.Logger.Warn("knowledge_search returned error", zap.String("error", result.Error))
+		}
+		return ""
+	}
+
+	var parsed struct {
+		Chunks []struct {
+			Text       string  `json:"text"`
+			Source     string  `json:"source"`
+			SourceName string  `json:"sourceName"`
+			Title      string  `json:"title"`
+			URL        string  `json:"url"`
+			Score      float64 `json:"score"`
+		} `json:"chunks"`
+	}
+	if err := json.Unmarshal(result.Data, &parsed); err != nil || len(parsed.Chunks) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("Connection-specific documentation excerpts. Use these business rules when they are relevant, and preserve their source titles for the final explanation:\n")
+	for i, chunk := range parsed.Chunks {
+		fmt.Fprintf(&b, "\n[%d] %s / %s\nURL: %s\n%s\n", i+1, chunk.Source, chunk.Title, chunk.URL, chunk.Text)
+	}
+	b.WriteString("\n")
+	pctx.Set(ContextKeyKnowledgeContext, b.String())
+	return b.String()
 }
 
 // buildSchemaDescription formats the schema context into a human-readable string for the LLM prompt.

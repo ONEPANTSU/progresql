@@ -9,6 +9,10 @@ import {
   Divider,
   Tooltip,
   Button,
+  Checkbox,
+  Menu,
+  MenuItem,
+  ListItemText,
 } from '@mui/material';
 import { Alert } from '@mui/material';
 import {
@@ -19,6 +23,7 @@ import {
   WarningAmber as WarningIcon,
   Settings as SettingsIcon,
   RocketLaunch as UpgradeIcon,
+  LibraryBooks as KnowledgeIcon,
 } from '@mui/icons-material';
 import { useAgent } from '@/features/agent-chat/AgentContext';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -97,11 +102,15 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
   const [trialBannerDismissed, setTrialBannerDismissed] = useState(false);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [contextAnchorEl, setContextAnchorEl] = useState<null | HTMLElement>(null);
   const chatInputRef = useRef<ChatInputHandle>(null);
 
   const chat = useChat(isOpen);
   const chatConnectionId = chat.activeChat?.connectionId ?? activeConnection?.id ?? undefined;
   const chatDatabase = chat.activeChat?.database ?? undefined;
+  const chatConnection = connections.find(c => c.id === chatConnectionId) ?? activeConnection ?? null;
+  const knowledgeSources = (chatConnection?.knowledgeSources || []).filter(source => source.enabled);
+  const disabledKnowledgeSourceIds = chat.activeChat?.disabledKnowledgeSourceIds || [];
 
   // Wrap onApplySQL to pass chat's connectionId and database
   const handleApplyToEditor = useCallback((sql: string) => {
@@ -123,6 +132,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
     attachedSQL,
     setAttachedSQL,
     connectionId: chatConnectionId ?? null,
+    disabledKnowledgeSourceIds,
   });
 
   // Keep tool call handler's connectionId in sync with the chat's connection
@@ -184,6 +194,17 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
 
   const messages = chat.activeChat?.messages || [];
 
+  const toggleKnowledgeSource = (sourceId: string) => {
+    if (!chat.activeChatId) return;
+    chat.setChats(prev => prev.map(c => {
+      if (c.id !== chat.activeChatId) return c;
+      const disabled = new Set(c.disabledKnowledgeSourceIds || []);
+      if (disabled.has(sourceId)) disabled.delete(sourceId);
+      else disabled.add(sourceId);
+      return { ...c, disabledKnowledgeSourceIds: Array.from(disabled) };
+    }));
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -205,6 +226,29 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
             <Tooltip title={agent.securityMode === 'execute' ? t('settings.unsafeWarning') : t('settings.dataModeWarning')}>
               <WarningIcon sx={{ fontSize: 20, color: agent.securityMode === 'execute' ? 'warning.main' : 'info.main', cursor: 'default' }} aria-label={`${agent.securityMode} mode active`} />
             </Tooltip>
+          )}
+          {knowledgeSources.length > 0 && (
+            <>
+              <Tooltip title="Chat context">
+                <IconButton size="small" onClick={(e) => setContextAnchorEl(e.currentTarget)} aria-label="Chat context">
+                  <KnowledgeIcon />
+                </IconButton>
+              </Tooltip>
+              <Menu anchorEl={contextAnchorEl} open={Boolean(contextAnchorEl)} onClose={() => setContextAnchorEl(null)}>
+                <MenuItem disabled>
+                  <ListItemText primary="Context for this chat" />
+                </MenuItem>
+                {knowledgeSources.map(source => (
+                  <MenuItem key={source.id} onClick={() => toggleKnowledgeSource(source.id)}>
+                    <Checkbox size="small" checked={!disabledKnowledgeSourceIds.includes(source.id)} />
+                    <ListItemText
+                      primary={source.name}
+                      secondary={source.index?.lastSyncedAt ? `${source.index.documents.length} pages synced` : 'Not synced'}
+                    />
+                  </MenuItem>
+                ))}
+              </Menu>
+            </>
           )}
           {onOpenSettings && (<Tooltip title={t('chat.settings')}><IconButton size="small" onClick={onOpenSettings} aria-label="Open settings"><SettingsIcon /></IconButton></Tooltip>)}
         </Box>

@@ -19,6 +19,9 @@ interface SerializedChat {
   updatedAt: string;
   messages: SerializedMessage[];
   hasSentFirstMessage: boolean;
+  connectionId?: string;
+  database?: string;
+  disabledKnowledgeSourceIds?: string[];
 }
 
 interface SerializedMessage {
@@ -36,6 +39,9 @@ function deserializeChat(raw: SerializedChat): Chat {
     updatedAt: new Date(raw.updatedAt),
     messages: (raw.messages || []).map(deserializeMessage),
     hasSentFirstMessage: raw.hasSentFirstMessage,
+    connectionId: raw.connectionId,
+    database: raw.database,
+    disabledKnowledgeSourceIds: raw.disabledKnowledgeSourceIds || [],
   };
 }
 

@@ -5,6 +5,7 @@ export interface DatabaseConnection {
   password: string;
   database: string;
   connectionName: string;
+  knowledgeSources?: KnowledgeSource[];
 }
 
 export interface DatabaseConnectionWithId extends DatabaseConnection {
@@ -24,6 +25,78 @@ export interface DatabaseServer extends DatabaseConnectionWithId {
   databases: DatabaseInfo[];
   availableDatabases?: AvailableDatabase[];
   activeDatabase?: string;
+}
+
+export type KnowledgeSourceType = 'confluence' | 'notion' | 'git_markdown' | 'dbt_docs' | 'openmetadata';
+
+export type KnowledgeSourceScope =
+  | { mode: 'spaces'; spaceKeys: string[] }
+  | { mode: 'page_tree'; rootPageIdOrUrl: string }
+  | { mode: 'cql'; cql: string }
+  | { mode: 'manual_pages'; pageUrls: string[] };
+
+export interface KnowledgeSourcePermissions {
+  readDocumentation: boolean;
+  useInSqlGeneration: boolean;
+  showCitations: boolean;
+  suggestDocumentationUpdates: boolean;
+  allowManualWriteBack: boolean;
+}
+
+export interface KnowledgeDocument {
+  id: string;
+  sourceId: string;
+  externalId: string;
+  title: string;
+  url: string;
+  spaceKey?: string;
+  parentId?: string;
+  version: number;
+  updatedAt: string;
+  hash: string;
+}
+
+export interface KnowledgeChunk {
+  id: string;
+  documentId: string;
+  text: string;
+  metadata: {
+    title: string;
+    url: string;
+    spaceKey?: string;
+    headings: string[];
+  };
+}
+
+export interface KnowledgeSourceIndex {
+  documents: KnowledgeDocument[];
+  chunks: KnowledgeChunk[];
+  lastSyncedAt?: string;
+  lastSyncError?: string;
+}
+
+export interface ConfluenceKnowledgeSourceConfig {
+  baseUrl: string;
+  deployment: 'cloud' | 'data_center';
+  authType: 'api_token' | 'pat';
+  email?: string;
+  token: string;
+}
+
+export interface KnowledgeSource {
+  id: string;
+  type: KnowledgeSourceType;
+  name: string;
+  enabled: boolean;
+  scope: KnowledgeSourceScope;
+  permissions: KnowledgeSourcePermissions;
+  confluence?: ConfluenceKnowledgeSourceConfig;
+  limits?: {
+    maxPages?: number;
+    maxPageSizeBytes?: number;
+    maxChunks?: number;
+  };
+  index?: KnowledgeSourceIndex;
 }
 
 export interface DatabaseInfo {
@@ -413,6 +486,7 @@ export interface Chat {
   hasSentFirstMessage: boolean;
   connectionId?: string;
   database?: string;
+  disabledKnowledgeSourceIds?: string[];
 }
 
 export interface MessageVisualization {

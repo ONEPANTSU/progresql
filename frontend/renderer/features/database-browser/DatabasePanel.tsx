@@ -31,6 +31,7 @@ import {
 } from '@mui/material';
 import ElementDetailsModal from './ElementDetailsModal';
 import SchemaSyncModal from './SchemaSyncModal';
+import KnowledgeSourcesDialog from './KnowledgeSourcesDialog';
 import { createLogger } from '@/shared/lib/logger';
 import { useTranslation } from '@/shared/i18n/LanguageContext';
 
@@ -78,6 +79,7 @@ import {
   CompareArrows as CompareArrowsIcon,
   AccountTree as AccountTreeIcon,
   Dns as ConnectionIcon,
+  LibraryBooks as KnowledgeIcon,
 } from '@mui/icons-material';
 import { DatabaseServer, AuthUser } from '@/shared/types';
 import ConnectionForm from './ConnectionForm';
@@ -104,6 +106,7 @@ interface DatabasePanelProps {
   onOpenERDiagram?: (connectionId: string) => void;
   onSwitchDatabase?: (connectionId: string, database: string) => void;
   onSelectConnection?: (connectionId: string) => void;
+  onUpdateKnowledgeSources?: (connectionId: string, sources: DatabaseServer['knowledgeSources']) => void;
   isRestoringConnections?: boolean;
   connectingId?: string | null;
   connectionErrors?: Record<string, string>;
@@ -223,6 +226,7 @@ export default function DatabasePanel({
   onOpenERDiagram,
   onSwitchDatabase,
   onSelectConnection,
+  onUpdateKnowledgeSources,
   isRestoringConnections = false,
   connectingId = null,
   connectionErrors = {},
@@ -247,6 +251,8 @@ export default function DatabasePanel({
   const [schemaSyncOpen, setSchemaSyncOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [connectionToDelete, setConnectionToDelete] = useState<DatabaseServer | null>(null);
+  const [knowledgeDialogOpen, setKnowledgeDialogOpen] = useState(false);
+  const [knowledgeConnection, setKnowledgeConnection] = useState<DatabaseServer | null>(null);
 
   // Re-sync selectedElement with fresh data from connections after refresh.
   // IMPORTANT: We must filter by selectedElementConnectionId to avoid showing
@@ -327,6 +333,15 @@ export default function DatabasePanel({
         if (onQueryTable) {
           onQueryTable(`CREATE SCHEMA new_schema;\n`);
         }
+        break;
+      case 'manage_knowledge':
+      case 'add_knowledge':
+        setKnowledgeConnection(selectedConnection);
+        setKnowledgeDialogOpen(true);
+        break;
+      case 'sync_knowledge':
+        setKnowledgeConnection(selectedConnection);
+        setKnowledgeDialogOpen(true);
         break;
     }
     handleMenuClose();
@@ -811,6 +826,7 @@ export default function DatabasePanel({
   const renderConnectionItem = (connection: DatabaseServer) => {
     const isConnecting = connectingId === connection.id;
     const connError = connectionErrors[connection.id];
+    const knowledgeSources = connection.knowledgeSources || [];
 
     return (
     <Box key={connection.id}>
@@ -893,6 +909,48 @@ export default function DatabasePanel({
         sx={collapseSx}
       >
         <Box sx={{ pl: 0.5 }}>
+          <Accordion
+            expanded={expandedSections.has(`${connection.id}-knowledge-sources`)}
+            onChange={() => toggleSectionExpansion(connection.id, 'knowledge-sources')}
+            sx={accordionSx}
+            disableGutters
+          >
+            <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ fontSize: TREE_ICON_SIZE }} />} sx={sectionSummarySx}>
+              <ListItemIcon sx={{ minWidth: '20px' }}>
+                <KnowledgeIcon sx={{ fontSize: TREE_ICON_SIZE, color: '#14b8a6' }} />
+              </ListItemIcon>
+              <ListItemText
+                primary="Knowledge Sources"
+                primaryTypographyProps={sectionHeaderTypography}
+              />
+              <Chip label={knowledgeSources.length} size="small" sx={counterChipSx} />
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: 0 }}>
+              {knowledgeSources.length === 0 ? (
+                <ListItemButton sx={leafItemSx} onClick={() => { setKnowledgeConnection(connection); setKnowledgeDialogOpen(true); }}>
+                  <ListItemIcon sx={{ minWidth: '20px' }}>
+                    <AddIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} />
+                  </ListItemIcon>
+                  <ListItemText primary="Add source" primaryTypographyProps={leafTextProps} />
+                </ListItemButton>
+              ) : (
+                knowledgeSources.map(source => (
+                  <ListItemButton key={source.id} sx={leafItemSx} onClick={() => { setKnowledgeConnection(connection); setKnowledgeDialogOpen(true); }}>
+                    <ListItemIcon sx={{ minWidth: '20px' }}>
+                      <KnowledgeIcon sx={{ fontSize: LEAF_ICON_SIZE, color: source.enabled ? '#14b8a6' : 'text.disabled' }} />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={source.name}
+                      secondary={source.index?.lastSyncedAt ? `Synced ${source.index.documents.length} pages` : 'Not synced'}
+                      primaryTypographyProps={leafTextProps}
+                      secondaryTypographyProps={{ sx: { fontSize: '0.65rem', lineHeight: 1, color: 'text.secondary' } }}
+                    />
+                  </ListItemButton>
+                ))
+              )}
+            </AccordionDetails>
+          </Accordion>
+
           {/* Available databases list (all DBs on this server) */}
           {connection.availableDatabases && connection.availableDatabases.length > 0 ? (
             connection.availableDatabases.map((availDb) => {
@@ -1890,6 +1948,18 @@ export default function DatabasePanel({
           </ListItemIcon>
           Edit
         </MenuItem>
+        <MenuItem onClick={() => handleMenuAction((selectedConnection?.knowledgeSources?.length || 0) > 0 ? 'manage_knowledge' : 'add_knowledge')}>
+          <ListItemIcon>
+            <KnowledgeIcon sx={{ fontSize: TREE_ICON_SIZE }} />
+          </ListItemIcon>
+          {(selectedConnection?.knowledgeSources?.length || 0) > 0 ? 'Manage Knowledge Sources' : 'Add Knowledge Source'}
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('sync_knowledge')} disabled={(selectedConnection?.knowledgeSources?.length || 0) === 0}>
+          <ListItemIcon>
+            <RefreshIcon sx={{ fontSize: TREE_ICON_SIZE }} />
+          </ListItemIcon>
+          Sync Knowledge Sources
+        </MenuItem>
         <MenuItem onClick={() => handleMenuAction('delete')}>
           <ListItemIcon>
             <DeleteIcon sx={{ fontSize: TREE_ICON_SIZE }} />
@@ -1897,6 +1967,16 @@ export default function DatabasePanel({
           Delete
         </MenuItem>
       </Menu>
+
+      <KnowledgeSourcesDialog
+        open={knowledgeDialogOpen}
+        connection={knowledgeConnection}
+        onClose={() => {
+          setKnowledgeDialogOpen(false);
+          setKnowledgeConnection(null);
+        }}
+        onUpdateSources={(connectionId, sources) => onUpdateKnowledgeSources?.(connectionId, sources || [])}
+      />
 
       {/* Object Context Menu */}
       <Menu

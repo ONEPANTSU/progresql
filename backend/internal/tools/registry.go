@@ -8,13 +8,14 @@ import (
 
 // Tool name constants.
 const (
-	ToolListSchemas   = "list_schemas"
-	ToolListTables    = "list_tables"
-	ToolDescribeTable = "describe_table"
-	ToolListIndexes   = "list_indexes"
-	ToolExplainQuery  = "explain_query"
-	ToolExecuteQuery  = "execute_query"
-	ToolListFunctions = "list_functions"
+	ToolListSchemas     = "list_schemas"
+	ToolListTables      = "list_tables"
+	ToolDescribeTable   = "describe_table"
+	ToolListIndexes     = "list_indexes"
+	ToolExplainQuery    = "explain_query"
+	ToolExecuteQuery    = "execute_query"
+	ToolListFunctions   = "list_functions"
+	ToolKnowledgeSearch = "knowledge.search"
 )
 
 // Registry stores definitions for all available tools.
@@ -173,6 +174,19 @@ func (r *Registry) registerDefaults() {
 				"schema": {Type: "string", Description: "Schema name"},
 			},
 			Required: []string{"schema"},
+		}),
+	}
+
+	r.tools[ToolKnowledgeSearch] = ToolDefinition{
+		Name:        ToolKnowledgeSearch,
+		Description: "Search documentation sources attached to the current database connection and return relevant excerpts with citations",
+		Parameters: mustJSON(paramSchema{
+			Type: "object",
+			Properties: map[string]propSchema{
+				"query": {Type: "string", Description: "Natural-language search query for database/business documentation"},
+				"limit": {Type: "integer", Description: "Maximum number of knowledge chunks to return"},
+			},
+			Required: []string{"query"},
 		}),
 	}
 }

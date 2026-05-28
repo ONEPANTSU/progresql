@@ -1,4 +1,4 @@
-import type { AuthUser, DatabaseStructureResponse, QueryResult } from './index';
+import type { AuthUser, DatabaseStructureResponse, KnowledgeSource, KnowledgeSourceIndex, QueryResult } from './index';
 
 /** Generic wrapper for IPC responses that use ok/result/error pattern. */
 export interface ElectronAPIResponse<T = unknown> {
@@ -83,6 +83,9 @@ declare global {
       mcpListTools: () => Promise<ElectronAPIResponse<McpToolDescriptor[]>>;
       // Tool execution — uses ok/result/error pattern
       executeToolRequest: (request: ToolRequest) => Promise<ElectronAPIResponse<unknown>>;
+      testKnowledgeSource: (source: KnowledgeSource) => Promise<{ success: boolean; message?: string }>;
+      previewKnowledgeSource: (source: KnowledgeSource) => Promise<{ success: boolean; message?: string; documents?: Array<{ id: string; title: string; url: string; spaceKey?: string }> }>;
+      syncKnowledgeSource: (source: KnowledgeSource) => Promise<{ success: boolean; message?: string; index?: KnowledgeSourceIndex }>;
       // Password encryption via safeStorage
       encryptPassword: (plaintext: string) => Promise<{ encrypted: boolean; data: string }>;
       decryptPassword: (encryptedBase64: string) => Promise<string>;

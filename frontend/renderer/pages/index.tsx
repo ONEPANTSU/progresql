@@ -597,6 +597,16 @@ export default function Home() {
     await performConnection(updatedConnection);
   };
 
+  const handleUpdateKnowledgeSources = (connectionId: string, sources: DatabaseServer['knowledgeSources']) => {
+    setConnections(prev => prev.map(conn =>
+      conn.id === connectionId ? { ...conn, knowledgeSources: sources || [] } : conn
+    ));
+    setActiveConnection(prev =>
+      prev?.id === connectionId ? { ...prev, knowledgeSources: sources || [] } : prev
+    );
+    showSuccess('Knowledge sources updated');
+  };
+
   const handleCloseEditDialog = () => {
     setEditDialogOpen(false);
     setConnectionToEdit(null);
@@ -1007,6 +1017,7 @@ export default function Home() {
                             onRefreshData={() => activeConnection?.id && handleRefreshConnection(activeConnection.id)}
                             onOpenERDiagram={handleOpenERDiagram}
                             onSwitchDatabase={handleSwitchDatabase}
+                            onUpdateKnowledgeSources={handleUpdateKnowledgeSources}
                             onSelectConnection={(connId) => {
                               setEditorConnectionId(connId);
                               const conn = connections.find(c => c.id === connId);

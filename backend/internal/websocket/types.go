@@ -42,14 +42,16 @@ type AgentRequestPayload struct {
 
 // AgentRequestContext provides optional context for an agent request.
 type AgentRequestContext struct {
-	SelectedSQL      string  `json:"selected_sql,omitempty"`
-	ActiveTable      string  `json:"active_table,omitempty"`
-	UserDescriptions string  `json:"user_descriptions,omitempty"`
-	SafeMode         *bool   `json:"safe_mode,omitempty"`     // deprecated, kept for backward compat
-	SecurityMode     *string `json:"security_mode,omitempty"` // "safe", "data", "execute"
-	Language         string  `json:"language,omitempty"`      // "ru" or "en"
-	ConnectionID     string  `json:"connection_id,omitempty"` // which saved connection to use
-	Database         string  `json:"database,omitempty"`      // selected database name
+	SelectedSQL                string   `json:"selected_sql,omitempty"`
+	ActiveTable                string   `json:"active_table,omitempty"`
+	UserDescriptions           string   `json:"user_descriptions,omitempty"`
+	SafeMode                   *bool    `json:"safe_mode,omitempty"`     // deprecated, kept for backward compat
+	SecurityMode               *string  `json:"security_mode,omitempty"` // "safe", "data", "execute"
+	Language                   string   `json:"language,omitempty"`      // "ru" or "en"
+	ConnectionID               string   `json:"connection_id,omitempty"` // which saved connection to use
+	Database                   string   `json:"database,omitempty"`      // selected database name
+	KnowledgeEnabled           bool     `json:"knowledge_enabled,omitempty"`
+	DisabledKnowledgeSourceIDs []string `json:"disabled_knowledge_source_ids,omitempty"`
 }
 
 // ToolResultPayload is the client's response to a tool.call.

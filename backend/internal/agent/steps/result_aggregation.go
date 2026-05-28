@@ -119,12 +119,20 @@ func buildAggregationPrompt(candidates []string, userMessage string, pctx *agent
 	b.WriteString("CRITICAL RULES:\n")
 	b.WriteString("- Do NOT mention candidates, candidate numbers, or the selection process. The user does not know multiple queries were generated.\n")
 	b.WriteString("- Write a short, friendly explanation of the chosen query as if YOU wrote it. Explain what the query does.\n")
+	b.WriteString("- If documentation excerpts are provided, add a short \"Used context\" section with source titles and URLs.\n")
 	b.WriteString("- Always respond in the same language as the user's message. If in Russian, respond in Russian. If in English, respond in English.\n")
 	b.WriteString("- Output the final SQL inside a ```sql code block at the END of your response.\n\n")
 
 	b.WriteString("User request: ")
 	b.WriteString(userMessage)
 	b.WriteString("\n\n")
+
+	if knowledgeVal, ok := pctx.Get(ContextKeyKnowledgeContext); ok {
+		if knowledge, ok := knowledgeVal.(string); ok && strings.TrimSpace(knowledge) != "" {
+			b.WriteString(knowledge)
+			b.WriteString("\n")
+		}
+	}
 
 	b.WriteString("SQL candidates (internal, do not expose to user). All listed candidates passed security and EXPLAIN validation unless noted:\n")
 	for i, c := range candidates {

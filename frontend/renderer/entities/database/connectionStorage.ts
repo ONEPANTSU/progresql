@@ -1,6 +1,7 @@
 import { DatabaseServer } from '@/shared/types';
 import { createLogger } from '@/shared/lib/logger';
 import { userKey } from '@/shared/lib/userStorage';
+import { hydrateKnowledgeIndexes, persistAndStripKnowledgeIndexes } from './knowledgeIndexStorage';
 
 const log = createLogger('ConnectionStorage');
 
@@ -12,6 +13,10 @@ function connectionsKey(): string {
 
 function isEncryptedPassword(password: string): boolean {
   return password.startsWith(ENCRYPTED_PREFIX);
+}
+
+function isEncryptedSecret(secret: string): boolean {
+  return secret.startsWith(ENCRYPTED_PREFIX);
 }
 
 /**
@@ -35,6 +40,10 @@ async function encryptPassword(plaintext: string): Promise<string> {
     log.error('Failed to encrypt password:', error);
   }
   return '';
+}
+
+async function encryptSecret(plaintext: string): Promise<string> {
+  return encryptPassword(plaintext);
 }
 
 /**
@@ -63,6 +72,33 @@ async function decryptPassword(stored: string): Promise<string> {
   return '';
 }
 
+async function decryptSecret(stored: string): Promise<string> {
+  return decryptPassword(stored);
+}
+
+async function decryptKnowledgeSourceTokens(conn: DatabaseServer): Promise<boolean> {
+  let needsResave = false;
+  for (const source of conn.knowledgeSources || []) {
+    const token = source.confluence?.token;
+    if (!token) continue;
+    if (isEncryptedSecret(token)) {
+      source.confluence!.token = await decryptSecret(token);
+    } else {
+      needsResave = true;
+    }
+  }
+  return needsResave;
+}
+
+async function encryptKnowledgeSourceTokens(conn: DatabaseServer): Promise<void> {
+  for (const source of conn.knowledgeSources || []) {
+    const token = source.confluence?.token;
+    if (token && !isEncryptedSecret(token)) {
+      source.confluence!.token = await encryptSecret(token);
+    }
+  }
+}
+
 /**
  * Load all connections from localStorage, decrypting passwords.
  */
@@ -81,10 +117,14 @@ export async function loadConnections(): Promise<DatabaseServer[]> {
     let needsResave = false;
 
     for (const conn of connections) {
+      hydrateKnowledgeIndexes(conn);
       if (conn.password && isEncryptedPassword(conn.password)) {
         conn.password = await decryptPassword(conn.password);
       } else if (conn.password) {
         // Plaintext password found — will be encrypted on next save (migration)
+        needsResave = true;
+      }
+      if (await decryptKnowledgeSourceTokens(conn)) {
         needsResave = true;
       }
     }
@@ -118,6 +158,8 @@ export async function saveConnections(connections: DatabaseServer[]): Promise<vo
       if (conn.password && !isEncryptedPassword(conn.password)) {
         conn.password = await encryptPassword(conn.password);
       }
+      await encryptKnowledgeSourceTokens(conn);
+      persistAndStripKnowledgeIndexes(conn);
     }
 
     localStorage.setItem(connectionsKey(), JSON.stringify(toStore));
@@ -142,7 +184,14 @@ export function debugLocalStorage(): void {
     const parsed = JSON.parse(raw);
     const sanitized = parsed.map((c: any) => ({
       ...c,
-      password: c.password ? (isEncryptedPassword(c.password) ? '[ENCRYPTED]' : '[PLAINTEXT]') : '[EMPTY]'
+      password: c.password ? (isEncryptedPassword(c.password) ? '[ENCRYPTED]' : '[PLAINTEXT]') : '[EMPTY]',
+      knowledgeSources: (c.knowledgeSources || []).map((source: any) => ({
+        ...source,
+        confluence: source.confluence ? {
+          ...source.confluence,
+          token: source.confluence.token ? (isEncryptedSecret(source.confluence.token) ? '[ENCRYPTED]' : '[PLAINTEXT]') : '[EMPTY]',
+        } : undefined,
+      })),
     }));
     log.debug('Connections (passwords masked):', JSON.stringify(sanitized, null, 2));
   }

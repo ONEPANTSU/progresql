@@ -16,6 +16,7 @@ func TestNewRegistry_AllToolsRegistered(t *testing.T) {
 		ToolExplainQuery,
 		ToolExecuteQuery,
 		ToolListFunctions,
+		ToolKnowledgeSearch,
 	}
 
 	all := r.All()
@@ -79,9 +80,9 @@ func TestRegistry_Register_Custom(t *testing.T) {
 		t.Errorf("unexpected description: %q", td.Description)
 	}
 
-	// Should now have 8 tools
-	if len(r.All()) != 8 {
-		t.Errorf("expected 8 tools after custom registration, got %d", len(r.All()))
+	// Should now have the default tools plus the custom one.
+	if len(r.All()) != len(NewRegistry().All())+1 {
+		t.Errorf("expected %d tools after custom registration, got %d", len(NewRegistry().All())+1, len(r.All()))
 	}
 }
 
@@ -104,13 +105,14 @@ func TestRegistry_ParametersAreValidJSON(t *testing.T) {
 func TestRegistry_ToolConstants(t *testing.T) {
 	// Ensure constants match expected string values.
 	tests := map[string]string{
-		ToolListSchemas:   "list_schemas",
-		ToolListTables:    "list_tables",
-		ToolDescribeTable: "describe_table",
-		ToolListIndexes:   "list_indexes",
-		ToolExplainQuery:  "explain_query",
-		ToolExecuteQuery:  "execute_query",
-		ToolListFunctions: "list_functions",
+		ToolListSchemas:     "list_schemas",
+		ToolListTables:      "list_tables",
+		ToolDescribeTable:   "describe_table",
+		ToolListIndexes:     "list_indexes",
+		ToolExplainQuery:    "explain_query",
+		ToolExecuteQuery:    "execute_query",
+		ToolListFunctions:   "list_functions",
+		ToolKnowledgeSearch: "knowledge.search",
 	}
 	for got, want := range tests {
 		if got != want {

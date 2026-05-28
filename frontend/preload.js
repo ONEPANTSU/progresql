@@ -139,6 +139,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
       throw error;
     }
   },
+  testKnowledgeSource: async (source) => {
+    try {
+      return await ipcRenderer.invoke('knowledge-source-test', source);
+    } catch (error) {
+      log.error('testKnowledgeSource error:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  previewKnowledgeSource: async (source) => {
+    try {
+      return await ipcRenderer.invoke('knowledge-source-preview', source);
+    } catch (error) {
+      log.error('previewKnowledgeSource error:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  syncKnowledgeSource: async (source) => {
+    try {
+      return await ipcRenderer.invoke('knowledge-source-sync', source);
+    } catch (error) {
+      log.error('syncKnowledgeSource error:', error);
+      return { success: false, message: error.message };
+    }
+  },
   mcpIsAvailable: async () => {
     try {
       const result = await ipcRenderer.invoke('mcp-is-available');

@@ -45,17 +45,19 @@ type Step interface {
 // PipelineContext carries data between pipeline steps.
 type PipelineContext struct {
 	// Request fields (set at start).
-	RequestID        string
-	Action           string
-	UserMessage      string
-	SelectedSQL      string
-	ActiveTable      string
-	UserDescriptions string
-	Model            string
-	SecurityMode     string // "safe", "data", or "execute". Default: "safe".
-	Language         string // User's UI language: "ru" or "en".
-	ConnectionID     string // which saved connection to query
-	Database         string // selected database name
+	RequestID                  string
+	Action                     string
+	UserMessage                string
+	SelectedSQL                string
+	ActiveTable                string
+	UserDescriptions           string
+	Model                      string
+	SecurityMode               string // "safe", "data", or "execute". Default: "safe".
+	Language                   string // User's UI language: "ru" or "en".
+	ConnectionID               string // which saved connection to query
+	Database                   string // selected database name
+	KnowledgeEnabled           bool   // whether to ask the desktop client for connection-scoped docs
+	DisabledKnowledgeSourceIDs []string
 
 	// ConversationHistory holds previous user/assistant messages for multi-turn context.
 	ConversationHistory []llm.Message
@@ -397,6 +399,8 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		pctx.Language = payload.Context.Language
 		pctx.ConnectionID = payload.Context.ConnectionID
 		pctx.Database = payload.Context.Database
+		pctx.KnowledgeEnabled = payload.Context.KnowledgeEnabled
+		pctx.DisabledKnowledgeSourceIDs = payload.Context.DisabledKnowledgeSourceIDs
 	}
 	pctx.SecurityMode = resolveSecurityMode(payload.Context)
 	if pctx.Language == "" {

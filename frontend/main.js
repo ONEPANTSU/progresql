@@ -6,6 +6,7 @@ if (process.platform === 'linux') {
 
 const { app, BrowserWindow, ipcMain, Menu, safeStorage, shell } = require('electron');
 const path = require('path');
+const crypto = require('crypto');
 const isDev = !app.isPackaged;
 const mcpManager = require('./mcp-manager');
 const toolServer = require('./tool-server');
@@ -1128,6 +1129,277 @@ async function executeInReadOnlyTransaction(client, sql) {
   }
 }
 
+function confluenceApiBase(source) {
+  const cfg = source.confluence || {};
+  const base = String(cfg.baseUrl || '').replace(/\/+$/, '');
+  if (!base) {
+    throw new Error('Confluence base URL is required');
+  }
+  if (cfg.deployment === 'data_center') {
+    return base.endsWith('/wiki') ? base.slice(0, -5) + '/rest/api' : base + '/rest/api';
+  }
+  return base.endsWith('/wiki') ? base + '/rest/api' : base + '/wiki/rest/api';
+}
+
+function confluenceHeaders(source) {
+  const cfg = source.confluence || {};
+  const token = cfg.token;
+  if (!token) {
+    throw new Error('Confluence token is required');
+  }
+  let authorization = `Bearer ${token}`;
+  if (cfg.deployment === 'cloud' && cfg.authType === 'api_token') {
+    if (!cfg.email) {
+      throw new Error('Confluence Cloud API token auth requires an email address');
+    }
+    authorization = `Basic ${Buffer.from(`${cfg.email}:${token}`).toString('base64')}`;
+  }
+  return {
+    Authorization: authorization,
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  };
+}
+
+function friendlyConfluenceError(error) {
+  const message = String(error?.message || error || '');
+  if (message.includes('(401)')) return 'Confluence rejected the credentials. Check email/token and auth type.';
+  if (message.includes('(403)')) return 'Confluence credentials do not have permission to read this scope.';
+  if (message.includes('(404)')) return 'Confluence page or API path was not found. Check base URL, deployment type, and root page.';
+  if (message.includes('(429)')) return 'Confluence rate limit reached. Try again later or narrow the scope.';
+  if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|fetch failed/i.test(message)) return 'Cannot reach Confluence. Check VPN/network access and Base URL.';
+  return message;
+}
+
+async function fetchConfluenceJSON(source, pathWithQuery) {
+  const url = `${confluenceApiBase(source)}${pathWithQuery}`;
+  const response = await fetch(url, { headers: confluenceHeaders(source) });
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`Confluence request failed (${response.status}): ${body || response.statusText}`);
+  }
+  return response.json();
+}
+
+async function fetchPaginatedConfluence(source, pathWithQuery, limit, itemSelector = data => data.results || []) {
+  const all = [];
+  let start = 0;
+  const pageSize = Math.min(50, Math.max(1, limit));
+  while (all.length < limit) {
+    const sep = pathWithQuery.includes('?') ? '&' : '?';
+    const data = await fetchConfluenceJSON(source, `${pathWithQuery}${sep}start=${start}&limit=${Math.min(pageSize, limit - all.length)}`);
+    const items = itemSelector(data);
+    if (!Array.isArray(items) || items.length === 0) break;
+    all.push(...items);
+    if (!data._links?.next && items.length < pageSize) break;
+    start += items.length;
+  }
+  return all.slice(0, limit);
+}
+
+function stripConfluenceStorage(html) {
+  return String(html || '')
+    .replace(/<ac:structured-macro[\s\S]*?<\/ac:structured-macro>/g, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function chunkText(text, maxChars = 1200) {
+  const chunks = [];
+  const clean = String(text || '').trim();
+  for (let start = 0; start < clean.length; start += maxChars) {
+    const chunk = clean.slice(start, start + maxChars).trim();
+    if (chunk) chunks.push(chunk);
+  }
+  return chunks;
+}
+
+function sourceHash(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function pageIdFromUrlOrId(value) {
+  const raw = String(value || '').trim();
+  if (/^\d+$/.test(raw)) return raw;
+  const match = raw.match(/\/pages\/(\d+)/) || raw.match(/[?&]pageId=(\d+)/);
+  return match ? match[1] : raw;
+}
+
+function confluencePageURL(source, page) {
+  const apiBase = confluenceApiBase(source).replace(/\/rest\/api$/, '').replace(/\/wiki\/rest\/api$/, '/wiki');
+  return page._links?.webui
+    ? `${apiBase.replace(/\/+$/, '')}${page._links.webui}`
+    : `${source.confluence?.baseUrl?.replace(/\/+$/, '') || ''}/pages/${page.id}`;
+}
+
+async function collectConfluencePages(source) {
+  const scope = source.scope || {};
+  const limit = Math.min(source.limits?.maxPages || 200, 500);
+  let cql = '';
+  if (scope.mode === 'spaces') {
+    const spaceClause = (scope.spaceKeys || []).map(key => `space="${String(key).replace(/"/g, '\\"')}"`).join(' OR ');
+    cql = `type=page AND (${spaceClause || 'space is not EMPTY'}) AND archived=false`;
+  } else if (scope.mode === 'cql') {
+    cql = scope.cql || 'type=page';
+  } else if (scope.mode === 'page_tree') {
+    const rootId = pageIdFromUrlOrId(scope.rootPageIdOrUrl);
+    const root = await fetchConfluenceJSON(source, `/content/${encodeURIComponent(rootId)}?expand=body.storage,version,space,ancestors,history`);
+    const children = await fetchPaginatedConfluence(source, `/content/${encodeURIComponent(rootId)}/descendant/page?expand=body.storage,version,space,ancestors,history`, Math.max(0, limit - 1));
+    return [root, ...children];
+  } else {
+    cql = 'type=page';
+  }
+
+  const results = await fetchPaginatedConfluence(source, `/search?cql=${encodeURIComponent(cql)}`, limit);
+  const pages = [];
+  for (const item of results) {
+    const content = item.content || item;
+    const id = content.id;
+    if (!id) continue;
+    pages.push(await fetchConfluenceJSON(source, `/content/${encodeURIComponent(id)}?expand=body.storage,version,space,ancestors,history`));
+  }
+  return pages;
+}
+
+async function testKnowledgeSource(source) {
+  await fetchConfluenceJSON(source, '/space?limit=1');
+  return { success: true, message: 'Connection successful.' };
+}
+
+async function previewKnowledgeSource(source) {
+  const pages = await collectConfluencePages(source);
+  return {
+    success: true,
+    documents: pages.map(page => ({
+      id: String(page.id),
+      title: page.title || String(page.id),
+      url: confluencePageURL(source, page),
+      spaceKey: page.space?.key,
+    })),
+  };
+}
+
+async function syncKnowledgeSource(source) {
+  const pages = await collectConfluencePages(source);
+  const documents = [];
+  const chunks = [];
+  const previousDocs = new Map((source.index?.documents || []).map(doc => [doc.externalId, doc]));
+  const previousChunks = new Map();
+  for (const chunk of source.index?.chunks || []) {
+    const existing = previousChunks.get(chunk.documentId) || [];
+    existing.push(chunk);
+    previousChunks.set(chunk.documentId, existing);
+  }
+  const maxPageSize = source.limits?.maxPageSizeBytes || 500_000;
+  const maxChunks = source.limits?.maxChunks || 1000;
+
+  for (const page of pages) {
+    const html = page.body?.storage?.value || '';
+    if (Buffer.byteLength(html, 'utf8') > maxPageSize) continue;
+    const text = stripConfluenceStorage(html);
+    if (!text) continue;
+    const externalId = String(page.id);
+    const version = Number(page.version?.number || 0);
+    const hash = sourceHash(`${version}:${text}`);
+    const url = confluencePageURL(source, page);
+    const doc = {
+      id: `${source.id}:${externalId}`,
+      sourceId: source.id,
+      externalId,
+      title: page.title || externalId,
+      url,
+      spaceKey: page.space?.key,
+      parentId: page.ancestors?.length ? String(page.ancestors[page.ancestors.length - 1].id) : undefined,
+      version,
+      updatedAt: page.version?.when || page.history?.lastUpdated?.when || new Date().toISOString(),
+      hash,
+    };
+    documents.push(doc);
+    const prevDoc = previousDocs.get(externalId);
+    if (prevDoc?.hash === hash) {
+      for (const chunk of previousChunks.get(prevDoc.id) || []) {
+        if (chunks.length < maxChunks) chunks.push(chunk);
+      }
+      if (chunks.length >= maxChunks) break;
+      continue;
+    }
+    for (const [idx, chunk] of chunkText(text).entries()) {
+      if (chunks.length >= maxChunks) break;
+      chunks.push({
+        id: `${doc.id}:chunk:${idx}`,
+        documentId: doc.id,
+        text: chunk,
+        metadata: {
+          title: doc.title,
+          url: doc.url,
+          spaceKey: doc.spaceKey,
+          headings: [],
+        },
+      });
+    }
+    if (chunks.length >= maxChunks) break;
+  }
+
+  return { success: true, index: { documents, chunks, lastSyncedAt: new Date().toISOString() } };
+}
+
+function searchKnowledgeSources(sources, query, limit = 8) {
+  const terms = String(query || '').toLowerCase().split(/\W+/).filter(term => term.length > 2);
+  const scored = [];
+  for (const source of sources || []) {
+    if (!source.enabled || !source.permissions?.useInSqlGeneration) continue;
+    for (const chunk of source.index?.chunks || []) {
+      const haystack = `${chunk.metadata?.title || ''} ${chunk.text}`.toLowerCase();
+      const score = terms.reduce((sum, term) => sum + (haystack.includes(term) ? 1 : 0), 0);
+      if (score > 0 || terms.length === 0) {
+        scored.push({
+          ...chunk,
+          score,
+          source: source.type === 'confluence' ? 'Confluence' : source.type,
+          sourceName: source.name,
+          title: chunk.metadata?.title,
+          url: chunk.metadata?.url,
+        });
+      }
+    }
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return { chunks: scored.slice(0, Number(limit) || 8) };
+}
+
+ipcMain.handle('knowledge-source-test', async (event, source) => {
+  try {
+    return await testKnowledgeSource(source);
+  } catch (error) {
+    return { success: false, message: friendlyConfluenceError(error) };
+  }
+});
+
+ipcMain.handle('knowledge-source-preview', async (event, source) => {
+  try {
+    return await previewKnowledgeSource(source);
+  } catch (error) {
+    return { success: false, message: friendlyConfluenceError(error) };
+  }
+});
+
+ipcMain.handle('knowledge-source-sync', async (event, source) => {
+  try {
+    return await syncKnowledgeSource(source);
+  } catch (error) {
+    return { success: false, message: friendlyConfluenceError(error) };
+  }
+});
+
 ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
   const startTime = Date.now();
   // ToolRequest и ToolResult - это просто интерфейсы, не нужны для выполнения
@@ -1147,18 +1419,23 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
     const args = toolRequest.arguments || {};
     const connectionId = toolRequest.connectionId || args.connection_id || args.connectionId;
     let client = null;
-    try {
-      client = resolveDbClient(connectionId);
-    } catch (resolveError) {
-      if (connectionId || (global.dbClients && global.dbClients.size > 1) || !safeApi) {
-        throw resolveError;
+    const isKnowledgeSearch = toolName === 'knowledge.search' || toolName === 'knowledge_search';
+    if (!isKnowledgeSearch) {
+      try {
+        client = resolveDbClient(connectionId);
+      } catch (resolveError) {
+        if (connectionId || (global.dbClients && global.dbClients.size > 1) || !safeApi) {
+          throw resolveError;
+        }
       }
     }
     const securityMode = toolRequest.security_mode || toolRequest.securityMode || args.security_mode || args.securityMode || 'safe';
 
     // Route to appropriate handler — prefer direct SQL for reliability,
     // fall back to MCP safeApi only when needed. MCP may not support all tools.
-    if (toolName === 'list_schemas') {
+    if (isKnowledgeSearch) {
+      result = searchKnowledgeSources(args.sources || [], args.query || '', args.limit || 8);
+    } else if (toolName === 'list_schemas') {
       if (client) {
         const r = await client.query("SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('pg_toast','pg_catalog','information_schema') ORDER BY schema_name");
         result = r.rows.map(row => row.schema_name);

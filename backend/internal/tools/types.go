@@ -47,6 +47,12 @@ type ListFunctionsArgs struct {
 	Schema string `json:"schema"`
 }
 
+// KnowledgeSearchArgs contains arguments for the knowledge_search tool.
+type KnowledgeSearchArgs struct {
+	Query string `json:"query"`
+	Limit int    `json:"limit"`
+}
+
 // --- Result types ---
 
 // ListSchemasResult is the result of list_schemas.
@@ -123,4 +129,19 @@ type FunctionInfo struct {
 // ListFunctionsResult is the result of list_functions.
 type ListFunctionsResult struct {
 	Functions []FunctionInfo `json:"functions"`
+}
+
+// KnowledgeChunk describes a documentation excerpt returned by knowledge_search.
+type KnowledgeChunk struct {
+	Text       string  `json:"text"`
+	Source     string  `json:"source"`
+	SourceName string  `json:"sourceName,omitempty"`
+	Title      string  `json:"title"`
+	URL        string  `json:"url"`
+	Score      float64 `json:"score,omitempty"`
+}
+
+// KnowledgeSearchResult is the result of knowledge_search.
+type KnowledgeSearchResult struct {
+	Chunks []KnowledgeChunk `json:"chunks"`
 }
