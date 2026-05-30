@@ -240,13 +240,24 @@ export function useAgentMessages({
         },
         onTrace: (trace: AgentTracePayload) => {
           const event = { ...trace, timestamp: new Date().toISOString() };
+          const eventKey = `${event.kind}:${event.tool_name || event.title}`;
           setChats(prev => prev.map(chat =>
             chat.id === chatId
               ? {
                   ...chat,
                   messages: chat.messages.map(m =>
                     m.id === botMessageId
-                      ? { ...m, agentTrace: [...(m.agentTrace || []), event] }
+                      ? {
+                          ...m,
+                          agentTrace: (() => {
+                            const current = m.agentTrace || [];
+                            const index = current.findIndex(existing =>
+                              `${existing.kind}:${existing.tool_name || existing.title}` === eventKey
+                            );
+                            if (index === -1) return [...current, event];
+                            return current.map((existing, i) => i === index ? { ...existing, ...event } : existing);
+                          })(),
+                        }
                       : m
                   ),
                 }

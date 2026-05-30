@@ -82,6 +82,7 @@ func (s *ParallelSQLGenerationStep) Execute(ctx context.Context, pctx *agent.Pip
 	}
 
 	schemaDesc := buildSchemaDescription(schemaCtx)
+	knowledgeContext := (&SQLGenerationStep{}).searchKnowledgeContext(pctx)
 	groundingDesc := ""
 	if gpVal, ok := pctx.Get(ContextKeyGroundingPlan); ok {
 		if gp, ok := gpVal.(GroundingPlan); ok {
@@ -106,7 +107,7 @@ func (s *ParallelSQLGenerationStep) Execute(ctx context.Context, pctx *agent.Pip
 		wg.Add(1)
 		go func(idx int, cfg candidateConfig) {
 			defer wg.Done()
-			results[idx] = s.generateCandidate(ctx, pctx, model, schemaDesc, groundingDesc, cfg, idx)
+			results[idx] = s.generateCandidate(ctx, pctx, model, schemaDesc, groundingDesc, knowledgeContext, cfg, idx)
 		}(i, configs[i])
 	}
 
@@ -177,7 +178,7 @@ func (s *ParallelSQLGenerationStep) Execute(ctx context.Context, pctx *agent.Pip
 func (s *ParallelSQLGenerationStep) generateCandidate(
 	ctx context.Context,
 	pctx *agent.PipelineContext,
-	model, schemaDesc, groundingDesc string,
+	model, schemaDesc, groundingDesc, knowledgeContext string,
 	cfg candidateConfig,
 	idx int,
 ) candidateResult {
@@ -198,11 +199,13 @@ func (s *ParallelSQLGenerationStep) generateCandidate(
 			"- Return ONLY the SQL query, no explanations or markdown\n"+
 			"- %s\n\n"+
 			"%s"+
+			"%s"+
 			"Database schema:\n%s\n\n"+
 			"Schema grounding plan:\n%s\n\n"+
 			"User request: %s",
 		cfg.suffix,
 		userDescSection,
+		knowledgeContext,
 		schemaDesc,
 		groundingDesc,
 		pctx.UserMessage,

@@ -448,11 +448,12 @@ const StreamingText: React.FC<{ text: string }> = ({ text }) => (
   </Box>
 );
 
-const AgentTracePanel: React.FC<{ message: Message; initiallyOpen?: boolean }> = ({ message, initiallyOpen }) => {
+const AgentTracePanel: React.FC<{ message: Message }> = ({ message }) => {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(Boolean(initiallyOpen));
+  const [open, setOpen] = useState(false);
   const events = message.agentTrace || [];
   if (events.length === 0) return null;
+  const currentEvent = [...events].reverse().find(event => event.status === 'running') || events[events.length - 1];
 
   const statusLabel = (status: string) => {
     if (status === 'running') return t('chat.trace.running');
@@ -470,14 +471,23 @@ const AgentTracePanel: React.FC<{ message: Message; initiallyOpen?: boolean }> =
     <Box sx={{ mb: 0.75, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' }}>
       <Box
         onClick={() => setOpen(prev => !prev)}
-        sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1, py: 0.5, cursor: 'pointer' }}
+        sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1, py: 0.5, cursor: 'pointer', minHeight: 34 }}
       >
-        <Typography variant="caption" sx={{ fontWeight: 700, flex: 1 }}>
-          {t('chat.trace.title')}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {events.length}
-        </Typography>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, lineHeight: 1.2 }}>
+            {t('chat.trace.title')}
+          </Typography>
+          {!open && currentEvent && (
+            <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', lineHeight: 1.2 }}>
+              {currentEvent.title} · {statusLabel(currentEvent.status)}
+            </Typography>
+          )}
+        </Box>
+        {open && (
+          <Typography variant="caption" color="text.secondary">
+            {events.length}
+          </Typography>
+        )}
         <IconButton size="small" aria-label={open ? t('chat.trace.hide') : t('chat.trace.show')} sx={{ p: 0.125 }}>
           {open ? <ExpandLessIcon sx={{ fontSize: 16 }} /> : <ExpandMoreIcon sx={{ fontSize: 16 }} />}
         </IconButton>
@@ -493,7 +503,6 @@ const AgentTracePanel: React.FC<{ message: Message; initiallyOpen?: boolean }> =
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.25 }}>
                   {statusLabel(event.status)}
-                  {event.tool_name ? ` · ${event.tool_name}` : ''}
                   {event.detail ? ` · ${event.detail}` : ''}
                 </Typography>
               </Box>
@@ -521,6 +530,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   const isUser = message.sender === 'user';
   const isStreaming = message.isStreaming === true;
   const isPlainSQL = !isStreaming && isSQLCode(message.text);
+  const hasTrace = !isUser && Boolean(message.agentTrace?.length);
 
   return (
     <ListItem
@@ -544,6 +554,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
       <Box
         sx={{
           maxWidth: '80%',
+          ...(!isUser && hasTrace ? { width: '80%' } : {}),
           minWidth: 0,
           overflowWrap: 'break-word',
           wordBreak: 'break-word',
@@ -555,7 +566,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           p: 1.25,
         }}
       >
-        {!isUser && <AgentTracePanel message={message} initiallyOpen={isStreaming} />}
+        {!isUser && <AgentTracePanel message={message} />}
         {isStreaming ? (
           <StreamingText text={message.text} />
         ) : isPlainSQL ? (
