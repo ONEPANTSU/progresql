@@ -111,6 +111,7 @@ func (s *SQLGenerationStep) searchKnowledgeContext(pctx *agent.PipelineContext) 
 	}
 	args, _ := json.Marshal(map[string]any{
 		"query":               pctx.UserMessage,
+		"database":            pctx.Database,
 		"limit":               8,
 		"disabled_source_ids": pctx.DisabledKnowledgeSourceIDs,
 	})

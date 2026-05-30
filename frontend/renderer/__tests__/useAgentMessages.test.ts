@@ -904,6 +904,22 @@ describe('useAgentMessages', () => {
       );
     });
 
+    it('includes database in context when provided', () => {
+      const args = makeArgs({ connectionId: 'conn-abc', database: 'analytics' });
+      const { result } = renderHook(() => useAgentMessages(args));
+
+      act(() => {
+        result.current.sendViaAgent('test', 'chat-1', 'msg-1');
+      });
+
+      expect(mockSendRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: expect.objectContaining({ connection_id: 'conn-abc', database: 'analytics' }),
+        }),
+        expect.any(Object)
+      );
+    });
+
     it('does not include connection_id when not provided', () => {
       const args = makeArgs({ connectionId: null });
       const { result } = renderHook(() => useAgentMessages(args));

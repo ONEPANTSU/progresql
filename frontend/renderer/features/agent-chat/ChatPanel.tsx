@@ -107,9 +107,11 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
 
   const chat = useChat(isOpen);
   const chatConnectionId = chat.activeChat?.connectionId ?? activeConnection?.id ?? undefined;
-  const chatDatabase = chat.activeChat?.database ?? undefined;
   const chatConnection = connections.find(c => c.id === chatConnectionId) ?? activeConnection ?? null;
-  const knowledgeSources = (chatConnection?.knowledgeSources || []).filter(source => source.enabled);
+  const chatDatabase = chat.activeChat?.database ?? chatConnection?.activeDatabase ?? chatConnection?.database ?? undefined;
+  const knowledgeSources = (chatConnection?.knowledgeSources || []).filter(source =>
+    source.enabled && (!source.databaseName || !chatDatabase || source.databaseName === chatDatabase)
+  );
   const disabledKnowledgeSourceIds = chat.activeChat?.disabledKnowledgeSourceIds || [];
 
   // Wrap onApplySQL to pass chat's connectionId and database
@@ -132,6 +134,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
     attachedSQL,
     setAttachedSQL,
     connectionId: chatConnectionId ?? null,
+    database: chatDatabase ?? null,
     disabledKnowledgeSourceIds,
   });
 
@@ -229,21 +232,23 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
           )}
           {knowledgeSources.length > 0 && (
             <>
-              <Tooltip title="Chat context">
-                <IconButton size="small" onClick={(e) => setContextAnchorEl(e.currentTarget)} aria-label="Chat context">
+              <Tooltip title={t('chat.context.tooltip')}>
+                <IconButton size="small" onClick={(e) => setContextAnchorEl(e.currentTarget)} aria-label={t('chat.context.tooltip')}>
                   <KnowledgeIcon />
                 </IconButton>
               </Tooltip>
               <Menu anchorEl={contextAnchorEl} open={Boolean(contextAnchorEl)} onClose={() => setContextAnchorEl(null)}>
                 <MenuItem disabled>
-                  <ListItemText primary="Context for this chat" />
+                  <ListItemText primary={t('chat.context.title')} />
                 </MenuItem>
                 {knowledgeSources.map(source => (
                   <MenuItem key={source.id} onClick={() => toggleKnowledgeSource(source.id)}>
                     <Checkbox size="small" checked={!disabledKnowledgeSourceIds.includes(source.id)} />
                     <ListItemText
                       primary={source.name}
-                      secondary={source.index?.lastSyncedAt ? `${source.index.documents.length} pages synced` : 'Not synced'}
+                      secondary={source.index?.lastSyncedAt
+                        ? t('chat.context.pagesSynced', { count: source.index.documents.length })
+                        : t('chat.context.notSynced')}
                     />
                   </MenuItem>
                 ))}

@@ -9,6 +9,7 @@ const (
 	TypeToolResult    = "tool.result"
 	TypeToolCall      = "tool.call"
 	TypeAgentStream   = "agent.stream"
+	TypeAgentTrace    = "agent.trace"
 	TypeAgentResponse = "agent.response"
 	TypeAgentError    = "agent.error"
 
@@ -52,6 +53,7 @@ type AgentRequestContext struct {
 	Database                   string   `json:"database,omitempty"`      // selected database name
 	KnowledgeEnabled           bool     `json:"knowledge_enabled,omitempty"`
 	DisabledKnowledgeSourceIDs []string `json:"disabled_knowledge_source_ids,omitempty"`
+	AgentTraceEnabled          bool     `json:"agent_trace_enabled,omitempty"`
 }
 
 // ToolResultPayload is the client's response to a tool.call.
@@ -85,6 +87,16 @@ type ToolCallPayload struct {
 // AgentStreamPayload carries a streaming delta chunk from the LLM.
 type AgentStreamPayload struct {
 	Delta string `json:"delta"`
+}
+
+// AgentTracePayload carries a sanitized, user-visible agent activity event.
+type AgentTracePayload struct {
+	ID       string `json:"id,omitempty"`
+	Kind     string `json:"kind"`
+	Title    string `json:"title"`
+	Detail   string `json:"detail,omitempty"`
+	ToolName string `json:"tool_name,omitempty"`
+	Status   string `json:"status"`
 }
 
 // AgentResponsePayload is the final response from the agent.

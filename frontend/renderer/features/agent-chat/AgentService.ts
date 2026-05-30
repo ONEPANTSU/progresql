@@ -35,13 +35,24 @@ export interface AgentRequestPayload {
     security_mode?: 'safe' | 'data' | 'execute';
     language?: string;
     connection_id?: string;
+    database?: string;
     knowledge_enabled?: boolean;
+    agent_trace_enabled?: boolean;
     disabled_knowledge_source_ids?: string[];
   };
 }
 
 export interface AgentStreamPayload {
   delta: string;
+}
+
+export interface AgentTracePayload {
+  id?: string;
+  kind: 'step' | 'tool' | string;
+  title: string;
+  detail?: string;
+  tool_name?: string;
+  status: 'running' | 'completed' | 'failed' | string;
 }
 
 export interface Visualization {
@@ -119,11 +130,13 @@ export type ToolCallHandler = (toolName: string, args: Record<string, unknown>) 
 // ── Callback types ──
 
 export type StreamCallback = (delta: string) => void;
+export type TraceCallback = (trace: AgentTracePayload) => void;
 export type ResponseCallback = (response: AgentResponsePayload) => void;
 export type ErrorCallback = (error: AgentErrorPayload) => void;
 
 export interface AgentRequestCallbacks {
   onStream?: StreamCallback;
+  onTrace?: TraceCallback;
   onResponse?: ResponseCallback;
   onError?: ErrorCallback;
 }
@@ -528,6 +541,11 @@ export class AgentService {
       case 'agent.stream': {
         const payload = envelope.payload as AgentStreamPayload;
         callbacks.onStream?.(payload.delta);
+        break;
+      }
+      case 'agent.trace': {
+        const payload = envelope.payload as AgentTracePayload;
+        callbacks.onTrace?.(payload);
         break;
       }
       case 'agent.response': {

@@ -57,6 +57,7 @@ type PipelineContext struct {
 	ConnectionID               string // which saved connection to query
 	Database                   string // selected database name
 	KnowledgeEnabled           bool   // whether to ask the desktop client for connection-scoped docs
+	AgentTraceEnabled          bool
 	DisabledKnowledgeSourceIDs []string
 
 	// ConversationHistory holds previous user/assistant messages for multi-turn context.
@@ -127,6 +128,68 @@ func (pc *PipelineContext) AddToolCallLog(callID, toolName string, success bool)
 	})
 }
 
+func (pc *PipelineContext) EmitTrace(kind, title, detail, toolName, status string) {
+	if !pc.AgentTraceEnabled || pc.Session == nil || pc.RequestID == "" {
+		return
+	}
+	payload := websocket.AgentTracePayload{
+		ID:       uuid.New().String(),
+		Kind:     kind,
+		Title:    localizeTraceTitle(pc.Language, title),
+		Detail:   detail,
+		ToolName: toolName,
+		Status:   status,
+	}
+	env, err := websocket.NewEnvelopeWithID(websocket.TypeAgentTrace, pc.RequestID, "", payload)
+	if err != nil {
+		pc.Logger.Debug("failed to marshal agent.trace", zap.Error(err))
+		return
+	}
+	if err := pc.Session.SendEnvelope(env); err != nil {
+		pc.Logger.Debug("failed to send agent.trace", zap.Error(err))
+	}
+}
+
+func localizeTraceTitle(language, title string) string {
+	if language != "ru" {
+		return title
+	}
+	switch title {
+	case "Understanding request":
+		return "Понимаю запрос"
+	case "Finding relevant schema":
+		return "Ищу релевантную схему"
+	case "Generating SQL":
+		return "Генерирую SQL"
+	case "Checking SQL":
+		return "Проверяю SQL"
+	case "Exploring alternatives":
+		return "Проверяю альтернативы"
+	case "Comparing SQL candidates":
+		return "Сравниваю варианты SQL"
+	case "Preparing execution":
+		return "Готовлю выполнение"
+	case "Analyzing schema":
+		return "Анализирую схему"
+	case "Improving SQL":
+		return "Улучшаю SQL"
+	case "Searching knowledge sources":
+		return "Ищу в источниках знаний"
+	case "Reading database schemas":
+		return "Читаю схемы базы"
+	case "Reading database tables":
+		return "Читаю таблицы базы"
+	case "Inspecting table structure":
+		return "Изучаю структуру таблицы"
+	case "Validating SQL plan":
+		return "Проверяю план SQL"
+	case "Executing SQL":
+		return "Выполняю SQL"
+	default:
+		return title
+	}
+}
+
 // AddTokens increments the total token count.
 func (pc *PipelineContext) AddTokens(n int) {
 	pc.TokensUsed += n
@@ -164,6 +227,7 @@ func (pc *PipelineContext) MessagesWithHistory(msgs ...llm.Message) []llm.Messag
 
 // DispatchTool is a convenience method that dispatches a tool call and logs the result.
 func (pc *PipelineContext) DispatchTool(toolName string, arguments json.RawMessage) (*websocket.ToolCallResult, error) {
+	pc.EmitTrace("tool", traceToolTitle(toolName), "", toolName, "running")
 	result, err := pc.ToolDispatcher.Dispatch(pc.RequestID, toolName, arguments)
 	if err != nil {
 		if te, ok := err.(*websocket.ToolTimeoutError); ok {
@@ -172,6 +236,7 @@ func (pc *PipelineContext) DispatchTool(toolName string, arguments json.RawMessa
 		} else {
 			metrics.AgentToolCallsTotal.WithLabelValues(toolName, "error").Inc()
 		}
+		pc.EmitTrace("tool", traceToolTitle(toolName), err.Error(), toolName, "failed")
 		return nil, err
 	}
 	pc.AddToolCallLog(result.CallID, toolName, result.Success)
@@ -180,7 +245,33 @@ func (pc *PipelineContext) DispatchTool(toolName string, arguments json.RawMessa
 	} else {
 		metrics.AgentToolCallsTotal.WithLabelValues(toolName, "error").Inc()
 	}
+	status := "completed"
+	detail := ""
+	if !result.Success {
+		status = "failed"
+		detail = result.Error
+	}
+	pc.EmitTrace("tool", traceToolTitle(toolName), detail, toolName, status)
 	return result, nil
+}
+
+func traceToolTitle(toolName string) string {
+	switch toolName {
+	case tools.ToolKnowledgeSearch:
+		return "Searching knowledge sources"
+	case tools.ToolListSchemas:
+		return "Reading database schemas"
+	case tools.ToolListTables:
+		return "Reading database tables"
+	case tools.ToolDescribeTable:
+		return "Inspecting table structure"
+	case tools.ToolExplainQuery:
+		return "Validating SQL plan"
+	case tools.ToolExecuteQuery:
+		return "Executing SQL"
+	default:
+		return strings.ReplaceAll(toolName, "_", " ")
+	}
 }
 
 // Pipeline orchestrates a sequence of steps for a given action.
@@ -400,6 +491,7 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		pctx.ConnectionID = payload.Context.ConnectionID
 		pctx.Database = payload.Context.Database
 		pctx.KnowledgeEnabled = payload.Context.KnowledgeEnabled
+		pctx.AgentTraceEnabled = payload.Context.AgentTraceEnabled
 		pctx.DisabledKnowledgeSourceIDs = payload.Context.DisabledKnowledgeSourceIDs
 	}
 	pctx.SecurityMode = resolveSecurityMode(payload.Context)
@@ -441,6 +533,7 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 			zap.Int("total_steps", len(steps)),
 			zap.String("step_name", step.Name()),
 		)
+		pctx.EmitTrace("step", traceStepTitle(step.Name()), "", "", "running")
 
 		if err := step.Execute(ctx, pctx); err != nil {
 			// Check if the error is due to context cancellation.
@@ -455,6 +548,7 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 					zap.String("step_name", step.Name()),
 					zap.Error(err),
 				)
+				pctx.EmitTrace("step", traceStepTitle(step.Name()), "Database is not connected", "", "failed")
 				p.handleDBNotConnected(ctx, pctx)
 				break
 			}
@@ -463,6 +557,7 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 				zap.String("step_name", step.Name()),
 				zap.Error(err),
 			)
+			pctx.EmitTrace("step", traceStepTitle(step.Name()), err.Error(), "", "failed")
 
 			code := errorCode(err)
 			p.sendError(session, requestID, code, err.Error())
@@ -482,6 +577,7 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 		}
 
 		pctx.Logger.Info("step completed", zap.String("step_name", step.Name()))
+		pctx.EmitTrace("step", traceStepTitle(step.Name()), "", "", "completed")
 
 		if pctx.SkipRemaining {
 			pctx.Logger.Info("skipping remaining steps", zap.String("triggered_by", step.Name()))
@@ -556,6 +652,31 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 	metrics.AgentRequestsTotal.WithLabelValues(payload.Action, "success").Inc()
 	metrics.AgentRequestDuration.WithLabelValues(payload.Action).Observe(duration.Seconds())
 	p.recordPrometheusTokens(pctx)
+}
+
+func traceStepTitle(stepName string) string {
+	switch stepName {
+	case "intent_detection":
+		return "Understanding request"
+	case "schema_grounding":
+		return "Finding relevant schema"
+	case "sql_generation":
+		return "Generating SQL"
+	case "diagnostic_retry":
+		return "Checking SQL"
+	case "seed_expansion":
+		return "Exploring alternatives"
+	case "candidate_execution_voting":
+		return "Comparing SQL candidates"
+	case "auto_execute":
+		return "Preparing execution"
+	case "analyze_schema":
+		return "Analyzing schema"
+	case "improve_sql":
+		return "Improving SQL"
+	default:
+		return strings.ReplaceAll(stepName, "_", " ")
+	}
 }
 
 // checkQuotaBeforePipeline runs a pre-check against the quota system before executing pipeline steps.

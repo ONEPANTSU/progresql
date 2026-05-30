@@ -88,6 +88,7 @@ export interface KnowledgeSource {
   type: KnowledgeSourceType;
   name: string;
   enabled: boolean;
+  databaseName?: string;
   scope: KnowledgeSourceScope;
   permissions: KnowledgeSourcePermissions;
   confluence?: ConfluenceKnowledgeSourceConfig;
@@ -498,6 +499,16 @@ export interface MessageVisualization {
   sql?: string;
 }
 
+export interface AgentTraceEvent {
+  id?: string;
+  kind: string;
+  title: string;
+  detail?: string;
+  tool_name?: string;
+  status: string;
+  timestamp?: string;
+}
+
 export interface Message {
   id: string;
   text: string;
@@ -510,6 +521,7 @@ export interface Message {
   costUSD?: number;
   inputTokens?: number;
   outputTokens?: number;
+  agentTrace?: AgentTraceEvent[];
 }
 
 // WebSocket message types

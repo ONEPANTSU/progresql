@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   Typography,
@@ -6,18 +6,26 @@ import {
   Avatar,
   Button,
   Tooltip,
+  Collapse,
+  IconButton,
 } from '@mui/material';
 import {
   AutoAwesome as BotIcon,
   Person as UserIcon,
   ContentCopy as CopyIcon,
   PlayArrow as RunIcon,
+  CheckCircle as CheckIcon,
+  ErrorOutline as ErrorIcon,
+  ExpandLess as ExpandLessIcon,
+  ExpandMore as ExpandMoreIcon,
+  RadioButtonUnchecked as PendingIcon,
 } from '@mui/icons-material';
 import { Message } from '@/shared/types';
 import SQLBlock from './SQLBlock';
 import ChartBlock from './ChartBlock';
 import { createLogger } from '@/shared/lib/logger';
 import { highlightSQL } from '@/shared/lib/sqlHighlight';
+import { useTranslation } from '@/shared/i18n/LanguageContext';
 
 const log = createLogger('ChatMessage');
 
@@ -440,6 +448,63 @@ const StreamingText: React.FC<{ text: string }> = ({ text }) => (
   </Box>
 );
 
+const AgentTracePanel: React.FC<{ message: Message; initiallyOpen?: boolean }> = ({ message, initiallyOpen }) => {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(Boolean(initiallyOpen));
+  const events = message.agentTrace || [];
+  if (events.length === 0) return null;
+
+  const statusLabel = (status: string) => {
+    if (status === 'running') return t('chat.trace.running');
+    if (status === 'failed') return t('chat.trace.failed');
+    return t('chat.trace.completed');
+  };
+
+  const statusIcon = (status: string) => {
+    if (status === 'failed') return <ErrorIcon sx={{ fontSize: 14, color: 'error.main' }} />;
+    if (status === 'running') return <PendingIcon sx={{ fontSize: 14, color: 'primary.main' }} />;
+    return <CheckIcon sx={{ fontSize: 14, color: 'success.main' }} />;
+  };
+
+  return (
+    <Box sx={{ mb: 0.75, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' }}>
+      <Box
+        onClick={() => setOpen(prev => !prev)}
+        sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1, py: 0.5, cursor: 'pointer' }}
+      >
+        <Typography variant="caption" sx={{ fontWeight: 700, flex: 1 }}>
+          {t('chat.trace.title')}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {events.length}
+        </Typography>
+        <IconButton size="small" aria-label={open ? t('chat.trace.hide') : t('chat.trace.show')} sx={{ p: 0.125 }}>
+          {open ? <ExpandLessIcon sx={{ fontSize: 16 }} /> : <ExpandMoreIcon sx={{ fontSize: 16 }} />}
+        </IconButton>
+      </Box>
+      <Collapse in={open} timeout={180} unmountOnExit>
+        <Box sx={{ px: 1, pb: 0.75 }}>
+          {events.map((event, index) => (
+            <Box key={`${event.id || event.title}-${index}`} sx={{ display: 'flex', gap: 0.75, py: 0.35, alignItems: 'flex-start' }}>
+              <Box sx={{ pt: 0.15 }}>{statusIcon(event.status)}</Box>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography variant="caption" sx={{ display: 'block', lineHeight: 1.25, fontWeight: 600 }}>
+                  {event.title}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.25 }}>
+                  {statusLabel(event.status)}
+                  {event.tool_name ? ` · ${event.tool_name}` : ''}
+                  {event.detail ? ` · ${event.detail}` : ''}
+                </Typography>
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      </Collapse>
+    </Box>
+  );
+};
+
 const ChatMessage: React.FC<ChatMessageProps> = ({
   message,
   isTyping,
@@ -490,6 +555,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           p: 1.25,
         }}
       >
+        {!isUser && <AgentTracePanel message={message} initiallyOpen={isStreaming} />}
         {isStreaming ? (
           <StreamingText text={message.text} />
         ) : isPlainSQL ? (

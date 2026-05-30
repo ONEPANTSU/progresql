@@ -161,6 +161,7 @@ export async function handleToolCall(
         sources: (connection.knowledgeSources || []).filter(source =>
           source.enabled &&
           source.permissions?.useInSqlGeneration &&
+          (!source.databaseName || !args.database || source.databaseName === args.database) &&
           !(Array.isArray(args.disabled_source_ids) && args.disabled_source_ids.includes(source.id))
         ),
       };

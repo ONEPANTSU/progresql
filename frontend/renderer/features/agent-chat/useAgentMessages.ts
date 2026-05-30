@@ -3,7 +3,7 @@ import { Chat, Message } from '@/shared/types';
 import { useNotifications } from '@/features/notifications/NotificationContext';
 import { useAgent } from '@/features/agent-chat/AgentContext';
 import { useTranslation } from '@/shared/i18n/LanguageContext';
-import { AgentResponsePayload, AgentRequestPayload } from '@/features/agent-chat/AgentService';
+import { AgentResponsePayload, AgentRequestPayload, AgentTracePayload } from '@/features/agent-chat/AgentService';
 import { useStreamingMessage } from './useStreamingMessage';
 import { createLogger } from '@/shared/lib/logger';
 import { getDescriptionsForContext } from '@/entities/database/descriptionStorage';
@@ -139,6 +139,7 @@ interface UseAgentMessagesArgs {
   attachedSQL?: string | null;
   setAttachedSQL?: (v: string | null) => void;
   connectionId?: string | null;
+  database?: string | null;
   disabledKnowledgeSourceIds?: string[];
 }
 
@@ -153,6 +154,7 @@ export function useAgentMessages({
   attachedSQL,
   setAttachedSQL,
   connectionId,
+  database,
   disabledKnowledgeSourceIds = [],
 }: UseAgentMessagesArgs): UseAgentMessagesReturn {
   const { showError } = useNotifications();
@@ -225,7 +227,9 @@ export function useAgentMessages({
           security_mode: agent.securityMode,
           language: language,
           ...(connectionId ? { connection_id: connectionId } : {}),
+          ...(database ? { database } : {}),
           knowledge_enabled: Boolean(connectionId),
+          agent_trace_enabled: true,
           disabled_knowledge_source_ids: disabledKnowledgeSourceIds,
         },
       };
@@ -233,6 +237,21 @@ export function useAgentMessages({
       const requestId = agent.sendRequest(enrichedPayload, {
         onStream: (delta: string) => {
           streaming.appendDelta(delta);
+        },
+        onTrace: (trace: AgentTracePayload) => {
+          const event = { ...trace, timestamp: new Date().toISOString() };
+          setChats(prev => prev.map(chat =>
+            chat.id === chatId
+              ? {
+                  ...chat,
+                  messages: chat.messages.map(m =>
+                    m.id === botMessageId
+                      ? { ...m, agentTrace: [...(m.agentTrace || []), event] }
+                      : m
+                  ),
+                }
+              : chat
+          ));
         },
         onResponse: (response: AgentResponsePayload) => {
           activeRequestIdRef.current = null;
@@ -290,7 +309,7 @@ export function useAgentMessages({
       activeRequestIdRef.current = requestId;
       activeRequestChatIdRef.current = chatId;
     },
-    [agent, setChats, setIsTyping, showError, streaming, t, connectionId, disabledKnowledgeSourceIds],
+    [agent, setChats, setIsTyping, showError, streaming, t, connectionId, database, disabledKnowledgeSourceIds],
   );
 
   const sendViaAgent = useCallback(

@@ -235,6 +235,7 @@ export default function DatabasePanel({
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [connMenuPosition, setConnMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const [connectionMenuMode, setConnectionMenuMode] = useState<'connection' | 'knowledge'>('connection');
   const [selectedConnection, setSelectedConnection] = useState<DatabaseServer | null>(null);
   const [expandedConnections, setExpandedConnections] = useState<Set<string>>(new Set());
   const [expandedDatabases, setExpandedDatabases] = useState<Set<string>>(new Set());
@@ -291,6 +292,7 @@ export default function DatabasePanel({
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, connection: DatabaseServer) => {
     setConnMenuPosition(null);
+    setConnectionMenuMode('connection');
     setAnchorEl(event.currentTarget);
     setSelectedConnection(connection);
   };
@@ -299,6 +301,16 @@ export default function DatabasePanel({
     event.preventDefault();
     event.stopPropagation();
     setAnchorEl(null);
+    setConnectionMenuMode('connection');
+    setConnMenuPosition({ top: event.clientY, left: event.clientX });
+    setSelectedConnection(connection);
+  };
+
+  const handleKnowledgeContextMenu = (event: React.MouseEvent, connection: DatabaseServer) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setAnchorEl(null);
+    setConnectionMenuMode('knowledge');
     setConnMenuPosition({ top: event.clientY, left: event.clientX });
     setSelectedConnection(connection);
   };
@@ -306,6 +318,7 @@ export default function DatabasePanel({
   const handleMenuClose = () => {
     setAnchorEl(null);
     setConnMenuPosition(null);
+    setConnectionMenuMode('connection');
     setSelectedConnection(null);
   };
 
@@ -824,13 +837,17 @@ export default function DatabasePanel({
 
   const renderKnowledgeSourcesSection = (connection: DatabaseServer) => {
     const knowledgeSources = connection.knowledgeSources || [];
+    if (knowledgeSources.length === 0) {
+      return null;
+    }
+
     const expanded = expandedSections.has(`${connection.id}-knowledge-sources`);
 
     return (
       <Box sx={{ mt: 0.25 }}>
         <ListItemButton
           onClick={() => toggleSectionExpansion(connection.id, 'knowledge-sources')}
-          onContextMenu={(e) => handleConnectionContextMenu(e, connection)}
+          onContextMenu={(e) => handleKnowledgeContextMenu(e, connection)}
           sx={{
             ...treeItemSx,
             ml: 0.5,
@@ -842,7 +859,7 @@ export default function DatabasePanel({
             <KnowledgeIcon sx={{ fontSize: TREE_ICON_SIZE, color: knowledgeSources.length > 0 ? '#14b8a6' : 'text.disabled' }} />
           </ListItemIcon>
           <ListItemText
-            primary="Knowledge Sources"
+            primary={t('knowledge.title')}
             primaryTypographyProps={{ sx: { fontSize: '0.75rem', fontWeight: 500, lineHeight: 1.3, color: 'text.secondary' } }}
           />
           {knowledgeSources.length > 0 && (
@@ -858,35 +875,31 @@ export default function DatabasePanel({
         </ListItemButton>
         <Collapse in={expanded} timeout={200} unmountOnExit sx={collapseSx}>
           <Box sx={{ pl: 2 }}>
-            {knowledgeSources.length === 0 ? (
+            {knowledgeSources.map(source => (
               <ListItemButton
-                sx={{ ...leafItemSx, color: 'text.secondary' }}
+                key={source.id}
+                sx={{ ...leafItemSx, color: source.enabled ? 'text.primary' : 'text.disabled' }}
                 onClick={() => { setKnowledgeConnection(connection); setKnowledgeDialogOpen(true); }}
+                onContextMenu={(e) => handleKnowledgeContextMenu(e, connection)}
               >
                 <ListItemIcon sx={{ minWidth: '18px' }}>
-                  <AddIcon sx={{ fontSize: LEAF_ICON_SIZE, color: 'text.secondary' }} />
+                  <KnowledgeIcon sx={{ fontSize: LEAF_ICON_SIZE, color: source.enabled ? '#14b8a6' : 'text.disabled' }} />
                 </ListItemIcon>
-                <ListItemText primary="Add source" primaryTypographyProps={leafTextProps} />
+                <ListItemText
+                  primary={source.name}
+                  primaryTypographyProps={{ ...leafTextProps, noWrap: true }}
+                />
+                {source.databaseName && (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ ml: 0.75, maxWidth: 76, fontSize: '0.64rem', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
+                    {source.databaseName}
+                  </Typography>
+                )}
               </ListItemButton>
-            ) : (
-              knowledgeSources.map(source => (
-                <ListItemButton
-                  key={source.id}
-                  sx={{ ...leafItemSx, color: source.enabled ? 'text.primary' : 'text.disabled' }}
-                  onClick={() => { setKnowledgeConnection(connection); setKnowledgeDialogOpen(true); }}
-                >
-                  <ListItemIcon sx={{ minWidth: '18px' }}>
-                    <KnowledgeIcon sx={{ fontSize: LEAF_ICON_SIZE, color: source.enabled ? '#14b8a6' : 'text.disabled' }} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={source.name}
-                    secondary={source.index?.lastSyncedAt ? `${source.index.documents.length} pages synced` : 'Not synced'}
-                    primaryTypographyProps={leafTextProps}
-                    secondaryTypographyProps={{ sx: { fontSize: '0.63rem', lineHeight: 1, color: 'text.secondary' } }}
-                  />
-                </ListItemButton>
-              ))
-            )}
+            ))}
           </Box>
         </Collapse>
       </Box>
@@ -939,38 +952,6 @@ export default function DatabasePanel({
         </Box>
       </ListItemButton>
 
-      {/* Connection Error with Retry */}
-      {connError && !isConnecting && (
-        <Alert
-          severity="error"
-          sx={{
-            mx: 1,
-            mb: 0.5,
-            py: 0,
-            px: 1,
-            fontSize: '0.75rem',
-            '& .MuiAlert-icon': { fontSize: '1rem', py: 0.5 },
-            '& .MuiAlert-message': { py: 0.5 },
-            '& .MuiAlert-action': { pt: 0, pr: 0 },
-          }}
-          action={
-            <Tooltip title={t('db.retryConnection')}>
-              <IconButton
-                size="small"
-                color="inherit"
-                onClick={() => onConnect(connection.id)}
-                sx={{ p: 0.25 }}
-                aria-label="Retry connection"
-              >
-                <RetryIcon sx={{ fontSize: 16 }} />
-              </IconButton>
-            </Tooltip>
-          }
-        >
-          {connError}
-        </Alert>
-      )}
-
       {/* Connection Content */}
       <Collapse
         in={expandedConnections.has(connection.id)}
@@ -979,6 +960,37 @@ export default function DatabasePanel({
         sx={collapseSx}
       >
         <Box sx={{ pl: 0.5 }}>
+          {connError && !isConnecting && (
+            <Alert
+              severity="error"
+              sx={{
+                mx: 1,
+                mb: 0.5,
+                py: 0,
+                px: 1,
+                fontSize: '0.75rem',
+                borderRadius: 1,
+                '& .MuiAlert-icon': { fontSize: '1rem', py: 0.5 },
+                '& .MuiAlert-message': { py: 0.5, minWidth: 0, overflowWrap: 'anywhere' },
+                '& .MuiAlert-action': { pt: 0, pr: 0 },
+              }}
+              action={
+                <Tooltip title={t('db.retryConnection')}>
+                  <IconButton
+                    size="small"
+                    color="inherit"
+                    onClick={() => onConnect(connection.id)}
+                    sx={{ p: 0.25 }}
+                    aria-label={t('db.retryConnection')}
+                  >
+                    <RetryIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Tooltip>
+              }
+            >
+              {connError}
+            </Alert>
+          )}
           {/* Available databases list (all DBs on this server) */}
           {connection.availableDatabases && connection.availableDatabases.length > 0 ? (
             connection.availableDatabases.map((availDb) => {
@@ -1953,48 +1965,73 @@ export default function DatabasePanel({
           },
         }}
       >
-        {selectedConnection?.isActive && !connectionErrors[selectedConnection?.id || ''] && (
+        {connectionMenuMode === 'knowledge' ? (
           <>
-            <MenuItem onClick={() => handleMenuAction('refresh')}>
+            <MenuItem onClick={() => handleMenuAction('manage_knowledge')}>
               <ListItemIcon>
-                <RefreshIcon sx={{ fontSize: TREE_ICON_SIZE }} />
+                <KnowledgeIcon sx={{ fontSize: TREE_ICON_SIZE }} />
               </ListItemIcon>
-              Refresh
+              {t('knowledge.menu.manage')}
             </MenuItem>
-            <Divider />
-            <MenuItem onClick={() => handleMenuAction('create_schema')}>
+            <MenuItem onClick={() => handleMenuAction('add_knowledge')}>
               <ListItemIcon>
                 <AddIcon sx={{ fontSize: TREE_ICON_SIZE }} />
               </ListItemIcon>
-              Create Schema
+              {t('knowledge.menu.add')}
             </MenuItem>
-            <Divider />
+            <MenuItem onClick={() => handleMenuAction('sync_knowledge')} disabled={(selectedConnection?.knowledgeSources?.length || 0) === 0}>
+              <ListItemIcon>
+                <RefreshIcon sx={{ fontSize: TREE_ICON_SIZE }} />
+              </ListItemIcon>
+              {t('knowledge.menu.sync')}
+            </MenuItem>
+          </>
+        ) : (
+          <>
+            {selectedConnection?.isActive && !connectionErrors[selectedConnection?.id || ''] && (
+              <>
+                <MenuItem onClick={() => handleMenuAction('refresh')}>
+                  <ListItemIcon>
+                    <RefreshIcon sx={{ fontSize: TREE_ICON_SIZE }} />
+                  </ListItemIcon>
+                  Refresh
+                </MenuItem>
+                <Divider />
+                <MenuItem onClick={() => handleMenuAction('create_schema')}>
+                  <ListItemIcon>
+                    <AddIcon sx={{ fontSize: TREE_ICON_SIZE }} />
+                  </ListItemIcon>
+                  Create Schema
+                </MenuItem>
+                <Divider />
+              </>
+            )}
+            <MenuItem onClick={() => handleMenuAction('edit')}>
+              <ListItemIcon>
+                <EditIcon sx={{ fontSize: TREE_ICON_SIZE }} />
+              </ListItemIcon>
+              Edit
+            </MenuItem>
+            <MenuItem onClick={() => handleMenuAction((selectedConnection?.knowledgeSources?.length || 0) > 0 ? 'manage_knowledge' : 'add_knowledge')}>
+              <ListItemIcon>
+                <KnowledgeIcon sx={{ fontSize: TREE_ICON_SIZE }} />
+              </ListItemIcon>
+              {(selectedConnection?.knowledgeSources?.length || 0) > 0 ? t('knowledge.menu.manage') : t('knowledge.menu.add')}
+            </MenuItem>
+            <MenuItem onClick={() => handleMenuAction('sync_knowledge')} disabled={(selectedConnection?.knowledgeSources?.length || 0) === 0}>
+              <ListItemIcon>
+                <RefreshIcon sx={{ fontSize: TREE_ICON_SIZE }} />
+              </ListItemIcon>
+              {t('knowledge.menu.sync')}
+            </MenuItem>
+            <MenuItem onClick={() => handleMenuAction('delete')}>
+              <ListItemIcon>
+                <DeleteIcon sx={{ fontSize: TREE_ICON_SIZE }} />
+              </ListItemIcon>
+              Delete
+            </MenuItem>
           </>
         )}
-        <MenuItem onClick={() => handleMenuAction('edit')}>
-          <ListItemIcon>
-            <EditIcon sx={{ fontSize: TREE_ICON_SIZE }} />
-          </ListItemIcon>
-          Edit
-        </MenuItem>
-        <MenuItem onClick={() => handleMenuAction((selectedConnection?.knowledgeSources?.length || 0) > 0 ? 'manage_knowledge' : 'add_knowledge')}>
-          <ListItemIcon>
-            <KnowledgeIcon sx={{ fontSize: TREE_ICON_SIZE }} />
-          </ListItemIcon>
-          {(selectedConnection?.knowledgeSources?.length || 0) > 0 ? 'Manage Knowledge Sources' : 'Add Knowledge Source'}
-        </MenuItem>
-        <MenuItem onClick={() => handleMenuAction('sync_knowledge')} disabled={(selectedConnection?.knowledgeSources?.length || 0) === 0}>
-          <ListItemIcon>
-            <RefreshIcon sx={{ fontSize: TREE_ICON_SIZE }} />
-          </ListItemIcon>
-          Sync Knowledge Sources
-        </MenuItem>
-        <MenuItem onClick={() => handleMenuAction('delete')}>
-          <ListItemIcon>
-            <DeleteIcon sx={{ fontSize: TREE_ICON_SIZE }} />
-          </ListItemIcon>
-          Delete
-        </MenuItem>
       </Menu>
 
       <KnowledgeSourcesDialog
