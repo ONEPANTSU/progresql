@@ -287,3 +287,40 @@ func TestBuildSchemaDescription_InvalidJSON(t *testing.T) {
 		t.Errorf("expected raw details fallback, got: %s", desc)
 	}
 }
+
+func TestShouldSearchKnowledgeContext(t *testing.T) {
+	cases := []struct {
+		name  string
+		query string
+		want  bool
+	}{
+		{
+			name:  "explicit Russian knowledge source request",
+			query: "посмотри в базе знаний кто считается активным юзером",
+			want:  true,
+		},
+		{
+			name:  "business rule request",
+			query: "generate SQL for active customers according to business rules",
+			want:  true,
+		},
+		{
+			name:  "plain sql request",
+			query: "покажи топ 10 пользователей по количеству заказов",
+			want:  false,
+		},
+		{
+			name:  "greeting",
+			query: "Привет",
+			want:  false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := shouldSearchKnowledgeContext(tc.query); got != tc.want {
+				t.Fatalf("shouldSearchKnowledgeContext(%q) = %v, want %v", tc.query, got, tc.want)
+			}
+		})
+	}
+}

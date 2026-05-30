@@ -109,6 +109,9 @@ func (s *SQLGenerationStep) searchKnowledgeContext(pctx *agent.PipelineContext) 
 	if pctx.ToolDispatcher == nil || !pctx.KnowledgeEnabled {
 		return ""
 	}
+	if !shouldSearchKnowledgeContext(pctx.UserMessage) {
+		return ""
+	}
 	args, _ := json.Marshal(map[string]any{
 		"query":               pctx.UserMessage,
 		"database":            pctx.Database,
@@ -147,6 +150,29 @@ func (s *SQLGenerationStep) searchKnowledgeContext(pctx *agent.PipelineContext) 
 	b.WriteString("\n")
 	pctx.Set(ContextKeyKnowledgeContext, b.String())
 	return b.String()
+}
+
+func shouldSearchKnowledgeContext(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return false
+	}
+
+	knowledgeSignals := []string{
+		"knowledge", "documentation", "docs", "confluence", "wiki",
+		"business rule", "business rules", "definition", "defined as", "policy",
+		"lifecycle", "status", "active customer", "customer status",
+		"база знаний", "бз", "документац", "доки", "конфлюенс", "confluence",
+		"вики", "описан", "правил", "бизнес", "регламент", "считается",
+		"активн", "статус", "жизненный цикл", "актуализ", "обнови документац",
+	}
+	for _, signal := range knowledgeSignals {
+		if strings.Contains(q, signal) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // buildSchemaDescription formats the schema context into a human-readable string for the LLM prompt.

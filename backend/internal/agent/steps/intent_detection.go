@@ -183,6 +183,10 @@ func (s *IntentDetectionStep) handleKnowledge(ctx context.Context, pctx *agent.P
 		"- Do NOT generate runnable queries against the user's database. This is a teaching response, not a query.\n" +
 		"- Be concise but thorough. Prefer practical advice over dry theory.\n" +
 		"- If relevant, mention PostgreSQL-specific features and best practices.\n\n" +
+		"Documentation updates:\n" +
+		"- If the user asks to update, actualize, or write documentation, explain that direct write-back to external knowledge sources is not enabled yet.\n" +
+		"- Offer to prepare a reviewed documentation proposal, text, or diff that the user can apply manually.\n" +
+		"- Do not claim that you can automatically write to Confluence, Notion, Git docs, or another knowledge source.\n\n" +
 		"IMPORTANT: Always respond in the same language as the user's message. " +
 		"If the user writes in Russian, respond in Russian. If in English, respond in English.\n\n" +
 		"User message: " + pctx.UserMessage

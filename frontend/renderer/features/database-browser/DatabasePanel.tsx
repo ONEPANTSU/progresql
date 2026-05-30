@@ -991,6 +991,7 @@ export default function DatabasePanel({
               {connError}
             </Alert>
           )}
+          {renderKnowledgeSourcesSection(connection)}
           {/* Available databases list (all DBs on this server) */}
           {connection.availableDatabases && connection.availableDatabases.length > 0 ? (
             connection.availableDatabases.map((availDb) => {
@@ -1787,7 +1788,6 @@ export default function DatabasePanel({
               </Typography>
             </Box>
           )}
-          {renderKnowledgeSourcesSection(connection)}
         </Box>
       </Collapse>
     </Box>

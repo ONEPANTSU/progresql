@@ -132,10 +132,14 @@ func (pc *PipelineContext) EmitTrace(kind, title, detail, toolName, status strin
 	if !pc.AgentTraceEnabled || pc.Session == nil || pc.RequestID == "" {
 		return
 	}
+	localizedTitle := localizeTraceTitle(pc.Language, title)
+	if strings.TrimSpace(localizedTitle) == "" {
+		return
+	}
 	payload := websocket.AgentTracePayload{
 		ID:       uuid.New().String(),
 		Kind:     kind,
-		Title:    localizeTraceTitle(pc.Language, title),
+		Title:    localizedTitle,
 		Detail:   detail,
 		ToolName: toolName,
 		Status:   status,
@@ -259,18 +263,12 @@ func traceToolTitle(toolName string) string {
 	switch toolName {
 	case tools.ToolKnowledgeSearch:
 		return "Searching knowledge sources"
-	case tools.ToolListSchemas:
-		return "Reading database schemas"
-	case tools.ToolListTables:
-		return "Reading database tables"
-	case tools.ToolDescribeTable:
-		return "Inspecting table structure"
 	case tools.ToolExplainQuery:
 		return "Validating SQL plan"
 	case tools.ToolExecuteQuery:
 		return "Executing SQL"
 	default:
-		return strings.ReplaceAll(toolName, "_", " ")
+		return ""
 	}
 }
 
@@ -657,10 +655,10 @@ func (p *Pipeline) HandleMessage(session *websocket.Session, env *websocket.Enve
 func traceStepTitle(stepName string) string {
 	switch stepName {
 	case "intent_detection":
-		return "Understanding request"
+		return ""
 	case "schema_grounding":
 		return "Finding relevant schema"
-	case "sql_generation":
+	case "sql_generation", "parallel_sql_generation":
 		return "Generating SQL"
 	case "diagnostic_retry":
 		return "Checking SQL"
@@ -669,13 +667,15 @@ func traceStepTitle(stepName string) string {
 	case "candidate_execution_voting":
 		return "Comparing SQL candidates"
 	case "auto_execute":
-		return "Preparing execution"
+		return ""
 	case "analyze_schema":
 		return "Analyzing schema"
 	case "improve_sql":
 		return "Improving SQL"
+	case "result_aggregation", "visualization":
+		return ""
 	default:
-		return strings.ReplaceAll(stepName, "_", " ")
+		return ""
 	}
 }
 
