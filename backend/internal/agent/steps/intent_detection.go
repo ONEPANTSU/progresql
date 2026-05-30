@@ -348,7 +348,7 @@ func isDocumentationWriteRequest(message string) bool {
 
 func documentationApplyProposalID(message string) (string, bool) {
 	msg := strings.ToLower(strings.TrimSpace(message))
-	if !(strings.Contains(msg, "примен") || strings.Contains(msg, "apply")) {
+	if !strings.Contains(msg, "примен") && !strings.Contains(msg, "apply") {
 		return "", false
 	}
 	parts := strings.Fields(strings.TrimSpace(message))
