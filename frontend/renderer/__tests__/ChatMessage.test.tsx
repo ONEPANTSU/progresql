@@ -225,6 +225,14 @@ describe('ChatMessage', () => {
       expect(screen.getByText('Subsection')).toBeInTheDocument();
     });
 
+    it('renders markdown horizontal rules from ___ syntax', () => {
+      const message = makeMessage({ text: 'Before\n___\nAfter' });
+      render(<ChatMessage {...defaultProps} message={message} />);
+      expect(screen.getByText('Before')).toBeInTheDocument();
+      expect(screen.getByText('After')).toBeInTheDocument();
+      expect(screen.getByRole('separator')).toBeInTheDocument();
+    });
+
     it('renders unordered list items with - prefix', () => {
       const message = makeMessage({ text: '- Item one\n- Item two' });
       render(<ChatMessage {...defaultProps} message={message} />);

@@ -9,6 +9,7 @@ import (
 
 	"github.com/onepantsu/progressql/backend/internal/agent"
 	"github.com/onepantsu/progressql/backend/internal/llm"
+	"github.com/onepantsu/progressql/backend/internal/websocket"
 )
 
 // ContextKeyIntent is the key used to store the detected intent in PipelineContext.
@@ -35,6 +36,11 @@ func (s *IntentDetectionStep) Execute(ctx context.Context, pctx *agent.PipelineC
 	}
 
 	model := pctx.Model
+	if isDocumentationWriteRequest(msg) {
+		pctx.Set(ContextKeyIntent, IntentKnowledge)
+		pctx.Logger.Info("intent detected", zap.String("intent", IntentKnowledge), zap.String("reason", "documentation_write_request"))
+		return s.handleKnowledge(ctx, pctx, model)
+	}
 
 	// Classify intent via a fast LLM call.
 	classifyPrompt := "You are an intent classifier for a PostgreSQL database assistant.\n" +
@@ -174,6 +180,16 @@ func (s *IntentDetectionStep) handleConversational(ctx context.Context, pctx *ag
 // Unlike conversational, this uses schema context and database expertise to give
 // rich, well-structured text answers (markdown tables, examples) WITHOUT generating SQL queries.
 func (s *IntentDetectionStep) handleKnowledge(ctx context.Context, pctx *agent.PipelineContext, model string) error {
+	if isDocumentationWriteRequest(pctx.UserMessage) {
+		response := documentationWriteBackUnavailableMessage(pctx.UserMessage)
+		if err := streamStaticAgentText(pctx, response); err != nil {
+			return fmt.Errorf("documentation write-back response failed: %w", err)
+		}
+		pctx.Result.Explanation = response
+		pctx.SkipRemaining = true
+		return nil
+	}
+
 	prompt := "You are an expert PostgreSQL database assistant and teacher.\n" +
 		"The user asked a conceptual or educational question about databases, SQL, or PostgreSQL.\n\n" +
 		"RULES:\n" +
@@ -209,6 +225,63 @@ func (s *IntentDetectionStep) handleKnowledge(ctx context.Context, pctx *agent.P
 
 	pctx.SkipRemaining = true
 	return nil
+}
+
+func isDocumentationWriteRequest(message string) bool {
+	msg := strings.ToLower(strings.TrimSpace(message))
+	if msg == "" {
+		return false
+	}
+
+	hasWriteVerb := strings.Contains(msg, "актуализ") ||
+		strings.Contains(msg, "обнов") ||
+		strings.Contains(msg, "запиш") ||
+		strings.Contains(msg, "запис") ||
+		strings.Contains(msg, "write") ||
+		strings.Contains(msg, "update") ||
+		strings.Contains(msg, "actualize")
+	hasKnowledgeTarget := strings.Contains(msg, "баз") ||
+		strings.Contains(msg, "бз") ||
+		strings.Contains(msg, "документац") ||
+		strings.Contains(msg, "доки") ||
+		strings.Contains(msg, "knowledge") ||
+		strings.Contains(msg, "documentation") ||
+		strings.Contains(msg, "docs") ||
+		strings.Contains(msg, "confluence") ||
+		strings.Contains(msg, "wiki")
+
+	return hasWriteVerb && hasKnowledgeTarget
+}
+
+func documentationWriteBackUnavailableMessage(message string) string {
+	if looksRussian(message) {
+		return "Пока я не могу напрямую обновить базу знаний: write-back в Confluence/Notion/Git docs ещё не включён. Сейчас доступны чтение, поиск по источникам знаний и цитаты.\n\n" +
+			"Могу подготовить proposal для обновления: текст, структуру раздела или diff для конкретной страницы. Чтобы реально записывать изменения в БЗ, нужен отдельный безопасный flow: выбор страницы, preview diff и ручное подтверждение перед записью."
+	}
+
+	return "I can't update the knowledge base directly yet: write-back to Confluence, Notion, or Git docs is not enabled. Read, search, and citations are available now.\n\n" +
+		"I can prepare an update proposal: text, section structure, or a diff for a specific page. Applying it to the knowledge source needs a separate safe flow with page selection, diff preview, and manual confirmation."
+}
+
+func looksRussian(message string) bool {
+	for _, r := range message {
+		if r >= 'А' && r <= 'я' || r == 'ё' || r == 'Ё' {
+			return true
+		}
+	}
+	return false
+}
+
+func streamStaticAgentText(pctx *agent.PipelineContext, text string) error {
+	if pctx.Session == nil || pctx.RequestID == "" {
+		return nil
+	}
+	payload := websocket.AgentStreamPayload{Delta: text}
+	env, err := websocket.NewEnvelopeWithID(websocket.TypeAgentStream, pctx.RequestID, "", payload)
+	if err != nil {
+		return err
+	}
+	return pctx.Session.SendEnvelope(env)
 }
 
 func floatPtr(f float64) *float64 { return &f }

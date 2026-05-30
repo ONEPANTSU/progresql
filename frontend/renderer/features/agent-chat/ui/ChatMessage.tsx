@@ -8,6 +8,7 @@ import {
   Tooltip,
   Collapse,
   IconButton,
+  Divider,
 } from '@mui/material';
 import {
   AutoAwesome as BotIcon,
@@ -278,6 +279,13 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
       continue;
     }
 
+    if (/^\s*(?:_{3,}|-{3,}|\*{3,})\s*$/.test(line)) {
+      elements.push(
+        <Divider key={i} sx={{ my: 1, borderColor: 'divider' }} />
+      );
+      continue;
+    }
+
     // Markdown headings: #, ##, ###, ####
     const headingMatch = line.match(/^(#{1,4})\s+(.+)$/);
     if (headingMatch) {
@@ -286,13 +294,13 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
         1: 'h5', 2: 'h6', 3: 'subtitle1', 4: 'subtitle2',
       };
       elements.push(
-        <Typography key={i} variant={variants[level] || 'subtitle1'} sx={{ fontWeight: 'bold', mt: 1, mb: 0.25, color: 'primary.main' }}>
+        <Typography key={i} variant={variants[level] || 'subtitle1'} sx={{ fontWeight: 'bold', mt: 1, mb: 0.25, color: 'text.primary' }}>
           {processInlineFormatting(headingMatch[2])}
         </Typography>
       );
     } else if (line.startsWith('**') && line.endsWith('**')) {
       elements.push(
-        <Typography key={i} variant="h6" sx={{ fontWeight: 'bold', mt: 1, mb: 0.25, color: 'primary.main' }}>
+        <Typography key={i} variant="h6" sx={{ fontWeight: 'bold', mt: 1, mb: 0.25, color: 'text.primary' }}>
           {line.slice(2, -2)}
         </Typography>
       );

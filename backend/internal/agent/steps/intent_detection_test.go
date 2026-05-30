@@ -179,6 +179,50 @@ func TestIntentDetection_ConversationalIntent(t *testing.T) {
 	}
 }
 
+func TestIntentDetection_DocumentationWriteBackRequest(t *testing.T) {
+	hub := websocket.NewHub()
+	session, client := wsDialer(t, hub)
+
+	llmClient := llm.NewClient("test-key", llm.WithBaseURL("http://localhost:1"), llm.WithMaxRetries(0))
+	pctx := buildIntentContext(t, session, llmClient, "актуализируй мою базу знаний")
+
+	errCh := make(chan error, 1)
+	go func() {
+		step := &IntentDetectionStep{}
+		errCh <- step.Execute(context.Background(), pctx)
+	}()
+
+	env := readEnvelope(t, client)
+	if env.Type != websocket.TypeAgentStream {
+		t.Fatalf("expected agent.stream, got %s", env.Type)
+	}
+	var payload websocket.AgentStreamPayload
+	env.DecodePayload(&payload)
+	if !strings.Contains(payload.Delta, "не могу напрямую обновить базу знаний") {
+		t.Fatalf("unexpected static response: %s", payload.Delta)
+	}
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("step failed: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	if !pctx.SkipRemaining {
+		t.Error("expected SkipRemaining=true for documentation write-back request")
+	}
+	intentVal, ok := pctx.Get(ContextKeyIntent)
+	if !ok {
+		t.Fatal("intent not stored in context")
+	}
+	if intentVal != IntentKnowledge {
+		t.Errorf("expected intent=knowledge, got %v", intentVal)
+	}
+}
+
 func TestIntentDetection_EmptyMessage(t *testing.T) {
 	pctx := agent.NewPipelineContext()
 	pctx.RequestID = "req-test"
