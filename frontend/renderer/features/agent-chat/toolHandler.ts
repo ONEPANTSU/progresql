@@ -150,17 +150,19 @@ export async function handleToolCall(
   const { electronAPI } = window;
 
   try {
-    if (toolName === 'knowledge.search' || toolName === 'knowledge_search') {
+    if (toolName === 'knowledge.search' || toolName === 'knowledge_search' || toolName === 'knowledge.propose_update' || toolName === 'knowledge.apply_update') {
       const allConnections = await loadConnections();
       const connection = connectionId ? allConnections.find(c => c.id === connectionId) : null;
       if (!connection) {
-        return { success: false, error: 'Knowledge search requires a database connection_id.' };
+        return { success: false, error: 'Knowledge tools require a database connection_id.' };
       }
       args = {
         ...args,
         sources: (connection.knowledgeSources || []).filter(source =>
           source.enabled &&
-          source.permissions?.useInSqlGeneration &&
+          (toolName === 'knowledge.search' || toolName === 'knowledge_search'
+            ? source.permissions?.useInSqlGeneration
+            : source.permissions?.readDocumentation) &&
           (!source.databaseName || !args.database || source.databaseName === args.database) &&
           !(Array.isArray(args.disabled_source_ids) && args.disabled_source_ids.includes(source.id))
         ),
@@ -337,6 +339,8 @@ function transformResult(toolName: string, raw: unknown): TransformResult {
 
     case 'knowledge.search':
     case 'knowledge_search':
+    case 'knowledge.propose_update':
+    case 'knowledge.apply_update':
       return raw;
 
     default:

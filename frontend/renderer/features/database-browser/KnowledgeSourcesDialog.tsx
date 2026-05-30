@@ -480,6 +480,10 @@ export default function KnowledgeSourcesDialog({
                     label={t('knowledge.showCitations')}
                   />
                 </Stack>
+                <FormControlLabel
+                  control={<Checkbox size="small" checked={selected.permissions.allowManualWriteBack} onChange={(e) => updateSelected({ permissions: { ...selected.permissions, suggestDocumentationUpdates: e.target.checked, allowManualWriteBack: e.target.checked } })} />}
+                  label={t('knowledge.allowManualWriteBack')}
+                />
               </Stack>
             )}
           </Box>

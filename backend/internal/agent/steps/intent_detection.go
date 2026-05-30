@@ -2,6 +2,7 @@ package steps
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 
 	"github.com/onepantsu/progressql/backend/internal/agent"
 	"github.com/onepantsu/progressql/backend/internal/llm"
+	"github.com/onepantsu/progressql/backend/internal/tools"
 	"github.com/onepantsu/progressql/backend/internal/websocket"
 )
 
@@ -36,10 +38,15 @@ func (s *IntentDetectionStep) Execute(ctx context.Context, pctx *agent.PipelineC
 	}
 
 	model := pctx.Model
+	if proposalID, ok := documentationApplyProposalID(msg); ok {
+		pctx.Set(ContextKeyIntent, IntentKnowledge)
+		pctx.Logger.Info("intent detected", zap.String("intent", IntentKnowledge), zap.String("reason", "documentation_apply_request"))
+		return s.handleDocumentationApply(ctx, pctx, proposalID)
+	}
 	if isDocumentationWriteRequest(msg) {
 		pctx.Set(ContextKeyIntent, IntentKnowledge)
 		pctx.Logger.Info("intent detected", zap.String("intent", IntentKnowledge), zap.String("reason", "documentation_write_request"))
-		return s.handleKnowledge(ctx, pctx, model)
+		return s.handleDocumentationProposal(ctx, pctx)
 	}
 
 	// Classify intent via a fast LLM call.
@@ -181,13 +188,7 @@ func (s *IntentDetectionStep) handleConversational(ctx context.Context, pctx *ag
 // rich, well-structured text answers (markdown tables, examples) WITHOUT generating SQL queries.
 func (s *IntentDetectionStep) handleKnowledge(ctx context.Context, pctx *agent.PipelineContext, model string) error {
 	if isDocumentationWriteRequest(pctx.UserMessage) {
-		response := documentationWriteBackUnavailableMessage(pctx.UserMessage)
-		if err := streamStaticAgentText(pctx, response); err != nil {
-			return fmt.Errorf("documentation write-back response failed: %w", err)
-		}
-		pctx.Result.Explanation = response
-		pctx.SkipRemaining = true
-		return nil
+		return s.handleDocumentationProposal(ctx, pctx)
 	}
 
 	prompt := "You are an expert PostgreSQL database assistant and teacher.\n" +
@@ -227,6 +228,98 @@ func (s *IntentDetectionStep) handleKnowledge(ctx context.Context, pctx *agent.P
 	return nil
 }
 
+func (s *IntentDetectionStep) handleDocumentationProposal(ctx context.Context, pctx *agent.PipelineContext) error {
+	if pctx.ToolDispatcher == nil || !pctx.KnowledgeEnabled {
+		response := documentationWriteBackUnavailableMessage(pctx.UserMessage)
+		if err := streamStaticAgentText(pctx, response); err != nil {
+			return fmt.Errorf("documentation proposal response failed: %w", err)
+		}
+		pctx.Result.Explanation = response
+		pctx.SkipRemaining = true
+		return nil
+	}
+
+	args, _ := json.Marshal(map[string]any{
+		"query":               pctx.UserMessage,
+		"database":            pctx.Database,
+		"disabled_source_ids": pctx.DisabledKnowledgeSourceIDs,
+	})
+	result, err := pctx.DispatchTool(tools.ToolKnowledgeProposeUpdate, args)
+	if err != nil || !result.Success {
+		message := documentationProposalFailedMessage(pctx.UserMessage, toolErrorMessage(result, err))
+		if streamErr := streamStaticAgentText(pctx, message); streamErr != nil {
+			return fmt.Errorf("documentation proposal response failed: %w", streamErr)
+		}
+		pctx.Result.Explanation = message
+		pctx.SkipRemaining = true
+		return nil
+	}
+
+	var proposal struct {
+		ProposalID string `json:"proposal_id"`
+		SourceName string `json:"source_name"`
+		Title      string `json:"title"`
+		URL        string `json:"url"`
+		Diff       string `json:"diff"`
+		CanApply   bool   `json:"can_apply"`
+		Message    string `json:"message"`
+	}
+	if err := json.Unmarshal(result.Data, &proposal); err != nil {
+		return fmt.Errorf("decode documentation proposal: %w", err)
+	}
+
+	message := formatDocumentationProposalMessage(pctx.UserMessage, proposal.ProposalID, proposal.SourceName, proposal.Title, proposal.URL, proposal.Diff, proposal.CanApply, proposal.Message)
+	if err := streamStaticAgentText(pctx, message); err != nil {
+		return fmt.Errorf("documentation proposal response failed: %w", err)
+	}
+	pctx.Result.Explanation = message
+	pctx.SkipRemaining = true
+	return nil
+}
+
+func (s *IntentDetectionStep) handleDocumentationApply(ctx context.Context, pctx *agent.PipelineContext, proposalID string) error {
+	if pctx.ToolDispatcher == nil || !pctx.KnowledgeEnabled {
+		message := documentationWriteBackUnavailableMessage(pctx.UserMessage)
+		if err := streamStaticAgentText(pctx, message); err != nil {
+			return fmt.Errorf("documentation apply response failed: %w", err)
+		}
+		pctx.Result.Explanation = message
+		pctx.SkipRemaining = true
+		return nil
+	}
+
+	args, _ := json.Marshal(map[string]any{"proposal_id": proposalID})
+	result, err := pctx.DispatchTool(tools.ToolKnowledgeApplyUpdate, args)
+	if err != nil || !result.Success {
+		message := documentationApplyFailedMessage(pctx.UserMessage, toolErrorMessage(result, err))
+		if streamErr := streamStaticAgentText(pctx, message); streamErr != nil {
+			return fmt.Errorf("documentation apply response failed: %w", streamErr)
+		}
+		pctx.Result.Explanation = message
+		pctx.SkipRemaining = true
+		return nil
+	}
+
+	var applied struct {
+		ProposalID string `json:"proposal_id"`
+		Title      string `json:"title"`
+		URL        string `json:"url"`
+		Version    int    `json:"version"`
+		Message    string `json:"message"`
+	}
+	if err := json.Unmarshal(result.Data, &applied); err != nil {
+		return fmt.Errorf("decode documentation apply result: %w", err)
+	}
+
+	message := formatDocumentationAppliedMessage(pctx.UserMessage, applied.ProposalID, applied.Title, applied.URL, applied.Version, applied.Message)
+	if err := streamStaticAgentText(pctx, message); err != nil {
+		return fmt.Errorf("documentation apply response failed: %w", err)
+	}
+	pctx.Result.Explanation = message
+	pctx.SkipRemaining = true
+	return nil
+}
+
 func isDocumentationWriteRequest(message string) bool {
 	msg := strings.ToLower(strings.TrimSpace(message))
 	if msg == "" {
@@ -253,14 +346,110 @@ func isDocumentationWriteRequest(message string) bool {
 	return hasWriteVerb && hasKnowledgeTarget
 }
 
+func documentationApplyProposalID(message string) (string, bool) {
+	msg := strings.ToLower(strings.TrimSpace(message))
+	if !(strings.Contains(msg, "примен") || strings.Contains(msg, "apply")) {
+		return "", false
+	}
+	parts := strings.Fields(strings.TrimSpace(message))
+	for i, part := range parts {
+		clean := strings.Trim(part, "`.,:; ")
+		if strings.EqualFold(clean, "proposal") && i+1 < len(parts) {
+			id := strings.Trim(parts[i+1], "`.,:; ")
+			if id != "" {
+				return id, true
+			}
+		}
+		if strings.HasPrefix(clean, "kup-") {
+			return clean, true
+		}
+	}
+	return "", false
+}
+
 func documentationWriteBackUnavailableMessage(message string) string {
 	if looksRussian(message) {
-		return "Пока я не могу напрямую обновить базу знаний: write-back в Confluence/Notion/Git docs ещё не включён. Сейчас доступны чтение, поиск по источникам знаний и цитаты.\n\n" +
-			"Могу подготовить proposal для обновления: текст, структуру раздела или diff для конкретной страницы. Чтобы реально записывать изменения в БЗ, нужен отдельный безопасный flow: выбор страницы, preview diff и ручное подтверждение перед записью."
+		return "Я могу подготовить proposal для обновления базы знаний, но сейчас не вижу подключённый источник знаний для этого чата.\n\n" +
+			"Подключи Confluence source к текущей базе, синхронизируй его и включи источник в контексте чата. После этого я смогу подготовить proposal и дать `proposalId` для ручного применения."
 	}
 
-	return "I can't update the knowledge base directly yet: write-back to Confluence, Notion, or Git docs is not enabled. Read, search, and citations are available now.\n\n" +
-		"I can prepare an update proposal: text, section structure, or a diff for a specific page. Applying it to the knowledge source needs a separate safe flow with page selection, diff preview, and manual confirmation."
+	return "I can prepare a knowledge base update proposal, but I don't see an attached knowledge source for this chat.\n\n" +
+		"Attach and sync a Confluence source for the current database, then enable it in chat context. After that I can prepare a proposal and return a `proposalId` for manual application."
+}
+
+func documentationProposalFailedMessage(message, reason string) string {
+	if looksRussian(message) {
+		return "Не смог подготовить proposal для базы знаний.\n\nПричина: " + reason
+	}
+	return "I couldn't prepare a knowledge base update proposal.\n\nReason: " + reason
+}
+
+func documentationApplyFailedMessage(message, reason string) string {
+	if looksRussian(message) {
+		return "Не смог применить proposal к базе знаний.\n\nПричина: " + reason
+	}
+	return "I couldn't apply the proposal to the knowledge base.\n\nReason: " + reason
+}
+
+func formatDocumentationProposalMessage(message, proposalID, sourceName, title, url, diff string, canApply bool, note string) string {
+	if looksRussian(message) {
+		applyText := "Для записи сначала включи `Allow manual write-back` у источника знаний, затем напиши: `примени proposal " + proposalID + "`."
+		if canApply {
+			applyText = "Я пока не применил изменения. Чтобы записать их в Confluence, напиши: `примени proposal " + proposalID + "`."
+		}
+		return "Подготовил proposal для обновления базы знаний, но не применял его автоматически.\n\n" +
+			"**Proposal ID:** `" + proposalID + "`\n" +
+			"**Источник:** " + sourceName + "\n" +
+			"**Страница:** [" + title + "](" + url + ")\n\n" +
+			"**Preview diff:**\n```diff\n" + diff + "\n```\n\n" +
+			applyText + optionalNoteRU(note)
+	}
+
+	applyText := "To write it, first enable `Allow manual write-back` for the knowledge source, then send: `apply proposal " + proposalID + "`."
+	if canApply {
+		applyText = "I have not applied the changes yet. To write them to Confluence, send: `apply proposal " + proposalID + "`."
+	}
+	return "I prepared a knowledge base update proposal, but did not apply it automatically.\n\n" +
+		"**Proposal ID:** `" + proposalID + "`\n" +
+		"**Source:** " + sourceName + "\n" +
+		"**Page:** [" + title + "](" + url + ")\n\n" +
+		"**Preview diff:**\n```diff\n" + diff + "\n```\n\n" +
+		applyText + optionalNoteEN(note)
+}
+
+func formatDocumentationAppliedMessage(message, proposalID, title, url string, version int, note string) string {
+	if looksRussian(message) {
+		return "Готово, применил proposal `" + proposalID + "` к базе знаний.\n\n" +
+			"**Страница:** [" + title + "](" + url + ")\n" +
+			fmt.Sprintf("**Версия:** `%d`", version) + optionalNoteRU(note)
+	}
+	return "Done, I applied proposal `" + proposalID + "` to the knowledge base.\n\n" +
+		"**Page:** [" + title + "](" + url + ")\n" +
+		fmt.Sprintf("**Version:** `%d`", version) + optionalNoteEN(note)
+}
+
+func optionalNoteRU(note string) string {
+	if strings.TrimSpace(note) == "" {
+		return ""
+	}
+	return "\n\n" + note
+}
+
+func optionalNoteEN(note string) string {
+	if strings.TrimSpace(note) == "" {
+		return ""
+	}
+	return "\n\n" + note
+}
+
+func toolErrorMessage(result *websocket.ToolCallResult, err error) string {
+	if err != nil {
+		return err.Error()
+	}
+	if result != nil && result.Error != "" {
+		return result.Error
+	}
+	return "unknown error"
 }
 
 func looksRussian(message string) bool {

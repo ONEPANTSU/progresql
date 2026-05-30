@@ -8,14 +8,16 @@ import (
 
 // Tool name constants.
 const (
-	ToolListSchemas     = "list_schemas"
-	ToolListTables      = "list_tables"
-	ToolDescribeTable   = "describe_table"
-	ToolListIndexes     = "list_indexes"
-	ToolExplainQuery    = "explain_query"
-	ToolExecuteQuery    = "execute_query"
-	ToolListFunctions   = "list_functions"
-	ToolKnowledgeSearch = "knowledge.search"
+	ToolListSchemas            = "list_schemas"
+	ToolListTables             = "list_tables"
+	ToolDescribeTable          = "describe_table"
+	ToolListIndexes            = "list_indexes"
+	ToolExplainQuery           = "explain_query"
+	ToolExecuteQuery           = "execute_query"
+	ToolListFunctions          = "list_functions"
+	ToolKnowledgeSearch        = "knowledge.search"
+	ToolKnowledgeProposeUpdate = "knowledge.propose_update"
+	ToolKnowledgeApplyUpdate   = "knowledge.apply_update"
 )
 
 // Registry stores definitions for all available tools.
@@ -187,6 +189,31 @@ func (r *Registry) registerDefaults() {
 				"limit": {Type: "integer", Description: "Maximum number of knowledge chunks to return"},
 			},
 			Required: []string{"query"},
+		}),
+	}
+
+	r.tools[ToolKnowledgeProposeUpdate] = ToolDefinition{
+		Name:        ToolKnowledgeProposeUpdate,
+		Description: "Prepare a documentation update proposal for a knowledge source page without applying it",
+		Parameters: mustJSON(paramSchema{
+			Type: "object",
+			Properties: map[string]propSchema{
+				"query":    {Type: "string", Description: "User request describing what documentation should be updated"},
+				"database": {Type: "string", Description: "Current database name"},
+			},
+			Required: []string{"query"},
+		}),
+	}
+
+	r.tools[ToolKnowledgeApplyUpdate] = ToolDefinition{
+		Name:        ToolKnowledgeApplyUpdate,
+		Description: "Apply a previously prepared documentation update proposal to the external knowledge source",
+		Parameters: mustJSON(paramSchema{
+			Type: "object",
+			Properties: map[string]propSchema{
+				"proposal_id": {Type: "string", Description: "Proposal ID returned by knowledge.propose_update"},
+			},
+			Required: []string{"proposal_id"},
 		}),
 	}
 }

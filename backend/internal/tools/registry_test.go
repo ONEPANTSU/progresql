@@ -17,6 +17,8 @@ func TestNewRegistry_AllToolsRegistered(t *testing.T) {
 		ToolExecuteQuery,
 		ToolListFunctions,
 		ToolKnowledgeSearch,
+		ToolKnowledgeProposeUpdate,
+		ToolKnowledgeApplyUpdate,
 	}
 
 	all := r.All()
@@ -105,14 +107,16 @@ func TestRegistry_ParametersAreValidJSON(t *testing.T) {
 func TestRegistry_ToolConstants(t *testing.T) {
 	// Ensure constants match expected string values.
 	tests := map[string]string{
-		ToolListSchemas:     "list_schemas",
-		ToolListTables:      "list_tables",
-		ToolDescribeTable:   "describe_table",
-		ToolListIndexes:     "list_indexes",
-		ToolExplainQuery:    "explain_query",
-		ToolExecuteQuery:    "execute_query",
-		ToolListFunctions:   "list_functions",
-		ToolKnowledgeSearch: "knowledge.search",
+		ToolListSchemas:            "list_schemas",
+		ToolListTables:             "list_tables",
+		ToolDescribeTable:          "describe_table",
+		ToolListIndexes:            "list_indexes",
+		ToolExplainQuery:           "explain_query",
+		ToolExecuteQuery:           "execute_query",
+		ToolListFunctions:          "list_functions",
+		ToolKnowledgeSearch:        "knowledge.search",
+		ToolKnowledgeProposeUpdate: "knowledge.propose_update",
+		ToolKnowledgeApplyUpdate:   "knowledge.apply_update",
 	}
 	for got, want := range tests {
 		if got != want {

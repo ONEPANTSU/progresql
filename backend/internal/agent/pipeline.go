@@ -179,6 +179,10 @@ func localizeTraceTitle(language, title string) string {
 		return "Улучшаю SQL"
 	case "Searching knowledge sources":
 		return "Ищу в источниках знаний"
+	case "Preparing documentation update":
+		return "Готовлю обновление документации"
+	case "Applying documentation update":
+		return "Обновляю документацию"
 	case "Reading database schemas":
 		return "Читаю схемы базы"
 	case "Reading database tables":
@@ -263,6 +267,10 @@ func traceToolTitle(toolName string) string {
 	switch toolName {
 	case tools.ToolKnowledgeSearch:
 		return "Searching knowledge sources"
+	case tools.ToolKnowledgeProposeUpdate:
+		return "Preparing documentation update"
+	case tools.ToolKnowledgeApplyUpdate:
+		return "Applying documentation update"
 	case tools.ToolExplainQuery:
 		return "Validating SQL plan"
 	case tools.ToolExecuteQuery:

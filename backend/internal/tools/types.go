@@ -145,3 +145,24 @@ type KnowledgeChunk struct {
 type KnowledgeSearchResult struct {
 	Chunks []KnowledgeChunk `json:"chunks"`
 }
+
+// KnowledgeUpdateProposalResult describes a staged documentation update.
+type KnowledgeUpdateProposalResult struct {
+	ProposalID string `json:"proposal_id"`
+	SourceName string `json:"source_name"`
+	DocumentID string `json:"document_id"`
+	Title      string `json:"title"`
+	URL        string `json:"url"`
+	Diff       string `json:"diff"`
+	CanApply   bool   `json:"can_apply"`
+	Message    string `json:"message,omitempty"`
+}
+
+// KnowledgeApplyUpdateResult describes an applied documentation update.
+type KnowledgeApplyUpdateResult struct {
+	ProposalID string `json:"proposal_id"`
+	Title      string `json:"title"`
+	URL        string `json:"url"`
+	Version    int    `json:"version"`
+	Message    string `json:"message,omitempty"`
+}

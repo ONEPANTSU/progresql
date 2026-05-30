@@ -1228,6 +1228,8 @@ function sourceHash(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
+const knowledgeUpdateProposals = new Map();
+
 function pageIdFromUrlOrId(value) {
   const raw = String(value || '').trim();
   if (/^\d+$/.test(raw)) return raw;
@@ -1365,6 +1367,7 @@ function searchKnowledgeSources(sources, query, limit = 8) {
         scored.push({
           ...chunk,
           score,
+          sourceId: source.id,
           source: source.type === 'confluence' ? 'Confluence' : source.type,
           sourceName: source.name,
           title: chunk.metadata?.title,
@@ -1375,6 +1378,147 @@ function searchKnowledgeSources(sources, query, limit = 8) {
   }
   scored.sort((a, b) => b.score - a.score);
   return { chunks: scored.slice(0, Number(limit) || 8) };
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderConfluenceAppendSection(proposal) {
+  const lines = String(proposal.suggestedText || '').split('\n');
+  const body = lines
+    .map(line => line.trim() ? `<p>${escapeHtml(line)}</p>` : '<p><br /></p>')
+    .join('');
+  return `<hr /><h2>ProgreSQL documentation update proposal</h2><p><strong>Request:</strong> ${escapeHtml(proposal.query)}</p>${body}`;
+}
+
+function findKnowledgeDocument(source, documentId) {
+  return (source.index?.documents || []).find(doc => doc.id === documentId || doc.externalId === documentId);
+}
+
+function sourceSupportsConfluenceWriteBack(source) {
+  return source?.type === 'confluence' && source?.confluence?.token;
+}
+
+async function proposeKnowledgeUpdate(sources, query, database) {
+  const readableSources = (sources || []).filter(source => source.enabled && source.permissions?.readDocumentation);
+  if (readableSources.length === 0) {
+    throw new Error('No enabled knowledge source is available for this database/chat.');
+  }
+
+  const search = searchKnowledgeSources(readableSources, query, 5);
+  const topChunk = search.chunks[0];
+  let source = topChunk ? readableSources.find(s => s.id === topChunk.sourceId) : readableSources[0];
+  let document = topChunk && source ? findKnowledgeDocument(source, topChunk.documentId) : undefined;
+  if (!document) {
+    source = readableSources.find(s => (s.index?.documents || []).length > 0) || source;
+    document = source?.index?.documents?.[0];
+  }
+  if (!source || !document) {
+    throw new Error('Knowledge source has no synced documents. Sync it first.');
+  }
+
+  const now = new Date().toISOString();
+  const proposalId = `kup-${crypto.randomBytes(4).toString('hex')}`;
+  const suggestedText = [
+    `ProgreSQL suggested documentation update (${now}).`,
+    `Database: ${database || 'current connection'}.`,
+    `User request: ${query}`,
+    '',
+    'Review this section before applying. Replace this draft with the exact business rule, schema note, or operational detail you want to publish.',
+  ].join('\n');
+  const diff = [
+    `--- ${document.title}`,
+    `+++ ${document.title}`,
+    '+',
+    '+## ProgreSQL documentation update proposal',
+    `+Request: ${query}`,
+    `+Database: ${database || 'current connection'}`,
+    '+Review this draft before applying.',
+  ].join('\n');
+
+  const proposal = {
+    proposalId,
+    source,
+    sourceId: source.id,
+    sourceName: source.name,
+    documentId: document.id,
+    externalId: document.externalId,
+    title: document.title,
+    url: document.url,
+    query,
+    database,
+    suggestedText,
+    diff,
+    createdAt: now,
+  };
+  knowledgeUpdateProposals.set(proposalId, proposal);
+
+  return {
+    proposal_id: proposalId,
+    source_name: source.name,
+    document_id: document.id,
+    title: document.title,
+    url: document.url,
+    diff,
+    can_apply: Boolean(source.permissions?.allowManualWriteBack && sourceSupportsConfluenceWriteBack(source)),
+    message: source.permissions?.allowManualWriteBack
+      ? ''
+      : 'Manual write-back is disabled for this knowledge source.',
+  };
+}
+
+async function applyKnowledgeUpdate(proposalId) {
+  const proposal = knowledgeUpdateProposals.get(String(proposalId || '').trim());
+  if (!proposal) {
+    throw new Error('Proposal was not found or the app was restarted. Create a new proposal first.');
+  }
+  const source = proposal.source;
+  if (!source.permissions?.allowManualWriteBack) {
+    throw new Error('Manual write-back is disabled for this knowledge source.');
+  }
+  if (!sourceSupportsConfluenceWriteBack(source)) {
+    throw new Error('Only Confluence write-back is supported in this MVP.');
+  }
+
+  const page = await fetchConfluenceJSON(source, `/content/${encodeURIComponent(proposal.externalId)}?expand=body.storage,version,space,ancestors,history`);
+  const currentStorage = page.body?.storage?.value || '';
+  const nextStorage = `${currentStorage}${renderConfluenceAppendSection(proposal)}`;
+  const nextVersion = Number(page.version?.number || 0) + 1;
+  const url = `${confluenceApiBase(source)}/content/${encodeURIComponent(proposal.externalId)}`;
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: confluenceHeaders(source),
+    body: JSON.stringify({
+      id: String(proposal.externalId),
+      type: page.type || 'page',
+      title: page.title || proposal.title,
+      version: { number: nextVersion },
+      body: {
+        storage: {
+          value: nextStorage,
+          representation: 'storage',
+        },
+      },
+    }),
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`Confluence request failed (${response.status}): ${body || response.statusText}`);
+  }
+  knowledgeUpdateProposals.delete(proposal.proposalId);
+  return {
+    proposal_id: proposal.proposalId,
+    title: page.title || proposal.title,
+    url: proposal.url,
+    version: nextVersion,
+    message: 'The page was updated in Confluence. Sync the knowledge source to refresh the local index.',
+  };
 }
 
 ipcMain.handle('knowledge-source-test', async (event, source) => {
@@ -1421,7 +1565,8 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
     const connectionId = toolRequest.connectionId || args.connection_id || args.connectionId;
     let client = null;
     const isKnowledgeSearch = toolName === 'knowledge.search' || toolName === 'knowledge_search';
-    if (!isKnowledgeSearch) {
+    const isKnowledgeTool = isKnowledgeSearch || toolName === 'knowledge.propose_update' || toolName === 'knowledge.apply_update';
+    if (!isKnowledgeTool) {
       try {
         client = resolveDbClient(connectionId);
       } catch (resolveError) {
@@ -1436,6 +1581,10 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
     // fall back to MCP safeApi only when needed. MCP may not support all tools.
     if (isKnowledgeSearch) {
       result = searchKnowledgeSources(args.sources || [], args.query || '', args.limit || 8);
+    } else if (toolName === 'knowledge.propose_update') {
+      result = await proposeKnowledgeUpdate(args.sources || [], args.query || '', args.database || '');
+    } else if (toolName === 'knowledge.apply_update') {
+      result = await applyKnowledgeUpdate(args.proposal_id || args.proposalId || '');
     } else if (toolName === 'list_schemas') {
       if (client) {
         const r = await client.query("SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('pg_toast','pg_catalog','information_schema') ORDER BY schema_name");

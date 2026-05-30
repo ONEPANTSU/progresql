@@ -198,7 +198,7 @@ func TestIntentDetection_DocumentationWriteBackRequest(t *testing.T) {
 	}
 	var payload websocket.AgentStreamPayload
 	env.DecodePayload(&payload)
-	if !strings.Contains(payload.Delta, "не могу напрямую обновить базу знаний") {
+	if !strings.Contains(payload.Delta, "не вижу подключённый источник знаний") {
 		t.Fatalf("unexpected static response: %s", payload.Delta)
 	}
 
@@ -220,6 +220,20 @@ func TestIntentDetection_DocumentationWriteBackRequest(t *testing.T) {
 	}
 	if intentVal != IntentKnowledge {
 		t.Errorf("expected intent=knowledge, got %v", intentVal)
+	}
+}
+
+func TestDocumentationApplyProposalID(t *testing.T) {
+	tests := map[string]string{
+		"примени proposal kup-1234abcd": "kup-1234abcd",
+		"apply proposal kup-deadbeef":   "kup-deadbeef",
+		"примени kup-cafe1234":          "kup-cafe1234",
+	}
+	for input, want := range tests {
+		got, ok := documentationApplyProposalID(input)
+		if !ok || got != want {
+			t.Fatalf("documentationApplyProposalID(%q) = %q, %v; want %q, true", input, got, ok, want)
+		}
 	}
 }
 

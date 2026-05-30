@@ -488,6 +488,7 @@ const ru: Record<TranslationKey, string> = {
   'knowledge.scope.rootPlaceholder': '123456789 или https://...',
   'knowledge.useInSqlGeneration': 'Использовать для SQL',
   'knowledge.showCitations': 'Показывать источники',
+  'knowledge.allowManualWriteBack': 'Разрешить ручную запись в Confluence',
   'knowledge.test': 'Проверить',
   'knowledge.preview': 'Предпросмотр',
   'knowledge.sync': 'Синхронизировать',
