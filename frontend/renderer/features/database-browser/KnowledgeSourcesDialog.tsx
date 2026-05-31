@@ -15,6 +15,7 @@ import {
   IconButton,
   InputLabel,
   List,
+  ListItemIcon,
   ListItemButton,
   ListItemText,
   MenuItem,
@@ -379,10 +380,21 @@ export default function KnowledgeSourcesDialog({
                         label={t('knowledge.database')}
                         value={selected.databaseName || ''}
                         onChange={(e) => updateSelected({ databaseName: e.target.value || undefined })}
+                        renderValue={(value) => value ? String(value) : t('knowledge.allDatabases')}
                       >
-                        <MenuItem value="">{t('knowledge.allDatabases')}</MenuItem>
+                        <MenuItem value="">
+                          <ListItemIcon sx={{ minWidth: 28 }}>
+                            <Checkbox edge="start" size="small" checked={!selected.databaseName} tabIndex={-1} disableRipple />
+                          </ListItemIcon>
+                          <ListItemText primary={t('knowledge.allDatabases')} />
+                        </MenuItem>
                         {databaseOptions.map(name => (
-                          <MenuItem key={name} value={name}>{name}</MenuItem>
+                          <MenuItem key={name} value={name}>
+                            <ListItemIcon sx={{ minWidth: 28 }}>
+                              <Checkbox edge="start" size="small" checked={selected.databaseName === name} tabIndex={-1} disableRipple />
+                            </ListItemIcon>
+                            <ListItemText primary={name} />
+                          </MenuItem>
                         ))}
                       </Select>
                     </FormControl>

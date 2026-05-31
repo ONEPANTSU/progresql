@@ -1394,7 +1394,7 @@ function renderConfluenceAppendSection(proposal) {
   const body = lines
     .map(line => line.trim() ? `<p>${escapeHtml(line)}</p>` : '<p><br /></p>')
     .join('');
-  return `<hr /><h2>ProgreSQL documentation update proposal</h2><p><strong>Request:</strong> ${escapeHtml(proposal.query)}</p>${body}`;
+  return `<hr /><h2>ProgreSQL documentation update</h2>${body}`;
 }
 
 function findKnowledgeDocument(source, documentId) {
@@ -1405,7 +1405,7 @@ function sourceSupportsConfluenceWriteBack(source) {
   return source?.type === 'confluence' && source?.confluence?.token;
 }
 
-async function proposeKnowledgeUpdate(sources, query, database) {
+async function proposeKnowledgeUpdate(sources, query, database, suggestedTextInput, diffInput) {
   const readableSources = (sources || []).filter(source => source.enabled && source.permissions?.readDocumentation);
   if (readableSources.length === 0) {
     throw new Error('No enabled knowledge source is available for this database/chat.');
@@ -1423,24 +1423,28 @@ async function proposeKnowledgeUpdate(sources, query, database) {
     throw new Error('Knowledge source has no synced documents. Sync it first.');
   }
 
-  const now = new Date().toISOString();
   const proposalId = `kup-${crypto.randomBytes(4).toString('hex')}`;
-  const suggestedText = [
-    `ProgreSQL suggested documentation update (${now}).`,
-    `Database: ${database || 'current connection'}.`,
-    `User request: ${query}`,
-    '',
-    'Review this section before applying. Replace this draft with the exact business rule, schema note, or operational detail you want to publish.',
-  ].join('\n');
-  const diff = [
+  const fallbackDiff = [
     `--- ${document.title}`,
     `+++ ${document.title}`,
     '+',
-    '+## ProgreSQL documentation update proposal',
+    '+## ProgreSQL documentation update',
     `+Request: ${query}`,
     `+Database: ${database || 'current connection'}`,
-    '+Review this draft before applying.',
+    '+Reviewed update proposal.',
   ].join('\n');
+  const suggestedText = String(suggestedTextInput || '').trim() || [
+    'As-is:',
+    '- The documentation needs review for the requested update.',
+    '',
+    'To-be:',
+    '- Add a reviewed note that explains the requested database rule or schema behavior.',
+    '',
+    'Draft update:',
+    `- Request: ${query}`,
+    `- Database: ${database || 'current connection'}`,
+  ].join('\n');
+  const diff = String(diffInput || '').trim() || fallbackDiff;
 
   const proposal = {
     proposalId,
@@ -1465,6 +1469,7 @@ async function proposeKnowledgeUpdate(sources, query, database) {
     document_id: document.id,
     title: document.title,
     url: document.url,
+    suggested_text: suggestedText,
     diff,
     can_apply: Boolean(source.permissions?.allowManualWriteBack && sourceSupportsConfluenceWriteBack(source)),
     message: source.permissions?.allowManualWriteBack
@@ -1582,7 +1587,7 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
     if (isKnowledgeSearch) {
       result = searchKnowledgeSources(args.sources || [], args.query || '', args.limit || 8);
     } else if (toolName === 'knowledge.propose_update') {
-      result = await proposeKnowledgeUpdate(args.sources || [], args.query || '', args.database || '');
+      result = await proposeKnowledgeUpdate(args.sources || [], args.query || '', args.database || '', args.suggested_text || args.suggestedText || '', args.diff || '');
     } else if (toolName === 'knowledge.apply_update') {
       result = await applyKnowledgeUpdate(args.proposal_id || args.proposalId || '');
     } else if (toolName === 'list_schemas') {

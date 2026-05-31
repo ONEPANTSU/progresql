@@ -560,6 +560,7 @@ const en = {
   'knowledge.useInSqlGeneration': 'Use in SQL generation',
   'knowledge.showCitations': 'Show citations',
   'knowledge.allowManualWriteBack': 'Allow manual write-back to Confluence',
+  'knowledge.applyProposal': 'Apply to Confluence',
   'knowledge.test': 'Test',
   'knowledge.preview': 'Preview',
   'knowledge.sync': 'Sync',

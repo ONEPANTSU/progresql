@@ -889,15 +889,6 @@ export default function DatabasePanel({
                   primary={source.name}
                   primaryTypographyProps={{ ...leafTextProps, noWrap: true }}
                 />
-                {source.databaseName && (
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ ml: 0.75, maxWidth: 76, fontSize: '0.64rem', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                  >
-                    {source.databaseName}
-                  </Typography>
-                )}
               </ListItemButton>
             ))}
           </Box>

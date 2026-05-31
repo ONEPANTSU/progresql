@@ -48,6 +48,7 @@ interface ChatMessageProps {
   onApplySQL?: (sql: string) => void;
   onExecuteQuery?: (query: string) => void;
   onRefreshVisualization?: () => void;
+  onApplyKnowledgeProposal?: (proposalId: string) => void;
 }
 
 function isSQLCode(text: string): boolean {
@@ -435,6 +436,16 @@ const HighlightedSQLPre: React.FC<{ sql: string }> = ({ sql }) => {
   );
 };
 
+function extractKnowledgeProposalId(text: string): string | null {
+  const match = text.match(/Proposal ID:\*\*\s*`?(kup-[a-f0-9]+)`?/i) || text.match(/\b(kup-[a-f0-9]+)\b/i);
+  return match ? match[1] : null;
+}
+
+function canApplyKnowledgeProposal(text: string): boolean {
+  return Boolean(extractKnowledgeProposalId(text)) &&
+    !/сначала включи|first enable/i.test(text);
+}
+
 /**
  * Streaming renderer — renders markdown in real-time with a blinking cursor.
  * Uses the same RenderMarkdown component as completed messages for consistent styling.
@@ -534,7 +545,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   onApplySQL,
   onExecuteQuery,
   onRefreshVisualization,
+  onApplyKnowledgeProposal,
 }) => {
+  const { t } = useTranslation();
   const isUser = message.sender === 'user';
   const isStreaming = message.isStreaming === true;
   const isPlainSQL = !isStreaming && isSQLCode(message.text);
@@ -625,6 +638,27 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                 visualization={message.visualization}
                 onRefresh={onRefreshVisualization}
               />
+            )}
+            {!isUser && onApplyKnowledgeProposal && canApplyKnowledgeProposal(message.text) && (
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                <Button
+                  size="small"
+                  startIcon={<CheckIcon />}
+                  variant="contained"
+                  onClick={() => {
+                    const proposalId = extractKnowledgeProposalId(message.text);
+                    if (proposalId) onApplyKnowledgeProposal(proposalId);
+                  }}
+                  sx={{
+                    textTransform: 'none',
+                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                    color: '#fff',
+                    '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
+                  }}
+                >
+                  {t('knowledge.applyProposal')}
+                </Button>
+              </Box>
             )}
           </Box>
         )}

@@ -239,10 +239,13 @@ func (s *IntentDetectionStep) handleDocumentationProposal(ctx context.Context, p
 		return nil
 	}
 
+	proposalDraft := s.buildDocumentationProposalDraft(ctx, pctx)
 	args, _ := json.Marshal(map[string]any{
 		"query":               pctx.UserMessage,
 		"database":            pctx.Database,
 		"disabled_source_ids": pctx.DisabledKnowledgeSourceIDs,
+		"suggested_text":      proposalDraft.SuggestedText,
+		"diff":                proposalDraft.Diff,
 	})
 	result, err := pctx.DispatchTool(tools.ToolKnowledgeProposeUpdate, args)
 	if err != nil || !result.Success {
@@ -256,25 +259,115 @@ func (s *IntentDetectionStep) handleDocumentationProposal(ctx context.Context, p
 	}
 
 	var proposal struct {
-		ProposalID string `json:"proposal_id"`
-		SourceName string `json:"source_name"`
-		Title      string `json:"title"`
-		URL        string `json:"url"`
-		Diff       string `json:"diff"`
-		CanApply   bool   `json:"can_apply"`
-		Message    string `json:"message"`
+		ProposalID    string `json:"proposal_id"`
+		SourceName    string `json:"source_name"`
+		Title         string `json:"title"`
+		URL           string `json:"url"`
+		SuggestedText string `json:"suggested_text"`
+		Diff          string `json:"diff"`
+		CanApply      bool   `json:"can_apply"`
+		Message       string `json:"message"`
 	}
 	if err := json.Unmarshal(result.Data, &proposal); err != nil {
 		return fmt.Errorf("decode documentation proposal: %w", err)
 	}
 
-	message := formatDocumentationProposalMessage(pctx.UserMessage, proposal.ProposalID, proposal.SourceName, proposal.Title, proposal.URL, proposal.Diff, proposal.CanApply, proposal.Message)
+	message := formatDocumentationProposalMessage(pctx.UserMessage, proposal.ProposalID, proposal.SourceName, proposal.Title, proposal.URL, proposal.SuggestedText, proposal.Diff, proposal.CanApply, proposal.Message)
 	if err := streamStaticAgentText(pctx, message); err != nil {
 		return fmt.Errorf("documentation proposal response failed: %w", err)
 	}
 	pctx.Result.Explanation = message
 	pctx.SkipRemaining = true
 	return nil
+}
+
+type documentationProposalDraft struct {
+	SuggestedText string
+	Diff          string
+}
+
+func (s *IntentDetectionStep) buildDocumentationProposalDraft(ctx context.Context, pctx *agent.PipelineContext) documentationProposalDraft {
+	fallback := fallbackDocumentationProposalDraft(pctx.UserMessage, pctx.Database)
+	searchArgs, _ := json.Marshal(map[string]any{
+		"query":               pctx.UserMessage,
+		"database":            pctx.Database,
+		"limit":               4,
+		"disabled_source_ids": pctx.DisabledKnowledgeSourceIDs,
+	})
+	searchResult, err := pctx.DispatchTool(tools.ToolKnowledgeSearch, searchArgs)
+	if err != nil || !searchResult.Success {
+		return fallback
+	}
+
+	var parsed struct {
+		Chunks []struct {
+			Text       string  `json:"text"`
+			SourceName string  `json:"sourceName"`
+			Title      string  `json:"title"`
+			URL        string  `json:"url"`
+			Score      float64 `json:"score"`
+		} `json:"chunks"`
+	}
+	if err := json.Unmarshal(searchResult.Data, &parsed); err != nil || len(parsed.Chunks) == 0 {
+		return fallback
+	}
+
+	var excerpts strings.Builder
+	for i, chunk := range parsed.Chunks {
+		fmt.Fprintf(&excerpts, "Excerpt %d\nSource: %s\nTitle: %s\nURL: %s\nText: %s\n\n", i+1, chunk.SourceName, chunk.Title, chunk.URL, chunk.Text)
+	}
+
+	prompt := "You prepare safe documentation update proposals for database knowledge sources.\n" +
+		"Analyze the current documentation excerpts and the user's request.\n" +
+		"Return ONLY valid JSON with fields: as_is, to_be, suggested_text, diff.\n" +
+		"Rules:\n" +
+		"- Do not claim the change was applied.\n" +
+		"- suggested_text must be ready to append to a documentation page after human approval.\n" +
+		"- diff must be a concise unified diff-style preview.\n" +
+		"- If the request is too vague, propose a small useful documentation note and state what is missing.\n" +
+		"- Answer in the same language as the user.\n\n" +
+		"User request: " + pctx.UserMessage + "\n" +
+		"Database: " + pctx.Database + "\n\n" +
+		"Current documentation excerpts:\n" + excerpts.String()
+
+	req := llm.ChatRequest{
+		Model: pctx.Model,
+		Messages: pctx.MessagesWithHistory(
+			llm.Message{Role: "user", Content: prompt},
+		),
+		Temperature: floatPtr(0.2),
+	}
+	resp, err := pctx.LLMClient.ChatCompletion(ctx, req)
+	if err != nil || len(resp.Choices) == 0 {
+		return fallback
+	}
+	pctx.AddTokensDetailed(resp.Usage)
+	pctx.ModelUsed = resp.Model
+
+	content := stripCodeFences(stripThinkingTags(strings.TrimSpace(resp.Choices[0].Message.Content)))
+	var llmDraft struct {
+		AsIs          string `json:"as_is"`
+		ToBe          string `json:"to_be"`
+		SuggestedText string `json:"suggested_text"`
+		Diff          string `json:"diff"`
+	}
+	if err := json.Unmarshal([]byte(content), &llmDraft); err != nil {
+		return fallback
+	}
+	suggested := strings.TrimSpace(llmDraft.SuggestedText)
+	if suggested == "" {
+		return fallback
+	}
+	asIs := strings.TrimSpace(llmDraft.AsIs)
+	toBe := strings.TrimSpace(llmDraft.ToBe)
+	if asIs != "" || toBe != "" {
+		suggested = "As-is:\n" + emptyDash(asIs) + "\n\nTo-be:\n" + emptyDash(toBe) + "\n\n" + suggested
+	}
+	diff := strings.TrimSpace(llmDraft.Diff)
+	if diff == "" {
+		diff = fallback.Diff
+	}
+	return documentationProposalDraft{SuggestedText: suggested, Diff: diff}
 }
 
 func (s *IntentDetectionStep) handleDocumentationApply(ctx context.Context, pctx *agent.PipelineContext, proposalID string) error {
@@ -367,6 +460,30 @@ func documentationApplyProposalID(message string) (string, bool) {
 	return "", false
 }
 
+func fallbackDocumentationProposalDraft(query, database string) documentationProposalDraft {
+	db := strings.TrimSpace(database)
+	if db == "" {
+		db = "current database"
+	}
+	suggested := "As-is:\n" +
+		"- The documentation needs review for the requested update.\n\n" +
+		"To-be:\n" +
+		"- Add a reviewed note that explains the requested database rule or schema behavior.\n\n" +
+		"Draft update:\n" +
+		"- Request: " + query + "\n" +
+		"- Database: " + db + "\n" +
+		"- Replace this draft with the exact business rule, schema note, or operational detail after review."
+	diff := "--- documentation\n+++ documentation\n+\n+## Proposed documentation update\n+Request: " + query + "\n+Database: " + db + "\n+Review and replace this draft before applying."
+	return documentationProposalDraft{SuggestedText: suggested, Diff: diff}
+}
+
+func emptyDash(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "-"
+	}
+	return value
+}
+
 func documentationWriteBackUnavailableMessage(message string) string {
 	if looksRussian(message) {
 		return "Я могу подготовить proposal для обновления базы знаний, но сейчас не вижу подключённый источник знаний для этого чата.\n\n" +
@@ -391,28 +508,35 @@ func documentationApplyFailedMessage(message, reason string) string {
 	return "I couldn't apply the proposal to the knowledge base.\n\nReason: " + reason
 }
 
-func formatDocumentationProposalMessage(message, proposalID, sourceName, title, url, diff string, canApply bool, note string) string {
+func formatDocumentationProposalMessage(message, proposalID, sourceName, title, url, suggestedText, diff string, canApply bool, note string) string {
+	preview := strings.TrimSpace(suggestedText)
+	if len([]rune(preview)) > 2200 {
+		runes := []rune(preview)
+		preview = string(runes[:2200]) + "\n..."
+	}
 	if looksRussian(message) {
-		applyText := "Для записи сначала включи `Allow manual write-back` у источника знаний, затем напиши: `примени proposal " + proposalID + "`."
+		applyText := "Для записи сначала включи `Allow manual write-back` у источника знаний."
 		if canApply {
-			applyText = "Я пока не применил изменения. Чтобы записать их в Confluence, напиши: `примени proposal " + proposalID + "`."
+			applyText = "Я пока не применил изменения. Проверь diff и нажми кнопку применения в чате, если всё ок."
 		}
 		return "Подготовил proposal для обновления базы знаний, но не применял его автоматически.\n\n" +
 			"**Proposal ID:** `" + proposalID + "`\n" +
 			"**Источник:** " + sourceName + "\n" +
 			"**Страница:** [" + title + "](" + url + ")\n\n" +
+			"**Предлагаемый текст:**\n\n" + preview + "\n\n" +
 			"**Preview diff:**\n```diff\n" + diff + "\n```\n\n" +
 			applyText + optionalNoteRU(note)
 	}
 
-	applyText := "To write it, first enable `Allow manual write-back` for the knowledge source, then send: `apply proposal " + proposalID + "`."
+	applyText := "To write it, first enable `Allow manual write-back` for the knowledge source."
 	if canApply {
-		applyText = "I have not applied the changes yet. To write them to Confluence, send: `apply proposal " + proposalID + "`."
+		applyText = "I have not applied the changes yet. Review the diff and use the apply button in chat if it looks right."
 	}
 	return "I prepared a knowledge base update proposal, but did not apply it automatically.\n\n" +
 		"**Proposal ID:** `" + proposalID + "`\n" +
 		"**Source:** " + sourceName + "\n" +
 		"**Page:** [" + title + "](" + url + ")\n\n" +
+		"**Proposed text:**\n\n" + preview + "\n\n" +
 		"**Preview diff:**\n```diff\n" + diff + "\n```\n\n" +
 		applyText + optionalNoteEN(note)
 }
