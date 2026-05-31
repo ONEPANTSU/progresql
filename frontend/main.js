@@ -1459,7 +1459,7 @@ async function proposeKnowledgeUpdate(sources, query, database, suggestedTextInp
     database,
     suggestedText,
     diff,
-    createdAt: now,
+    createdAt: new Date().toISOString(),
   };
   knowledgeUpdateProposals.set(proposalId, proposal);
 

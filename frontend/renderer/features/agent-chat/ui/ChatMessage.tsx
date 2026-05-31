@@ -640,20 +640,45 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
               />
             )}
             {!isUser && onApplyKnowledgeProposal && canApplyKnowledgeProposal(message.text) && (
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+              <Box
+                sx={{
+                  mt: 1,
+                  p: 1.25,
+                  borderRadius: 1.5,
+                  border: '1px solid',
+                  borderColor: 'rgba(150, 130, 200, 0.3)',
+                  bgcolor: 'rgba(120, 100, 180, 0.06)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 1,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                  <CheckIcon sx={{ fontSize: 16, color: 'text.secondary', opacity: 0.75 }} />
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.72rem' }}>
+                    {t('knowledge.applyProposalHint')}
+                  </Typography>
+                </Box>
                 <Button
                   size="small"
                   startIcon={<CheckIcon />}
-                  variant="contained"
+                  variant="outlined"
                   onClick={() => {
                     const proposalId = extractKnowledgeProposalId(message.text);
                     if (proposalId) onApplyKnowledgeProposal(proposalId);
                   }}
                   sx={{
+                    fontSize: '0.68rem',
                     textTransform: 'none',
-                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                    color: '#fff',
-                    '&:hover': { background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
+                    color: 'text.primary',
+                    borderColor: 'rgba(150, 130, 200, 0.35)',
+                    bgcolor: 'rgba(150, 130, 200, 0.18)',
+                    px: 1.5,
+                    py: 0.25,
+                    minHeight: 26,
+                    whiteSpace: 'nowrap',
+                    '&:hover': { bgcolor: 'rgba(150, 130, 200, 0.3)', borderColor: 'rgba(150, 130, 200, 0.55)' },
                   }}
                 >
                   {t('knowledge.applyProposal')}
