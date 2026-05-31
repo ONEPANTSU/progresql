@@ -153,6 +153,7 @@ export async function handleToolCall(
     if (toolName === 'knowledge.search' || toolName === 'knowledge_search' || toolName === 'knowledge.propose_update' || toolName === 'knowledge.apply_update') {
       const allConnections = await loadConnections();
       const connection = connectionId ? allConnections.find(c => c.id === connectionId) : null;
+      const targetDatabase = typeof args.database === 'string' ? args.database : '';
       if (!connection) {
         return { success: false, error: 'Knowledge tools require a database connection_id.' };
       }
@@ -163,7 +164,14 @@ export async function handleToolCall(
           (toolName === 'knowledge.search' || toolName === 'knowledge_search'
             ? source.permissions?.useInSqlGeneration
             : source.permissions?.readDocumentation) &&
-          (!source.databaseName || !args.database || source.databaseName === args.database) &&
+          (
+            !targetDatabase ||
+            (
+              Array.isArray(source.databaseNames)
+                ? source.databaseNames.length === 0 || source.databaseNames.includes(targetDatabase)
+                : !source.databaseName || source.databaseName === targetDatabase
+            )
+          ) &&
           !(Array.isArray(args.disabled_source_ids) && args.disabled_source_ids.includes(source.id))
         ),
       };

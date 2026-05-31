@@ -1389,25 +1389,47 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function renderConfluenceInlineMarkdown(value) {
+  const escaped = escapeHtml(value);
+  return escaped
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2">$1</a>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+}
+
 function renderConfluenceAppendSection(proposal) {
   const lines = String(proposal.suggestedText || '').split('\n');
-  const body = lines
-    .map(line => {
-      const trimmed = line.trim();
-      if (!trimmed) return '<p><br /></p>';
-      const heading = trimmed.match(/^(#{1,4})\s+(.+)$/);
-      if (heading) {
-        const level = Math.min(4, heading[1].length + 1);
-        return `<h${level}>${escapeHtml(heading[2])}</h${level}>`;
-      }
-      const bullet = trimmed.match(/^[-*]\s+(.+)$/);
-      if (bullet) {
-        return `<ul><li>${escapeHtml(bullet[1])}</li></ul>`;
-      }
-      return `<p>${escapeHtml(trimmed)}</p>`;
-    })
-    .join('');
-  return `<hr />${body}`;
+  const blocks = [];
+  let listItems = [];
+  const flushList = () => {
+    if (listItems.length === 0) return;
+    blocks.push(`<ul>${listItems.map(item => `<li>${item}</li>`).join('')}</ul>`);
+    listItems = [];
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushList();
+      continue;
+    }
+    const heading = trimmed.match(/^(#{1,4})\s+(.+)$/);
+    if (heading) {
+      flushList();
+      const level = Math.min(4, heading[1].length + 1);
+      blocks.push(`<h${level}>${renderConfluenceInlineMarkdown(heading[2])}</h${level}>`);
+      continue;
+    }
+    const bullet = trimmed.match(/^[-*]\s+(.+)$/);
+    if (bullet) {
+      listItems.push(renderConfluenceInlineMarkdown(bullet[1]));
+      continue;
+    }
+    flushList();
+    blocks.push(`<p>${renderConfluenceInlineMarkdown(trimmed)}</p>`);
+  }
+  flushList();
+  return `<hr />${blocks.join('')}`;
 }
 
 function findKnowledgeDocument(source, documentId) {

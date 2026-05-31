@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   Checkbox,
   Dialog,
   DialogActions,
@@ -168,6 +169,19 @@ export default function KnowledgeSourcesDialog({
   const updateConfluence = (patch: Partial<NonNullable<KnowledgeSource['confluence']>>) => {
     if (!selected) return;
     updateSelected({ confluence: { ...selected.confluence!, ...patch } });
+  };
+
+  const selectedDatabaseNames = useMemo(() => {
+    if (!selected) return [];
+    if (Array.isArray(selected.databaseNames)) return selected.databaseNames;
+    return selected.databaseName ? [selected.databaseName] : [];
+  }, [selected]);
+
+  const updateSelectedDatabases = (names: string[]) => {
+    updateSelected({
+      databaseNames: names,
+      databaseName: names.length === 1 ? names[0] : undefined,
+    });
   };
 
   const handleAdd = () => {
@@ -377,21 +391,46 @@ export default function KnowledgeSourcesDialog({
                     <FormControl fullWidth sx={compactFieldSx}>
                       <InputLabel>{t('knowledge.database')}</InputLabel>
                       <Select
+                        multiple
+                        displayEmpty
                         label={t('knowledge.database')}
-                        value={selected.databaseName || ''}
-                        onChange={(e) => updateSelected({ databaseName: e.target.value || undefined })}
-                        renderValue={(value) => value ? String(value) : t('knowledge.allDatabases')}
+                        value={selectedDatabaseNames}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          const names = typeof value === 'string' ? value.split(',') : value;
+                          updateSelectedDatabases(names.includes('__all__') ? [] : names);
+                        }}
+                        renderValue={(value) => {
+                          const names = value as string[];
+                          if (names.length === 0) return t('knowledge.allDatabases');
+                          return (
+                            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center', minHeight: 24 }}>
+                              {names.slice(0, 2).map(name => (
+                                <Chip key={name} label={name} size="small" sx={{ height: 22, borderRadius: 1, fontSize: '0.7rem' }} />
+                              ))}
+                              {names.length > 2 && (
+                                <Chip label={`+${names.length - 2}`} size="small" sx={{ height: 22, borderRadius: 1, fontSize: '0.7rem' }} />
+                              )}
+                            </Box>
+                          );
+                        }}
                       >
-                        <MenuItem value="">
+                        <MenuItem
+                          value="__all__"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            updateSelectedDatabases([]);
+                          }}
+                        >
                           <ListItemIcon sx={{ minWidth: 28 }}>
-                            <Checkbox edge="start" size="small" checked={!selected.databaseName} tabIndex={-1} disableRipple />
+                            <Checkbox edge="start" size="small" checked={selectedDatabaseNames.length === 0} tabIndex={-1} disableRipple />
                           </ListItemIcon>
                           <ListItemText primary={t('knowledge.allDatabases')} />
                         </MenuItem>
                         {databaseOptions.map(name => (
                           <MenuItem key={name} value={name}>
                             <ListItemIcon sx={{ minWidth: 28 }}>
-                              <Checkbox edge="start" size="small" checked={selected.databaseName === name} tabIndex={-1} disableRipple />
+                              <Checkbox edge="start" size="small" checked={selectedDatabaseNames.includes(name)} tabIndex={-1} disableRipple />
                             </ListItemIcon>
                             <ListItemText primary={name} />
                           </MenuItem>

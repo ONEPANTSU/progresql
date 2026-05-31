@@ -490,6 +490,7 @@ const ru: Record<TranslationKey, string> = {
   'knowledge.showCitations': 'Показывать источники',
   'knowledge.allowManualWriteBack': 'Разрешить ручную запись в Confluence',
   'knowledge.applyProposal': 'Применить в базу знаний',
+  'knowledge.rejectProposal': 'Отклонить',
   'knowledge.applyProposalHint': 'Требуется подтверждение',
   'knowledge.test': 'Проверить',
   'knowledge.preview': 'Предпросмотр',

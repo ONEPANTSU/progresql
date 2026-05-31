@@ -16,6 +16,7 @@ import {
   ContentCopy as CopyIcon,
   PlayArrow as RunIcon,
   CheckCircle as CheckIcon,
+  Block as DenyIcon,
   ErrorOutline as ErrorIcon,
   ExpandLess as ExpandLessIcon,
   ExpandMore as ExpandMoreIcon,
@@ -86,8 +87,35 @@ function isSQLCode(text: string): boolean {
 }
 
 function processInlineFormatting(text: string): React.ReactNode[] {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  const parts = text.split(/(\[[^\]]+\]\(https?:\/\/[^)\s]+\)|`[^`]+`|\*\*[^*]+\*\*)/g);
   return parts.map((part, index) => {
+    const link = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
+    if (link) {
+      return (
+        <Box
+          key={index}
+          component="a"
+          href={link[2]}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(event: React.MouseEvent<HTMLAnchorElement>) => event.stopPropagation()}
+          sx={{ color: 'primary.light', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+        >
+          {link[1]}
+        </Box>
+      );
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <Box
+          key={index}
+          component="code"
+          sx={{ px: 0.35, py: 0.1, borderRadius: 0.5, bgcolor: 'rgba(255,255,255,0.08)', fontFamily: 'monospace', fontSize: '0.92em' }}
+        >
+          {part.slice(1, -1)}
+        </Box>
+      );
+    }
     if (part.startsWith('**') && part.endsWith('**')) {
       return (
         <strong key={index} style={{ fontWeight: 'bold' }}>
@@ -554,6 +582,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   onApplyKnowledgeProposal,
 }) => {
   const { t } = useTranslation();
+  const [dismissedKnowledgeProposals, setDismissedKnowledgeProposals] = useState<Set<string>>(() => new Set());
   const isUser = message.sender === 'user';
   const isStreaming = message.isStreaming === true;
   const isPlainSQL = !isStreaming && isSQLCode(message.text);
@@ -645,7 +674,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                 onRefresh={onRefreshVisualization}
               />
             )}
-            {!isUser && onApplyKnowledgeProposal && canApplyKnowledgeProposal(message.text) && (
+            {!isUser && onApplyKnowledgeProposal && canApplyKnowledgeProposal(message.text) && (() => {
+              const proposalId = extractKnowledgeProposalId(message.text);
+              if (!proposalId || dismissedKnowledgeProposals.has(proposalId)) return null;
+              return (
               <Box
                 sx={{
                   mt: 1,
@@ -666,31 +698,50 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                     {t('knowledge.applyProposalHint')}
                   </Typography>
                 </Box>
-                <Button
-                  size="small"
-                  startIcon={<CheckIcon />}
-                  variant="outlined"
-                  onClick={() => {
-                    const proposalId = extractKnowledgeProposalId(message.text);
-                    if (proposalId) onApplyKnowledgeProposal(proposalId);
-                  }}
-                  sx={{
-                    fontSize: '0.68rem',
-                    textTransform: 'none',
-                    color: 'text.primary',
-                    borderColor: 'rgba(150, 130, 200, 0.35)',
-                    bgcolor: 'rgba(150, 130, 200, 0.18)',
-                    px: 1.5,
-                    py: 0.25,
-                    minHeight: 26,
-                    whiteSpace: 'nowrap',
-                    '&:hover': { bgcolor: 'rgba(150, 130, 200, 0.3)', borderColor: 'rgba(150, 130, 200, 0.55)' },
-                  }}
-                >
-                  {t('knowledge.applyProposal')}
-                </Button>
+                <Box sx={{ display: 'flex', gap: 0.75, flexShrink: 0 }}>
+                  <Button
+                    size="small"
+                    startIcon={<DenyIcon sx={{ fontSize: '13px !important' }} />}
+                    variant="outlined"
+                    onClick={() => setDismissedKnowledgeProposals(prev => new Set(prev).add(proposalId))}
+                    sx={{
+                      fontSize: '0.68rem',
+                      textTransform: 'none',
+                      color: 'text.secondary',
+                      borderColor: 'rgba(150, 130, 200, 0.3)',
+                      px: 1.5,
+                      py: 0.25,
+                      minHeight: 26,
+                      whiteSpace: 'nowrap',
+                      '&:hover': { bgcolor: 'rgba(150, 130, 200, 0.08)', borderColor: 'rgba(150, 130, 200, 0.5)' },
+                    }}
+                  >
+                    {t('knowledge.rejectProposal')}
+                  </Button>
+                  <Button
+                    size="small"
+                    startIcon={<CheckIcon sx={{ fontSize: '13px !important' }} />}
+                    variant="contained"
+                    onClick={() => onApplyKnowledgeProposal(proposalId)}
+                    sx={{
+                      fontSize: '0.68rem',
+                      textTransform: 'none',
+                      color: 'text.primary',
+                      bgcolor: 'rgba(150, 130, 200, 0.2)',
+                      border: '1px solid rgba(150, 130, 200, 0.3)',
+                      px: 1.5,
+                      py: 0.25,
+                      minHeight: 26,
+                      whiteSpace: 'nowrap',
+                      '&:hover': { bgcolor: 'rgba(150, 130, 200, 0.35)' },
+                    }}
+                  >
+                    {t('knowledge.applyProposal')}
+                  </Button>
+                </Box>
               </Box>
-            )}
+              );
+            })()}
           </Box>
         )}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5 }}>

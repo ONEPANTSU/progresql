@@ -110,7 +110,11 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
   const chatConnection = connections.find(c => c.id === chatConnectionId) ?? activeConnection ?? null;
   const chatDatabase = chat.activeChat?.database ?? chatConnection?.activeDatabase ?? chatConnection?.database ?? undefined;
   const knowledgeSources = (chatConnection?.knowledgeSources || []).filter(source =>
-    source.enabled && (!source.databaseName || !chatDatabase || source.databaseName === chatDatabase)
+    source.enabled && (!chatDatabase || (
+      Array.isArray(source.databaseNames)
+        ? source.databaseNames.length === 0 || source.databaseNames.includes(chatDatabase)
+        : !source.databaseName || source.databaseName === chatDatabase
+    ))
   );
   const disabledKnowledgeSourceIds = chat.activeChat?.disabledKnowledgeSourceIds || [];
 

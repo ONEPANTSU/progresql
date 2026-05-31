@@ -561,6 +561,7 @@ const en = {
   'knowledge.showCitations': 'Show citations',
   'knowledge.allowManualWriteBack': 'Allow manual write-back to Confluence',
   'knowledge.applyProposal': 'Apply to knowledge base',
+  'knowledge.rejectProposal': 'Reject',
   'knowledge.applyProposalHint': 'Confirmation required',
   'knowledge.test': 'Test',
   'knowledge.preview': 'Preview',

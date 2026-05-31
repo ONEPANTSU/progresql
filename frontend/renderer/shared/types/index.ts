@@ -89,6 +89,7 @@ export interface KnowledgeSource {
   name: string;
   enabled: boolean;
   databaseName?: string;
+  databaseNames?: string[];
   scope: KnowledgeSourceScope;
   permissions: KnowledgeSourcePermissions;
   confluence?: ConfluenceKnowledgeSourceConfig;

@@ -598,7 +598,7 @@ func formatDocumentationProposalMessage(message, proposalID, sourceName, title, 
 			"Подготовил обновление базы знаний. Автоматически не применял.\n\n" +
 			"**Страница:** [" + title + "](" + url + ")\n\n" +
 			"**Предлагаемый текст:**\n\n" + preview + "\n\n" +
-			"**Preview diff:**\n```diff\n" + diff + "\n```\n\n" +
+			"**Что изменится:**\n```text\n" + readableDiffPreview(diff) + "\n```\n\n" +
 			applyText + optionalNoteRU(note)
 	}
 
@@ -610,8 +610,39 @@ func formatDocumentationProposalMessage(message, proposalID, sourceName, title, 
 		"I prepared a knowledge base update. I did not apply it automatically.\n\n" +
 		"**Page:** [" + title + "](" + url + ")\n\n" +
 		"**Proposed text:**\n\n" + preview + "\n\n" +
-		"**Preview diff:**\n```diff\n" + diff + "\n```\n\n" +
+		"**What will change:**\n```text\n" + readableDiffPreview(diff) + "\n```\n\n" +
 		applyText + optionalNoteEN(note)
+}
+
+func readableDiffPreview(diff string) string {
+	lines := strings.Split(strings.TrimSpace(diff), "\n")
+	var out []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "---") || strings.HasPrefix(trimmed, "+++") || strings.HasPrefix(trimmed, "@@") {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "+") && !strings.HasPrefix(trimmed, "++") {
+			value := strings.TrimSpace(strings.TrimPrefix(trimmed, "+"))
+			if value != "" {
+				out = append(out, "+ "+value)
+			}
+			continue
+		}
+		if strings.HasPrefix(trimmed, "-") && !strings.HasPrefix(trimmed, "--") {
+			value := strings.TrimSpace(strings.TrimPrefix(trimmed, "-"))
+			if value != "" {
+				out = append(out, "- "+value)
+			}
+		}
+	}
+	if len(out) == 0 {
+		return strings.TrimSpace(diff)
+	}
+	if len(out) > 80 {
+		out = append(out[:80], "...")
+	}
+	return strings.Join(out, "\n")
 }
 
 func formatDocumentationAppliedMessage(message, proposalID, title, url string, version int, note string) string {
