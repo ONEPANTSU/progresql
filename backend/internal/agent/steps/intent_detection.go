@@ -559,13 +559,6 @@ func fallbackDocumentationProposalDraft(query, database string) documentationPro
 	return documentationProposalDraft{SuggestedText: suggested, Diff: diff}
 }
 
-func emptyDash(value string) string {
-	if strings.TrimSpace(value) == "" {
-		return "-"
-	}
-	return value
-}
-
 func documentationWriteBackUnavailableMessage(message string) string {
 	if looksRussian(message) {
 		return "Я могу подготовить proposal для обновления базы знаний, но сейчас не вижу подключённый источник знаний для этого чата.\n\n" +
