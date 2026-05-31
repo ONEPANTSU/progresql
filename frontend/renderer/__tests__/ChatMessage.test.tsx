@@ -104,6 +104,7 @@ const defaultProps = {
 describe('ChatMessage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    delete (window as any).electronAPI;
     // Supply a functional clipboard mock
     Object.assign(navigator, {
       clipboard: { writeText: jest.fn().mockResolvedValue(undefined) },
@@ -231,6 +232,15 @@ describe('ChatMessage', () => {
       expect(screen.getByText('Before')).toBeInTheDocument();
       expect(screen.getByText('After')).toBeInTheDocument();
       expect(screen.getByRole('separator')).toBeInTheDocument();
+    });
+
+    it('opens markdown links in the external browser', () => {
+      const openExternal = jest.fn();
+      (window as any).electronAPI = { openExternal };
+      const message = makeMessage({ text: '[Docs](https://example.com/page)' });
+      render(<ChatMessage {...defaultProps} message={message} />);
+      fireEvent.click(screen.getByRole('link', { name: 'Docs' }));
+      expect(openExternal).toHaveBeenCalledWith('https://example.com/page');
     });
 
     it('renders unordered list items with - prefix', () => {

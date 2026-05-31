@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -248,6 +249,7 @@ func (s *IntentDetectionStep) handleDocumentationProposal(ctx context.Context, p
 		"disabled_source_ids": pctx.DisabledKnowledgeSourceIDs,
 		"suggested_text":      proposalDraft.SuggestedText,
 		"diff":                proposalDraft.Diff,
+		"target_heading":      proposalDraft.TargetHeading,
 	})
 	result, err := pctx.DispatchTool(tools.ToolKnowledgeProposeUpdate, args)
 	if err != nil || !result.Success {
@@ -267,6 +269,7 @@ func (s *IntentDetectionStep) handleDocumentationProposal(ctx context.Context, p
 		URL           string `json:"url"`
 		SuggestedText string `json:"suggested_text"`
 		Diff          string `json:"diff"`
+		TargetHeading string `json:"target_heading"`
 		CanApply      bool   `json:"can_apply"`
 		Message       string `json:"message"`
 	}
@@ -274,7 +277,7 @@ func (s *IntentDetectionStep) handleDocumentationProposal(ctx context.Context, p
 		return fmt.Errorf("decode documentation proposal: %w", err)
 	}
 
-	message := formatDocumentationProposalMessage(pctx.UserMessage, proposal.ProposalID, proposal.SourceName, proposal.Title, proposal.URL, proposal.SuggestedText, proposal.Diff, proposal.CanApply, proposal.Message)
+	message := formatDocumentationProposalMessage(pctx.UserMessage, proposal.ProposalID, proposal.SourceName, proposal.Title, proposal.URL, proposal.TargetHeading, proposal.SuggestedText, proposal.Diff, proposal.CanApply, proposal.Message)
 	if err := streamStaticAgentText(pctx, message); err != nil {
 		return fmt.Errorf("documentation proposal response failed: %w", err)
 	}
@@ -286,6 +289,7 @@ func (s *IntentDetectionStep) handleDocumentationProposal(ctx context.Context, p
 type documentationProposalDraft struct {
 	SuggestedText string
 	Diff          string
+	TargetHeading string
 }
 
 func (s *IntentDetectionStep) buildDocumentationProposalDraft(ctx context.Context, pctx *agent.PipelineContext) documentationProposalDraft {
@@ -322,14 +326,15 @@ func (s *IntentDetectionStep) buildDocumentationProposalDraft(ctx context.Contex
 
 	prompt := "You prepare safe documentation update proposals for database knowledge sources.\n" +
 		"Analyze the current documentation excerpts and the user's request.\n" +
-		"Return ONLY valid JSON with fields: as_is, to_be, suggested_text, diff.\n" +
+		"Return ONLY valid JSON with fields: as_is, to_be, target_heading, suggested_text, diff.\n" +
 		"Rules:\n" +
 		"- Do not claim the change was applied.\n" +
 		"- Use the live PostgreSQL schema summary as the source of truth for tables, columns, keys, indexes, triggers, and constraints.\n" +
 		"- Do not invent business rules. If a business rule is missing, say what must be confirmed.\n" +
-		"- suggested_text must be ready to append to a database documentation page after human approval.\n" +
+		"- target_heading must be the existing documentation section heading that should be replaced. Prefer a database/schema documentation heading, not team rules.\n" +
+		"- suggested_text must be the full replacement section for target_heading, including its markdown heading.\n" +
 		"- suggested_text must contain only the final documentation section, not as-is/to-be analysis.\n" +
-		"- diff must be a concise unified diff-style preview.\n" +
+		"- diff must be a concise unified diff-style preview between the old section and the replacement section.\n" +
 		"- If the request is vague, document the actual schema structure and explicitly list unknown business semantics.\n" +
 		"- Answer in the same language as the user.\n\n" +
 		"User request: " + pctx.UserMessage + "\n" +
@@ -344,8 +349,12 @@ func (s *IntentDetectionStep) buildDocumentationProposalDraft(ctx context.Contex
 		),
 		Temperature: floatPtr(0.2),
 	}
-	resp, err := pctx.LLMClient.ChatCompletion(ctx, req)
+	pctx.EmitTrace("tool", "Preparing documentation update", "", tools.ToolKnowledgeProposeUpdate, "running")
+	draftCtx, cancel := context.WithTimeout(ctx, 25*time.Second)
+	defer cancel()
+	resp, err := pctx.LLMClient.ChatCompletion(draftCtx, req)
 	if err != nil || len(resp.Choices) == 0 {
+		pctx.EmitTrace("tool", "Preparing documentation update", "Using fallback draft: "+toolErrorFromErr(err), tools.ToolKnowledgeProposeUpdate, "completed")
 		return fallback
 	}
 	pctx.AddTokensDetailed(resp.Usage)
@@ -355,14 +364,17 @@ func (s *IntentDetectionStep) buildDocumentationProposalDraft(ctx context.Contex
 	var llmDraft struct {
 		AsIs          string `json:"as_is"`
 		ToBe          string `json:"to_be"`
+		TargetHeading string `json:"target_heading"`
 		SuggestedText string `json:"suggested_text"`
 		Diff          string `json:"diff"`
 	}
 	if err := json.Unmarshal([]byte(content), &llmDraft); err != nil {
+		pctx.EmitTrace("tool", "Preparing documentation update", "Using fallback draft: invalid JSON", tools.ToolKnowledgeProposeUpdate, "completed")
 		return fallback
 	}
 	suggested := strings.TrimSpace(llmDraft.SuggestedText)
 	if suggested == "" {
+		pctx.EmitTrace("tool", "Preparing documentation update", "Using fallback draft: empty suggested text", tools.ToolKnowledgeProposeUpdate, "completed")
 		return fallback
 	}
 	suggested = stripProposalAnalysisSections(suggested)
@@ -370,7 +382,12 @@ func (s *IntentDetectionStep) buildDocumentationProposalDraft(ctx context.Contex
 	if diff == "" {
 		diff = fallback.Diff
 	}
-	return documentationProposalDraft{SuggestedText: suggested, Diff: diff}
+	targetHeading := strings.TrimSpace(llmDraft.TargetHeading)
+	if targetHeading == "" {
+		targetHeading = firstMarkdownHeading(suggested)
+	}
+	pctx.EmitTrace("tool", "Preparing documentation update", "", tools.ToolKnowledgeProposeUpdate, "completed")
+	return documentationProposalDraft{SuggestedText: suggested, Diff: diff, TargetHeading: targetHeading}
 }
 
 func (s *IntentDetectionStep) handleDocumentationApply(ctx context.Context, pctx *agent.PipelineContext, proposalID string) error {
@@ -551,12 +568,13 @@ func fallbackDocumentationProposalDraft(query, database string) documentationPro
 	if db == "" {
 		db = "current database"
 	}
-	suggested := "## Database schema documentation update\n\n" +
+	targetHeading := "Database schema documentation update"
+	suggested := "## " + targetHeading + "\n\n" +
 		"- Database: " + db + "\n" +
 		"- Review the live schema and add confirmed descriptions for tables, columns, keys, relationships, triggers, and constraints.\n" +
 		"- Business semantics that are not visible in the schema must be confirmed before publishing."
 	diff := "--- documentation\n+++ documentation\n+\n+## Database schema documentation update\n+Database: " + db + "\n+Add reviewed schema descriptions and mark unknown business semantics for confirmation."
-	return documentationProposalDraft{SuggestedText: suggested, Diff: diff}
+	return documentationProposalDraft{SuggestedText: suggested, Diff: diff, TargetHeading: targetHeading}
 }
 
 func documentationWriteBackUnavailableMessage(message string) string {
@@ -583,7 +601,7 @@ func documentationApplyFailedMessage(message, reason string) string {
 	return "I couldn't apply the proposal to the knowledge base.\n\nReason: " + reason
 }
 
-func formatDocumentationProposalMessage(message, proposalID, sourceName, title, url, suggestedText, diff string, canApply bool, note string) string {
+func formatDocumentationProposalMessage(message, proposalID, sourceName, title, url, targetHeading, suggestedText, diff string, canApply bool, note string) string {
 	preview := strings.TrimSpace(suggestedText)
 	if len([]rune(preview)) > 2200 {
 		runes := []rune(preview)
@@ -597,6 +615,7 @@ func formatDocumentationProposalMessage(message, proposalID, sourceName, title, 
 		return "<!-- knowledge-proposal:" + proposalID + " -->\n" +
 			"Подготовил обновление базы знаний. Автоматически не применял.\n\n" +
 			"**Страница:** [" + title + "](" + url + ")\n\n" +
+			optionalTargetHeadingRU(targetHeading) +
 			"**Предлагаемый текст:**\n\n" + preview + "\n\n" +
 			"**Что изменится:**\n```text\n" + readableDiffPreview(diff) + "\n```\n\n" +
 			applyText + optionalNoteRU(note)
@@ -609,9 +628,26 @@ func formatDocumentationProposalMessage(message, proposalID, sourceName, title, 
 	return "<!-- knowledge-proposal:" + proposalID + " -->\n" +
 		"I prepared a knowledge base update. I did not apply it automatically.\n\n" +
 		"**Page:** [" + title + "](" + url + ")\n\n" +
+		optionalTargetHeadingEN(targetHeading) +
 		"**Proposed text:**\n\n" + preview + "\n\n" +
 		"**What will change:**\n```text\n" + readableDiffPreview(diff) + "\n```\n\n" +
 		applyText + optionalNoteEN(note)
+}
+
+func optionalTargetHeadingRU(heading string) string {
+	heading = strings.TrimSpace(heading)
+	if heading == "" {
+		return ""
+	}
+	return "**Раздел:** `" + heading + "`\n\n"
+}
+
+func optionalTargetHeadingEN(heading string) string {
+	heading = strings.TrimSpace(heading)
+	if heading == "" {
+		return ""
+	}
+	return "**Section:** `" + heading + "`\n\n"
 }
 
 func readableDiffPreview(diff string) string {
@@ -668,6 +704,27 @@ func optionalNoteEN(note string) string {
 		return ""
 	}
 	return "\n\n" + note
+}
+
+func firstMarkdownHeading(markdown string) string {
+	for _, line := range strings.Split(markdown, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		heading := strings.TrimSpace(strings.TrimLeft(trimmed, "#"))
+		if heading != "" {
+			return heading
+		}
+	}
+	return ""
+}
+
+func toolErrorFromErr(err error) string {
+	if err == nil {
+		return "empty response"
+	}
+	return err.Error()
 }
 
 func toolErrorMessage(result *websocket.ToolCallResult, err error) string {

@@ -91,14 +91,23 @@ function processInlineFormatting(text: string): React.ReactNode[] {
   return parts.map((part, index) => {
     const link = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
     if (link) {
+      const url = link[2];
       return (
         <Box
           key={index}
           component="a"
-          href={link[2]}
+          href={url}
           target="_blank"
           rel="noreferrer"
-          onClick={(event: React.MouseEvent<HTMLAnchorElement>) => event.stopPropagation()}
+          onClick={(event: React.MouseEvent<HTMLAnchorElement>) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (window.electronAPI?.openExternal) {
+              window.electronAPI.openExternal(url);
+            } else {
+              window.open(url, '_blank', 'noopener,noreferrer');
+            }
+          }}
           sx={{ color: 'primary.light', textDecoration: 'underline', textUnderlineOffset: '2px' }}
         >
           {link[1]}

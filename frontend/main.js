@@ -126,6 +126,22 @@ function createWindow() {
     mainWindow.webContents.send('app-ready');
   });
 
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) {
+      shell.openExternal(url);
+      return { action: 'deny' };
+    }
+    return { action: 'allow' };
+  });
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const isDevAppURL = isDev && url.startsWith('http://localhost:8888');
+    if (/^https?:\/\//i.test(url) && !isDevAppURL) {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
+  });
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:8888');
     // Skip DevTools when running Playwright E2E tests
@@ -1397,8 +1413,8 @@ function renderConfluenceInlineMarkdown(value) {
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 }
 
-function renderConfluenceAppendSection(proposal) {
-  const lines = String(proposal.suggestedText || '').split('\n');
+function renderConfluenceBlocks(markdown) {
+  const lines = String(markdown || '').split('\n');
   const blocks = [];
   let listItems = [];
   const flushList = () => {
@@ -1429,7 +1445,84 @@ function renderConfluenceAppendSection(proposal) {
     blocks.push(`<p>${renderConfluenceInlineMarkdown(trimmed)}</p>`);
   }
   flushList();
-  return `<hr />${blocks.join('')}`;
+  return blocks.join('');
+}
+
+function renderConfluenceAppendSection(proposal) {
+  return `<hr />${renderConfluenceBlocks(proposal.suggestedText)}`;
+}
+
+function decodeBasicHtmlEntities(value) {
+  return String(value || '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function normalizeHeadingText(value) {
+  return decodeBasicHtmlEntities(value)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function firstMarkdownHeading(markdown) {
+  for (const line of String(markdown || '').split('\n')) {
+    const match = line.trim().match(/^#{1,4}\s+(.+)$/);
+    if (match) return match[1].trim();
+  }
+  return '';
+}
+
+function findConfluenceHeadingSection(storage, headingText) {
+  const target = normalizeHeadingText(headingText);
+  if (!target) return null;
+  const headingRegex = /<h([1-6])\b[^>]*>[\s\S]*?<\/h\1>/gi;
+  const headings = [];
+  let match;
+  while ((match = headingRegex.exec(storage)) !== null) {
+    headings.push({
+      index: match.index,
+      end: match.index + match[0].length,
+      level: Number(match[1]),
+      text: normalizeHeadingText(match[0]),
+    });
+  }
+  const headingIndex = headings.findIndex(item => item.text === target || item.text.includes(target) || target.includes(item.text));
+  if (headingIndex === -1) return null;
+  const current = headings[headingIndex];
+  let end = storage.length;
+  for (let i = headingIndex + 1; i < headings.length; i++) {
+    if (headings[i].level <= current.level) {
+      end = headings[i].index;
+      break;
+    }
+  }
+  return { start: current.index, end };
+}
+
+function applyConfluenceEditProposal(currentStorage, proposal) {
+  const targetHeading = String(proposal.targetHeading || firstMarkdownHeading(proposal.suggestedText) || '').trim();
+  const replacement = renderConfluenceBlocks(proposal.suggestedText);
+  if (targetHeading && replacement) {
+    const section = findConfluenceHeadingSection(currentStorage, targetHeading);
+    if (section) {
+      return {
+        storage: `${currentStorage.slice(0, section.start)}${replacement}${currentStorage.slice(section.end)}`,
+        mode: 'replace_section',
+        targetHeading,
+      };
+    }
+  }
+  return {
+    storage: `${currentStorage}${renderConfluenceAppendSection(proposal)}`,
+    mode: 'append',
+    targetHeading,
+  };
 }
 
 function findKnowledgeDocument(source, documentId) {
@@ -1475,7 +1568,7 @@ function sourceSupportsConfluenceWriteBack(source) {
   return source?.type === 'confluence' && source?.confluence?.token;
 }
 
-async function proposeKnowledgeUpdate(sources, query, database, suggestedTextInput, diffInput, searchQueryInput) {
+async function proposeKnowledgeUpdate(sources, query, database, suggestedTextInput, diffInput, searchQueryInput, targetHeadingInput) {
   const readableSources = (sources || []).filter(source => source.enabled && source.permissions?.readDocumentation);
   if (readableSources.length === 0) {
     throw new Error('No enabled knowledge source is available for this database/chat.');
@@ -1509,17 +1602,14 @@ async function proposeKnowledgeUpdate(sources, query, database, suggestedTextInp
     '+Reviewed update proposal.',
   ].join('\n');
   const suggestedText = String(suggestedTextInput || '').trim() || [
-    'As-is:',
-    '- The documentation needs review for the requested update.',
+    '## Database schema documentation update',
     '',
-    'To-be:',
-    '- Add a reviewed note that explains the requested database rule or schema behavior.',
-    '',
-    'Draft update:',
-    `- Request: ${query}`,
     `- Database: ${database || 'current connection'}`,
+    '- Review the live schema and document confirmed tables, columns, keys, indexes, triggers, constraints, and relationships.',
+    '- Mark business semantics that are not visible from the schema as requiring confirmation.',
   ].join('\n');
   const diff = String(diffInput || '').trim() || fallbackDiff;
+  const targetHeading = String(targetHeadingInput || firstMarkdownHeading(suggestedText) || document.title || '').trim();
 
   const proposal = {
     proposalId,
@@ -1534,6 +1624,8 @@ async function proposeKnowledgeUpdate(sources, query, database, suggestedTextInp
     database,
     suggestedText,
     diff,
+    targetHeading,
+    editMode: targetHeading ? 'replace_section' : 'append',
     createdAt: new Date().toISOString(),
   };
   knowledgeUpdateProposals.set(proposalId, proposal);
@@ -1546,6 +1638,8 @@ async function proposeKnowledgeUpdate(sources, query, database, suggestedTextInp
     url: document.url,
     suggested_text: suggestedText,
     diff,
+    target_heading: targetHeading,
+    edit_mode: proposal.editMode,
     can_apply: Boolean(source.permissions?.allowManualWriteBack && sourceSupportsConfluenceWriteBack(source)),
     message: source.permissions?.allowManualWriteBack
       ? ''
@@ -1568,7 +1662,8 @@ async function applyKnowledgeUpdate(proposalId) {
 
   const page = await fetchConfluenceJSON(source, `/content/${encodeURIComponent(proposal.externalId)}?expand=body.storage,version,space,ancestors,history`);
   const currentStorage = page.body?.storage?.value || '';
-  const nextStorage = `${currentStorage}${renderConfluenceAppendSection(proposal)}`;
+  const editResult = applyConfluenceEditProposal(currentStorage, proposal);
+  const nextStorage = editResult.storage;
   const nextVersion = Number(page.version?.number || 0) + 1;
   const url = `${confluenceApiBase(source)}/content/${encodeURIComponent(proposal.externalId)}`;
   const response = await fetch(url, {
@@ -1597,7 +1692,11 @@ async function applyKnowledgeUpdate(proposalId) {
     title: page.title || proposal.title,
     url: proposal.url,
     version: nextVersion,
-    message: 'The knowledge source page was updated. Sync the knowledge source to refresh the local index.',
+    edit_mode: editResult.mode,
+    target_heading: editResult.targetHeading,
+    message: editResult.mode === 'replace_section'
+      ? 'The knowledge source page section was updated. Sync the knowledge source to refresh the local index.'
+      : 'The knowledge source page was updated by appending a new section because no matching section heading was found. Sync the knowledge source to refresh the local index.',
   };
 }
 
@@ -1662,7 +1761,7 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
     if (isKnowledgeSearch) {
       result = searchKnowledgeSources(args.sources || [], args.query || '', args.limit || 8);
     } else if (toolName === 'knowledge.propose_update') {
-      result = await proposeKnowledgeUpdate(args.sources || [], args.query || '', args.database || '', args.suggested_text || args.suggestedText || '', args.diff || '', args.search_query || args.searchQuery || '');
+      result = await proposeKnowledgeUpdate(args.sources || [], args.query || '', args.database || '', args.suggested_text || args.suggestedText || '', args.diff || '', args.search_query || args.searchQuery || '', args.target_heading || args.targetHeading || '');
     } else if (toolName === 'knowledge.apply_update') {
       result = await applyKnowledgeUpdate(args.proposal_id || args.proposalId || '');
     } else if (toolName === 'list_schemas') {
