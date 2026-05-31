@@ -121,6 +121,7 @@ export interface UseAgentMessagesReturn {
   handleSendImproveSQL: (sql: string) => void;
   handleSendExplainSQL: (sql: string, objectLabel?: string) => void;
   handleSendTextMessage: (text: string, chatTitle?: string) => void;
+  handleApplyKnowledgeProposal: (proposalId: string) => void;
   handleSendAnalyzeSchema: () => void;
   handleSendMessage: () => void;
   stopGeneration: () => void;
@@ -454,6 +455,18 @@ export function useAgentMessages({
     [agent.isConnected, ensureChatExists, addUserMessageAndSend, sendViaAgent],
   );
 
+  const handleApplyKnowledgeProposal = useCallback(
+    (proposalId: string) => {
+      const cleanProposalId = proposalId.trim();
+      if (!agent.isConnected || !cleanProposalId) return;
+      const chatId = ensureChatExists('Apply knowledge update');
+      setIsTyping(true);
+      const botMessageId = Date.now().toString();
+      sendViaAgent(`примени proposal ${cleanProposalId}`, chatId, botMessageId);
+    },
+    [agent.isConnected, ensureChatExists, sendViaAgent, setIsTyping],
+  );
+
   const handleSendAnalyzeSchema = useCallback(
     () => {
       if (!agent.isConnected) return;
@@ -575,6 +588,7 @@ export function useAgentMessages({
     handleSendImproveSQL,
     handleSendExplainSQL,
     handleSendTextMessage,
+    handleApplyKnowledgeProposal,
     handleSendAnalyzeSchema,
     handleSendMessage,
     stopGeneration,

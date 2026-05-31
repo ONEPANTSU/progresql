@@ -408,7 +408,7 @@ const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function ChatPanel
         ) : (
           <List sx={{ p: 0 }}>
             {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} isTyping={isTyping} isAgentConnected={agent.isConnected} isDatabaseConnected={isDatabaseConnected} safeMode={agent.securityMode === 'safe'} securityMode={agent.securityMode} connectionId={chatConnectionId} onExplainSQL={agentMessages.handleSendExplainSQL} onApplySQL={handleApplyToEditor} onExecuteQuery={handleExecuteFromChat} onApplyKnowledgeProposal={(proposalId) => agentMessages.handleSendTextMessage(`примени proposal ${proposalId}`)} />
+              <ChatMessage key={message.id} message={message} isTyping={isTyping} isAgentConnected={agent.isConnected} isDatabaseConnected={isDatabaseConnected} safeMode={agent.securityMode === 'safe'} securityMode={agent.securityMode} connectionId={chatConnectionId} onExplainSQL={agentMessages.handleSendExplainSQL} onApplySQL={handleApplyToEditor} onExecuteQuery={handleExecuteFromChat} onApplyKnowledgeProposal={agentMessages.handleApplyKnowledgeProposal} />
             ))}
           </List>
         )}

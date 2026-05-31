@@ -1392,32 +1392,85 @@ function escapeHtml(value) {
 function renderConfluenceAppendSection(proposal) {
   const lines = String(proposal.suggestedText || '').split('\n');
   const body = lines
-    .map(line => line.trim() ? `<p>${escapeHtml(line)}</p>` : '<p><br /></p>')
+    .map(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return '<p><br /></p>';
+      const heading = trimmed.match(/^(#{1,4})\s+(.+)$/);
+      if (heading) {
+        const level = Math.min(4, heading[1].length + 1);
+        return `<h${level}>${escapeHtml(heading[2])}</h${level}>`;
+      }
+      const bullet = trimmed.match(/^[-*]\s+(.+)$/);
+      if (bullet) {
+        return `<ul><li>${escapeHtml(bullet[1])}</li></ul>`;
+      }
+      return `<p>${escapeHtml(trimmed)}</p>`;
+    })
     .join('');
-  return `<hr /><h2>ProgreSQL documentation update</h2>${body}`;
+  return `<hr />${body}`;
 }
 
 function findKnowledgeDocument(source, documentId) {
   return (source.index?.documents || []).find(doc => doc.id === documentId || doc.externalId === documentId);
 }
 
+function scoreKnowledgeDocumentForUpdate(document, query, searchChunks) {
+  const title = String(document?.title || '').toLowerCase();
+  const url = String(document?.url || '').toLowerCase();
+  const haystack = `${title} ${url}`;
+  let score = 0;
+  if (/документац|documentation|schema|схем|table|таблиц|entity|entities|сущност|database|баз[аы]? данных/.test(haystack)) score += 80;
+  if (/postgres|progressql|sql|db|бд/.test(haystack)) score += 20;
+  if (/rules|rule|правил|team|команд|policy|политик/.test(haystack)) score -= 60;
+  const queryWords = String(query || '').toLowerCase().split(/\s+/).filter(word => word.length > 3);
+  for (const word of queryWords) {
+    if (haystack.includes(word)) score += 3;
+  }
+  for (const chunk of searchChunks || []) {
+    if (chunk.documentId === document.id || chunk.documentId === document.externalId) {
+      score += Math.max(0, 30 - Number(chunk.rank || 0) * 5);
+    }
+  }
+  return score;
+}
+
+function chooseKnowledgeDocumentForUpdate(source, query, searchChunks) {
+  const documents = source?.index?.documents || [];
+  if (documents.length === 0) return undefined;
+  let best = documents[0];
+  let bestScore = Number.NEGATIVE_INFINITY;
+  for (const document of documents) {
+    const score = scoreKnowledgeDocumentForUpdate(document, query, searchChunks);
+    if (score > bestScore) {
+      best = document;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
 function sourceSupportsConfluenceWriteBack(source) {
   return source?.type === 'confluence' && source?.confluence?.token;
 }
 
-async function proposeKnowledgeUpdate(sources, query, database, suggestedTextInput, diffInput) {
+async function proposeKnowledgeUpdate(sources, query, database, suggestedTextInput, diffInput, searchQueryInput) {
   const readableSources = (sources || []).filter(source => source.enabled && source.permissions?.readDocumentation);
   if (readableSources.length === 0) {
     throw new Error('No enabled knowledge source is available for this database/chat.');
   }
 
-  const search = searchKnowledgeSources(readableSources, query, 5);
+  const searchQuery = String(searchQueryInput || query || '').trim();
+  const search = searchKnowledgeSources(readableSources, searchQuery, 5);
+  search.chunks = (search.chunks || []).map((chunk, rank) => ({ ...chunk, rank }));
   const topChunk = search.chunks[0];
   let source = topChunk ? readableSources.find(s => s.id === topChunk.sourceId) : readableSources[0];
-  let document = topChunk && source ? findKnowledgeDocument(source, topChunk.documentId) : undefined;
+  let document = source ? chooseKnowledgeDocumentForUpdate(source, searchQuery, search.chunks) : undefined;
+  if (!document && topChunk && source) {
+    document = findKnowledgeDocument(source, topChunk.documentId);
+  }
   if (!document) {
     source = readableSources.find(s => (s.index?.documents || []).length > 0) || source;
-    document = source?.index?.documents?.[0];
+    document = source ? chooseKnowledgeDocumentForUpdate(source, searchQuery, search.chunks) : undefined;
   }
   if (!source || !document) {
     throw new Error('Knowledge source has no synced documents. Sync it first.');
@@ -1522,7 +1575,7 @@ async function applyKnowledgeUpdate(proposalId) {
     title: page.title || proposal.title,
     url: proposal.url,
     version: nextVersion,
-    message: 'The page was updated in Confluence. Sync the knowledge source to refresh the local index.',
+    message: 'The knowledge source page was updated. Sync the knowledge source to refresh the local index.',
   };
 }
 
@@ -1587,7 +1640,7 @@ ipcMain.handle('execute-tool-request', async (event, toolRequest) => {
     if (isKnowledgeSearch) {
       result = searchKnowledgeSources(args.sources || [], args.query || '', args.limit || 8);
     } else if (toolName === 'knowledge.propose_update') {
-      result = await proposeKnowledgeUpdate(args.sources || [], args.query || '', args.database || '', args.suggested_text || args.suggestedText || '', args.diff || '');
+      result = await proposeKnowledgeUpdate(args.sources || [], args.query || '', args.database || '', args.suggested_text || args.suggestedText || '', args.diff || '', args.search_query || args.searchQuery || '');
     } else if (toolName === 'knowledge.apply_update') {
       result = await applyKnowledgeUpdate(args.proposal_id || args.proposalId || '');
     } else if (toolName === 'list_schemas') {

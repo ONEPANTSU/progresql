@@ -256,6 +256,10 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
+    if (/^\s*<!--.*-->\s*$/.test(line)) {
+      continue;
+    }
+
     // -- Markdown table ------------------------------------------------------
     // Detect a table: header row, separator row, then data rows.
     if (
@@ -437,12 +441,14 @@ const HighlightedSQLPre: React.FC<{ sql: string }> = ({ sql }) => {
 };
 
 function extractKnowledgeProposalId(text: string): string | null {
-  const match = text.match(/Proposal ID:\*\*\s*`?(kup-[a-f0-9]+)`?/i) || text.match(/\b(kup-[a-f0-9]+)\b/i);
+  const match = text.match(/<!--\s*knowledge-proposal:\s*(kup-[a-f0-9]+)\s*-->/i) ||
+    text.match(/Proposal ID:\*\*\s*`?(kup-[a-f0-9]+)`?/i);
   return match ? match[1] : null;
 }
 
 function canApplyKnowledgeProposal(text: string): boolean {
   return Boolean(extractKnowledgeProposalId(text)) &&
+    /нажми кнопку|use the apply button/i.test(text) &&
     !/сначала включи|first enable/i.test(text);
 }
 

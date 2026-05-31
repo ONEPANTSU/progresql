@@ -240,8 +240,10 @@ func (s *IntentDetectionStep) handleDocumentationProposal(ctx context.Context, p
 	}
 
 	proposalDraft := s.buildDocumentationProposalDraft(ctx, pctx)
+	searchQuery := documentationUpdateSearchQuery(pctx.UserMessage, pctx.Database)
 	args, _ := json.Marshal(map[string]any{
 		"query":               pctx.UserMessage,
+		"search_query":        searchQuery,
 		"database":            pctx.Database,
 		"disabled_source_ids": pctx.DisabledKnowledgeSourceIDs,
 		"suggested_text":      proposalDraft.SuggestedText,
@@ -288,8 +290,9 @@ type documentationProposalDraft struct {
 
 func (s *IntentDetectionStep) buildDocumentationProposalDraft(ctx context.Context, pctx *agent.PipelineContext) documentationProposalDraft {
 	fallback := fallbackDocumentationProposalDraft(pctx.UserMessage, pctx.Database)
+	schemaSummary := s.collectDocumentationSchemaSummary(pctx)
 	searchArgs, _ := json.Marshal(map[string]any{
-		"query":               pctx.UserMessage,
+		"query":               documentationUpdateSearchQuery(pctx.UserMessage, pctx.Database),
 		"database":            pctx.Database,
 		"limit":               4,
 		"disabled_source_ids": pctx.DisabledKnowledgeSourceIDs,
@@ -322,12 +325,16 @@ func (s *IntentDetectionStep) buildDocumentationProposalDraft(ctx context.Contex
 		"Return ONLY valid JSON with fields: as_is, to_be, suggested_text, diff.\n" +
 		"Rules:\n" +
 		"- Do not claim the change was applied.\n" +
-		"- suggested_text must be ready to append to a documentation page after human approval.\n" +
+		"- Use the live PostgreSQL schema summary as the source of truth for tables, columns, keys, indexes, triggers, and constraints.\n" +
+		"- Do not invent business rules. If a business rule is missing, say what must be confirmed.\n" +
+		"- suggested_text must be ready to append to a database documentation page after human approval.\n" +
+		"- suggested_text must contain only the final documentation section, not as-is/to-be analysis.\n" +
 		"- diff must be a concise unified diff-style preview.\n" +
-		"- If the request is too vague, propose a small useful documentation note and state what is missing.\n" +
+		"- If the request is vague, document the actual schema structure and explicitly list unknown business semantics.\n" +
 		"- Answer in the same language as the user.\n\n" +
 		"User request: " + pctx.UserMessage + "\n" +
 		"Database: " + pctx.Database + "\n\n" +
+		"Live PostgreSQL schema summary:\n" + schemaSummary + "\n\n" +
 		"Current documentation excerpts:\n" + excerpts.String()
 
 	req := llm.ChatRequest{
@@ -358,11 +365,7 @@ func (s *IntentDetectionStep) buildDocumentationProposalDraft(ctx context.Contex
 	if suggested == "" {
 		return fallback
 	}
-	asIs := strings.TrimSpace(llmDraft.AsIs)
-	toBe := strings.TrimSpace(llmDraft.ToBe)
-	if asIs != "" || toBe != "" {
-		suggested = "As-is:\n" + emptyDash(asIs) + "\n\nTo-be:\n" + emptyDash(toBe) + "\n\n" + suggested
-	}
+	suggested = stripProposalAnalysisSections(suggested)
 	diff := strings.TrimSpace(llmDraft.Diff)
 	if diff == "" {
 		diff = fallback.Diff
@@ -411,6 +414,89 @@ func (s *IntentDetectionStep) handleDocumentationApply(ctx context.Context, pctx
 	pctx.Result.Explanation = message
 	pctx.SkipRemaining = true
 	return nil
+}
+
+func (s *IntentDetectionStep) collectDocumentationSchemaSummary(pctx *agent.PipelineContext) string {
+	if pctx.ToolDispatcher == nil {
+		return "Schema is unavailable: no local tool dispatcher."
+	}
+
+	schemasResult, err := pctx.DispatchTool(tools.ToolListSchemas, json.RawMessage(`{}`))
+	if err != nil || !schemasResult.Success {
+		if err != nil {
+			return "Schema is unavailable: " + err.Error()
+		}
+		return "Schema is unavailable: " + schemasResult.Error
+	}
+
+	schemas := parseSchemaNames(schemasResult.Data)
+	if len(schemas) == 0 {
+		schemas = []string{"public"}
+	}
+
+	const maxTables = 12
+	var schemaCtx SchemaContext
+	for _, schema := range schemas {
+		if len(schemaCtx.Tables) >= maxTables {
+			break
+		}
+		tablesArg, _ := json.Marshal(map[string]string{"schema": schema})
+		tablesResult, err := pctx.DispatchTool(tools.ToolListTables, tablesArg)
+		if err != nil || !tablesResult.Success {
+			continue
+		}
+		tableNames, err := parseTableNames(tablesResult.Data)
+		if err != nil {
+			continue
+		}
+		for _, tableName := range tableNames {
+			if len(schemaCtx.Tables) >= maxTables {
+				break
+			}
+			descArg, _ := json.Marshal(map[string]string{"schema": schema, "table": tableName})
+			descResult, err := pctx.DispatchTool(tools.ToolDescribeTable, descArg)
+			if err != nil || !descResult.Success {
+				continue
+			}
+			schemaCtx.Tables = append(schemaCtx.Tables, TableInfo{
+				Schema:  schema,
+				Table:   tableName,
+				Details: descResult.Data,
+			})
+		}
+	}
+
+	if len(schemaCtx.Tables) == 0 {
+		return "Schema has no described tables."
+	}
+	return buildSchemaDescription(&schemaCtx)
+}
+
+func documentationUpdateSearchQuery(message, database string) string {
+	db := strings.TrimSpace(database)
+	parts := []string{"database schema documentation tables columns relationships indexes triggers constraints entities"}
+	if db != "" {
+		parts = append(parts, db)
+	}
+	msg := strings.TrimSpace(message)
+	if msg != "" {
+		parts = append(parts, msg)
+	}
+	return strings.Join(parts, " ")
+}
+
+func stripProposalAnalysisSections(value string) string {
+	trimmed := strings.TrimSpace(value)
+	lower := strings.ToLower(trimmed)
+	markers := []string{"draft update:", "обновление документации", "## обновление документации", "## database schema", "## database documentation"}
+	if strings.HasPrefix(lower, "as-is:") || strings.HasPrefix(lower, "as is:") || strings.HasPrefix(lower, "как есть:") {
+		for _, marker := range markers {
+			if idx := strings.Index(lower, marker); idx > 0 {
+				return strings.TrimSpace(trimmed[idx:])
+			}
+		}
+	}
+	return trimmed
 }
 
 func isDocumentationWriteRequest(message string) bool {
@@ -465,15 +551,11 @@ func fallbackDocumentationProposalDraft(query, database string) documentationPro
 	if db == "" {
 		db = "current database"
 	}
-	suggested := "As-is:\n" +
-		"- The documentation needs review for the requested update.\n\n" +
-		"To-be:\n" +
-		"- Add a reviewed note that explains the requested database rule or schema behavior.\n\n" +
-		"Draft update:\n" +
-		"- Request: " + query + "\n" +
+	suggested := "## Database schema documentation update\n\n" +
 		"- Database: " + db + "\n" +
-		"- Replace this draft with the exact business rule, schema note, or operational detail after review."
-	diff := "--- documentation\n+++ documentation\n+\n+## Proposed documentation update\n+Request: " + query + "\n+Database: " + db + "\n+Review and replace this draft before applying."
+		"- Review the live schema and add confirmed descriptions for tables, columns, keys, relationships, triggers, and constraints.\n" +
+		"- Business semantics that are not visible in the schema must be confirmed before publishing."
+	diff := "--- documentation\n+++ documentation\n+\n+## Database schema documentation update\n+Database: " + db + "\n+Add reviewed schema descriptions and mark unknown business semantics for confirmation."
 	return documentationProposalDraft{SuggestedText: suggested, Diff: diff}
 }
 
@@ -519,9 +601,8 @@ func formatDocumentationProposalMessage(message, proposalID, sourceName, title, 
 		if canApply {
 			applyText = "Я пока не применил изменения. Проверь diff и нажми кнопку применения в чате, если всё ок."
 		}
-		return "Подготовил proposal для обновления базы знаний, но не применял его автоматически.\n\n" +
-			"**Proposal ID:** `" + proposalID + "`\n" +
-			"**Источник:** " + sourceName + "\n" +
+		return "<!-- knowledge-proposal:" + proposalID + " -->\n" +
+			"Подготовил обновление базы знаний. Автоматически не применял.\n\n" +
 			"**Страница:** [" + title + "](" + url + ")\n\n" +
 			"**Предлагаемый текст:**\n\n" + preview + "\n\n" +
 			"**Preview diff:**\n```diff\n" + diff + "\n```\n\n" +
@@ -532,9 +613,8 @@ func formatDocumentationProposalMessage(message, proposalID, sourceName, title, 
 	if canApply {
 		applyText = "I have not applied the changes yet. Review the diff and use the apply button in chat if it looks right."
 	}
-	return "I prepared a knowledge base update proposal, but did not apply it automatically.\n\n" +
-		"**Proposal ID:** `" + proposalID + "`\n" +
-		"**Source:** " + sourceName + "\n" +
+	return "<!-- knowledge-proposal:" + proposalID + " -->\n" +
+		"I prepared a knowledge base update. I did not apply it automatically.\n\n" +
 		"**Page:** [" + title + "](" + url + ")\n\n" +
 		"**Proposed text:**\n\n" + preview + "\n\n" +
 		"**Preview diff:**\n```diff\n" + diff + "\n```\n\n" +
@@ -543,11 +623,11 @@ func formatDocumentationProposalMessage(message, proposalID, sourceName, title, 
 
 func formatDocumentationAppliedMessage(message, proposalID, title, url string, version int, note string) string {
 	if looksRussian(message) {
-		return "Готово, применил proposal `" + proposalID + "` к базе знаний.\n\n" +
+		return "Готово, применил обновление к базе знаний.\n\n" +
 			"**Страница:** [" + title + "](" + url + ")\n" +
 			fmt.Sprintf("**Версия:** `%d`", version) + optionalNoteRU(note)
 	}
-	return "Done, I applied proposal `" + proposalID + "` to the knowledge base.\n\n" +
+	return "Done, I applied the update to the knowledge base.\n\n" +
 		"**Page:** [" + title + "](" + url + ")\n" +
 		fmt.Sprintf("**Version:** `%d`", version) + optionalNoteEN(note)
 }

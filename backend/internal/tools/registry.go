@@ -198,8 +198,9 @@ func (r *Registry) registerDefaults() {
 		Parameters: mustJSON(paramSchema{
 			Type: "object",
 			Properties: map[string]propSchema{
-				"query":    {Type: "string", Description: "User request describing what documentation should be updated"},
-				"database": {Type: "string", Description: "Current database name"},
+				"query":        {Type: "string", Description: "User request describing what documentation should be updated"},
+				"search_query": {Type: "string", Description: "Search query used to select the most relevant documentation page"},
+				"database":     {Type: "string", Description: "Current database name"},
 			},
 			Required: []string{"query"},
 		}),
