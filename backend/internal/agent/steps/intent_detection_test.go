@@ -237,6 +237,52 @@ func TestDocumentationApplyProposalID(t *testing.T) {
 	}
 }
 
+func TestDocumentationWriteFollowup(t *testing.T) {
+	history := []llm.Message{
+		{Role: "user", Content: "актуализируй мою базу знаний"},
+		{Role: "assistant", Content: "<!-- knowledge-proposal:kup-1234abcd --> Подготовил обновление базы знаний."},
+	}
+	if !isDocumentationWriteFollowup("нет, добавь инфу о всех таблицах", history) {
+		t.Fatal("expected table documentation follow-up to stay in documentation flow")
+	}
+	if isDocumentationWriteFollowup("покажи все таблицы", history) {
+		t.Fatal("read-only table request should not become documentation write follow-up")
+	}
+}
+
+func TestFallbackDocumentationProposalUsesSchemaSummary(t *testing.T) {
+	schemaSummary := "Table: public.users\n" +
+		"  Columns: [\n" +
+		"    {\n" +
+		"      \"name\": \"id\",\n" +
+		"      \"type\": \"uuid\",\n" +
+		"      \"nullable\": false\n" +
+		"    },\n" +
+		"    {\n" +
+		"      \"name\": \"email\",\n" +
+		"      \"type\": \"text\",\n" +
+		"      \"nullable\": false\n" +
+		"    }\n" +
+		"  ]\n" +
+		"  Indexes: [\n" +
+		"    {\n" +
+		"      \"name\": \"users_email_key\",\n" +
+		"      \"columns\": [\"email\"],\n" +
+		"      \"unique\": true\n" +
+		"    }\n" +
+		"  ]\n\n"
+	draft := fallbackDocumentationProposalDraft("добавь инфу о всех таблицах", "progressql", schemaSummary)
+	if !strings.Contains(draft.SuggestedText, "#### `public.users`") {
+		t.Fatalf("expected table section in fallback, got: %s", draft.SuggestedText)
+	}
+	if !strings.Contains(draft.SuggestedText, "`email` (text), required") {
+		t.Fatalf("expected column details in fallback, got: %s", draft.SuggestedText)
+	}
+	if !strings.Contains(draft.Diff, "+#### `public.users`") {
+		t.Fatalf("expected schema diff lines, got: %s", draft.Diff)
+	}
+}
+
 func TestIntentDetection_EmptyMessage(t *testing.T) {
 	pctx := agent.NewPipelineContext()
 	pctx.RequestID = "req-test"

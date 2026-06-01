@@ -44,7 +44,7 @@ func (s *IntentDetectionStep) Execute(ctx context.Context, pctx *agent.PipelineC
 		pctx.Logger.Info("intent detected", zap.String("intent", IntentKnowledge), zap.String("reason", "documentation_apply_request"))
 		return s.handleDocumentationApply(ctx, pctx, proposalID)
 	}
-	if isDocumentationWriteRequest(msg) {
+	if isDocumentationWriteRequest(msg) || isDocumentationWriteFollowup(msg, pctx.ConversationHistory) {
 		pctx.Set(ContextKeyIntent, IntentKnowledge)
 		pctx.Logger.Info("intent detected", zap.String("intent", IntentKnowledge), zap.String("reason", "documentation_write_request"))
 		return s.handleDocumentationProposal(ctx, pctx)
@@ -293,8 +293,8 @@ type documentationProposalDraft struct {
 }
 
 func (s *IntentDetectionStep) buildDocumentationProposalDraft(ctx context.Context, pctx *agent.PipelineContext) documentationProposalDraft {
-	fallback := fallbackDocumentationProposalDraft(pctx.UserMessage, pctx.Database)
 	schemaSummary := s.collectDocumentationSchemaSummary(pctx)
+	fallback := fallbackDocumentationProposalDraft(pctx.UserMessage, pctx.Database, schemaSummary)
 	searchArgs, _ := json.Marshal(map[string]any{
 		"query":               documentationUpdateSearchQuery(pctx.UserMessage, pctx.Database),
 		"database":            pctx.Database,
@@ -451,7 +451,7 @@ func (s *IntentDetectionStep) collectDocumentationSchemaSummary(pctx *agent.Pipe
 		schemas = []string{"public"}
 	}
 
-	const maxTables = 12
+	const maxTables = 60
 	var schemaCtx SchemaContext
 	for _, schema := range schemas {
 		if len(schemaCtx.Tables) >= maxTables {
@@ -523,11 +523,16 @@ func isDocumentationWriteRequest(message string) bool {
 	}
 
 	hasWriteVerb := strings.Contains(msg, "актуализ") ||
+		strings.Contains(msg, "добав") ||
 		strings.Contains(msg, "обнов") ||
 		strings.Contains(msg, "запиш") ||
 		strings.Contains(msg, "запис") ||
+		strings.Contains(msg, "дополни") ||
+		strings.Contains(msg, "дополн") ||
 		strings.Contains(msg, "write") ||
 		strings.Contains(msg, "update") ||
+		strings.Contains(msg, "add") ||
+		strings.Contains(msg, "extend") ||
 		strings.Contains(msg, "actualize")
 	hasKnowledgeTarget := strings.Contains(msg, "баз") ||
 		strings.Contains(msg, "бз") ||
@@ -540,6 +545,48 @@ func isDocumentationWriteRequest(message string) bool {
 		strings.Contains(msg, "wiki")
 
 	return hasWriteVerb && hasKnowledgeTarget
+}
+
+func isDocumentationWriteFollowup(message string, history []llm.Message) bool {
+	msg := strings.ToLower(strings.TrimSpace(message))
+	if msg == "" {
+		return false
+	}
+	hasWriteVerb := strings.Contains(msg, "добав") ||
+		strings.Contains(msg, "дополни") ||
+		strings.Contains(msg, "дополн") ||
+		strings.Contains(msg, "исправ") ||
+		strings.Contains(msg, "перепиш") ||
+		strings.Contains(msg, "опиши") ||
+		strings.Contains(msg, "add") ||
+		strings.Contains(msg, "extend") ||
+		strings.Contains(msg, "rewrite") ||
+		strings.Contains(msg, "describe")
+	hasDocSubject := strings.Contains(msg, "таблиц") ||
+		strings.Contains(msg, "сущност") ||
+		strings.Contains(msg, "колон") ||
+		strings.Contains(msg, "схем") ||
+		strings.Contains(msg, "trigger") ||
+		strings.Contains(msg, "триггер") ||
+		strings.Contains(msg, "table") ||
+		strings.Contains(msg, "entity") ||
+		strings.Contains(msg, "schema") ||
+		strings.Contains(msg, "column")
+	if !hasWriteVerb || !hasDocSubject {
+		return false
+	}
+	for i := len(history) - 1; i >= 0 && i >= len(history)-6; i-- {
+		content := strings.ToLower(history[i].Content)
+		if strings.Contains(content, "knowledge-proposal:") ||
+			strings.Contains(content, "базу знаний") ||
+			strings.Contains(content, "база знаний") ||
+			strings.Contains(content, "knowledge base") ||
+			strings.Contains(content, "документац") ||
+			strings.Contains(content, "documentation") {
+			return true
+		}
+	}
+	return false
 }
 
 func documentationApplyProposalID(message string) (string, bool) {
@@ -563,18 +610,202 @@ func documentationApplyProposalID(message string) (string, bool) {
 	return "", false
 }
 
-func fallbackDocumentationProposalDraft(query, database string) documentationProposalDraft {
+func fallbackDocumentationProposalDraft(query, database, schemaSummary string) documentationProposalDraft {
 	db := strings.TrimSpace(database)
 	if db == "" {
 		db = "current database"
 	}
-	targetHeading := "Database schema documentation update"
-	suggested := "## " + targetHeading + "\n\n" +
-		"- Database: " + db + "\n" +
-		"- Review the live schema and add confirmed descriptions for tables, columns, keys, relationships, triggers, and constraints.\n" +
-		"- Business semantics that are not visible in the schema must be confirmed before publishing."
-	diff := "--- documentation\n+++ documentation\n+\n+## Database schema documentation update\n+Database: " + db + "\n+Add reviewed schema descriptions and mark unknown business semantics for confirmation."
+	targetHeading := "Database schema documentation"
+	suggested := buildSchemaDocumentationFallback(db, schemaSummary)
+	diff := "--- documentation\n+++ documentation\n+\n" + diffLinesFromMarkdown(suggested, 80)
 	return documentationProposalDraft{SuggestedText: suggested, Diff: diff, TargetHeading: targetHeading}
+}
+
+func buildSchemaDocumentationFallback(database, schemaSummary string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "## Database schema documentation\n\n")
+	fmt.Fprintf(&b, "**Database:** `%s`\n\n", database)
+	b.WriteString("### Tables and entities\n\n")
+	tables := parseTablesFromSchemaSummary(schemaSummary)
+	if len(tables) == 0 {
+		b.WriteString("- Schema details are unavailable. Sync or connect the database and regenerate this proposal.\n")
+		return b.String()
+	}
+	for _, table := range tables {
+		fmt.Fprintf(&b, "#### `%s`\n\n", table.Name)
+		b.WriteString("Purpose: _Confirm the business meaning before publishing._\n\n")
+		if len(table.Columns) > 0 {
+			b.WriteString("Columns:\n")
+			for _, column := range table.Columns {
+				fmt.Fprintf(&b, "- `%s`", column.Name)
+				if column.Type != "" {
+					fmt.Fprintf(&b, " (%s)", column.Type)
+				}
+				if !column.Nullable {
+					b.WriteString(", required")
+				}
+				if column.Default != "" {
+					fmt.Fprintf(&b, ", default `%s`", column.Default)
+				}
+				b.WriteString(" — _Describe business meaning._\n")
+			}
+			b.WriteString("\n")
+		}
+		if len(table.Indexes) > 0 {
+			b.WriteString("Indexes:\n")
+			for _, index := range table.Indexes {
+				fmt.Fprintf(&b, "- `%s`", index.Name)
+				if len(index.Columns) > 0 {
+					fmt.Fprintf(&b, " on `%s`", strings.Join(index.Columns, "`, `"))
+				}
+				if index.Unique {
+					b.WriteString(" (unique)")
+				}
+				b.WriteString("\n")
+			}
+			b.WriteString("\n")
+		}
+		if len(table.ForeignKeys) > 0 {
+			b.WriteString("Relationships:\n")
+			for _, fk := range table.ForeignKeys {
+				fmt.Fprintf(&b, "- `%s` references `%s`\n", fk.Name, fk.ReferencedTable)
+			}
+			b.WriteString("\n")
+		}
+	}
+	b.WriteString("### Notes requiring confirmation\n\n")
+	b.WriteString("- Business rules, statuses, lifecycle definitions, and ownership semantics are not fully visible from the schema and must be confirmed by the team.\n")
+	return b.String()
+}
+
+type fallbackTableDoc struct {
+	Name        string
+	Columns     []fallbackColumnDoc
+	Indexes     []fallbackIndexDoc
+	ForeignKeys []fallbackForeignKeyDoc
+}
+
+type fallbackColumnDoc struct {
+	Name     string
+	Type     string
+	Nullable bool
+	Default  string
+}
+
+type fallbackIndexDoc struct {
+	Name    string
+	Columns []string
+	Unique  bool
+}
+
+type fallbackForeignKeyDoc struct {
+	Name            string
+	ReferencedTable string
+}
+
+func parseTablesFromSchemaSummary(schemaSummary string) []fallbackTableDoc {
+	blocks := strings.Split(schemaSummary, "\n\n")
+	tables := make([]fallbackTableDoc, 0)
+	for _, block := range blocks {
+		lines := strings.Split(strings.TrimSpace(block), "\n")
+		if len(lines) == 0 || !strings.HasPrefix(lines[0], "Table: ") {
+			continue
+		}
+		table := fallbackTableDoc{Name: strings.TrimSpace(strings.TrimPrefix(lines[0], "Table: "))}
+		table.Columns = parseFallbackColumns(extractSchemaSummaryJSON(block, "Columns"))
+		table.Indexes = parseFallbackIndexes(extractSchemaSummaryJSON(block, "Indexes"))
+		table.ForeignKeys = parseFallbackForeignKeys(extractSchemaSummaryJSON(block, "Foreign Keys"))
+		tables = append(tables, table)
+	}
+	return tables
+}
+
+func extractSchemaSummaryJSON(block, label string) string {
+	prefix := "  " + label + ": "
+	start := strings.Index(block, prefix)
+	if start < 0 {
+		return ""
+	}
+	start += len(prefix)
+	rest := block[start:]
+	next := len(rest)
+	for _, marker := range []string{
+		"\n  Columns: ",
+		"\n  Indexes: ",
+		"\n  Foreign Keys: ",
+		"\n  CHECK Constraints",
+		"\n  Triggers: ",
+		"\n  Key Constraints",
+		"\n  ENUM Columns",
+	} {
+		if idx := strings.Index(rest, marker); idx >= 0 && idx < next {
+			next = idx
+		}
+	}
+	return strings.TrimSpace(rest[:next])
+}
+
+func parseFallbackColumns(raw string) []fallbackColumnDoc {
+	var rows []struct {
+		Name     string  `json:"name"`
+		Type     string  `json:"type"`
+		Nullable bool    `json:"nullable"`
+		Default  *string `json:"default"`
+	}
+	if err := json.Unmarshal([]byte(raw), &rows); err != nil {
+		return nil
+	}
+	out := make([]fallbackColumnDoc, 0, len(rows))
+	for _, row := range rows {
+		def := ""
+		if row.Default != nil {
+			def = *row.Default
+		}
+		out = append(out, fallbackColumnDoc{Name: row.Name, Type: row.Type, Nullable: row.Nullable, Default: def})
+	}
+	return out
+}
+
+func parseFallbackIndexes(raw string) []fallbackIndexDoc {
+	var rows []struct {
+		Name    string   `json:"name"`
+		Columns []string `json:"columns"`
+		Unique  bool     `json:"unique"`
+	}
+	if err := json.Unmarshal([]byte(raw), &rows); err != nil {
+		return nil
+	}
+	out := make([]fallbackIndexDoc, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, fallbackIndexDoc{Name: row.Name, Columns: row.Columns, Unique: row.Unique})
+	}
+	return out
+}
+
+func parseFallbackForeignKeys(raw string) []fallbackForeignKeyDoc {
+	var rows []struct {
+		Name            string `json:"name"`
+		ReferencedTable string `json:"referenced_table"`
+	}
+	if err := json.Unmarshal([]byte(raw), &rows); err != nil {
+		return nil
+	}
+	out := make([]fallbackForeignKeyDoc, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, fallbackForeignKeyDoc{Name: row.Name, ReferencedTable: row.ReferencedTable})
+	}
+	return out
+}
+
+func diffLinesFromMarkdown(markdown string, maxLines int) string {
+	lines := strings.Split(strings.TrimSpace(markdown), "\n")
+	if maxLines > 0 && len(lines) > maxLines {
+		lines = append(lines[:maxLines], "...")
+	}
+	for i, line := range lines {
+		lines[i] = "+" + line
+	}
+	return strings.Join(lines, "\n")
 }
 
 func documentationWriteBackUnavailableMessage(message string) string {
@@ -617,7 +848,7 @@ func formatDocumentationProposalMessage(message, proposalID, sourceName, title, 
 			"**Страница:** [" + title + "](" + url + ")\n\n" +
 			optionalTargetHeadingRU(targetHeading) +
 			"**Предлагаемый текст:**\n\n" + preview + "\n\n" +
-			"**Что изменится:**\n```text\n" + readableDiffPreview(diff) + "\n```\n\n" +
+			"**Что изменится:**\n```diff\n" + readableDiffPreview(diff) + "\n```\n\n" +
 			applyText + optionalNoteRU(note)
 	}
 
@@ -630,7 +861,7 @@ func formatDocumentationProposalMessage(message, proposalID, sourceName, title, 
 		"**Page:** [" + title + "](" + url + ")\n\n" +
 		optionalTargetHeadingEN(targetHeading) +
 		"**Proposed text:**\n\n" + preview + "\n\n" +
-		"**What will change:**\n```text\n" + readableDiffPreview(diff) + "\n```\n\n" +
+		"**What will change:**\n```diff\n" + readableDiffPreview(diff) + "\n```\n\n" +
 		applyText + optionalNoteEN(note)
 }
 

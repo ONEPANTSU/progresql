@@ -278,6 +278,13 @@ describe('ChatMessage', () => {
       expect(screen.getByText('console.log(1);')).toBeInTheDocument();
     });
 
+    it('renders diff code blocks with added and removed lines', () => {
+      const message = makeMessage({ text: '```diff\n+ added line\n- removed line\n```' });
+      render(<ChatMessage {...defaultProps} message={message} />);
+      expect(screen.getByText('added line')).toBeInTheDocument();
+      expect(screen.getByText('removed line')).toBeInTheDocument();
+    });
+
     it('passes onApplySQL to SQLBlock as onApply', () => {
       const onApplySQL = jest.fn();
       const message = makeMessage({ text: '```sql\nSELECT 1\n```' });

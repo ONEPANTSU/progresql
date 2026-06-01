@@ -262,6 +262,55 @@ const MarkdownTable: React.FC<MarkdownTableProps> = ({ headers, rows }) => (
 
 /* -- End markdown table helpers -------------------------------------------- */
 
+const DiffPreviewBlock: React.FC<{ diff: string }> = ({ diff }) => {
+  const lines = diff.split('\n');
+  return (
+    <Box
+      sx={{
+        my: 1,
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        overflow: 'hidden',
+        bgcolor: 'rgba(15, 23, 42, 0.35)',
+        fontFamily: 'monospace',
+        fontSize: '0.8125rem',
+        lineHeight: 1.55,
+      }}
+    >
+      {lines.map((line, idx) => {
+        const isAdd = line.startsWith('+');
+        const isRemove = line.startsWith('-');
+        return (
+          <Box
+            key={idx}
+            component="div"
+            sx={{
+              display: 'flex',
+              gap: 1,
+              px: 1,
+              py: 0.25,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              color: isAdd ? '#bbf7d0' : isRemove ? '#fecaca' : 'text.primary',
+              bgcolor: isAdd ? 'rgba(34, 197, 94, 0.12)' : isRemove ? 'rgba(239, 68, 68, 0.12)' : 'transparent',
+              borderLeft: '3px solid',
+              borderLeftColor: isAdd ? '#22c55e' : isRemove ? '#ef4444' : 'transparent',
+            }}
+          >
+            <Box component="span" sx={{ width: 12, flexShrink: 0, fontWeight: 700 }}>
+              {isAdd ? '+' : isRemove ? '-' : ' '}
+            </Box>
+            <Box component="span" sx={{ minWidth: 0 }}>
+              {isAdd || isRemove ? line.slice(1).trimStart() : line}
+            </Box>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+};
+
 interface RenderMarkdownProps {
   text: string;
   isTyping?: boolean;
@@ -376,6 +425,7 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
       }
       const codeContent = codeLines.join('\n');
       const isSQL = language === 'sql' || isSQLCode(codeContent);
+      const isDiff = language === 'diff' || codeLines.some(codeLine => /^[+-]\s?/.test(codeLine));
 
       if (isSQL) {
         elements.push(
@@ -393,6 +443,8 @@ const RenderMarkdown: React.FC<RenderMarkdownProps> = ({
             onExecute={onExecuteQuery}
           />
         );
+      } else if (isDiff) {
+        elements.push(<DiffPreviewBlock key={i} diff={codeContent} />);
       } else {
         elements.push(
           <Box key={i} sx={{ my: 1 }}>
