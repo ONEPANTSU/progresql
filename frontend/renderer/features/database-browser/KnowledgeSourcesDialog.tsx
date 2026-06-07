@@ -106,6 +106,10 @@ function createEmptySource(): KnowledgeSource {
       maxPageSizeBytes: 500_000,
       maxChunks: 1000,
     },
+    autoSync: {
+      enabled: false,
+      intervalMinutes: 1440,
+    },
     index: { documents: [], chunks: [] },
   };
 }
@@ -535,6 +539,49 @@ export default function KnowledgeSourcesDialog({
                   control={<Checkbox size="small" checked={selected.permissions.allowManualWriteBack} onChange={(e) => updateSelected({ permissions: { ...selected.permissions, suggestDocumentationUpdates: e.target.checked, allowManualWriteBack: e.target.checked } })} />}
                   label={t('knowledge.allowManualWriteBack')}
                 />
+
+                <Divider />
+                <Typography sx={sectionTitleSx}>{t('knowledge.section.indexing')}</Typography>
+                <Grid container spacing={1.5} alignItems="center">
+                  <Grid item xs={12} md={7}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={Boolean(selected.autoSync?.enabled)}
+                          onChange={(e) => updateSelected({
+                            autoSync: {
+                              enabled: e.target.checked,
+                              intervalMinutes: selected.autoSync?.intervalMinutes || 1440,
+                              lastAutoSyncedAt: selected.autoSync?.lastAutoSyncedAt,
+                            },
+                          })}
+                        />
+                      }
+                      label={t('knowledge.autoSync')}
+                    />
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4 }}>
+                      {t('knowledge.autoSyncHint')}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} md={5}>
+                    <TextField
+                      label={t('knowledge.autoSyncInterval')}
+                      type="number"
+                      value={selected.autoSync?.intervalMinutes || 1440}
+                      onChange={(e) => updateSelected({
+                        autoSync: {
+                          enabled: Boolean(selected.autoSync?.enabled),
+                          intervalMinutes: Math.max(15, Number(e.target.value) || 1440),
+                          lastAutoSyncedAt: selected.autoSync?.lastAutoSyncedAt,
+                        },
+                      })}
+                      fullWidth
+                      inputProps={{ min: 15, step: 15 }}
+                      sx={compactFieldSx}
+                    />
+                  </Grid>
+                </Grid>
               </Stack>
             )}
           </Box>

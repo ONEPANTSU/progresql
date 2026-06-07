@@ -1240,6 +1240,58 @@ function chunkText(text, maxChars = 1200) {
   return chunks;
 }
 
+const KNOWLEDGE_EMBEDDING_MODEL = 'local-hash-v1';
+const KNOWLEDGE_EMBEDDING_DIMENSIONS = 192;
+
+function knowledgeTokens(value) {
+  return String(value || '')
+    .toLowerCase()
+    .match(/[\p{L}\p{N}_]{2,}/gu) || [];
+}
+
+function stableTokenHash(token) {
+  let hash = 2166136261;
+  for (let i = 0; i < token.length; i += 1) {
+    hash ^= token.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function buildKnowledgeEmbedding(value) {
+  const vector = new Array(KNOWLEDGE_EMBEDDING_DIMENSIONS).fill(0);
+  const tokens = knowledgeTokens(value);
+  const features = [...tokens];
+  for (let i = 0; i < tokens.length - 1; i += 1) {
+    features.push(`${tokens[i]} ${tokens[i + 1]}`);
+  }
+  for (const feature of features) {
+    const hash = stableTokenHash(feature);
+    const index = hash % KNOWLEDGE_EMBEDDING_DIMENSIONS;
+    const sign = (hash & 1) === 0 ? 1 : -1;
+    vector[index] += sign;
+  }
+  let norm = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
+  if (!norm) norm = 1;
+  return {
+    model: KNOWLEDGE_EMBEDDING_MODEL,
+    dimensions: KNOWLEDGE_EMBEDDING_DIMENSIONS,
+    values: vector.map(value => Number((value / norm).toFixed(6))),
+  };
+}
+
+function cosineSimilarity(left, right) {
+  const a = left?.values || left;
+  const b = right?.values || right;
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length === 0 || b.length === 0) return 0;
+  const limit = Math.min(a.length, b.length);
+  let score = 0;
+  for (let i = 0; i < limit; i += 1) {
+    score += Number(a[i] || 0) * Number(b[i] || 0);
+  }
+  return score;
+}
+
 function sourceHash(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
@@ -1346,43 +1398,70 @@ async function syncKnowledgeSource(source) {
     const prevDoc = previousDocs.get(externalId);
     if (prevDoc?.hash === hash) {
       for (const chunk of previousChunks.get(prevDoc.id) || []) {
-        if (chunks.length < maxChunks) chunks.push(chunk);
+        if (chunks.length < maxChunks) {
+          chunks.push({
+            ...chunk,
+            embedding: chunk.embedding || buildKnowledgeEmbedding(`${chunk.metadata?.title || doc.title}\n${chunk.text}`),
+          });
+        }
       }
       if (chunks.length >= maxChunks) break;
       continue;
     }
     for (const [idx, chunk] of chunkText(text).entries()) {
       if (chunks.length >= maxChunks) break;
+      const metadata = {
+        title: doc.title,
+        url: doc.url,
+        spaceKey: doc.spaceKey,
+        headings: [],
+      };
       chunks.push({
         id: `${doc.id}:chunk:${idx}`,
         documentId: doc.id,
         text: chunk,
-        metadata: {
-          title: doc.title,
-          url: doc.url,
-          spaceKey: doc.spaceKey,
-          headings: [],
-        },
+        embedding: buildKnowledgeEmbedding(`${doc.title}\n${chunk}`),
+        metadata,
       });
     }
     if (chunks.length >= maxChunks) break;
   }
 
-  return { success: true, index: { documents, chunks, lastSyncedAt: new Date().toISOString() } };
+  return {
+    success: true,
+    index: {
+      documents,
+      chunks,
+      vector: {
+        model: KNOWLEDGE_EMBEDDING_MODEL,
+        dimensions: KNOWLEDGE_EMBEDDING_DIMENSIONS,
+        indexedAt: new Date().toISOString(),
+      },
+      lastSyncedAt: new Date().toISOString(),
+    }
+  };
 }
 
 function searchKnowledgeSources(sources, query, limit = 8) {
-  const terms = String(query || '').toLowerCase().split(/\W+/).filter(term => term.length > 2);
+  const terms = knowledgeTokens(query).filter(term => term.length > 2);
+  const queryEmbedding = buildKnowledgeEmbedding(query);
   const scored = [];
   for (const source of sources || []) {
     if (!source.enabled || !source.permissions?.useInSqlGeneration) continue;
     for (const chunk of source.index?.chunks || []) {
       const haystack = `${chunk.metadata?.title || ''} ${chunk.text}`.toLowerCase();
-      const score = terms.reduce((sum, term) => sum + (haystack.includes(term) ? 1 : 0), 0);
-      if (score > 0 || terms.length === 0) {
+      const lexicalHits = terms.reduce((sum, term) => sum + (haystack.includes(term) ? 1 : 0), 0);
+      const lexicalScore = terms.length > 0 ? lexicalHits / terms.length : 0;
+      const embedding = chunk.embedding || buildKnowledgeEmbedding(`${chunk.metadata?.title || ''}\n${chunk.text}`);
+      const vectorScore = Math.max(0, cosineSimilarity(queryEmbedding, embedding));
+      const titleBoost = terms.some(term => String(chunk.metadata?.title || '').toLowerCase().includes(term)) ? 0.08 : 0;
+      const score = (vectorScore * 0.68) + (lexicalScore * 0.32) + titleBoost;
+      if (score > 0.03 || lexicalHits > 0 || terms.length === 0) {
         scored.push({
           ...chunk,
-          score,
+          score: Number(score.toFixed(6)),
+          vectorScore: Number(vectorScore.toFixed(6)),
+          lexicalScore: Number(lexicalScore.toFixed(6)),
           sourceId: source.id,
           source: source.type === 'confluence' ? 'Confluence' : source.type,
           sourceName: source.name,

@@ -60,6 +60,11 @@ export interface KnowledgeChunk {
   id: string;
   documentId: string;
   text: string;
+  embedding?: {
+    model: string;
+    dimensions: number;
+    values: number[];
+  };
   metadata: {
     title: string;
     url: string;
@@ -71,6 +76,11 @@ export interface KnowledgeChunk {
 export interface KnowledgeSourceIndex {
   documents: KnowledgeDocument[];
   chunks: KnowledgeChunk[];
+  vector?: {
+    model: string;
+    dimensions: number;
+    indexedAt: string;
+  };
   lastSyncedAt?: string;
   lastSyncError?: string;
 }
@@ -97,6 +107,11 @@ export interface KnowledgeSource {
     maxPages?: number;
     maxPageSizeBytes?: number;
     maxChunks?: number;
+  };
+  autoSync?: {
+    enabled: boolean;
+    intervalMinutes: number;
+    lastAutoSyncedAt?: string;
   };
   index?: KnowledgeSourceIndex;
 }

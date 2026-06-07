@@ -73,6 +73,8 @@ export default function Home() {
   const [erDetailsElement, setErDetailsElement] = useState<any>(null);
   const sqlEditorRef = useRef<SQLEditorHandle>(null);
   const chatPanelRef = useRef<ChatPanelHandle>(null);
+  const connectionsRef = useRef<DatabaseServer[]>([]);
+  const knowledgeAutoSyncInFlightRef = useRef<Set<string>>(new Set());
   const agent = useAgent();
   // Editor has its own independent connection — not synced with chat
   const [editorConnectionId, setEditorConnectionId] = useState<string | null>(null);
@@ -196,11 +198,129 @@ export default function Home() {
 
   // Save connections to localStorage whenever they change
   useEffect(() => {
+    connectionsRef.current = connections;
     if (connections.length > 0) {
       log.debug('Saving connections to localStorage');
       saveConnections(connections);
     }
   }, [connections]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const syncDueKnowledgeSources = async () => {
+      if (!window.electronAPI?.syncKnowledgeSource) return;
+      const now = Date.now();
+      const due: Array<{ connectionId: string; sourceId: string; source: NonNullable<DatabaseServer['knowledgeSources']>[number] }> = [];
+      for (const connection of connectionsRef.current) {
+        for (const source of connection.knowledgeSources || []) {
+          if (!source.enabled || !source.autoSync?.enabled || !source.confluence?.token) continue;
+          const intervalMs = Math.max(15, source.autoSync.intervalMinutes || 1440) * 60 * 1000;
+          const lastSync = Date.parse(source.autoSync.lastAutoSyncedAt || source.index?.lastSyncedAt || '') || 0;
+          const syncKey = `${connection.id}:${source.id}`;
+          if (knowledgeAutoSyncInFlightRef.current.has(syncKey)) continue;
+          if (now - lastSync >= intervalMs) {
+            due.push({ connectionId: connection.id, sourceId: source.id, source });
+          }
+        }
+      }
+
+      for (const item of due) {
+        const syncKey = `${item.connectionId}:${item.sourceId}`;
+        knowledgeAutoSyncInFlightRef.current.add(syncKey);
+        try {
+          const result = await window.electronAPI.syncKnowledgeSource(item.source);
+          const syncedAt = new Date().toISOString();
+          setConnections(prev => prev.map(connection => {
+            if (connection.id !== item.connectionId) return connection;
+            return {
+              ...connection,
+              knowledgeSources: (connection.knowledgeSources || []).map(source => {
+                if (source.id !== item.sourceId) return source;
+                if (!result.success || !result.index) {
+                  return {
+                    ...source,
+                    autoSync: { ...(source.autoSync || { enabled: true, intervalMinutes: 1440 }), lastAutoSyncedAt: syncedAt },
+                    index: {
+                      ...(source.index || { documents: [], chunks: [] }),
+                      lastSyncError: result.message || 'Auto-sync failed.',
+                    },
+                  };
+                }
+                return {
+                  ...source,
+                  autoSync: { ...(source.autoSync || { enabled: true, intervalMinutes: 1440 }), lastAutoSyncedAt: syncedAt },
+                  index: result.index,
+                };
+              }),
+            };
+          }));
+          setActiveConnection(prev => {
+            if (!prev || prev.id !== item.connectionId) return prev;
+            return {
+              ...prev,
+              knowledgeSources: (prev.knowledgeSources || []).map(source => {
+                if (source.id !== item.sourceId) return source;
+                if (!result.success || !result.index) {
+                  return {
+                    ...source,
+                    autoSync: { ...(source.autoSync || { enabled: true, intervalMinutes: 1440 }), lastAutoSyncedAt: syncedAt },
+                    index: {
+                      ...(source.index || { documents: [], chunks: [] }),
+                      lastSyncError: result.message || 'Auto-sync failed.',
+                    },
+                  };
+                }
+                return {
+                  ...source,
+                  autoSync: { ...(source.autoSync || { enabled: true, intervalMinutes: 1440 }), lastAutoSyncedAt: syncedAt },
+                  index: result.index,
+                };
+              }),
+            };
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Auto-sync failed.';
+          const syncedAt = new Date().toISOString();
+          setConnections(prev => prev.map(connection => {
+            if (connection.id !== item.connectionId) return connection;
+            return {
+              ...connection,
+              knowledgeSources: (connection.knowledgeSources || []).map(source => source.id === item.sourceId
+                ? {
+                    ...source,
+                    autoSync: { ...(source.autoSync || { enabled: true, intervalMinutes: 1440 }), lastAutoSyncedAt: syncedAt },
+                    index: {
+                      ...(source.index || { documents: [], chunks: [] }),
+                      lastSyncError: message,
+                    },
+                  }
+                : source),
+            };
+          }));
+          setActiveConnection(prev => prev && prev.id === item.connectionId ? {
+            ...prev,
+            knowledgeSources: (prev.knowledgeSources || []).map(source => source.id === item.sourceId
+              ? {
+                  ...source,
+                  autoSync: { ...(source.autoSync || { enabled: true, intervalMinutes: 1440 }), lastAutoSyncedAt: syncedAt },
+                  index: {
+                    ...(source.index || { documents: [], chunks: [] }),
+                    lastSyncError: message,
+                  },
+                }
+              : source),
+          } : prev);
+          log.warn('Knowledge auto-sync failed:', message);
+        } finally {
+          knowledgeAutoSyncInFlightRef.current.delete(syncKey);
+        }
+      }
+    };
+
+    const timer = window.setInterval(syncDueKnowledgeSources, 5 * 60 * 1000);
+    syncDueKnowledgeSources();
+    return () => window.clearInterval(timer);
+  }, [isAuthenticated]);
 
   // Debug: Check if electronAPI is available
   useEffect(() => {
