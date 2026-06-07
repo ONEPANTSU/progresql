@@ -179,6 +179,8 @@ func localizeTraceTitle(language, title string) string {
 		return "Улучшаю SQL"
 	case "Searching knowledge sources":
 		return "Ищу в источниках знаний"
+	case "Reading database context":
+		return "Читаю контекст базы"
 	case "Preparing documentation update":
 		return "Готовлю обновление документации"
 	case "Applying documentation update":

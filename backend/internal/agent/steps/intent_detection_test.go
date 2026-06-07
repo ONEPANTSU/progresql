@@ -223,6 +223,54 @@ func TestIntentDetection_DocumentationWriteBackRequest(t *testing.T) {
 	}
 }
 
+func TestIntentDetection_ContextualKnowledgeIntentWithoutTools(t *testing.T) {
+	mockLLM := intentLLMServer(t, IntentContextualKnowledge, nil)
+	defer mockLLM.Close()
+
+	hub := websocket.NewHub()
+	session, client := wsDialer(t, hub)
+
+	llmClient := llm.NewClient("test-key", llm.WithBaseURL(mockLLM.URL), llm.WithMaxRetries(0))
+	pctx := buildIntentContext(t, session, llmClient, "объясни текущую бд")
+	pctx.ToolDispatcher = nil
+
+	errCh := make(chan error, 1)
+	go func() {
+		step := &IntentDetectionStep{}
+		errCh <- step.Execute(context.Background(), pctx)
+	}()
+
+	env := readEnvelope(t, client)
+	if env.Type != websocket.TypeAgentStream {
+		t.Fatalf("expected agent.stream, got %s", env.Type)
+	}
+	var payload websocket.AgentStreamPayload
+	env.DecodePayload(&payload)
+	if !strings.Contains(payload.Delta, "контекстом конкретной БД") {
+		t.Fatalf("unexpected static response: %s", payload.Delta)
+	}
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("step failed: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	if !pctx.SkipRemaining {
+		t.Error("expected SkipRemaining=true for contextual knowledge intent")
+	}
+	intentVal, ok := pctx.Get(ContextKeyIntent)
+	if !ok {
+		t.Fatal("intent not stored in context")
+	}
+	if intentVal != IntentContextualKnowledge {
+		t.Errorf("expected intent=contextual_knowledge, got %v", intentVal)
+	}
+}
+
 func TestDocumentationApplyProposalID(t *testing.T) {
 	tests := map[string]string{
 		"примени proposal kup-1234abcd": "kup-1234abcd",

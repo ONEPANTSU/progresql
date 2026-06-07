@@ -20,9 +20,10 @@ const ContextKeyIntent = "intent"
 
 // Intent values.
 const (
-	IntentSQL            = "sql"
-	IntentConversational = "conversational"
-	IntentKnowledge      = "knowledge"
+	IntentSQL                 = "sql"
+	IntentConversational      = "conversational"
+	IntentKnowledge           = "knowledge"
+	IntentContextualKnowledge = "contextual_knowledge"
 )
 
 // IntentDetectionStep classifies user messages as SQL-related or conversational.
@@ -52,16 +53,19 @@ func (s *IntentDetectionStep) Execute(ctx context.Context, pctx *agent.PipelineC
 
 	// Classify intent via a fast LLM call.
 	classifyPrompt := "You are an intent classifier for a PostgreSQL database assistant.\n" +
-		"Classify the following user message as \"sql\", \"knowledge\", or \"conversational\".\n\n" +
+		"Classify the following user message as \"sql\", \"knowledge\", \"contextual_knowledge\", or \"conversational\".\n\n" +
 		"Rules:\n" +
-		"- \"sql\" — the user wants to generate SQL, query data, explore/analyze the database structure, " +
-		"list tables, describe entities, or anything that requires executing a query against the database.\n" +
+		"- \"sql\" — the user wants to generate SQL, query data, run/check/analyze a query, or needs a runnable SQL answer.\n" +
 		"- \"knowledge\" — the user asks a conceptual, theoretical, or educational question about databases, " +
 		"PostgreSQL, SQL syntax, data types, best practices, comparisons, or explanations that can be " +
 		"answered with plain text WITHOUT generating or executing SQL.\n" +
+		"- \"contextual_knowledge\" — the user asks for a TEXT explanation about the CURRENT connected database, " +
+		"its schema, entities, business meaning, table responsibilities, metrics, statuses, or documentation context, " +
+		"but does NOT ask to generate or execute SQL.\n" +
 		"- \"conversational\" — ONLY pure greetings, thanks, and chitchat that do NOT require database knowledge.\n\n" +
 		"IMPORTANT: \"knowledge\" is for questions that need a TEXT explanation, not a SQL query.\n" +
-		"IMPORTANT: When in doubt between sql and knowledge, classify as \"sql\".\n\n" +
+		"IMPORTANT: \"contextual_knowledge\" is for database-specific explanations without SQL generation.\n" +
+		"IMPORTANT: When in doubt between sql and contextual_knowledge, choose \"sql\" only if the user asks for a query, rows, counts, filtering, execution, or SQL text.\n\n" +
 		"Examples classified as \"sql\":\n" +
 		"- \"show all users\" → sql\n" +
 		"- \"покажи все заказы за вчера\" → sql\n" +
@@ -73,13 +77,6 @@ func (s *IntentDetectionStep) Execute(ctx context.Context, pctx *agent.PipelineC
 		"- \"how many orders were placed last month\" → sql\n" +
 		"- \"add WHERE active = true\" → sql\n" +
 		"- \"join users with orders\" → sql\n" +
-		"- \"объясни текущую бд\" → sql\n" +
-		"- \"что это за бд?\" → sql\n" +
-		"- \"какие сущности есть\" → sql\n" +
-		"- \"объясни основные сущности\" → sql\n" +
-		"- \"расскажи про базу данных\" → sql\n" +
-		"- \"describe the database\" → sql\n" +
-		"- \"what tables do I have\" → sql\n" +
 		"- \"давай начнём\" → sql\n" +
 		"- \"начни\" → sql\n" +
 		"- \"go\" → sql\n" +
@@ -99,6 +96,17 @@ func (s *IntentDetectionStep) Execute(ctx context.Context, pctx *agent.PipelineC
 		"- \"расскажи про типы данных в PostgreSQL\" → knowledge\n" +
 		"- \"what is a CTE?\" → knowledge\n" +
 		"- \"как правильно писать миграции?\" → knowledge\n\n" +
+		"Examples classified as \"contextual_knowledge\":\n" +
+		"- \"объясни текущую бд\" → contextual_knowledge\n" +
+		"- \"что это за бд?\" → contextual_knowledge\n" +
+		"- \"какие сущности есть в этой базе?\" → contextual_knowledge\n" +
+		"- \"объясни основные сущности\" → contextual_knowledge\n" +
+		"- \"расскажи про базу данных\" → contextual_knowledge\n" +
+		"- \"describe the database\" → contextual_knowledge\n" +
+		"- \"what tables do I have and what are they for?\" → contextual_knowledge\n" +
+		"- \"какие таблицы отвечают за оплаты?\" → contextual_knowledge\n" +
+		"- \"что значит active customer в этой БД?\" → contextual_knowledge\n" +
+		"- \"как считается выручка по нашей документации?\" → contextual_knowledge\n\n" +
 		"Examples classified as \"conversational\":\n" +
 		"- \"hello\" → conversational\n" +
 		"- \"привет\" → conversational\n" +
@@ -106,7 +114,7 @@ func (s *IntentDetectionStep) Execute(ctx context.Context, pctx *agent.PipelineC
 		"- \"спасибо\" → conversational\n" +
 		"- \"who are you\" → conversational\n" +
 		"- \"расскажи о себе\" → conversational\n\n" +
-		"Respond with ONLY one word: sql, knowledge, or conversational\n\n" +
+		"Respond with ONLY one word: sql, knowledge, contextual_knowledge, or conversational\n\n" +
 		"User message: " + msg
 
 	classifyReq := llm.ChatRequest{
@@ -133,11 +141,15 @@ func (s *IntentDetectionStep) Execute(ctx context.Context, pctx *agent.PipelineC
 	intent := IntentSQL
 	if len(resp.Choices) > 0 {
 		raw := strings.TrimSpace(strings.ToLower(stripThinkingTags(resp.Choices[0].Message.Content)))
+		raw = strings.ReplaceAll(raw, "-", "_")
+		raw = strings.ReplaceAll(raw, " ", "_")
 		switch raw {
 		case "conversational":
 			intent = IntentConversational
 		case "knowledge":
 			intent = IntentKnowledge
+		case "contextual_knowledge":
+			intent = IntentContextualKnowledge
 		}
 	}
 
@@ -149,6 +161,8 @@ func (s *IntentDetectionStep) Execute(ctx context.Context, pctx *agent.PipelineC
 		return s.handleConversational(ctx, pctx, model)
 	case IntentKnowledge:
 		return s.handleKnowledge(ctx, pctx, model)
+	case IntentContextualKnowledge:
+		return s.handleContextualKnowledge(ctx, pctx, model)
 	}
 
 	return nil
@@ -227,6 +241,106 @@ func (s *IntentDetectionStep) handleKnowledge(ctx context.Context, pctx *agent.P
 
 	pctx.SkipRemaining = true
 	return nil
+}
+
+func (s *IntentDetectionStep) handleContextualKnowledge(ctx context.Context, pctx *agent.PipelineContext, model string) error {
+	if pctx.ToolDispatcher == nil {
+		message := contextualKnowledgeUnavailableMessage(pctx.UserMessage)
+		if err := streamStaticAgentText(pctx, message); err != nil {
+			return fmt.Errorf("contextual knowledge response failed: %w", err)
+		}
+		pctx.Result.Explanation = message
+		pctx.SkipRemaining = true
+		return nil
+	}
+
+	pctx.EmitTrace("tool", "Reading database context", "", "", "running")
+	schemaSummary := s.collectDocumentationSchemaSummary(pctx)
+	pctx.EmitTrace("tool", "Reading database context", "", "", "completed")
+	knowledgeContext := s.searchContextualKnowledgeContext(pctx)
+
+	prompt := "You are an expert PostgreSQL assistant answering with CURRENT database context.\n\n" +
+		"Task:\n" +
+		"- Answer the user's database-specific question as TEXT.\n" +
+		"- Use the live schema summary and the connection-scoped knowledge source excerpts.\n" +
+		"- Explain relevant tables, columns, relationships, triggers, constraints, and documented business rules.\n\n" +
+		"Strict rules:\n" +
+		"- Do NOT generate a runnable SQL query.\n" +
+		"- Do NOT put SQL in code blocks.\n" +
+		"- Do NOT pretend that undocumented business semantics are confirmed.\n" +
+		"- If schema and documentation are insufficient, explicitly say what is unknown and what should be confirmed.\n" +
+		"- Include a short \"Used context\" / \"Использованный контекст\" section with table names and knowledge source page titles or links when available.\n" +
+		"- Always answer in the same language as the user's message.\n\n" +
+		"Current database: " + emptyDefault(pctx.Database, "current database") + "\n\n" +
+		"Live PostgreSQL schema summary:\n" + schemaSummary + "\n\n" +
+		knowledgeContext +
+		"User question: " + pctx.UserMessage
+
+	req := llm.ChatRequest{
+		Model: model,
+		Messages: pctx.MessagesWithHistory(
+			llm.Message{Role: "user", Content: prompt},
+		),
+		Temperature: floatPtr(0.2),
+	}
+
+	resp, err := pctx.StreamLLM(ctx, req)
+	if err != nil {
+		return fmt.Errorf("contextual knowledge response failed: %w", err)
+	}
+
+	if len(resp.Choices) > 0 {
+		pctx.Result.Explanation = resp.Choices[0].Message.Content
+	}
+
+	pctx.SkipRemaining = true
+	return nil
+}
+
+func (s *IntentDetectionStep) searchContextualKnowledgeContext(pctx *agent.PipelineContext) string {
+	if pctx.ToolDispatcher == nil || !pctx.KnowledgeEnabled {
+		return "Connection-specific knowledge excerpts: unavailable or disabled for this chat.\n\n"
+	}
+	args, _ := json.Marshal(map[string]any{
+		"query":               pctx.UserMessage,
+		"database":            pctx.Database,
+		"limit":               8,
+		"disabled_source_ids": pctx.DisabledKnowledgeSourceIDs,
+	})
+	result, err := pctx.DispatchTool(tools.ToolKnowledgeSearch, args)
+	if err != nil || !result.Success {
+		if err != nil {
+			pctx.Logger.Warn("contextual knowledge_search failed", zap.Error(err))
+		} else {
+			pctx.Logger.Warn("contextual knowledge_search returned error", zap.String("error", result.Error))
+		}
+		return "Connection-specific knowledge excerpts: search failed or returned no usable context.\n\n"
+	}
+
+	var parsed struct {
+		Chunks []struct {
+			Text       string  `json:"text"`
+			Source     string  `json:"source"`
+			SourceName string  `json:"sourceName"`
+			Title      string  `json:"title"`
+			URL        string  `json:"url"`
+			Score      float64 `json:"score"`
+		} `json:"chunks"`
+	}
+	if err := json.Unmarshal(result.Data, &parsed); err != nil || len(parsed.Chunks) == 0 {
+		return "Connection-specific knowledge excerpts: no matching excerpts found.\n\n"
+	}
+
+	var b strings.Builder
+	b.WriteString("Connection-specific knowledge excerpts. Use them for documented business meaning and cite titles/URLs in the answer:\n")
+	for i, chunk := range parsed.Chunks {
+		sourceName := firstNonEmpty(chunk.SourceName, chunk.Source, "Knowledge source")
+		title := firstNonEmpty(chunk.Title, "Untitled page")
+		fmt.Fprintf(&b, "\n[%d] %s / %s\nURL: %s\n%s\n", i+1, sourceName, title, chunk.URL, chunk.Text)
+	}
+	b.WriteString("\n")
+	pctx.Set(ContextKeyKnowledgeContext, b.String())
+	return b.String()
 }
 
 func (s *IntentDetectionStep) handleDocumentationProposal(ctx context.Context, pctx *agent.PipelineContext) error {
@@ -818,6 +932,15 @@ func documentationWriteBackUnavailableMessage(message string) string {
 		"Attach and sync a Confluence source for the current database, then enable it in chat context. After that I can prepare a proposal and return a `proposalId` for manual application."
 }
 
+func contextualKnowledgeUnavailableMessage(message string) string {
+	if looksRussian(message) {
+		return "Пока не могу ответить с контекстом конкретной БД: локальный desktop-agent недоступен для чтения схемы и источников знаний.\n\n" +
+			"Когда подключение активно, я смогу собрать схему, поискать по базе знаний и ответить без генерации SQL."
+	}
+	return "I can't answer with current database context yet: the local desktop agent is unavailable for reading schema and knowledge sources.\n\n" +
+		"When the connection is active, I can collect schema context, search the knowledge base, and answer without generating SQL."
+}
+
 func documentationProposalFailedMessage(message, reason string) string {
 	if looksRussian(message) {
 		return "Не смог подготовить proposal для базы знаний.\n\nПричина: " + reason
@@ -975,6 +1098,23 @@ func looksRussian(message string) bool {
 		}
 	}
 	return false
+}
+
+func emptyDefault(value, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func streamStaticAgentText(pctx *agent.PipelineContext, text string) error {
